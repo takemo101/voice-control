@@ -66,6 +66,7 @@ public final class MicRecorder: @unchecked Sendable {
 }
 
 /// ホットキーの「押した → 離した」で、1 回分の録音をする。`start()` の失敗は、`stop()` で返す。
+/// `@unchecked Sendable` の理由：可変な状態（`recorder`・`file`・`startError`）は、すべて `lock` で守る。
 public final class RecordingSession: @unchecked Sendable {
     private let lock = NSLock()
     private var recorder: MicRecorder?

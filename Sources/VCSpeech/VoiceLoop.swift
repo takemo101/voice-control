@@ -24,7 +24,7 @@ public protocol Recording: AnyObject, Sendable {
 extension RecordingSession: Recording {}
 
 /// Esc の受け付け。実装は `EscapeKey`（Carbon のホットキー・グローバルのキー監視）。
-@MainActor public protocol EscapeSource: AnyObject {
+@MainActor public protocol EscapeSource: AnyObject, Sendable {
     var onEscape: (@Sendable () -> Void)? { get set }
     /// 受け付けを始める・やめる。始める方は、何度呼んでもよい。
     @discardableResult func setActive(_ active: Bool) -> Bool

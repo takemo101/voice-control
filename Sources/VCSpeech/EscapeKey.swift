@@ -8,7 +8,7 @@ import Foundation
 /// - **Carbon のホットキー**（許可は要らない）：Esc だけ、または Shift・Control・Option つき。受けると、Esc は、ほかのアプリへ届かない。
 ///   **修飾キーを押している間に登録すると、そのあとの Esc が、届かなくなる**（実測）。そのため、修飾キーがすべて離されているときだけ登録する
 ///   （押している間に `setActive(true)` を呼んだら、離したあとに、もう一度呼ぶ）。
-@MainActor public final class EscapeKey {
+@MainActor public final class EscapeKey: Sendable {
     public var onEscape: (@Sendable () -> Void)?
     private var refs: [EventHotKeyRef] = []
     private var handler: EventHandlerRef?
