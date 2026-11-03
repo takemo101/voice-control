@@ -4,19 +4,19 @@
 
 ## 構成と依存
 
-- 依存は下向きだけ：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）、`VCSkill`・`VCPCControl` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
+- 依存は下向きだけ：`vc` → `VCSkill`・`VCSpeech`（互いには依存しない）、`VCSkill` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
 - `vc`（実行ファイル）は、**引数の解釈（`Arguments`・`CommonOptions`）・コマンド（`Commands/`）・流れの組み立て・表示（`*Reporter`・`Output`）・終了コード**だけ。`main.swift` は、`Arguments` を読み、`Commands.all` からコマンドを探して実行するだけ。規則・判断は各ターゲットに置き、`vc` から切り離してテストできるようにする。
 - **コマンドを足す**ときは、`Sources/vc/Commands/<Name>.swift` に、`Command` を実装した型（`static let info`・`run(_:_:)`）を置き、`Commands.all`（`Command.swift`）へ足す。コマンドの中に、規則・判断を書かない（引数を読み、ターゲットを呼び、表示するだけ）。手順とテスト：[開発手順](development.md#コマンドの足し方)。
-- 新しい機能は、変わる理由で置き場所を決める：スキル（SKILL.md・許可の照合・実行）→ `VCSkill`、PC 操作（画面の読み取り・計画・agent-desktop）→ `VCPCControl`、音声（録音・文字起こし・ホットキー・Esc・声の流れの調整）→ `VCSpeech`、選択・ゲート・Tiny-Jev の実行・モデルの取得 → `VCDecision`、場所・設定・取りやめ・外部コマンドの実行（どのターゲットも使う）→ `VCCore`、引数・表示・流れの組み立て → `vc`。`VCSkill`・`VCPCControl`・`VCSpeech` は、互いに依存しない（共通のものは、`VCCore`・`VCDecision` へ）。新しい依存は、`Package.swift` に足す（向きは、コンパイラが検査する）。「util」「helper」に、無関係なものを集めない。
+- 新しい機能は、変わる理由で置き場所を決める：スキル（SKILL.md・許可の照合・実行）→ `VCSkill`、音声（録音・文字起こし・ホットキー・Esc・声の流れの調整）→ `VCSpeech`、選択・ゲート・Tiny-Jev の実行・モデルの取得 → `VCDecision`、場所・設定・取りやめ・外部コマンドの実行（どのターゲットも使う）→ `VCCore`、引数・表示・流れの組み立て → `vc`。`VCSkill`・`VCSpeech` は、互いに依存しない（共通のものは、`VCCore`・`VCDecision` へ）。新しい依存は、`Package.swift` に足す（向きは、コンパイラが検査する）。「util」「helper」に、無関係なものを集めない。
 - `Decision/` の複製したファイルは、**変えない**（meeting-analyzer の版と、同じ内容を保つ）。変える必要があれば、元の側で直して、複製し直す。
 
 ## 型と境界
 
 - 外（ファイル・引数・JSON・言語モデルの出力・OS）から来る値は、**境界で一度だけ**型にする（`SkillStore.parse`・`CommandPolicy.tokenize`・`SnapshotParser.parse`）。内側は、再検証しない。
 - 検証を通った値だけが作れる型にする（`Skill`）。不正な状態を、型で表さない。
-- 値型（`struct`・`enum`）を基本にする。参照型は、状態を共有する理由があるときだけ（`HistoryStore`・`RefAliases`・`TinyJev`・`SkillAgent`）。
+- 値型（`struct`・`enum`）を基本にする。参照型は、状態を共有する理由があるときだけ（`RefAliases`・`TinyJev`・`SkillAgent`）。
 - 公開（`public`）は、他の Module が使うものだけ。実装の都合の型・関数は、`internal`・`private`。
-- protocol は、**差し替えが実際に要る箇所だけ**（`OptionScorer`・`Desktop`・`PushToTalkTrigger`）。実装が 1 つの protocol を、先回りで作らない。例外は `vc` の `Command`：差し替えではなく、複数のコマンドを同じ形で一覧に持ち、名前で呼ぶための protocol。
+- protocol は、**差し替えが実際に要る箇所だけ**（`OptionScorer`・`PushToTalkTrigger`）。実装が 1 つの protocol を、先回りで作らない。例外は `vc` の `Command`：差し替えではなく、複数のコマンドを同じ形で一覧に持ち、名前で呼ぶための protocol。
 
 ## 失敗
 
@@ -27,7 +27,7 @@
 
 ## 並行
 
-- 共有する可変状態は、`NSLock` で守った参照型に閉じる（`HistoryStore`）。トップレベルの `var` を、非同期の処理から触らない（警告が出る）。
+- 共有する可変状態は、`NSLock` で守った参照型に閉じる（`RefAliases`）。トップレベルの `var` を、非同期の処理から触らない（警告が出る）。
 - `@unchecked Sendable` を付けるときは、型の内部を**すべて**ロックで守っていることを確かめる。理由を、型のコメントに書く（1 行）。`nonisolated(unsafe)` は使わない（共有する値は、ロックで守った型に持たせる）。
 - **主スレッド専用の型は `@MainActor`**（`HotKey`・`ModifierHold`・`EscapeKey`。`@unchecked Sendable` で隠さない）。Carbon・`NSEvent`・`DispatchQueue.main` のコールバックは、`MainActor.assumeIsolated` で入る。どのスレッドからも呼ばせたい入口（`HUD.show`・`HUD.hide`）だけ `nonisolated` にして、メインキューへ回す。
 - メインスレッドで動くのは、イベントの受け取り（ホットキー）と、`NSApplication` のループだけ。重い処理（文字起こし・採点・実行）は、別の `Task` へ。
@@ -35,14 +35,14 @@
 
 ## 外部コマンドの実行
 
-- **シェルを使わない**。`ProcessRunner`（`VCCore`）に、実行ファイルと引数の配列を渡す（`CommandRunner`・`AgentDesktop.run` が使う）。文字列を連結してコマンド行を作らない。`Process` を直接扱う所（`open`・`osascript`・`say`。理由は、各コードのコメント）も、シェルは使わない。外部コマンドを足すときは、まず `ProcessRunner` で足りるかを見る。
+- **シェルを使わない**。`ProcessRunner`（`VCCore`）に、実行ファイルと引数の配列を渡す（`CommandRunner` が使う）。文字列を連結してコマンド行を作らない。`Process` を直接扱う所（`say`。理由は、コードのコメント）も、シェルは使わない。外部コマンドを足すときは、まず `ProcessRunner` で足りるかを見る。
 - 言語モデルが作ったコマンドは、実行の前に、毎回、`CommandPolicy.check` を通す。許可の判断を、プロンプトの指示に任せない。
-- 出力は、読み切ってから待つ（パイプが詰まらないように）：`ProcessRunner` が守る。時間の上限は、呼び出し側が渡す（`CommandRunner` は 1 コマンド 30 秒。`AgentDesktop.run` は、これまでどおり上限なし）。
+- 出力は、読み切ってから待つ（パイプが詰まらないように）：`ProcessRunner` が守る。時間の上限は、呼び出し側が渡す（`CommandRunner` は 1 コマンド 30 秒）。
 - agent-desktop の失敗は、JSON（`ok:false`）が標準出力に出る。終了コードだけで判断しない。
 
 ## プロンプトと選択肢（Tiny-Jev・言語モデル）
 
-- **プロンプトの文面は、コードの一部**。変えたら、`just eval` で、効果を測る。
+- **プロンプトの文面は、コードの一部**。変えたら、`just eval`（`vc eval-gate corpus/gate.tsv`：「操作の依頼か」の判定）で、効果を測る（判定の文面は `SkillResolver`）。
 - Tiny-Jev の選択肢は、日本語の**短い 1 行**。「どれでもない」を、必ず含める。32 個を超えるなら `Chooser`。確率は、**誤りにも高く出る**ので、確認と下限（`Gate`）を、手放さない。
 - 言語モデルへの指示（スキルの本文・`SkillAgent` の指示）は、**英語**で書く（道具の呼び出しが、確実になる）。
 - 言語モデルに、文字を作らせない。入れる文字は、話した文字だけを使う（検証する）。
@@ -52,8 +52,8 @@
 
 - Swift Testing（`scripts/test.sh`）。**利用者に見える不具合を捕まえる**テストを書く：状態遷移・境界・失敗・許可の判断。
 - 書かないテスト：配線・転記・文言の固定、実装の細部に縛られるもの、「例外が出ない」だけのもの、常に真になるもの（`|| true`）。
-- 画面・音声・モデルに依存しない。差し替え口（`OptionScorer`・`Desktop`）に、決まった答えを返す偽物を渡す。
-- **置き場所**：ターゲットごと（`Tests/<ターゲット>Tests/`。`vc` は `Tests/vcTests`）・責務別（1 ファイル 1 領域。ファイル名はスイート名で、目安は 250 行以下）。偽の実装は、別のファイル（`<スイート名>Fakes.swift`）に置く（そのスイートでしか使わない数行の偽物は、スイートの中に置いてよい）。複数のターゲットで使う偽物（`OptionScorer`・`Desktop`）は、`Tests/TestSupport/`（テスト専用のターゲット）に、用途ごとに 1 つずつ置く。公開 API だけで作り、グローバルの状態を持たない（テストは並行に動く）。本番のターゲットは、`TestSupport` に依存しない。`@testable` が要る偽物は、そのテストターゲットに残す。詳細は [開発手順](development.md#ビルドと実行)。
+- 画面・音声・モデルに依存しない。差し替え口（`OptionScorer`）に、決まった答えを返す偽物を渡す。
+- **置き場所**：ターゲットごと（`Tests/<ターゲット>Tests/`。`vc` は `Tests/vcTests`）・責務別（1 ファイル 1 領域。ファイル名はスイート名で、目安は 250 行以下）。偽の実装は、別のファイル（`<スイート名>Fakes.swift`）に置く（そのスイートでしか使わない数行の偽物は、スイートの中に置いてよい）。複数のターゲットで使う偽物（`OptionScorer`）は、`Tests/TestSupport/`（テスト専用のターゲット）に、用途ごとに 1 つずつ置く。公開 API だけで作り、グローバルの状態を持たない（テストは並行に動く）。本番のターゲットは、`TestSupport` に依存しない。`@testable` が要る偽物は、そのテストターゲットに残す。詳細は [開発手順](development.md#ビルドと実行)。
 - 実機でしか確かめられないことは、自作ウィンドウ（`Fixture`）で、実際の経路を動かして観測する。単体テストで、合格にしない。
 - コーパス（`corpus/`）は、評価用。**評価に使った文を、調整に使わない**。使ったときは、記録に書く。
 
@@ -67,7 +67,6 @@
 ## プライバシー
 
 - 発話・文字起こし・画面の内容・入れた文字を、**ログ・ファイル・文書に残さない**。端末への表示（`heard:`・コマンドの出力）は、画面だけ。
-- 記録（`HistoryStore`）は、操作の名前だけ。入れた文字を持たない。
 - 録音は、一時ファイルに書き、文字起こしのあと削除する。
 - 検証は、自作のウィンドウ・自作の音声で行う。
 

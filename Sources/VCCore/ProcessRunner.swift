@@ -33,14 +33,12 @@ public enum ProcessRunner {
     /// - `timeout`: 出力が終わるまでの秒数の上限。超えたら `terminate`（SIGTERM）する。`nil` なら、上限なし。
     ///   上限が測るのは、出力が終わるまで。出力を閉じたあとの、終了待ちには、上限がない。
     /// - `cancel`: 取りやめられたら、実行中のコマンドを `terminate` する。すでに取りやめられていれば、起動しない。
-    /// - `inheritStandardInput`: `true` なら、標準入力を、この呼び出しのプロセスから引き継ぐ。既定は、空（/dev/null）。
     public static func run(
         executable: String,
         arguments: [String] = [],
         mergeStderr: Bool,
         timeout: TimeInterval?,
-        cancel: CancelToken? = nil,
-        inheritStandardInput: Bool = false
+        cancel: CancelToken? = nil
     ) -> ProcessResult {
         if cancel?.isCancelled == true {
             return ProcessResult(exitCode: cancelledExitCode, output: Data(), timedOut: false, cancelled: true, launchError: nil)
@@ -51,7 +49,7 @@ public enum ProcessRunner {
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = mergeStderr ? pipe : FileHandle.nullDevice
-        if !inheritStandardInput { p.standardInput = FileHandle.nullDevice }
+        p.standardInput = FileHandle.nullDevice
         do { try p.run() } catch {
             return ProcessResult(exitCode: launchFailureExitCode, output: Data(), timedOut: false, cancelled: false, launchError: error)
         }
