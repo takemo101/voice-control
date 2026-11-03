@@ -1,33 +1,5 @@
 import AppKit
 
-/// 画面の上に出す表示の中身。
-struct HUDContent: Sendable {
-    enum Phase: Sendable { case recording, working, success, failure, info, confirm }
-
-    /// 実行したコマンド 1 つ。
-    struct Step: Sendable {
-        enum Status: Sendable { case running, ok, failed(Int32), denied }
-        var command: String
-        var status: Status = .running
-        /// 出力の先頭の 1 行（長いときは切る）。
-        var output: String?
-    }
-
-    var phase: Phase
-    var title: String
-    /// タイトルの下の、小さな補足（「離すと認識します」など）。
-    var hint: String?
-    /// 右上のチップ（トリガーの名前など）。
-    var chip: String?
-    /// 聞こえた文。
-    var heard: String?
-    /// 使うスキルの名前（タイトルの横のバッジ）。
-    var skill: String?
-    var steps: [Step] = []
-    /// 言語モデルの返事。
-    var reply: String?
-}
-
 /// 画面の上の中央に出す、小さなパネル（録音中・認識中・実行の経過・結果）。
 /// クリックを通し、フォーカスを奪わない（操作の対象のアプリが、前面のまま）。画面の収録・アクセシビリティの許可は、要らない。
 /// どのスレッドから呼んでもよい（内部でメインスレッドへ回す）。呼び出し側のプロセスが、`NSApplication.run()` で動いていること。
@@ -339,28 +311,5 @@ final class HUD: @unchecked Sendable {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.widthAnchor.constraint(equalToConstant: width).isActive = true
         return view
-    }
-}
-
-/// 実行の経過を、画面の上の表示に出し続ける（中身を持ち、変えるたびに出し直す）。どのスレッドから更新してもよい。
-final class HUDSession: @unchecked Sendable {
-    private var content: HUDContent
-    private let lock = NSLock()
-
-    init(_ content: HUDContent) { self.content = content }
-
-    /// 中身を変えて、出し直す。`hideAfter` 秒後に消す。
-    func update(hideAfter: TimeInterval? = nil, _ change: (inout HUDContent) -> Void = { _ in }) {
-        lock.lock(); change(&content); let snapshot = content; lock.unlock()
-        HUD.shared.show(snapshot, hideAfter: hideAfter)
-    }
-
-    /// 返事の長さに合わせた、読む時間（4〜12 秒）。
-    static func readingTime(for text: String) -> TimeInterval { min(12, max(4, 2.5 + Double(text.count) / 18)) }
-
-    /// 出力の先頭の、空でない 1 行（長いときは切る）。
-    static func firstLine(_ output: String) -> String? {
-        guard let line = output.split(separator: "\n").map({ $0.trimmingCharacters(in: .whitespaces) }).first(where: { !$0.isEmpty }) else { return nil }
-        return line.count > 90 ? String(line.prefix(90)) + "…" : line
     }
 }

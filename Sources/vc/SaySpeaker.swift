@@ -2,8 +2,8 @@ import Foundation
 import VoiceControlKit
 
 /// 読み上げ（確認の問いかけ）の、いま鳴っているもの。取りやめたときに止める。
-final class Speech: @unchecked Sendable {
-    nonisolated(unsafe) static let shared = Speech()
+final class SaySpeaker: @unchecked Sendable {
+    nonisolated(unsafe) static let shared = SaySpeaker()
     private let lock = NSLock()
     private var process: Process?
 
