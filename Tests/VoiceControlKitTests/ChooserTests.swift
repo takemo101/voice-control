@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import VoiceControlKit
+import VCDecision
 
 /// 「target」と書かれた選択肢に確率を寄せる偽物。呼ばれた回数と、1 回の選択肢の最大数を記録する。
 private final class FakeScorer: OptionScorer, @unchecked Sendable {

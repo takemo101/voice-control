@@ -1,4 +1,5 @@
 import Foundation
+import VCDecision
 
 /// どのスキルを呼ぶか（Tiny-Jev）。有効なスキルの `description` から選ぶ。「どれでもない」を含む。32 個を超えれば、勝ち抜き戦。
 public struct SkillRouter: Sendable {

@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import VoiceControlKit
 import VCCore
+import VCDecision
 
 // 試す用の CLI。
 //   vc plan "<発話>" [--app <名前>]     選んだ操作・確率・ゲートの判定だけを出す（実行しない）

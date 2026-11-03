@@ -1,4 +1,5 @@
 import Foundation
+import VCDecision
 
 /// 操作する Mac。実機は `AgentDesktop`。テストは、決まった画面を返す偽物。
 public protocol Desktop: Sendable {

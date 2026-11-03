@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import VoiceControlKit
 import VCCore
+import VCDecision
 
 @Suite struct HotKeySpecTests {
     private func parsed(_ text: String) throws -> HotKeySpec { try HotKeySpec.parse(text).get() }

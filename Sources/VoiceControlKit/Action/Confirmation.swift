@@ -1,4 +1,5 @@
 import Foundation
+import VCDecision
 
 public extension Step {
     /// 読み上げる、操作の説明（確認の問いかけに使う）。入れる文字は、読み上げない。
