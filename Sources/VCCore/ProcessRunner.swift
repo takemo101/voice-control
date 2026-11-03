@@ -58,10 +58,12 @@ public enum ProcessRunner {
         cancel?.onCancel { if p.isRunning { p.terminate() } }
 
         // 出力は、終了を待つ前に、別のスレッドで読み切る（パイプが詰まって、コマンドが止まるのを防ぐ）。
+        // GCD の共有のスレッドではなく、専用のスレッドにする：呼び出し側が、同じ共有のスレッドを塞いでいる（同時に多くのコマンドを待つ）と、
+        // 読む側が動けず、出力が終わらないまま、時間の上限に達してしまう（CI のテストで起きた）。
         let collected = CollectedOutput()
         let group = DispatchGroup()
         group.enter()
-        DispatchQueue.global().async {
+        Thread.detachNewThread {
             collected.set(pipe.fileHandleForReading.readDataToEndOfFile())
             group.leave()
         }
