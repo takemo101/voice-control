@@ -12,10 +12,6 @@ default:
 build:
     swift build -c release 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
 
-# Tiny-Jev 0.6B（約 1.2 GB）を、版を固定して models/ に取得し、SHA-256 を検証する（取得済みなら何もしない）
-fetch-model:
-    ./scripts/fetch-model.sh
-
 # 単体テスト（Swift Testing）。画面・音声・モデルは使わない
 test:
     ./scripts/test.sh
@@ -25,11 +21,11 @@ package:
     ./scripts/package.sh
     ./scripts/verify-package.sh dist/vc-*-macos-arm64.tar.gz "$(.build/release/vc --version | awk '{print $2}')"
 
-# 開発用に、vc を ~/.local/bin へ入れる（BIN_DIR で場所）。モデルは、このリポジトリの models/ を、~/Library/Application Support/voice-control/models から指す
+# 開発用に、vc を ~/.local/bin へ入れる（BIN_DIR で場所）。このリポジトリの models/ があれば、~/.voice-control/models/tiny-jev-0.6b から、そこへリンクする。なければ、vc model download で取得
 install: build
     ./scripts/install.sh
 
-# install で入れた vc とモデルのリンクを取り除く。モデルの本体（models/）と、アクセシビリティ・マイクの許可には触れない
+# install で入れた vc とモデルのリンクを取り除く。モデルの本体（models/・vc model download で置いたもの）と、アクセシビリティ・マイクの許可には触れない
 uninstall:
     ./scripts/uninstall.sh
 

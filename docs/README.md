@@ -39,21 +39,21 @@ LICENSE                MIT
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・install・eval・fixture）
 Sources/
-  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形）
+  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift：録音中などの画面表示）
   Fixture/             検証用の自作ウィンドウ
   VoiceControlKit/
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
     Choice/            選択肢の採点・勝ち抜き戦
     Skill/             SKILL.md の読込・許可の照合・実行・言語モデル
     Action/            PC 操作の計画・実行・agent-desktop
-    Speech/            文字起こし・録音・トリガー
+    Speech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方）
+    Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
 Tests/VoiceControlKitTests/   単体テスト（Swift Testing）
 corpus/                評価用の文（plans.tsv・followups.tsv）と、自作ウィンドウの画面（snapshots/）
 keys/                  キー操作の JSON 定義の例
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 scripts/
-  fetch-model.sh       Tiny-Jev を取得して SHA-256 を検証する
   install.sh           vc を ~/.local/bin へ入れる
   uninstall.sh         入れた vc とモデルのリンクを取り除く
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
@@ -73,7 +73,7 @@ docs/
   pc-control.md        PC 操作の流れ（試作）
 ```
 
-`models/`（Tiny-Jev の重み。約 1.2 GB）と `.build/` は Git 対象外。`~/.voice-control/` は、利用者のスキルと設定で、リポジトリの外。
+`models/`（開発用に、Tiny-Jev の重みを置いてもよい場所。約 1.2 GB）と `.build/`・`dist/` は Git 対象外。`~/.voice-control/` は、利用者のスキル・設定・モデル（`vc model download`）で、リポジトリの外。
 
 ## 更新時の扱い
 

@@ -17,7 +17,7 @@ enum Help {
     static let groups = ["スキル（主な機能）", "PC 操作（試作）", "評価・検証", "設定"]
 
     static let common: [(flag: String, text: String)] = [
-        ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ./models/tiny-jev-0.6b → ~/Library/Application Support/voice-control/models/tiny-jev-0.6b）"),
+        ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：vc model download）"),
         ("--length <トークン数>", "Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）"),
         ("--floor <0〜1>", "確信度の下限（既定 0.40。未満は実行しない）"),
         ("-h, --help", "このヘルプを表示"),
@@ -80,25 +80,34 @@ enum Help {
             ],
             examples: ["vc act --app Fixture \"設定を開いて\" --execute"]),
         CommandInfo(
-            name: "listen", group: groups[1], summary: "マイクから聞いて、操作する",
-            usage: ["vc listen [--hotkey] [--trigger shift|ctrl-opt-space] [--app <名前>] [--execute] [--yes]"],
+            name: "listen", group: groups[1], summary: "マイクから聞いて、スキルまたは PC 操作で実行する",
+            usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--app <名前>] [--execute] [--yes]"],
             details: [
                 "既定：Enter で録音を始め、もう一度 Enter で止める（q で終了）。マイクの許可が要る。",
-                "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、計画する。確認が要る手は、問いかけを読み上げ、次の発話の「はい」で実行する。",
-                "Shift の長押しの検出には、アクセシビリティの許可が要る（vc を動かす端末アプリに）。",
+                "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、有効なスキルがあれば Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。スキルが選ばれなければ、PC 操作（前面のアプリ）へ回す。確認が要る手は、問いかけを読み上げ、次の発話の「はい」で実行する。",
+                "画面の上に、録音中・認識中・選んだスキル・実行したコマンドと結果・言語モデルの返事を出す（クリックを通し、フォーカスを奪わない）。",
+                "実行の既定：スキルは、vc run と同じく、**実行する**（--dry-run を付けたときだけ、表示だけ）。PC 操作（スキルが選ばれなかったとき）は、**--execute を付けたときだけ**実行する（なければ、計画の表示だけ）。",
+                "トリガーは、既定が Shift の長押し。変えるには vc hotkey set <キー>（~/.voice-control/settings.json に保存）か、その回だけ --trigger <キー>。長押し（修飾キーだけ）の検出には、アクセシビリティの許可が要る（vc を動かす端末アプリに）。",
             ],
             options: [
                 ("--hotkey", "押している間だけ録音する"),
-                ("--trigger <名前>", "shift（既定。単独で 0.35 秒以上）または ctrl-opt-space"),
-                ("--app <名前> / --execute / --yes", "act と同じ"),
+                ("--trigger <キー>", "この回だけのトリガー（例：shift・ctrl+opt+space・f5。書き方は vc hotkey）"),
+                ("--dry-run", "スキルのコマンドを実行せず、表示だけにする"),
+                ("--app <名前> / --execute / --yes", "act と同じ（--execute：PC 操作を実行する）"),
             ],
-            examples: ["vc listen --hotkey --execute"]),
+            examples: ["vc listen --hotkey", "vc listen --hotkey --execute", "vc listen --hotkey --dry-run"]),
         CommandInfo(
             name: "hotkey-check", group: groups[1], summary: "トリガーが届くかを確かめる（マイクは使わない）",
-            usage: ["vc hotkey-check [--trigger shift|ctrl-opt-space] [--seconds <秒>]"],
-            details: ["押した・離したを、表示する。既定は 10 秒間。"],
-            options: [("--trigger <名前>", "shift（既定）または ctrl-opt-space"), ("--seconds <秒>", "待つ時間（既定 10）")],
-            examples: ["vc hotkey-check --trigger ctrl-opt-space"]),
+            usage: ["vc hotkey-check [--trigger <キー>] [--seconds <秒>]"],
+            details: ["押した・離したを表示し、画面の上に「録音中」を出す。いまの設定（vc hotkey）を使う。既定は 10 秒間。"],
+            options: [("--trigger <キー>", "この回だけのトリガー"), ("--seconds <秒>", "待つ時間（既定 10）")],
+            examples: ["vc hotkey-check", "vc hotkey-check --trigger ctrl+opt+space"]),
+        CommandInfo(
+            name: "hud-preview", group: groups[2], summary: "画面の上の表示の見本を出す（マイク・実行なし。見た目の確認用）",
+            usage: ["vc hud-preview [--stage recording|working|confirm|success|failure|denied] [--seconds <秒>]"],
+            details: ["--stage がなければ、順に、すべて出す。1 つの段階を出す秒数は、既定 3。内容は、作り物の見本。"],
+            options: [("--stage <名前>", "この段階だけを出す"), ("--seconds <秒>", "1 段階あたりの秒数（既定 3）")],
+            examples: ["vc hud-preview", "vc hud-preview --stage success --seconds 8"]),
         CommandInfo(
             name: "eval", group: groups[2], summary: "固定した画面での、操作の当たり率を測る（実機は操作しない）",
             usage: ["vc eval <plans.tsv> [--speak] [--llm] [--no-location]"],
@@ -125,6 +134,27 @@ enum Help {
             usage: ["vc llm <snapshot.json> <発話>"],
             details: ["環境変数 VC_LLM_DEBUG=1 で、モデルの生の出力も表示する。"],
             options: [], examples: ["vc llm corpus/snapshots/fixture-en.json \"削除して\""]),
+        CommandInfo(
+            name: "model", group: groups[3], summary: "Tiny-Jev のモデルの確認・取得（~/.voice-control/models）",
+            usage: ["vc model [status [--verify]]", "vc model download [--force]", "vc model path"],
+            details: [
+                "Tiny-Jev 0.6B（約 1.2 GB）を、~/.voice-control/models/tiny-jev-0.6b に置く（VC_HOME で ~/.voice-control を変えられる）。",
+                "download：版を固定した Hugging Face から取得し、SHA-256 を検証する。取得済みで一致するファイルは飛ばす。途中で切れたら、もう一度実行すると続きから。モデルの取得だけが、外部との通信（音声・画面は送らない）。",
+                "status：置き場所・ファイルの有無と大きさ・実際に使われる場所。--verify で SHA-256 まで確かめる。path：置き場所だけを出す。",
+            ],
+            options: [("--verify", "status：SHA-256 まで確かめる"), ("--force", "download：取得済みでも、取り直す")],
+            examples: ["vc model download", "vc model status --verify"]),
+        CommandInfo(
+            name: "hotkey", group: groups[3], summary: "押している間だけ聞くトリガー（ホットキー）の確認・変更",
+            usage: ["vc hotkey [show]", "vc hotkey set <キー>", "vc hotkey reset"],
+            details: [
+                "設定は ~/.voice-control/settings.json の hotkey。既定は shift の長押し。",
+                "書き方：修飾キー（ctrl・opt・shift・cmd）を + でつなぐ。修飾キーだけ（shift・ctrl+opt）は長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）。修飾キー + キー（ctrl+opt+space・cmd+shift+r）は、キーの組み合わせ（許可は要らない）。f1〜f12 だけは、単独でもよい。",
+                "キーは、英字・数字・space・return・tab・escape・矢印（left・right・up・down）・f1〜f12。普通の入力を奪う、修飾キーなしの文字は使えない。macOS が先に使う組み合わせ（cmd+space など）は、届かないことがある。",
+                "変えたら、vc hotkey-check で確かめる。vc listen --hotkey の次の起動から有効。",
+            ],
+            options: [],
+            examples: ["vc hotkey", "vc hotkey set ctrl+opt+space", "vc hotkey set f5", "vc hotkey reset"]),
         CommandInfo(
             name: "keys", group: groups[3], summary: "キー操作の JSON 定義の一覧（plan・act の候補）",
             usage: ["vc keys [--keys <dir>]"],

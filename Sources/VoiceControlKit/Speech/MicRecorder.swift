@@ -12,14 +12,23 @@ public final class MicRecorder: @unchecked Sendable {
 
     public init() {}
 
-    /// マイクの許可。未決なら、macOS の確認を出す（この関数を呼ぶのは、利用者が `vc listen` を実行したときだけ）。
-    public static func authorize() async -> Bool {
+    /// マイクの許可。未決なら、macOS の確認を出して、答えを待つ（この関数を呼ぶのは、利用者が `vc listen` を実行したときだけ）。
+    /// **同期**にしてある：`await` を挟むと、そのあとの処理は、メインキューのブロックの中で動き、続けて呼ぶ `NSApplication.run()` が、
+    /// `DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）を動かせない。
+    public static func authorize() -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: return true
-        case .notDetermined: return await AVCaptureDevice.requestAccess(for: .audio)
+        case .notDetermined:
+            let semaphore = DispatchSemaphore(value: 0)
+            let box = GrantBox()
+            AVCaptureDevice.requestAccess(for: .audio) { granted in box.granted = granted; semaphore.signal() }
+            semaphore.wait()
+            return box.granted
         default: return false
         }
     }
+
+    private final class GrantBox: @unchecked Sendable { var granted = false }
 
     public func start(to url: URL) throws {
         let input = engine.inputNode

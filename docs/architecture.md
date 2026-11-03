@@ -63,13 +63,16 @@ flowchart TB
 | 実行した手の記録 | `HistoryStore`（`vc` が 1 つ持つ） | プロセスの間。**操作の名前だけ**（発話・入れた文字は持たない）。最大 50 件、文脈に使うのは 3 件・180 秒以内 |
 | 画面の内容（snapshot） | 1 回の判断の間だけ（`Planner.plan` の引数） | 保存しない |
 | 録音 | `RecordingSession` の一時ファイル | 文字起こしのあと、削除 |
-| モデルのファイル | `models/` または `~/Library/Application Support/voice-control/models/`（リンク） | リポジトリ外・Git 対象外。SHA-256 で検証して取得 |
+| モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。`vc model download` が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
+| ホットキーの設定 | `~/.voice-control/settings.json` の `hotkey`（`Settings`）。`--trigger` が、その回だけ優先 | 利用者の設定。`vc hotkey` が書く |
+| 録音中・実行の経過・結果の表示 | `HUD`（`NSPanel`。1 つを使い回す）と、中身を持つ `HUDSession`（更新はロックで守る） | プロセスの間だけ。クリックを通し、フォーカスを奪わない。聞こえた文・コマンド・出力の先頭 1 行・返事は、画面に出すだけで、保存しない |
 
 ## 時間と並行
 
 - **Tiny-Jev の採点は直列**。`TinyJev` が `NSLock` で守る（1 つの GPU グラフは、同時に 1 つの呼び出しだけ）。1 問 0.1 秒前後、グラフのコンパイルで起動時に数秒。
 - **言語モデル（FoundationModels）は `async`**。道具の呼び出し（`run_command`）は、同期の `Process` の実行を、そのまま待つ（1 コマンド 30 秒まで）。
 - **ホットキーのイベントは、メインスレッド**（`NSApplication.run()` のイベントループ）。録音の開始・停止だけをそこで行い、文字起こし・計画・実行は、別の `Task` で、1 つずつ順に処理する（`AsyncStream` で受ける）。
+- **`NSApplication.run()` の前に、`await` を挟まない**（実際に起きた不具合）。`await` のあとの処理は、メインキューのブロックの中で動き、そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が、一切動かない（長押しも、画面の表示も、無反応になる）。そのため、マイクの許可は同期（`MicRecorder.authorize()`）で、`run()` の前に済ませる。トリガーのオブジェクトは、`withExtendedLifetime` で、`run()` が終わるまで手放さない。
 - **共有する可変状態は、ロックで守る**：`HistoryStore`・`RefAliases`・`SkillAgent` の実行記録・`RecordingSession`。
 - 言語モードは Swift 5（`swiftLanguageModes: [.v5]`）。複製した `Decision/` を変えずに使うため。`@unchecked Sendable` を使う型は、すべて、内部をロックで守る（[コーディング指針](coding-guidelines.md#並行)）。
 
@@ -97,8 +100,8 @@ flowchart TB
 | agent-desktop | 子プロセス（`snapshot`・`click`・`type`・`press`・`scroll`・`maximize` など） | アプリ一覧に壊れた記録があると、`snapshot`・`launch` などが TIMEOUT する（実測）。`launch` は使わない |
 | Apple FoundationModels | `LanguageModelSession`＋動的スキーマ（`DynamicGenerationSchema`）。`@Generable` は、マクロのプラグインが Command Line Tools に無く、使えない | 道具の呼び出しは、**英語の指示**のほうが確実（測定） |
 | Apple Speech | `SpeechTranscriber`（オンデバイス）。言語のモデルが未取得なら OS が取得（初回、Apple のサーバーから） | |
-| AppKit / Carbon | `NSWorkspace`（前面のアプリ）、`RegisterEventHotKey`、`NSEvent` のグローバルモニタ（Shift の長押し。アクセシビリティの許可が要る） | |
-| Tiny-Jev のモデル | Hugging Face（`lostargon/Tiny-Jev`・版を固定）。`scripts/fetch-model.sh` が、SHA-256 を検証して取得 | ライセンスの条件は未確認 |
+| AppKit / Carbon | `NSWorkspace`（前面のアプリ）、`RegisterEventHotKey`（修飾キー＋キー）、`NSEvent` のグローバルモニタ（修飾キーだけの長押し。アクセシビリティの許可が要る）、`NSPanel`（画面の上の表示） | 画面の表示には、許可が要らない |
+| Tiny-Jev のモデル | Hugging Face（`lostargon/Tiny-Jev`・版を固定）。`vc model download`（`URLSession`）が、SHA-256 を検証して取得する。**これが、取得時の唯一の外部通信** | ライセンスの条件は未確認 |
 
 ## 既知の構造上の負債
 
