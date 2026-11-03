@@ -112,8 +112,8 @@ func holdInstruction(_ spec: HotKeySpec) -> String {
     spec.isHold ? "\(spec.description) を単独で 0.35 秒以上押し続け" : "\(spec.description) を押し"
 }
 
-/// 読み上げる（確認の問いかけ）。終わるまで待たない。取りやめたときは、止める（`Speech`）。
-func say(_ text: String) { Speech.shared.say(text) }
+/// 読み上げる（確認の問いかけ）。終わるまで待たない。取りやめたときは、止める（`SaySpeaker`）。
+func say(_ text: String) { SaySpeaker.shared.say(text) }
 
 /// 文を、合成音声（say）にして、オンデバイスで文字起こしする。
 func speakAndTranscribe(_ text: String) async throws -> String {
@@ -386,7 +386,7 @@ case "listen":
                     print("  " + Style.yellow("録音を取りやめました（Esc）"))
                     HUD.shared.show(HUDContent(phase: .info, title: "録音を取りやめました", chip: spec.displayName), hideAfter: 1.5)
                 case .work:
-                    Speech.shared.stop()
+                    SaySpeaker.shared.stop()
                     queue.push(.cancel)   // 発話や確認の返事を待っている処理を起こす
                     HUD.shared.show(HUDContent(phase: .info, title: "取りやめています…", chip: spec.displayName))
                 case .nothing:
