@@ -3,6 +3,7 @@ import PackageDescription
 
 // ターゲットの依存の向きは、ここで宣言し、コンパイラが強制する（宣言していない依存の `import` は、`--explicit-target-dependency-import-check=error` を付けたビルドで失敗する。付けない差分ビルドは、警告だけのことがある。scripts/test.sh・scripts/package.sh・just build は付けている）。
 //   VCCore ← VCDecision ← VCSkill・VCPCControl、 VCCore ← VCSpeech （VCSkill・VCPCControl・VCSpeech は、互いに依存しない）
+//   テスト専用の TestSupport（偽物）は、VCDecision・VCPCControl に依存し、テストターゲットだけが依存する（本番のターゲットは、依存しない）。
 let package = Package(
     name: "voice-control",
     platforms: [.macOS("26.0")],

@@ -49,7 +49,7 @@ Sources/
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合・実行（CommandRunner・OutputCompactor・RefAliases）・言語モデル（SkillAgent）・既定スキル（DefaultSkill）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
   VCPCControl/         PC 操作の計画・実行・agent-desktop（PCRunner：計画 → 門 → 確認 → 実行 → 履歴の流れ。経過は PCEvent で PCReporter へ。PCEval：評価コーパスの部品）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
-Tests/                 単体テスト（Swift Testing）。ターゲットごと：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests（PCRunner・PCEval を含む）・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルと PC 操作の実行の表示）
+Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests（PCRunner・PCEval を含む）・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルと PC 操作の実行の表示）。TestSupport は、複数のターゲットが使う偽物（`OptionScorer`・`Desktop`）のテスト専用ターゲット
 corpus/                評価用の文（plans.tsv・followups.tsv・gate.tsv）と、自作ウィンドウの画面（snapshots/）
 keys/                  キー操作の JSON 定義の例
 skills/
