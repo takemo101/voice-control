@@ -27,7 +27,7 @@ import Testing
         let (settings, problem) = Settings.loadOrDefault(from: file)
         #expect(problem != nil)
         #expect(settings == Settings())                                   // 読み取りだけなら、空の設定で続ける
-        #expect(!settings.isTrusted(project: file.deletingLastPathComponent()))   // 信頼は、なし（安全側）
+        #expect(!settings.isTrusted(project: file.deletingLastPathComponent()))   // 信頼は、なし（安全側。空の設定でも保証する）
     }
 
     @Test func saveRefusesToOverwriteACorruptFileAndLeavesItUntouched() throws {
@@ -41,14 +41,18 @@ import Testing
         #expect(try String(contentsOf: file, encoding: .utf8) == broken)   // 元のファイルは、そのまま
     }
 
-    @Test func saveWorksAgainOnceTheFileIsFixed() throws {
+    @Test func saveRefusesWhileBrokenThenWorksOnceTheFileIsFixed() throws {
         let file = try tempFile("{ broken")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        try Data(#"{"disabledSkills":["keep"]}"#.utf8).write(to: file)
 
+        var pending = Settings()
+        pending.setEnabled("b", false)
+        #expect(throws: Settings.Unreadable.self) { try pending.save(to: file) }   // 壊れている間は、保存できない
+
+        try Data(#"{"disabledSkills":["keep"]}"#.utf8).write(to: file)   // 利用者が直した
         var settings = try Settings.load(from: file)
         settings.setEnabled("b", false)
         try settings.save(to: file)
-        #expect(try Settings.load(from: file).disabledSkills == ["b", "keep"])
+        #expect(try Settings.load(from: file).disabledSkills == ["b", "keep"])   // 直したファイルの中身を、消さずに足せた
     }
 }

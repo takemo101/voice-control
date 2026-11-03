@@ -150,7 +150,7 @@ extension AgentDesktop {
         p.arguments = ["-e", "tell application \"\(escaped)\" to activate"]
         p.standardError = FileHandle.nullDevice
         p.standardOutput = FileHandle.nullDevice
-        // try?: ウィンドウを出すための AppleScript は、最善の努力。出なければ、次の snapshot が『画面を読めなかった』として伝える
+        // try?: ウィンドウを出すための AppleScript は、最善の努力。失敗しても、ここでは知らせない（開く操作そのものは、すでに成功している）
         try? p.run()
         p.waitUntilExit()
         Thread.sleep(forTimeInterval: 1)
