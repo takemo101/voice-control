@@ -22,7 +22,7 @@ struct EvalContextCommand: Command {
             // 画面（snapshot）が読めなければ、fail する。黙って飛ばすと、当たり率が、実際とずれる
             guard let snap = PCEval.snapshot(named: f[0], in: dir) else { fail("snapshot を読めません: \(f[0])") }
             guard let prev = PCEval.step(fromCanonical: f[1], snapshot: snap) else { fail("直前の操作を作れません: \(f[1])") }
-            let planner = Planner(scorer: jev, desktop: ReplayDesktop(snapshot: snap, apps: apps), gate: context.gate, skills: context.skillCatalog.shortcuts, useLocation: !context.options.noLocation)
+            let planner = Planner(scorer: jev, desktop: ReplayDesktop(snapshot: snap, apps: apps), gate: context.gate, keyBindings: context.keyCatalog.shortcuts, useLocation: !context.options.noLocation)
             let accepted = PCEval.accepted(f[2])
             total += 1
             var row = "\(f[1]) → \(f[3])"

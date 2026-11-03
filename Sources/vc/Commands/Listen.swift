@@ -33,7 +33,7 @@ struct ListenCommand: Command {
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let desktop = AgentDesktop(app: context.options.app)
         let jev = context.loadJev()
-        let planner = Planner(scorer: jev, desktop: desktop, gate: context.gate, skills: context.skillCatalog.shortcuts, useLocation: !context.options.noLocation)
+        let planner = Planner(scorer: jev, desktop: desktop, gate: context.gate, keyBindings: context.keyCatalog.shortcuts, useLocation: !context.options.noLocation)
         let runner = PCRunner(planner: planner, desktop: desktop, mode: context.options.execute ? .execute : .dryRun, usesHistory: !context.options.noContext, llmSplit: context.options.llmSplit)
         if context.options.hotkey {
             runVoiceLoop(context, jev: jev, runner: runner)

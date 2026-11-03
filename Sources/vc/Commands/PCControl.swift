@@ -49,7 +49,7 @@ struct ActCommand: Command {
 @MainActor private func planOrAct(_ command: String, _ arguments: Arguments, _ context: CommandContext) async throws {
     guard arguments.positionals.count >= 1 || context.options.audio != nil else { usageError(command, "発話か --audio <ファイル> を渡してください（例: vc \(command) \"下にスクロールして\"）") }
     let desktop = AgentDesktop(app: context.options.app)
-    let planner = Planner(scorer: context.loadJev(), desktop: desktop, gate: context.gate, skills: context.skillCatalog.shortcuts, useLocation: !context.options.noLocation)
+    let planner = Planner(scorer: context.loadJev(), desktop: desktop, gate: context.gate, keyBindings: context.keyCatalog.shortcuts, useLocation: !context.options.noLocation)
     let mode: PCRunner.Mode = command == "act" ? (context.options.execute ? .execute : .dryRun) : .plan
     let runner = PCRunner(planner: planner, desktop: desktop, mode: mode, usesHistory: !context.options.noContext, llmSplit: context.options.llmSplit)
     do {

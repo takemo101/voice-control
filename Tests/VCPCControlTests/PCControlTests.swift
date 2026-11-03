@@ -155,13 +155,13 @@ private struct PicksSpotify: OptionScorer {
     }
 }
 
-@Suite struct SkillCatalogTests {
-    private func load(_ json: String) throws -> SkillCatalog.Loaded {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vc-skills-\(UUID().uuidString)")
+@Suite struct KeyBindingCatalogTests {
+    private func load(_ json: String) throws -> KeyBindingCatalog.Loaded {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vc-keys-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
         try Data(json.utf8).write(to: dir.appendingPathComponent("t.json"))
-        return SkillCatalog.load(directories: [dir])
+        return KeyBindingCatalog.load(directories: [dir])
     }
 
     @Test func loadsValidDefinitionsAndReportsInvalidOnes() throws {
@@ -192,11 +192,11 @@ private struct PicksSpotify: OptionScorer {
             var seen: [String] = []
             func score(state: String, question: String, options: [String]) throws -> [Double] { seen += options; return options.map { _ in 1.0 / Double(options.count) } }
         }
-        let skills = [Shortcut(combos: ["cmd+right"], option: "次の曲", app: "Spotify"),
+        let bindings = [Shortcut(combos: ["cmd+right"], option: "次の曲", app: "Spotify"),
                       Shortcut(combos: ["cmd+left"], option: "前の曲", app: "Safari"),
                       Shortcut(combos: ["x"], option: "条件つき", when: "音量")]
         let spy = Spy()
-        _ = try Planner(scorer: spy, desktop: D(), skills: skills).plan("曲を進めて")
+        _ = try Planner(scorer: spy, desktop: D(), keyBindings: bindings).plan("曲を進めて")
         #expect(spy.seen.contains("キー操作: 次の曲"))
         #expect(!spy.seen.contains("キー操作: 前の曲"))
         #expect(!spy.seen.contains("キー操作: 条件つき"))

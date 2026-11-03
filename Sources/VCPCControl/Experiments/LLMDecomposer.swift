@@ -1,6 +1,9 @@
 import FoundationModels
 import Foundation
 
+// 比較用の実験。既定の流れでは呼ばれない。使うのは、`vc plan`・`act`・`listen` の `--llm-split`（`PCRunner.clauses` が呼ぶ。既定はオフ）と `vc decompose` だけ。
+// 削除・統合は、SPEC §7 の PC 操作の扱い（未決）と合わせて判断する。
+
 /// 長い依頼を、1 手ずつの短い命令文に、書き直す（Apple の FoundationModels。オンデバイス）。
 /// 選ぶ・実行を決めるのは、ここではない：書き直した各文は、`Planner`（Tiny-Jev）とゲートが、1 文ずつ判断する。
 /// 検証：かぎ括弧の中の文字は、元の依頼にあるものだけ（言語モデルが、入力する文字を作らないように）。
