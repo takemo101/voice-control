@@ -15,7 +15,7 @@
 - 検証を通った値だけが作れる型にする（`Skill`）。不正な状態を、型で表さない。
 - 値型（`struct`・`enum`）を基本にする。参照型は、状態を共有する理由があるときだけ（`HistoryStore`・`RefAliases`・`TinyJev`・`SkillAgent`）。
 - 公開（`public`）は、他の Module が使うものだけ。実装の都合の型・関数は、`internal`・`private`。
-- protocol は、**差し替えが実際に要る箇所だけ**（`OptionScorer`・`Desktop`・`PushToTalkTrigger`）。実装が 1 つの protocol を、先回りで作らない。
+- protocol は、**差し替えが実際に要る箇所だけ**（`OptionScorer`・`Desktop`・`PushToTalkTrigger`）。実装が 1 つの protocol を、先回りで作らない。例外は `vc` の `Command`：差し替えではなく、複数のコマンドを同じ形で一覧に持ち、名前で呼ぶための protocol。
 
 ## 失敗
 

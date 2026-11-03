@@ -43,12 +43,20 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
 | `just vc <args>` | ビルドして `vc` を呼ぶ |
 
-- ターゲットは `VCCore`・`VCDecision`・`VCSpeech`・`VCSkill`・`VCPCControl`（ライブラリ）と、`vc`・`Fixture`（実行ファイル）。依存の向き（下向きだけ）は `Package.swift` で宣言し、コンパイラが強制する。宣言にない `import` を差分ビルドでも失敗させるには、`--explicit-target-dependency-import-check=error` を付ける（上の入口は付けている。素の `swift build` は、警告だけのことがある）。テストもターゲットごと（`Tests/VCCoreTests` など。`@testable import` で、対応するターゲットの `internal` を使う）。1 つのターゲットだけを試すには `./scripts/test.sh --filter VCSkillTests`。
+- ターゲットは `VCCore`・`VCDecision`・`VCSpeech`・`VCSkill`・`VCPCControl`（ライブラリ）と、`vc`・`Fixture`（実行ファイル）。依存の向き（下向きだけ）は `Package.swift` で宣言し、コンパイラが強制する。宣言にない `import` を差分ビルドでも失敗させるには、`--explicit-target-dependency-import-check=error` を付ける（上の入口は付けている。素の `swift build` は、警告だけのことがある）。テストもターゲットごと（`Tests/VCCoreTests` など。`@testable import` で、対応するターゲットの `internal` を使う。実行ファイルの `vc` も、`Tests/vcTests` が `@testable import vc` で、引数の読み方とコマンドの一覧を試す）。1 つのターゲットだけを試すには `./scripts/test.sh --filter VCSkillTests`。
 - テストは `./scripts/test.sh`。Command Line Tools だけの環境では、Swift Testing のマクロのプラグインのパスを、明示して渡す必要があり、素の `swift test` は失敗する。
 - `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
 - 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。
 - モデルの取得は `vc model download`（`~/.voice-control/models/tiny-jev-0.6b`。版を固定・SHA-256 の検証・再開）。確認は `vc model status [--verify]`。
 - モデルの探し方：`--model`、`VC_MODEL_DIR`、`~/.voice-control/models/tiny-jev-0.6b`、`./models/tiny-jev-0.6b`（開発用）の順。
+
+## コマンドの足し方
+
+`vc <name>` を足すには、次の 3 つを、同じ変更で行う（構造は [構成説明](architecture.md#vc-のコマンドの構造)）。
+
+1. `Sources/vc/Commands/<Name>.swift` に、`Command` を実装した型を置く：`static let info`（名前・グループ・使い方・説明・オプション・例。`vc --help`・`vc <name> --help` は、ここから作られる）と、`run(_ arguments: Arguments, _ context: CommandContext)`。`run` の中では、自分のオプションを `var arguments = arguments` に写して `option`・`flag` で取り除き、位置引数は `arguments.positionals`（コマンド名を除く）、共通のオプション（`--model`・`--app`・`--execute` など）は `context.options`、モデルは `context.loadJev()`、設定は `context.currentSettings()` から使う。失敗は `fail`（終了コード 1）、使い方の誤りは `usageError`（2）。Tiny-Jev のモデルを読むコマンドは、`Help.modelUsers` に名前を足す（共通のオプションを案内する）。
+2. `Commands.all`（`Sources/vc/Command.swift`）に、型を足す。**この並びが、`vc --help` の表示順**（グループの中）になる。
+3. テストを足す：引数の読み方に関わるなら `Tests/vcTests/ArgumentsTests.swift`。コマンドの一覧とヘルプは、同じファイルの `CommandRegistryTests` が確かめる（名前の重複・グループごとの表示）。出力は、変更の前後の `vc` を、`NO_COLOR=1`・一時の `VC_HOME` で動かして、比べる。
 
 ## 変更の進め方
 

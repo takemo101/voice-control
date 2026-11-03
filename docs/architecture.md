@@ -7,7 +7,7 @@ Module の責務・依存の向き・状態の所有・時間と並行・失敗�
 ```mermaid
 flowchart TB
     subgraph CLI[vc（実行ファイル）]
-        main[main.swift<br/>引数・表示・流れの組み立て]
+        main[main.swift<br/>引数を読んで、コマンドを探して、実行する]
     end
     subgraph Targets[SwiftPM ターゲット]
         Skill[VCSkill<br/>SKILL.md・ポリシー・実行]
@@ -51,11 +51,18 @@ flowchart TB
 | `VCSkill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
 | `VCPCControl` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
 | `VCSpeech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`・`VoiceActivity`・`VoiceInputQueue`（Esc での取りやめと、声の流れの状態）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断 |
-| `vc` | 引数の解釈・流れの組み立て（`main.swift`：`runClauses`・ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く） |
+| `vc` | 引数の解釈（`Arguments`・`CommonOptions`）、コマンド（`Command`・`Commands.all`・`Commands/`）と、その共有物（`CommandContext`）、流れの組み立て（`main.swift` の `skills`・`run`・`plan`・`act`・`listen`・`eval`、`PlanSupport.swift` の `runClauses`、`SkillSupport.swift` の `runSkillByVoice`、ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 
 - `VCDecision` の `Decision/` は、トークナイザ・重みの読込・`QwenDecision`・`OptionMarkerPrompt`（複製の部分）を、ターゲットの外へ出さない（`internal`）。外へ出る（`public`）のは、入口の `TinyJev`・エラーの `DecisionModelError`・`QwenShape` で、`Choice/`・`Model/` の型（`OptionScorer`・`Chooser`・`Gate`・`ModelStore` など）も同じターゲットから `public` で出る。`OptionScorer` が、`TinyJev` と、テストの偽物を、同じ形で受ける。
-- `Desktop`（画面・アプリ・実行の口）も、実機（`AgentDesktop`）と、固定の画面（`ReplayDesktop`）・偽物を、同じ形で受ける。**差し替えが実際に要る 2 か所だけ**を protocol にしている（[参考にした設計原則](references.md)）。
+- `Desktop`（画面・アプリ・実行の口）も、実機（`AgentDesktop`）と、固定の画面（`ReplayDesktop`）・偽物を、同じ形で受ける。**差し替えが実際に要る箇所だけ**を protocol にしている（[参考にした設計原則](references.md)）。`vc` の `Command` は、差し替えではなく、15 のコマンドを同じ形で一覧に持ち、名前で呼ぶための protocol。
+
+### `vc` のコマンドの構造
+
+- **`Arguments`**（値型）：`CommandLine.arguments` の 2 番目以降を、起動のとき 1 回だけ読む。グローバルの状態はない。`option("--x")`（`--x` と次の 1 語を取り除いて、その語を返す）・`flag("--x")`（最初の 1 つを取り除く）は、取り除く形で、取り除いた順番が、残りの語（位置引数 `positionals`。コマンド名を除く）を変える。`--x=値` の形は扱わない。知らないオプションは取り除かず、位置引数になる。細部は、`Arguments` の doc コメントと `Tests/vcTests`。
+- **`CommonOptions`**：どのコマンドにも効く共通のオプション（`--model`・`--length`・`--floor`・`--app`・`--execute`・`--yes` など）。起動の最初に、決まった順番で取り除く。`--keys` だけは、コマンド名を決めたあとに取り除く（コマンド名の前に置くと、`--keys` がコマンド名になり、不明なコマンドになる。従来のまま）。
+- **`Command`**：`static let info`（名前・グループ・使い方・説明・オプション・例）と、`run(_:_:)`。`Commands.all`（`Command.swift`）が一覧で、`vc --help`・`vc <コマンド> --help` は、各コマンドの `info` から作る（並びも、この一覧の並び。`help` は、コマンドではなく、`Help` が、コマンドを探す前に処理する）。`Commands/` に、`keys`・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`・`llm`・`decompose`・`eval-context` を置く。`skills`・`run`・`plan`・`act`・`listen`・`eval` は、`main.swift` に残る。
+- **`CommandContext`**：1 回の起動で共有するものを、1 つにまとめる。`CommonOptions`・ゲート（`--floor` を反映）・キー操作の定義・`HistoryStore`、モデルの場所（`resolveModelDir`）・Tiny-Jev の読み込み（`loadJev`）・設定の読み取り（`currentSettings`。壊れていれば警告を 1 回だけ）・トリガーの解決（`resolveHotKey`）。`main.swift` が作って、コマンドへ渡す。終了（`fail`＝終了コード 1・`usageError`＝2）は、状態を持たない関数のまま、`Output.swift` に置く。
 
 ## 状態の所有
 
@@ -65,7 +72,7 @@ flowchart TB
 | スキルの有効・無効・信頼したプロジェクト | `Settings`（`~/.voice-control/settings.json`） | ファイル。`vc skills enable/disable/trust/untrust` だけが書く。有効・無効は既定が有効（無効だけを記録する）。信頼は既定が未信頼（信頼したものだけを記録する。読めないファイルは、信頼なしとして扱う） |
 | キー操作の JSON 定義 | `SkillCatalog.load`（`keys/`・`~/.voice-control/keys`） | ファイル |
 | Tiny-Jev の重み・GPU のグラフ | `TinyJev`（`QwenDecision`） | プロセスの間。起動のたびに、数秒かけて読む |
-| 実行した手の記録 | `HistoryStore`（`vc` が 1 つ持つ） | プロセスの間。**操作の名前だけ**（発話・入れた文字は持たない）。最大 50 件、文脈に使うのは 3 件・180 秒以内 |
+| 実行した手の記録 | `HistoryStore`（`CommandContext` が 1 つ持つ） | プロセスの間。**操作の名前だけ**（発話・入れた文字は持たない）。最大 50 件、文脈に使うのは 3 件・180 秒以内 |
 | 画面の内容（snapshot） | 1 回の判断の間だけ（`Planner.plan` の引数） | 保存しない |
 | 録音 | `RecordingSession` の一時ファイル | 文字起こしのあと、削除 |
 | モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。`vc model download` が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
@@ -117,7 +124,7 @@ flowchart TB
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。
 
-- `vc/main.swift`（約 500 行）が、引数の解釈に加えて、流れの組み立て（`runClauses`・ホットキーの待ち受け・`eval`）を持つ。ライブラリ側のターゲットへ移せる。
+- `vc/main.swift`（約 570 行）に、`skills`・`run`・`plan`・`act`・`listen`・`eval` の本体が残る（`Commands/` へ移せる）。流れの組み立て（`PlanSupport.swift` の `runClauses`・`SkillSupport.swift` の `runSkillByVoice`・ホットキーの待ち受け・`eval`）は、ライブラリ側のターゲットへ移せる。
 - `AgentDesktop.run`（agent-desktop の呼び出し）と `CommandRunner.run`（任意コマンドの実行）が、似た処理を別々に持つ。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。
 - `VCPCControl/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`VCSkill`（SKILL.md のスキル）と名前が紛らわしい。
