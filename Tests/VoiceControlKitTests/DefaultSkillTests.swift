@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import VoiceControlKit
+import VCCore
 
 /// 質問ごとに、決めた確率を返す偽物（スキルの選択・操作の依頼か・取り消しにくいか）。
 private struct ScriptedScorer: OptionScorer {

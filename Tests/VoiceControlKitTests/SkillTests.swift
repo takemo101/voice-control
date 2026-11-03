@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import VoiceControlKit
+import VCCore
 
 private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillStore.ParseError> {
     SkillStore.parse(text, directoryName: dir, file: URL(fileURLWithPath: "/tmp/SKILL.md"))

@@ -1,5 +1,6 @@
 import FoundationModels
 import Foundation
+import VCCore
 
 /// スキルの実行。Apple の言語モデル（FoundationModels）に、スキルの本文と依頼文を渡し、**`run_command` という道具 1 つだけ**で、コマンドを実行させる。
 /// - 実行してよいのは、スキルの `allowed-commands` に一致するものだけ（`CommandPolicy`）。シェルは使わない。

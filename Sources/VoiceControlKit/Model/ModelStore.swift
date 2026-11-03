@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import VCCore
 
 /// 取得するモデルのファイル 1 つ（大きさと SHA-256 は、版を固定した値）。
 public struct ModelFile: Sendable, Equatable {
