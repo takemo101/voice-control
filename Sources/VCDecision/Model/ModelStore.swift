@@ -136,6 +136,7 @@ public enum ModelStore {
 }
 
 /// 1 ファイルを、`.part` に追記しながら取る（Range で続きから）。
+/// `@unchecked Sendable` の理由：可変な状態（`handle`・`received`・`continuation`・`failure`・`lastReported`）は、すべて `lock` で守る（呼び出し側と、通信のコールバックの両方が触る）。
 private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let url: URL
     private let part: URL
@@ -147,6 +148,7 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
     private var continuation: CheckedContinuation<Void, Error>?
     private var failure: Error?
     private var lastReported: Int64 = 0
+    private let lock = NSLock()
 
     init(url: URL, part: URL, name: String, expected: Int64, progress: @escaping @Sendable (DownloadProgress) -> Void) {
         self.url = url; self.part = part; self.name = name; self.expected = expected; self.progress = progress
@@ -155,16 +157,15 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
     func run() async throws {
         if !FileManager.default.fileExists(atPath: part.path) { FileManager.default.createFile(atPath: part.path, contents: nil) }
         let h = try FileHandle(forWritingTo: part)
-        handle = h
         let offset = try h.seekToEnd()
-        received = Int64(offset)
+        lock.withLock { handle = h; received = Int64(offset) }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
         if offset > 0 { request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range") }
         let session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
         // try?: 通信の後始末。閉じる失敗は、取得の成否に関係しない
         defer { session.invalidateAndCancel(); try? h.close() }
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            continuation = cont
+            lock.withLock { continuation = cont }
             session.dataTask(with: request).resume()
         }
     }
@@ -174,8 +175,8 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
             switch http.statusCode {
             case 206: break
             case 200: restartFromZero()  // 続きからに対応しない：最初から取り直す
-            case 416: restartFromZero(); failure = URLError(.resourceUnavailable); completionHandler(.cancel); return  // 続きの位置が合わない：捨てて、再試行
-            default: failure = ModelStoreError.http(http.statusCode, name); completionHandler(.cancel); return
+            case 416: restartFromZero(); lock.withLock { failure = URLError(.resourceUnavailable) }; completionHandler(.cancel); return  // 続きの位置が合わない：捨てて、再試行
+            default: lock.withLock { failure = ModelStoreError.http(http.statusCode, name) }; completionHandler(.cancel); return
             }
         } else {
             restartFromZero()  // file:// など
@@ -184,27 +185,38 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
     }
 
     private func restartFromZero() {
-        // try?: 先頭へ戻せなくても、あとの SHA-256 の検証が、壊れた取得を必ず拒否する
-        try? handle?.truncate(atOffset: 0)
-        try? handle?.seek(toOffset: 0)
-        received = 0
+        lock.withLock {
+            // try?: 先頭へ戻せなくても、あとの SHA-256 の検証が、壊れた取得を必ず拒否する
+            try? handle?.truncate(atOffset: 0)
+            try? handle?.seek(toOffset: 0)
+            received = 0
+        }
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        do { try handle?.write(contentsOf: data) } catch { failure = error; dataTask.cancel(); return }
-        received += Int64(data.count)
-        if received - lastReported >= 1 << 20 || received >= expected {
-            lastReported = received
-            progress(DownloadProgress(file: name, received: received, total: expected))
+        var report: DownloadProgress?
+        let failed = lock.withLock { () -> Bool in
+            do { try handle?.write(contentsOf: data) } catch { failure = error; return true }
+            received += Int64(data.count)
+            if received - lastReported >= 1 << 20 || received >= expected {
+                lastReported = received
+                report = DownloadProgress(file: name, received: received, total: expected)
+            }
+            return false
         }
+        if failed { dataTask.cancel(); return }
+        if let report { progress(report) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        let result = failure ?? error
-        if let result { continuation?.resume(throwing: result) } else {
-            progress(DownloadProgress(file: name, received: received, total: expected))
-            continuation?.resume()
+        let (cont, result, total) = lock.withLock { () -> (CheckedContinuation<Void, Error>?, Error?, Int64) in
+            let cont = continuation
+            continuation = nil
+            return (cont, failure ?? error, received)
         }
-        continuation = nil
+        if let result { cont?.resume(throwing: result) } else {
+            progress(DownloadProgress(file: name, received: total, total: expected))
+            cont?.resume()
+        }
     }
 }

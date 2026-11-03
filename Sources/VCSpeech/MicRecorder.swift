@@ -4,8 +4,12 @@ import Foundation
 public enum MicError: Error { case writeFailed(String), noInput }
 
 /// マイクの音を、ファイルへ録音する（ホットキー・ウェイクワードの前の、最小の入力）。音声は、この Mac の外へ出さない。
+/// `@unchecked Sendable` の理由：音声のスレッドと呼び出し側の両方が触る `file`・`writeError` は、`lock` で守る。
+/// `engine` は `start`・`stop` だけが触る（呼び出し側が直列にする：`RecordingSession` はロック、`vc listen` の Enter 録音は単独のスレッド）。
+/// `lock` を持ったまま `engine` を止めない（止める側が、音声のスレッドを待つため、タップと詰まる）。
 public final class MicRecorder: @unchecked Sendable {
     private let engine = AVAudioEngine()
+    private let lock = NSLock()
     private var file: AVAudioFile?
     // 書き込みは、音声のスレッドで起きる。`stop()` が、止めてから読む。
     private var writeError: String?
@@ -28,15 +32,27 @@ public final class MicRecorder: @unchecked Sendable {
         }
     }
 
-    private final class GrantBox: @unchecked Sendable { var granted = false }
+    /// `@unchecked Sendable` の理由：`granted` は、ロックで守る（通知のスレッドが書き、呼び出し側が、セマフォを待ってから読む）。
+    private final class GrantBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+        var granted: Bool {
+            get { lock.withLock { value } }
+            set { lock.withLock { value = newValue } }
+        }
+    }
 
     public func start(to url: URL) throws {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else { throw MicError.noInput }
-        file = try AVAudioFile(forWriting: url, settings: format.settings)
+        let newFile = try AVAudioFile(forWriting: url, settings: format.settings)
+        lock.withLock { file = newFile }
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
-            do { try self?.file?.write(from: buffer) } catch { self?.writeError = "\(error)" }
+            guard let self else { return }
+            lock.withLock {
+                do { try self.file?.write(from: buffer) } catch { self.writeError = "\(error)" }
+            }
         }
         try engine.start()
     }
@@ -44,12 +60,13 @@ public final class MicRecorder: @unchecked Sendable {
     public func stop() throws {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        file = nil
-        if let writeError { throw MicError.writeFailed(writeError) }
+        let error: String? = lock.withLock { file = nil; return writeError }
+        if let error { throw MicError.writeFailed(error) }
     }
 }
 
 /// ホットキーの「押した → 離した」で、1 回分の録音をする。`start()` の失敗は、`stop()` で返す。
+/// `@unchecked Sendable` の理由：可変な状態（`recorder`・`file`・`startError`）は、すべて `lock` で守る。
 public final class RecordingSession: @unchecked Sendable {
     private let lock = NSLock()
     private var recorder: MicRecorder?

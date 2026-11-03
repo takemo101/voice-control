@@ -1,8 +1,10 @@
 import Foundation
 
 /// 読み上げ（確認の問いかけ）の、いま鳴っているもの。取りやめたときに止める。
+/// `@unchecked Sendable` の理由：可変な状態（`process`）は、すべて `lock` で守る。`Process` が Sendable でないため。
+/// `shared` は、Sendable な型の定数なので、`nonisolated(unsafe)` は要らない。
 final class SaySpeaker: @unchecked Sendable {
-    nonisolated(unsafe) static let shared = SaySpeaker()
+    static let shared = SaySpeaker()
     private let lock = NSLock()
     private var process: Process?
 

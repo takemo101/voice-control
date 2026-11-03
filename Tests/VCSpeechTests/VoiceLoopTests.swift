@@ -42,17 +42,15 @@ private final class Gate: @unchecked Sendable {
     }
 }
 
-private final class FakeTrigger: PushToTalkTrigger, @unchecked Sendable {
+@MainActor private final class FakeTrigger: PushToTalkTrigger {
     var onPress: (@Sendable () -> Void)?
     var onRelease: (@Sendable () -> Void)?
 }
 
-private final class FakeEscape: EscapeSource, @unchecked Sendable {
+@MainActor private final class FakeEscape: EscapeSource {
     var onEscape: (@Sendable () -> Void)?
-    private let lock = NSLock()
-    private var calls: [Bool] = []
-    func setActive(_ active: Bool) -> Bool { lock.lock(); calls.append(active); lock.unlock(); return true }
-    var setActiveCalls: [Bool] { lock.lock(); defer { lock.unlock() }; return calls }
+    private(set) var setActiveCalls: [Bool] = []
+    func setActive(_ active: Bool) -> Bool { setActiveCalls.append(active); return true }
 }
 
 private struct RecorderFailure: Error {}
@@ -100,8 +98,8 @@ private final class FakeTranscriber: Transcribing, @unchecked Sendable {
 /// メインキューの代わり：回された手続きを、テストが動かす。
 private final class ManualScheduler: @unchecked Sendable {
     private let lock = NSLock()
-    private var immediate: [@Sendable () -> Void] = []
-    private(set) var delayed: [(delay: TimeInterval, work: @Sendable () -> Void)] = []
+    private var immediate: [@MainActor @Sendable () -> Void] = []
+    private(set) var delayed: [(delay: TimeInterval, work: @MainActor @Sendable () -> Void)] = []
 
     var scheduler: VoiceLoop.Scheduler {
         VoiceLoop.Scheduler(
@@ -110,13 +108,13 @@ private final class ManualScheduler: @unchecked Sendable {
     }
 
     /// たまっている「すぐ」の手続きを、順に動かす。
-    func runImmediate() {
+    @MainActor func runImmediate() {
         lock.lock(); let pending = immediate; immediate = []; lock.unlock()
         pending.forEach { $0() }
     }
 
     /// 遅延つきの手続きを、すべて動かす（何度でも：遅れて届いたタイマーの再現）。
-    func runDelayed() { lock.lock(); let pending = delayed; lock.unlock(); pending.forEach { $0.work() } }
+    @MainActor func runDelayed() { lock.lock(); let pending = delayed; lock.unlock(); pending.forEach { $0.work() } }
 }
 
 private final class EventLog: @unchecked Sendable {

@@ -24,7 +24,7 @@ public protocol Recording: AnyObject, Sendable {
 extension RecordingSession: Recording {}
 
 /// Esc の受け付け。実装は `EscapeKey`（Carbon のホットキー・グローバルのキー監視）。
-public protocol EscapeSource: AnyObject, Sendable {
+@MainActor public protocol EscapeSource: AnyObject, Sendable {
     var onEscape: (@Sendable () -> Void)? { get set }
     /// 受け付けを始める・やめる。始める方は、何度呼んでもよい。
     @discardableResult func setActive(_ active: Bool) -> Bool
@@ -81,12 +81,13 @@ public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _
 public final class VoiceLoop {
     /// メインキューへ回す手続き（遅延つきを含む）。テストで、手で動かせるように差し替える。
     struct Scheduler: Sendable {
-        var onMain: @Sendable (@escaping @Sendable () -> Void) -> Void
-        var afterOnMain: @Sendable (TimeInterval, @escaping @Sendable () -> Void) -> Void
+        var onMain: @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+        var afterOnMain: @Sendable (TimeInterval, @escaping @MainActor @Sendable () -> Void) -> Void
 
+        // メインキューのブロックは、メインアクターの上で動く（`assumeIsolated`）。
         static let mainQueue = Scheduler(
-            onMain: { DispatchQueue.main.async(execute: $0) },
-            afterOnMain: { delay, work in DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work) })
+            onMain: { work in DispatchQueue.main.async { MainActor.assumeIsolated { work() } } },
+            afterOnMain: { delay, work in DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { work() } } })
     }
 
     private let trigger: PushToTalkTrigger

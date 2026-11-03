@@ -2,11 +2,13 @@ import AppKit
 
 /// 画面の上の中央に出す、小さなパネル（録音中・認識中・実行の経過・結果）。
 /// クリックを通し、フォーカスを奪わない（操作の対象のアプリが、前面のまま）。画面の収録・アクセシビリティの許可は、要らない。
-/// どのスレッドから呼んでもよい（内部でメインスレッドへ回す）。呼び出し側のプロセスが、`NSApplication.run()` で動いていること。
-final class HUD: @unchecked Sendable {
+/// どのスレッドから呼んでもよい（`show`・`hide` は `nonisolated`：内部でメインスレッドへ回す）。呼び出し側のプロセスが、`NSApplication.run()` で動いていること。
+/// 描画の状態は、メインアクターの上でだけ触る（`@MainActor`）。メインキューのブロックは、`assumeIsolated` で入る。
+@MainActor final class HUD {
     typealias Mode = HUDContent.Phase
 
-    static let shared = HUD()
+    nonisolated init() {}
+    nonisolated static let shared = HUD()
 
     private static let width: CGFloat = 468
     private static let inset = NSEdgeInsets(top: 14, left: 18, bottom: 15, right: 18)
@@ -20,17 +22,17 @@ final class HUD: @unchecked Sendable {
     private var generation = 0
 
     /// 1 行だけの簡単な表示。
-    func show(_ text: String, mode: Mode, hideAfter: TimeInterval? = nil) {
+    nonisolated func show(_ text: String, mode: Mode, hideAfter: TimeInterval? = nil) {
         show(HUDContent(phase: mode, title: text), hideAfter: hideAfter)
     }
 
     /// 出す（すでに出ていれば、中身を差し替える）。`hideAfter` 秒後に消す（なければ、`hide()` まで出したまま）。
-    func show(_ content: HUDContent, hideAfter: TimeInterval? = nil) {
-        DispatchQueue.main.async { [self] in render(content, hideAfter: hideAfter) }
+    nonisolated func show(_ content: HUDContent, hideAfter: TimeInterval? = nil) {
+        DispatchQueue.main.async { [self] in MainActor.assumeIsolated { render(content, hideAfter: hideAfter) } }
     }
 
-    func hide() {
-        DispatchQueue.main.async { [self] in fadeOut() }
+    nonisolated func hide() {
+        DispatchQueue.main.async { [self] in MainActor.assumeIsolated { fadeOut() } }
     }
 
     // MARK: 描画（メインスレッド）
@@ -80,8 +82,10 @@ final class HUD: @unchecked Sendable {
         if let hideAfter {
             let token = generation
             let work = DispatchWorkItem { [weak self] in
-                guard let self, token == generation else { return }
-                fadeOut()
+                MainActor.assumeIsolated {
+                    guard let self, token == self.generation else { return }
+                    self.fadeOut()
+                }
             }
             pendingHide = work
             DispatchQueue.main.asyncAfter(deadline: .now() + hideAfter, execute: work)
@@ -97,9 +101,11 @@ final class HUD: @unchecked Sendable {
             ctx.duration = 0.2
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            guard let self, token == generation else { return }  // その間に、新しい表示が来ていれば、消さない
-            panel.orderOut(nil)
-            visible = false
+            MainActor.assumeIsolated {
+                guard let self, token == self.generation else { return }  // その間に、新しい表示が来ていれば、消さない
+                panel.orderOut(nil)
+                self.visible = false
+            }
         })
     }
 

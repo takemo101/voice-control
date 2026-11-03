@@ -107,7 +107,7 @@ public struct HotKeySpec: Equatable, Sendable {
     }
 
     /// 押している間だけ聞く入り口を作る。長押しは `ModifierHold`、キーの組み合わせは `HotKey`。
-    public func makeTrigger() throws -> any PushToTalkTrigger {
+    @MainActor public func makeTrigger() throws -> any PushToTalkTrigger {
         if let code = keyCode { return try HotKey(keyCode: code, modifiers: carbonModifiers) }
         return ModifierHold(modifier: modifierFlags)
     }

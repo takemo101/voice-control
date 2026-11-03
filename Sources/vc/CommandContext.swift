@@ -5,6 +5,7 @@ import VCPCControl
 import VCSkill
 
 /// 設定の読み取りで、壊れていることを、1 回だけ知らせる。
+/// `@unchecked Sendable` の理由：可変な状態（`shown`）は、すべて `lock` で守る。
 final class SettingsWarning: @unchecked Sendable {
     private let lock = NSLock()
     private var shown = false

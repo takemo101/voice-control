@@ -1,6 +1,7 @@
 import Foundation
 
 /// 実行の経過を、画面の上の表示に出し続ける（中身を持ち、変えるたびに出し直す）。どのスレッドから更新してもよい。
+/// `@unchecked Sendable` の理由：可変な状態（`content`）は、すべて `lock` で守る。
 final class HUDSession: @unchecked Sendable {
     private var content: HUDContent
     private let lock = NSLock()
