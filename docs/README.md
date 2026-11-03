@@ -9,7 +9,7 @@ voice-control の補助文書の入口。製品要件・受け入れ条件・対
 | [README](../README.md) | どんなツールか、いま何ができるか、どう使うか | 詳細な要件・測定の数値 |
 | [SPEC](../SPEC.md) | 何を満たすか・何を対象にしないか、受け入れ条件と実装の状態、未決事項 | 検証の成功証拠 |
 | [開発規約](../AGENTS.md) | どう調査・変更・検証・文書更新するか、守る不変条件 | 製品仕様の複製・作業履歴 |
-| [開発手順](development.md) | ビルド・テスト・インストール・GitButler・PR を、どう進めるか | 追加の実施権限 |
+| [開発手順](development.md) | ビルド・テスト・インストール・mikan の Issue 進行・GitButler・PR を、どう進めるか | 追加の実施権限・Issue 状態の複製 |
 | [構成説明](architecture.md) | Module の責務・状態の所有・時間と並行・失敗・信頼の境界はどう関係するか | 確定 API・測定の数値 |
 | [コーディング指針](coding-guidelines.md) | クリーンなコードの具体的な規則（境界・型・失敗・並行・外部コマンド・プロンプト・テスト） | 製品要件 |
 | [参考にした設計原則](references.md) | どの設計原則を選び、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
@@ -38,7 +38,7 @@ AGENTS.md              開発規約・不変条件
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・install・eval・fixture）
 Sources/
-  vc/                  実行ファイル（引数・表示・流れの組み立て）
+  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形）
   Fixture/             検証用の自作ウィンドウ
   VoiceControlKit/
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）

@@ -8,6 +8,7 @@
 |---|---|
 | 製品要件・受け入れ条件・実装の状態・未決事項 | [SPEC.md](../SPEC.md) が唯一の正本 |
 | 作業規約・操作権限・不変条件 | [AGENTS.md](../AGENTS.md)。本書は、その派生手順であり、追加の実施許可ではない |
+| Issue の現在の状態・Report | mikan（[下記](#mikan-の-issue-進行)）。文書に Status の写しを維持しない |
 | 構成・観測方法・証拠 | [構成説明](architecture.md)、[検証手順と記録](verification.md) |
 
 1. 依頼の対象と、SPEC の該当節（機能要件・受け入れ条件と状態・未決事項）を読む。
@@ -54,6 +55,27 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 3. 実機の挙動に関わるなら、自作ウィンドウ（`just fixture`）で、実際の経路を動かして観測する。
 4. 構成・要件・検証の記録に影響するなら、同じ変更で、文書を更新する（[AGENTS.md](../AGENTS.md#文書とツールの保守)）。
 
+## mikan の Issue 進行
+
+**初期化済み**。Issue の ID は mikan が採番する。進め方は、meeting-analyzer の運用に倣う。
+
+- `.mikan/` 全体は Git 管理外（`.git/info/exclude`）のローカル作業状態であり、別の clone へ Issue やボード設定は引き継がれない。配下を直接参照・編集せず、文書のリンク対象にも含めない。Issue の読取り、Status 更新、Report 追加は mikan MCP だけで行う。
+- 使える機能は、`search_tools` で発見し、`get_tool_details` で schema と分類を確認する。読取り専用と分類されたものだけを `call_read_tool`、更新または未分類を `call_write_tool` から呼ぶ（`get_board` のように、読むだけでも、未分類のものは `call_read_tool` に拒否される。読むだけと確かめてから、`call_write_tool` を使う）。
+- 実装 Issue は **`backlog → ready → active → completed`** の順で進める。各遷移の直前に、現在の Status を再読取りし、期待する前状態に一致することを確認する。
+
+| Status | 扱い |
+|---|---|
+| `backlog` | 候補。Issue があるだけでは着手許可にならない |
+| `ready` | 対象範囲、前提・依存、SPEC の条件と今回の操作権限を確認済み |
+| `active` | 実装直前に移す。同時に active の実装 Issue は最大 1 件 |
+| `blocked` | 未承認、前提不足、検査失敗、未解決レビュー、merge・同期・受け入れの阻害などを理由付きで記録する |
+| `completed` | 必要な検証・レビュー・受け入れ、PR の normal merge、workspace 同期、Report が揃った後にだけ移す |
+
+- 通常の流れ：実装 → 対象と失敗ケースの検証 → 全体検査（`just test`・必要なら `just eval`）→ 独立レビュー → 指摘修正 → PR → `main` へ normal merge → **GitButler 同期（`but pull`。毎回）** → Report → Status を再読取りして `completed`。
+- 検査失敗・未解決レビュー・未マージ・同期の未完了・受け入れの不足は、`active` または理由付き `blocked` に残し、完成を宣言して次の実装 Issue を開始しない。**人間の確認（マイクの実録音・声の「はい」・実アプリでの動作・許可の流れ）は、別の判断として残る**。Issue の完了は、製品全体の受け入れではない。
+- Report に、対象と SPEC 節、実行した検査（単体テスト・`just eval`）と結果、独立レビューと指摘対応、PR・merge commit、同期結果、受け入れの範囲、未実施事項を記録する。詳細な実機の証拠は [検証記録](verification.md) へリンクする。
+- **Issue・Report・Status にも、発話・画面の内容・個人の情報を書かない**（[AGENTS.md](../AGENTS.md#安全とプライバシーこの製品の不変条件)）。
+
 ## Git・GitHub・GitButler
 
 リポジトリは GitHub の公開リポジトリ（`takemo101/voice-control`）。基本のブランチは **`main`**。**GitButler で進める**：`main` を target（`origin/main`）にし、作業ツリーは `gitbutler/workspace` ブランチ（`but setup`）。
@@ -61,6 +83,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 - **Git の書込みは `but`**。raw Git の `add`・`commit`・`checkout`・`merge`・`rebase`・`push` で書き込まない（読取りは可）。変更は、専用の branch に `but commit -b <branch> -m <message> <ids…>`。`main` へ直接 commit しない。
 - 変更の確認：`but diff`（未コミットの差分と ID）、`but status`（branch・commit の概観）。ID は、直前の出力からそのまま写す。
 - 同期：`but pull`（target の更新を、workspace に取り込む）。先に確認したいときは `but pull --check`。
+- **PR を merge したら、毎回、すぐに同期する**：`but pull` → `but status`（base が merge 後の `main`、統合された branch が消えている）。`but pull --check` で、先に衝突の有無を見てもよい。衝突した commit は、`but resolve` で、古いものから直す。同期が済むまで、次の作業・PR を始めない。
 - PR：`but pr new <branch> -F <message-file>`（push を含む）。PR を依頼されたときだけ作る。PR の target・head・差分を確かめてから、`main` へ normal merge する。admin・force・保護の迂回・`but land` による PR 回避をしない。
 - push・公開・リリース・認証は、利用者の依頼があるときだけ。**秘密・個人の情報（トークン・API キー・実際の発話・画面の内容・個人のパス）をコミットしない**（コミットの前に確かめる）。
 - コミットの作者は、リポジトリの設定（`user.name`・`user.email`）のまま。

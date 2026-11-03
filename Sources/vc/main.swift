@@ -8,11 +8,9 @@ import VoiceControlKit
 //   vc eval corpus/plans.tsv            固定した画面での、操作の当たり率（実機を操作しない）
 // 共通：--model <dir>（なければ VC_MODEL_DIR、./models/tiny-jev-0.6b、~/Library/Application Support/voice-control/models/tiny-jev-0.6b の順）  --length <tokens>（既定 1024）
 
-func fail(_ message: String) -> Never {
-    FileHandle.standardError.write(Data((message + "\n").utf8))
-    exit(1)
-}
 
+// ヘルプは、モデルの読み込みなど、他の処理より前に出す。
+if Help.handle(Array(CommandLine.arguments.dropFirst())) { exit(0) }
 var args = Array(CommandLine.arguments.dropFirst())
 func option(_ name: String) -> String? {
     guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
@@ -26,14 +24,15 @@ func flag(_ name: String) -> Bool {
     return true
 }
 /// モデルの場所：--model、環境変数 VC_MODEL_DIR、./models/tiny-jev-0.6b、~/Library/Application Support/voice-control/models/tiny-jev-0.6b の順に、最初に tokenizer.json があるもの。
+/// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
+let modelOption = option("--model")
 func resolveModelDir() -> URL {
     let support = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/voice-control/models/tiny-jev-0.6b").path
-    let candidates = [option("--model"), ProcessInfo.processInfo.environment["VC_MODEL_DIR"], "models/tiny-jev-0.6b", support].compactMap { $0 }.filter { !$0.isEmpty }
+    let candidates = [modelOption, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], "models/tiny-jev-0.6b", support].compactMap { $0 }.filter { !$0.isEmpty }
     let found = candidates.first { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }
-    guard let found else { fail("モデルが見つかりません（探した場所: \(candidates.joined(separator: ", "))）。just fetch-model") }
+    guard let found else { fail("モデルが見つかりません（探した場所: \(candidates.joined(separator: ", "))）。just fetch-model で取得") }
     return URL(fileURLWithPath: found)
 }
-let modelDir = resolveModelDir()
 let length = option("--length").flatMap(Int.init) ?? 1024
 let appName = option("--app")
 let execute = flag("--execute"), yes = flag("--yes"), speak = flag("--speak"), hotkeyMode = flag("--hotkey"), llmMode = flag("--llm"), llmSplit = flag("--llm-split"), noContext = flag("--no-context"), noLocation = flag("--no-location")
@@ -43,28 +42,33 @@ let triggerName = option("--trigger") ?? "shift"
 let sessionHistory = HistoryStore()
 var gate = Gate()
 if let f = option("--floor").flatMap(Double.init) { gate.floor = f }
-guard let command = args.first else { fail("usage: vc plan|act <発話> | vc eval <plans.tsv>") }
+guard let command = args.first else { print(Help.overview()); exit(0) }
 
 func loadJev() -> TinyJev {
     do {
         let t0 = Date()
-        let jev = try TinyJev(directory: modelDir, length: length)
+        let jev = try TinyJev(directory: resolveModelDir(), length: length)
         _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // グラフのコンパイルを、計測の外へ出す
-        FileHandle.standardError.write(Data(String(format: "model loaded %.1fs (length %d)\n", Date().timeIntervalSince(t0), length).utf8))
+        eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), length)))
         return jev
     } catch {
-        fail("モデルを読めません: \(error)（scripts/fetch-model.sh で取得）")
+        fail("モデルを読めません: \(error)（just fetch-model で取得）")
     }
 }
 
-func pct(_ p: Double) -> String { String(format: "%5.1f%%", p * 100) }
 
 func describe(_ plan: Plan) {
-    print("  選択: \(plan.choice)  \(pct(plan.probability))（採点 \(plan.rounds) 回）")
-    if let risk = plan.risk { print("  取り消しにくい確率: \(pct(risk))") }
-    if let note = plan.note { print("  注意：\(note)") }
-    if let step = plan.step { print("  → \(step.summary)") }
-    print("  gate: \(plan.verdict)" + (plan.rejection.map { "（\($0)）" } ?? ""))
+    kv("選択", "\(plan.choice)  \(pct(plan.probability))" + Style.dim("（採点 \(plan.rounds) 回）"))
+    if let risk = plan.risk { kv("危険度", pct(risk) + Style.dim("（取り消しにくい確率）")) }
+    if let step = plan.step { kv("手", step.summary) }
+    let verdict: String
+    switch plan.verdict {
+    case .execute: verdict = Style.green("✓ 実行")
+    case .confirm: verdict = Style.yellow("? 確認が要る")
+    case .reject: verdict = Style.red("✗ 実行しない")
+    }
+    kv("判定", verdict + (plan.rejection.map { Style.dim("（\($0)）") } ?? ""))
+    if let note = plan.note { notice(note) }
 }
 
 /// 利用者が足したキー操作の定義（JSON。`vc plan`・`vc act` の候補）。`--keys <dir>`、`VC_KEYS_DIR`、`./keys`、`~/.voice-control/keys` の、あるものを全部読む。
@@ -82,7 +86,7 @@ let skillCatalog: SkillCatalog.Loaded = {
 func makeTrigger() throws -> PushToTalkTrigger {
     switch triggerName {
     case "shift":
-        if !ModifierHold.isTrusted { print("注意：Shift の長押しの検出には、アクセシビリティの許可が要ります（この端末アプリに）。許可がないと、何も届きません") }
+        if !ModifierHold.isTrusted { notice("Shift の長押しの検出には、アクセシビリティの許可が要ります（この端末アプリに）。許可がないと、何も届きません") }
         return ModifierHold(modifier: .shift)
     case "ctrl-opt-space": return try HotKey()
     default: fail("知らない --trigger: \(triggerName)（shift か ctrl-opt-space）")
@@ -156,32 +160,33 @@ func clauses(for utterance: String) async -> [String] {
 /// 実行しない（plan・--execute なし）ときは、いまの画面で、各手を計画して見せるだけ（前の手の結果は、反映されない）。
 func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, act: Bool, confirm: (Plan) async throws -> Bool) async throws {
     for (i, clause) in clauses.enumerated() {
-        if clauses.count > 1 { print("[\(i + 1)/\(clauses.count)] \(clause)") }
+        let more = i + 1 < clauses.count
+        heading(clauses.count > 1 ? "[\(i + 1)/\(clauses.count)] \(clause)" : clause)
         let plan = try planner.plan(clause, history: noContext ? [] : sessionHistory.entries)
         describe(plan)
-        guard let step = plan.step, plan.verdict != .reject else { print("→ 実行しない\(i + 1 < clauses.count ? "（残りも中止）" : "")"); return }
+        guard let step = plan.step, plan.verdict != .reject else { print("  " + Style.dim("→ 実行しない" + (more ? "（残りも中止）" : ""))); return }
         guard act, execute else {
-            if act { print("dry-run：実行していない（--execute で実行）") }
+            if act { print("  " + Style.dim("dry-run：実行していない（--execute で実行）")) }
             continue
         }
-        if plan.verdict == .confirm, !(try await confirm(plan)) { print("やめた（確認が取れない）\(i + 1 < clauses.count ? "。残りも中止" : "")"); return }
+        if plan.verdict == .confirm, !(try await confirm(plan)) { print("  " + Style.yellow("やめた（確認が取れない）" + (more ? "。残りも中止" : ""))); return }
         try desktop.perform(step)
         sessionHistory.append(Executed(step: step))
-        print("done")
-        if i + 1 < clauses.count { try await Task.sleep(nanoseconds: 800_000_000) }   // 画面が落ち着くのを待つ
+        print("  " + Style.green("✓ done"))
+        if more { try await Task.sleep(nanoseconds: 800_000_000) }   // 画面が落ち着くのを待つ
     }
 }
 
 switch command {
 case "plan", "act":
-    guard args.count >= 2 || audioFile != nil else { fail("usage: vc \(command) <発話> | --audio <ファイル> [--app <名前>]") }
+    guard args.count >= 2 || audioFile != nil else { usageError(command, "発話か --audio <ファイル> を渡してください（例: vc \(command) \"下にスクロールして\"）") }
     let desktop = AgentDesktop(app: appName)
     let planner = Planner(scorer: loadJev(), desktop: desktop, gate: gate, skills: skillCatalog.shortcuts, useLocation: !noLocation)
     do {
         var utterance = args.count >= 2 ? args[1] : ""
         if let audio = audioFile {
             utterance = try await FileTranscriber().transcribe(file: URL(fileURLWithPath: audio))
-            print("heard: \(utterance)")   // 文字起こしの表示は、この検証の端末だけ（ファイルには残さない）
+            kv("聞こえた", utterance)   // 文字起こしの表示は、この検証の端末だけ（ファイルには残さない）
         }
         try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: command == "act", confirm: { _ in yes })
     } catch { fail("\(error)") }
@@ -213,29 +218,29 @@ case "listen":
                     guard let file = await iterator.next() else { return nil }
                     defer { try? FileManager.default.removeItem(at: file) }
                     let text = try await FileTranscriber().transcribe(file: file)
-                    print("heard: \(text)")
+                    kv("聞こえた", text)
                     return text
                 }
                 while true {
                     do {
                         guard let utterance = try await nextUtterance() else { break }
-                        guard !utterance.isEmpty else { print("聞き取れなかった"); continue }
+                        guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
                         try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, confirm: { plan in
                             say("\(plan.step?.spoken ?? "この操作")。実行しますか")
-                            print("確認待ち：ホットキーを押して「はい」と言う")
+                            notice("確認待ち：もう一度トリガーを押して「はい」と言う")
                             guard let answer = try await nextUtterance() else { return false }
                             return try confirmation.isYes(answer)
                         })
-                    } catch { print("失敗: \(error)") }
+                    } catch { print(Style.red("失敗:") + " \(error)") }
                 }
             }
-            print(triggerName == "shift" ? "Shift を単独で押し続けている間だけ聞きます（0.35 秒以上。Ctrl+C で終了）" : "control + option + space を押している間だけ聞きます（Ctrl+C で終了）")
+            print(Style.bold(triggerName == "shift" ? "Shift を単独で押し続けている間だけ聞きます" : "control + option + space を押している間だけ聞きます") + Style.dim("（Ctrl+C で終了）"))
             NSApplication.shared.setActivationPolicy(.accessory)
             NSApplication.shared.run()
         } catch { fail("ホットキーを登録できません: \(error)") }
     }
     while true {
-        print("\nEnter で録音開始（q で終了）> ", terminator: "")
+        print("\n" + Style.bold("Enter で録音開始（q で終了）> "), terminator: "")
         guard let line = readLine(), line != "q" else { break }
         let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-\(UUID().uuidString).caf")
         defer { try? FileManager.default.removeItem(at: file) }
@@ -246,10 +251,10 @@ case "listen":
             _ = readLine()
             try recorder.stop()
             let utterance = try await FileTranscriber().transcribe(file: file)
-            print("heard: \(utterance)")
-            guard !utterance.isEmpty else { print("聞き取れなかった"); continue }
+            kv("聞こえた", utterance)
+            guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
             try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, confirm: { _ in yes })
-        } catch { print("失敗: \(error)") }
+        } catch { print(Style.red("失敗:") + " \(error)") }
     }
 
 case "llm":
@@ -260,13 +265,13 @@ case "llm":
 
 case "decompose":
     // vc decompose <発話>：長い依頼の分け方を、ルール（ClauseSplitter）と言語モデル（FoundationModels）で比べる。
-    guard args.count >= 2 else { fail("usage: vc decompose <発話>") }
-    print("ルール:")
+    guard args.count >= 2 else { usageError("decompose", "発話を渡してください") }
+    heading("ルール")
     for (i, c) in ClauseSplitter.split(args[1]).enumerated() { print("  \(i + 1). \(c)") }
     do {
         let t0 = Date()
         let steps = try await LLMDecomposer().steps(for: args[1])
-        print(String(format: "言語モデル（%.1f 秒）:", Date().timeIntervalSince(t0)))
+        heading("言語モデル" + Style.dim("（\(seconds(t0))）"))
         for (i, c) in steps.enumerated() { print("  \(i + 1). \(c)") }
     } catch { fail("\(error)") }
 
@@ -296,14 +301,21 @@ case "eval-context":
         }
         print(row + "  （期待 \(f[2])）")
     }
-    print("文脈あり \(hitsWith)/\(total)（確認なしの誤り \(wrongSilentWith)）／ 文脈なし \(hitsWithout)/\(total)（確認なしの誤り \(wrongSilentWithout)）")
+    heading("結果（\(total) 文）")
+    kv("文脈あり", "\(hitsWith)/\(total)" + Style.dim("（確認なしの誤り \(wrongSilentWith) 件）"), width: 10)
+    kv("文脈なし", "\(hitsWithout)/\(total)" + Style.dim("（確認なしの誤り \(wrongSilentWithout) 件）"), width: 10)
 
 case "keys":
     // vc keys：組み込みのキー操作と、足した定義（JSON。`vc plan`・`vc act` のショートカットの候補）の一覧。
-    print("組み込み \(Shortcut.all.count) 件（Action.swift）")
-    print("足した定義 \(skillCatalog.shortcuts.count) 件：")
-    for s in skillCatalog.shortcuts { print("  \(s.option)  keys=\(s.combo)\(s.app.map { "  app=\($0)" } ?? "")\(s.when.map { "  when=\($0)" } ?? "")\(s.needsConfirmation ? "  確認つき" : "")") }
-    if !skillCatalog.problems.isEmpty { print("読み込めなかった \(skillCatalog.problems.count) 件："); skillCatalog.problems.forEach { print("  \($0)") } }
+    print(Style.bold("キー操作") + "  組み込み \(Shortcut.all.count) 件・足した定義 \(skillCatalog.shortcuts.count) 件")
+    let optionWidth = (skillCatalog.shortcuts.map { displayWidth($0.option) }.max() ?? 0) + 2
+    for s in skillCatalog.shortcuts {
+        print("  " + pad(s.option, to: optionWidth) + Style.dim("keys=\(s.combo)\(s.app.map { "  app=\($0)" } ?? "")\(s.when.map { "  when=\($0)" } ?? "")") + (s.needsConfirmation ? Style.yellow("  確認つき") : ""))
+    }
+    if !skillCatalog.problems.isEmpty {
+        print("\n" + Style.yellow("読み込めなかった \(skillCatalog.problems.count) 件"))
+        skillCatalog.problems.forEach { print("  \($0)") }
+    }
 
 case "skills":
     // vc skills [list]               スキルの一覧（name・description・有効／無効）
@@ -314,30 +326,40 @@ case "skills":
     var settings = Settings.load()
     switch sub {
     case "list":
-        if loaded.skills.isEmpty { print("スキルがありません（\(VoiceControlHome.skillsDirectory.path)/<name>/SKILL.md に置く。作り方：skills/voice-control-skill-author）") }
-        let width = loaded.skills.map { $0.name.count }.max() ?? 0
-        for s in loaded.skills {
-            print("\(settings.isEnabled(s.name) ? "[有効]" : "[無効]")  \(s.name.padding(toLength: width, withPad: " ", startingAt: 0))  \(s.description)")
+        let enabledCount = loaded.skills.filter { settings.isEnabled($0.name) }.count
+        print(Style.bold("スキル") + " \(loaded.skills.count) 件（有効 \(enabledCount)）  " + Style.dim(VoiceControlHome.skillsDirectory.path))
+        if loaded.skills.isEmpty {
+            print("\n  まだありません。\(VoiceControlHome.skillsDirectory.path)/<name>/SKILL.md に置きます。")
+            print("  作り方: skills/voice-control-skill-author/SKILL.md、書式: docs/skills.md")
+        } else {
+            let width = max(4, loaded.skills.map { displayWidth($0.name) }.max() ?? 0)
+            print("\n  " + Style.dim(pad("状態", to: 6) + pad("name", to: width + 2) + "説明"))
+            for s in loaded.skills {
+                let on = settings.isEnabled(s.name)
+                print("  " + (on ? Style.green(pad("有効", to: 6)) : Style.dim(pad("無効", to: 6))) + pad(s.name, to: width + 2) + (on ? s.description : Style.dim(s.description)))
+            }
         }
         if !loaded.problems.isEmpty {
-            print("\n読み込めなかった \(loaded.problems.count) 件：")
-            loaded.problems.forEach { print("  \($0.location)：\($0.reason)") }
+            print("\n" + Style.yellow("読み込めなかった \(loaded.problems.count) 件"))
+            loaded.problems.forEach { print("  \(pad($0.location, to: 18))\($0.reason)") }
         }
     case "show":
-        guard args.count >= 3, let s = loaded.skills.first(where: { $0.name == args[2] }) else { fail("usage: vc skills show <name>（一覧：vc skills list）") }
-        print("name: \(s.name)（\(settings.isEnabled(s.name) ? "有効" : "無効")）")
-        print("description: \(s.description)")
-        print("allowed-commands: \(s.allowedCommands.joined(separator: "、"))")
-        print("confirm: \(s.confirm)")
-        print("file: \(s.file.path)")
+        guard args.count >= 3 else { usageError("skills", "name を渡してください（例: vc skills show open-app）") }
+        guard let s = loaded.skills.first(where: { $0.name == args[2] }) else { fail("スキルがありません: \(args[2])（一覧：vc skills）") }
+        let on = settings.isEnabled(s.name)
+        print(Style.bold(s.name) + "  " + (on ? Style.green("有効") : Style.dim("無効")))
+        kv("説明", s.description, width: 6)
+        kv("許可", s.allowedCommands.joined(separator: "、"), width: 6)
+        kv("確認", s.confirm ? "必須" : "なし", width: 6)
+        kv("場所", s.file.path, width: 6)
     case "enable", "disable":
-        guard args.count >= 3 else { fail("usage: vc skills \(sub) <name>") }
-        guard loaded.skills.contains(where: { $0.name == args[2] }) else { fail("スキルがありません: \(args[2])（一覧：vc skills list）") }
+        guard args.count >= 3 else { usageError("skills", "name を渡してください（例: vc skills \(sub) open-app）") }
+        guard loaded.skills.contains(where: { $0.name == args[2] }) else { fail("スキルがありません: \(args[2])（一覧：vc skills）") }
         settings.setEnabled(args[2], sub == "enable")
         do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
-        print("\(args[2]) を\(sub == "enable" ? "有効" : "無効")にしました")
+        print(sub == "enable" ? Style.green("✓") + " \(args[2]) を有効にしました" : Style.dim("−") + " \(args[2]) を無効にしました")
     default:
-        fail("usage: vc skills [list|show <name>|enable <name>|disable <name>]")
+        usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable）")
     }
 
 case "run":
@@ -346,64 +368,69 @@ case "run":
     // 実行するコマンドと結果は、すべて表示する。実行してよいコマンドは、スキルの allowed-commands だけ（シェルは使わない）。
     let dryRun = flag("--dry-run")
     let forced = option("--skill")
-    guard args.count >= 2 else { fail("usage: vc run <依頼> [--skill <name>] [--dry-run] [--yes]") }
+    guard args.count >= 2 else { usageError("run", "依頼を渡してください（例: vc run \"Safariを開いて\"）") }
     let request = args[1]
     let loaded = SkillStore.load()
-    loaded.problems.forEach { FileHandle.standardError.write(Data("スキルを読めない: \($0.location)：\($0.reason)\n".utf8)) }
+    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
     let settings = Settings.load()
     let enabled = loaded.skills.filter { settings.isEnabled($0.name) }
-    guard !enabled.isEmpty else { fail("有効なスキルがありません（vc skills list）") }
+    guard !enabled.isEmpty else { fail("有効なスキルがありません（vc skills で確認）") }
 
     var skill: Skill
     var probability = 1.0
+    heading("スキルの選択")
     if let forced {
-        guard let s = loaded.skills.first(where: { $0.name == forced }) else { fail("スキルがありません: \(forced)") }
+        guard let s = loaded.skills.first(where: { $0.name == forced }) else { fail("スキルがありません: \(forced)（一覧：vc skills）") }
         guard settings.isEnabled(s.name) else { fail("スキル \(forced) は無効です（vc skills enable \(forced)）") }
         skill = s
-        print("スキル: \(s.name)（指定）")
+        kv("指定", Style.bold(s.name))
     } else {
         let jev = loadJev()
         let t0 = Date()
         do {
             let routed = try SkillRouter(scorer: jev, skills: enabled).route(request)
-            print(String(format: "Tiny-Jev の選択（%.2f 秒）: %@  %.1f%%", Date().timeIntervalSince(t0), routed.skill?.name ?? "（どれでもない）", routed.probability * 100))
-            guard let s = routed.skill, routed.probability >= gate.floor else { print("→ 実行しない"); exit(0) }
+            let chosen = routed.skill.map { Style.bold($0.name) } ?? Style.dim("（どれでもない）")
+            kv("Tiny-Jev", "\(chosen)  \(pct(routed.probability))" + Style.dim("（\(seconds(t0))）"))
+            guard let s = routed.skill, routed.probability >= gate.floor else { print("\n  " + Style.dim("→ 実行しない")); exit(0) }
             skill = s
             probability = routed.probability
         } catch { fail("\(error)") }
     }
-    print("  \(skill.description)")
-    print("  許可するコマンド: \(skill.allowedCommands.joined(separator: "、"))")
+    kv("説明", skill.description)
+    kv("許可", skill.allowedCommands.joined(separator: "、"))
 
     if skill.confirm || probability < gate.execute {
-        print(skill.confirm ? "このスキルは、実行の前に確認が要ります。" : "確信度が高くないので、確認します。")
+        notice(skill.confirm ? "このスキルは、実行の前に確認が要ります。" : "確信度が高くないので、確認します。")
         var approved = yes
-        if !yes { print("実行しますか？ [y/N] ", terminator: ""); approved = (readLine() ?? "").lowercased().hasPrefix("y") }
-        guard approved else { print("やめた"); exit(0) }
+        if !yes { print("  実行しますか？ [y/N] ", terminator: ""); approved = (readLine() ?? "").lowercased().hasPrefix("y") }
+        guard approved else { print("  " + Style.dim("やめた")); exit(0) }
     }
 
+    heading(dryRun ? "実行（dry-run：コマンドは実行しない）" : "実行")
     let agent = SkillAgent(skill: skill, dryRun: dryRun, display: .init(
-        onCommand: { print("$ \($0)\(dryRun ? "   （dry-run：実行しない）" : "")") },
+        onCommand: { print("  " + Style.bold("$ " + $0)) },
         onResult: { code, output in
-            let lines = output.split(separator: "\n", omittingEmptySubsequences: false).prefix(8)
-            print("  exit \(code)" + (lines.isEmpty ? "" : "\n" + lines.map { "  │ \($0)" }.joined(separator: "\n")))
+            print("    " + (code == 0 ? Style.green("✓ exit 0") : Style.red("✗ exit \(code)")))
+            let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
+            for line in lines.prefix(8) { print("    " + Style.dim("│ ") + line) }
+            if lines.count > 8 { print("    " + Style.dim("… 他 \(lines.count - 8) 行")) }
         },
-        onDenied: { print("✗ 拒否: \($0)  — \($1)") }))
+        onDenied: { print("  " + Style.red("✗ 拒否: ") + $0 + Style.dim("  — " + $1)) }))
     let t1 = Date()
     do {
         let reply = try await agent.run(request: request)
-        print(String(format: "返事（%.1f 秒）: %@", Date().timeIntervalSince(t1), reply))
-        print("実行したコマンド: \(agent.executedCommands.count) 件")
+        heading("結果")
+        kv("返事", reply)
+        kv("所要", seconds(t1) + "・実行したコマンド \(agent.executedCommands.count) 件" + (dryRun ? Style.dim("（dry-run）") : ""))
     } catch { fail("\(error)") }
 
 case "hotkey-check":
-    // vc hotkey-check [--seconds N]：ホットキー（control + option + space）の「押した・離した」が届くかを確かめる（マイクは使わない）。
     let seconds = option("--seconds").flatMap(Double.init) ?? 10
     do {
         let hotkey = try makeTrigger()
-        hotkey.onPress = { print("pressed"); fflush(stdout) }
-        hotkey.onRelease = { print("released"); fflush(stdout) }
-        print((triggerName == "shift" ? "Shift を単独で 0.35 秒以上押して、離す" : "control + option + space を押して、離す") + "（\(Int(seconds)) 秒間）")
+        hotkey.onPress = { print(Style.green("▼ pressed")); fflush(stdout) }
+        hotkey.onRelease = { print(Style.dim("▲ released")); fflush(stdout) }
+        print((triggerName == "shift" ? "Shift を単独で 0.35 秒以上押して、離す" : "control + option + space を押して、離す") + Style.dim("（\(Int(seconds)) 秒間）"))
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { _ = hotkey; exit(0) }
         NSApplication.shared.setActivationPolicy(.accessory)
         NSApplication.shared.run()
@@ -453,7 +480,7 @@ case "eval":
         total += 1
         byKind[kind, default: (0, 0)].total += 1
         if accepted.contains(where: matches) { hits += 1; byKind[kind]!.hit += 1 } else {
-            print("MISS \(plan.verdict) \(got) ≠ \(f[1]) [\(f[0])]: \(f[2])" + (utterance != f[2] ? " (聞こえ: \(utterance))" : "") + "  ← \(plan.choice) \(Int(plan.probability * 100))%")
+            print(Style.red("MISS") + " \(plan.verdict) \(got) ≠ \(f[1]) [\(f[0])]: \(f[2])" + (utterance != f[2] ? " (聞こえ: \(utterance))" : "") + "  ← \(plan.choice) \(Int(plan.probability * 100))%")
             if plan.verdict == .execute { wrongExecuted += 1 }
         }
         if f[1] == "none" { negatives += 1; if plan.verdict != .reject { negativeLeaked += 1 } }
@@ -468,7 +495,7 @@ case "eval":
             var llmGot = "none"
             if case .step(let s) = next { llmGot = canonicalStep(s) }
             let llmOK = accepted.contains(llmGot)
-            if llmOK { llmHits += 1 } else { print("LLM-MISS \(llmGot) ≠ \(f[1]) [\(f[0])]: \(f[2])  (\(next))") }
+            if llmOK { llmHits += 1 } else { print(Style.red("LLM-MISS") + " \(llmGot) ≠ \(f[1]) [\(f[0])]: \(f[2])  (\(next))") }
             // 併用：言語モデルの手を使い、Tiny-Jev と一致して、Tiny-Jev のゲートが「実行」のときだけ、確認なしで実行する。
             let agree = llmGot != "none" && llmGot == got
             let silent = agree && plan.verdict == .execute
@@ -478,23 +505,29 @@ case "eval":
             if f[1] == "none" && llmGot != "none" { llmNegativeLeaked += 1 }
         }
     }
-    if speak { print("音声経由：文字起こしが、元の文と一致しなかった \(misheard)/\(heard)") }
-    print("accuracy \(hits)/\(total) = \(pct(Double(hits) / Double(total)))")
-    for (k, v) in byKind.sorted(by: { $0.key < $1.key }) { print("  \(k): \(v.hit)/\(v.total)") }
-    print("誤って「そのまま実行」: \(wrongExecuted) 件（確認なしで、違う操作をした数）")
-    print("操作の依頼を、確認なしで実行できた: \(positiveExecuted)/\(positives)")
-    print("操作でない発話が、確認か実行へ通った: \(negativeLeaked)/\(negatives)")
+    heading("結果（\(total) 文）")
+    let w = 14
+    if speak { kv("音声経由", "文字起こしが元の文と違った \(misheard)/\(heard)", width: w) }
+    kv("正解", "\(hits)/\(total)  \(pct(Double(hits) / Double(total)))", width: w)
+    for (k, v) in byKind.sorted(by: { $0.key < $1.key }) { kv("  " + k, "\(v.hit)/\(v.total)", width: w) }
+    let wrong = "\(wrongExecuted) 件" + Style.dim("（確認なしで、違う操作を実行した数）")
+    kv("危険な誤り", wrongExecuted > 0 ? Style.red(wrong) : Style.green(wrong), width: w)
+    kv("確認なしで実行", "\(positiveExecuted)/\(positives)" + Style.dim("（操作の依頼のうち）"), width: w)
+    kv("会話が通った", "\(negativeLeaked)/\(negatives)" + Style.dim("（操作でない発話が、確認か実行へ通った数）"), width: w)
     let sorted = millis.sorted()
-    print(String(format: "latency per utterance: median %.0f ms, p95 %.0f ms", sorted[sorted.count / 2], sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))]))
+    kv("時間", String(format: "中央値 %.0f ms・p95 %.0f ms（1 発話）", sorted[sorted.count / 2], sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))]), width: w)
     if llmMode {
         let ls = llmMillis.sorted()
-        print("--- Apple 言語モデル（FoundationModels）")
-        print("accuracy \(llmHits)/\(total) = \(pct(Double(llmHits) / Double(total)))")
-        print("操作でない発話に、手を返した: \(llmNegativeLeaked)/\(negatives)　／　違う手を返した（全体）: \(llmWrongAny)")
-        print("併用（言語モデルの手＋Tiny-Jev と一致・ゲート「実行」のときだけ確認なし）：誤って確認なしで実行 \(llmHybridWrongExecuted) 件、確認なしで正しく実行 \(llmHybridPositiveExecuted)/\(positives)")
-        print(String(format: "latency per utterance: median %.0f ms, p95 %.0f ms", ls[ls.count / 2], ls[min(ls.count - 1, Int(Double(ls.count) * 0.95))]))
+        heading("Apple の言語モデル（FoundationModels）")
+        kv("正解", "\(llmHits)/\(total)  \(pct(Double(llmHits) / Double(total)))", width: w)
+        kv("会話に手を返した", "\(llmNegativeLeaked)/\(negatives)", width: w)
+        kv("違う手を返した", "\(llmWrongAny)（全体）", width: w)
+        kv("併用", "誤って確認なしで実行 \(llmHybridWrongExecuted) 件・確認なしで正しく実行 \(llmHybridPositiveExecuted)/\(positives)" + Style.dim("（Tiny-Jev と一致・ゲート「実行」のときだけ）"), width: w)
+        kv("時間", String(format: "中央値 %.0f ms・p95 %.0f ms（1 発話）", ls[ls.count / 2], ls[min(ls.count - 1, Int(Double(ls.count) * 0.95))]), width: w)
     }
 
 default:
-    fail("unknown command: \(command)")
+    eprint(Style.errRed("不明なコマンド:") + " \(command)")
+    eprint("コマンドの一覧: vc --help")
+    exit(2)
 }
