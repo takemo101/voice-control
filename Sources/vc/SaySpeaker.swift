@@ -20,3 +20,6 @@ final class SaySpeaker: @unchecked Sendable {
         if let p, p.isRunning { p.terminate() }
     }
 }
+
+/// 読み上げる（確認の問いかけ）。終わるまで待たない。取りやめたときは、止める（`SaySpeaker`）。
+func say(_ text: String) { SaySpeaker.shared.say(text) }

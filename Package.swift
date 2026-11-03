@@ -26,6 +26,8 @@ let package = Package(
         .testTarget(name: "VCSpeechTests", dependencies: ["VCCore", "VCSpeech"], path: "Tests/VCSpeechTests"),
         .testTarget(name: "VCSkillTests", dependencies: ["VCCore", "VCDecision", "VCSkill", "VCSpeech"], path: "Tests/VCSkillTests"),
         .testTarget(name: "VCPCControlTests", dependencies: ["VCCore", "VCDecision", "VCPCControl"], path: "Tests/VCPCControlTests"),
+        // 試す用の CLI の引数の読み方・コマンドの一覧（`@testable import vc`）。
+        .testTarget(name: "vcTests", dependencies: ["vc"], path: "Tests/vcTests"),
     ],
     swiftLanguageModes: [.v5]
 )

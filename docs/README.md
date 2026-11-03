@@ -39,7 +39,7 @@ LICENSE                MIT
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・install・eval・fixture）
 Sources/
-  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止）
+  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）と、`skills`・`run`・`plan`・`act`・`listen`・`eval`。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`keys`・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`・`llm`・`decompose`・`eval-context`、PlanSupport.swift・SkillSupport.swift・HotKeySupport.swift：コマンドが使う共通の処理、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止）
   Fixture/             検証用の自作ウィンドウ
   VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図）
   VCDecision/          選択と判断の土台
@@ -49,7 +49,7 @@ Sources/
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合・実行（CommandRunner・OutputCompactor・RefAliases）・言語モデル・既定スキル（DefaultSkill）
   VCPCControl/         PC 操作の計画・実行・agent-desktop
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの状態（VoiceActivity）
-Tests/                 単体テスト（Swift Testing）。ターゲットごと：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests
+Tests/                 単体テスト（Swift Testing）。ターゲットごと：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests・vcTests（`vc` の引数の読み方・コマンドの一覧）
 corpus/                評価用の文（plans.tsv・followups.tsv・gate.tsv）と、自作ウィンドウの画面（snapshots/）
 keys/                  キー操作の JSON 定義の例
 skills/
