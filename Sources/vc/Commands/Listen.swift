@@ -34,8 +34,9 @@ struct ListenCommand: Command {
         let desktop = AgentDesktop(app: context.options.app)
         let jev = context.loadJev()
         let planner = Planner(scorer: jev, desktop: desktop, gate: context.gate, skills: context.skillCatalog.shortcuts, useLocation: !context.options.noLocation)
+        let runner = PCRunner(planner: planner, desktop: desktop, mode: context.options.execute ? .execute : .dryRun, usesHistory: !context.options.noContext, llmSplit: context.options.llmSplit)
         if context.options.hotkey {
-            runVoiceLoop(context, jev: jev, planner: planner, desktop: desktop)
+            runVoiceLoop(context, jev: jev, runner: runner)
             return
         }
         while true {
@@ -53,7 +54,7 @@ struct ListenCommand: Command {
                 let utterance = try await FileTranscriber().transcribe(file: file)
                 kv("聞こえた", utterance)
                 guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
-                try await runClauses(await clauses(for: utterance, llmSplit: context.options.llmSplit), planner: planner, desktop: desktop, act: true, context: context, confirm: { _ in context.options.yes })
+                try await runner.run(utterance, reporter: TerminalPCReporter(), confirm: { context.options.yes })
             } catch { print(Style.red("失敗:") + " \(error)") }
         }
     }
@@ -63,14 +64,14 @@ struct ListenCommand: Command {
     /// --execute がなければ、実行しない（スキルは dry-run、PC 操作は計画の表示だけ）。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
     /// 聞く・録る・Esc・待ち行列の調整は `VoiceLoop`（VCSpeech）。ここは、発話の処理（`UtteranceHandler`）と、出来事の表示だけを渡す。
     /// 同期の関数：`await` を挟まない（`VoiceLoop.run` の不変条件 1）。
-    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, planner: Planner, desktop: AgentDesktop) {
+    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, runner: PCRunner) {
         do {
             let (spec, _) = context.resolveHotKey()
             let chip = spec.displayName
             let trigger = try makeTrigger(spec)
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession()), transcriber: FileTranscriber(),
-                handler: Self.utteranceHandler(context, jev: jev, planner: planner, desktop: desktop, chip: chip),
+                handler: Self.utteranceHandler(context, jev: jev, runner: runner, chip: chip),
                 onEvent: { Self.show($0, chip: chip) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
@@ -127,7 +128,7 @@ struct ListenCommand: Command {
     }
 
     /// 1 回の発話の処理：スキル（`SkillRunner`＋`HUDReporter`）→ スキルが選ばれなければ、PC 操作。確認の返事は、`next` で待つ。
-    private static func utteranceHandler(_ context: CommandContext, jev: TinyJev, planner: Planner, desktop: AgentDesktop, chip: String) -> UtteranceHandler {
+    private static func utteranceHandler(_ context: CommandContext, jev: TinyJev, runner: PCRunner, chip: String) -> UtteranceHandler {
         let confirmation = Confirmation(scorer: jev)
         return { utterance, token, next in
             do {
@@ -139,9 +140,9 @@ struct ListenCommand: Command {
                 let skills = context.loadSkills()
                 skills.reportProblems()
                 if !skills.enabled.isEmpty {
-                    let runner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token)
+                    let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token)
                     let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun)
-                    let outcome = try await runner.run(utterance, reporter: reporter, confirm: {
+                    let outcome = try await skillRunner.run(utterance, reporter: reporter, confirm: {
                         guard let answer = try await next() else { return false }
                         return try confirmation.isYes(answer)
                     })
@@ -149,24 +150,14 @@ struct ListenCommand: Command {
                     guard case .declined(fallbackAvailable: false) = outcome else { return }
                 }
 
-                // スキルが選ばれなかった（既定スキルも使えない）：PC 操作へ
-                let hud = HUDSession(HUDContent(phase: .working, title: "考え中", chip: chip, heard: utterance))
-                hud.update()
-                try await runClauses(await clauses(for: utterance, llmSplit: context.options.llmSplit), planner: planner, desktop: desktop, act: true, context: context, hud: hud, cancel: token, confirm: { plan in
-                    say("\(plan.step?.spoken ?? "この操作")。実行しますか")
-                    notice("確認待ち：もう一度トリガーを押して「はい」と言う")
-                    hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = "\(plan.step?.spoken ?? "この操作")　もう一度押して「はい」" }
+                // スキルが選ばれなかった（既定スキルも使えない）：PC 操作へ。`PCRunner` を呼ぶだけ（確認は、次の発話の「はい」で、`PCEvent` の表示は `HUDPCReporter`）
+                let reporter = HUDPCReporter(chip: chip, utterance: utterance)
+                reporter.begin()
+                try await runner.run(utterance, reporter: reporter, cancel: token, confirm: {
                     guard let answer = try await next() else { throw CancellationError() }
-                    let yes = try confirmation.isYes(answer)
-                    hud.update { $0.phase = .working; $0.title = "実行中"; $0.hint = nil }
-                    return yes
+                    return try confirmation.isYes(answer)
                 })
-                hud.update(hideAfter: 3) { content in
-                    let done = content.steps.contains { if case .ok = $0.status { return true } else { return false } }
-                    content.phase = done ? .success : .info
-                    content.title = done ? "完了" : "実行しませんでした"
-                    content.hint = nil
-                }
+                reporter.finish()
             } catch {
                 if token.isCancelled || error is CancellationError { showCancelled(chip: chip) } else { showFailure(error, chip: chip) }
             }

@@ -39,7 +39,7 @@ LICENSE                MIT
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・install・eval・fixture）
 Sources/
-  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）と、`plan`・`act`・`eval`。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す）・`keys`・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`・`llm`・`decompose`・`eval-context`、PlanSupport.swift・SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止）
+  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。スキルが選ばれなければ、`PCRunner` を呼ぶアダプター）・`plan`・`act`（PCControl.swift）・`eval`（Eval.swift）・`keys`・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`・`llm`・`decompose`・`eval-context`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、TerminalPCReporter.swift・HUDPCReporter.swift：PC 操作の経過の表示（`PCRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止）
   Fixture/             検証用の自作ウィンドウ
   VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図）
   VCDecision/          選択と判断の土台
@@ -47,9 +47,9 @@ Sources/
     Choice/            選択肢の採点・勝ち抜き戦・ゲート（Gate）
     Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合・実行（CommandRunner・OutputCompactor・RefAliases）・言語モデル（SkillAgent）・既定スキル（DefaultSkill）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
-  VCPCControl/         PC 操作の計画・実行・agent-desktop
+  VCPCControl/         PC 操作の計画・実行・agent-desktop（PCRunner：計画 → 門 → 確認 → 実行 → 履歴の流れ。経過は PCEvent で PCReporter へ。PCEval：評価コーパスの部品）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
-Tests/                 単体テスト（Swift Testing）。ターゲットごと：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）
+Tests/                 単体テスト（Swift Testing）。ターゲットごと：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests（PCRunner・PCEval を含む）・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルと PC 操作の実行の表示）
 corpus/                評価用の文（plans.tsv・followups.tsv・gate.tsv）と、自作ウィンドウの画面（snapshots/）
 keys/                  キー操作の JSON 定義の例
 skills/
