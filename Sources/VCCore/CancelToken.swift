@@ -1,6 +1,7 @@
 import Foundation
 
 /// 「取りやめ」の合図（Esc キーなど）。どのスレッドからでも `cancel()` でき、実行中の処理が、確かめたり、止める手続きを登録したりする。
+/// `@unchecked Sendable` の理由：可変な状態（取りやめたか・手続き）は、すべて `lock` で守る。
 public final class CancelToken: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false

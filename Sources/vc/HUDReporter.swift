@@ -3,6 +3,7 @@ import VCSkill
 
 /// 声の流れでの、スキルの実行の出来事（`RunEvent`）を、画面の上の表示（`HUDSession`）と、端末（声の流れの組み立ての `TerminalReporter`）へ出す。
 /// 1 つの発話ごとに作る。確認が要るときは、問いかけを読み上げる。
+/// `@unchecked Sendable` の理由：可変な状態（`session`）は、すべて `lock` で守る。ほかの保持物は、不変（`let`）。
 final class HUDReporter: RunReporter, @unchecked Sendable {
     private let chip: String
     private let utterance: String

@@ -75,6 +75,7 @@ public extension Step {
 }
 
 /// 実行した手の記録（セッション内で共有する。非同期の処理から、安全に追記・読み出しできる）。
+/// `@unchecked Sendable` の理由：可変な状態（`items`）は、すべて `lock` で守る。
 final class HistoryStore: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [Executed] = []

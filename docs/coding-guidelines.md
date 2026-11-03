@@ -27,7 +27,8 @@
 ## 並行
 
 - 共有する可変状態は、`NSLock` で守った参照型に閉じる（`HistoryStore`）。トップレベルの `var` を、非同期の処理から触らない（警告が出る）。
-- `@unchecked Sendable` を付けるときは、型の内部を**すべて**ロックで守っていることを確かめる。理由を、型のコメントに書く。
+- `@unchecked Sendable` を付けるときは、型の内部を**すべて**ロックで守っていることを確かめる。理由を、型のコメントに書く（1 行）。`nonisolated(unsafe)` は使わない（共有する値は、ロックで守った型に持たせる）。
+- **主スレッド専用の型は `@MainActor`**（`HotKey`・`ModifierHold`・`EscapeKey`。`@unchecked Sendable` で隠さない）。Carbon・`NSEvent`・`DispatchQueue.main` のコールバックは、`MainActor.assumeIsolated` で入る。どのスレッドからも呼ばせたい入口（`HUD.show`・`HUD.hide`）だけ `nonisolated` にして、メインキューへ回す。
 - メインスレッドで動くのは、イベントの受け取り（ホットキー）と、`NSApplication` のループだけ。重い処理（文字起こし・採点・実行）は、別の `Task` へ。
 - 言語モードは Swift 5。Swift 6 のエラーになる書き方を、増やさない。
 

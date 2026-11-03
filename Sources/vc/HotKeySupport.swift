@@ -20,7 +20,7 @@ extension CommandContext {
 }
 
 /// 押している間だけ聞く入り口。長押し（修飾キーだけ）には、アクセシビリティの許可が要る。
-func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
+@MainActor func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
     if spec.isHold && !ModifierHold.isTrusted {
         notice("\(spec.displayName) の長押しの検出には、アクセシビリティの許可が要ります。許可がないと、何も届きません")
         notice("システム設定 > プライバシーとセキュリティ > アクセシビリティで、vc を動かしているターミナルを許可し、そのターミナルを開き直す。許可なしで使うなら、vc hotkey set ctrl+opt+space")

@@ -69,7 +69,7 @@ private final class FakeExecutor: SkillExecuting, @unchecked Sendable {
     var requests: [String] { lock.lock(); defer { lock.unlock() }; return ran }
 
     func run(request: String) async throws -> String {
-        lock.lock(); ran.append(request); lock.unlock()
+        lock.withLock { ran.append(request) }
         return try await script(display)
     }
 }

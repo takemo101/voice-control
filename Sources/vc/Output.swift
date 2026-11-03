@@ -68,6 +68,7 @@ func usageError(_ command: String, _ message: String) -> Never {
 }
 
 /// ダウンロードの進み具合の表示。端末なら 1 行を書き換え、そうでなければ 10% ごとに 1 行。
+/// `@unchecked Sendable` の理由：可変な状態（`currentFile`・`lastStep`・`lineOpen`）は、すべて `lock` で守る（進みの通知は、通信のスレッドから来る）。
 final class ProgressPrinter: @unchecked Sendable {
     private let tty: Bool
     private let lock = NSLock()

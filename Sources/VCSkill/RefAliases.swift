@@ -2,6 +2,7 @@ import Foundation
 
 /// agent-desktop の参照（`@s17tb038elj2nz:e13`）は、長いランダムな文字列で、言語モデルが、写し間違える（`@s20:e18` に縮める：測定）。
 /// 言語モデルには、短い別名（`@a1:e13`）を見せ、実行の直前に、元の参照に戻す。
+/// `@unchecked Sendable` の理由：可変な状態（`byID`・`byAlias`）は、すべて `lock` で守る。
 public final class RefAliases: @unchecked Sendable {
     private let lock = NSLock()
     private var byID: [String: String] = [:]      // 元の snapshot id → 別名

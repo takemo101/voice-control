@@ -84,6 +84,7 @@ public enum ProcessRunner {
 }
 
 /// 読み取りのスレッドが書き、呼び出し側が読む。読み切れないまま（タイムアウト）読んでも、競合しないよう、ロックで守る。
+/// `@unchecked Sendable` の理由：可変な状態（`data`）は、すべて `lock` で守る。
 private final class CollectedOutput: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()

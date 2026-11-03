@@ -6,6 +6,7 @@ import VCCore
 /// - 実行してよいのは、スキルの `allowed-commands` に一致するものだけ（`CommandPolicy`）。シェルは使わない。
 /// - 実行するコマンドと結果は、すべて、`onCommand`・`onResult` で、画面に出す。
 /// - `dryRun` なら、何も実行しない（どんなコマンドを実行しようとするかだけを見る）。
+/// `@unchecked Sendable` の理由：可変な状態（`count`・`log`）は、すべて `lock` で守る。ほかの保持物は、不変（`let`）か、Sendable。
 final class SkillAgent: SkillExecuting, @unchecked Sendable {
     public static let maxCommands = 15
 
