@@ -3,7 +3,7 @@ import VCPCControl
 
 /// 声の流れでの、PC 操作の出来事（`PCEvent`）を、画面の上の表示（`HUDSession`）と、端末（`TerminalPCReporter`）へ出す。
 /// 1 つの発話ごとに作る。`begin()` で「考え中」を出し、`PCRunner.run` が返ったら、`finish()` で結果にする。確認が要るときは、問いかけを読み上げる。
-final class HUDPCReporter: PCReporter, @unchecked Sendable {
+final class HUDPCReporter: PCReporter {
     private let terminal: TerminalPCReporter
     private let speak: @Sendable (String) -> Void
     private let hud: HUDSession

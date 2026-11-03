@@ -110,7 +110,7 @@ flowchart LR
 - **2 つの表示の違いは、受け手の側に置く**：`TerminalPCReporter` は、端末へ出すだけで、確認は問い合わせない（`confirm` は `--yes` を返す）。`HUDPCReporter` は、`TerminalPCReporter` を内に持ち、各出来事で `HUDSession` を更新する（確認が要るときは、先に問いかけを読み上げ、端末へ注意を出す。声の確認の返事は、アダプターの `confirm` が、次の発話から判定する）。「考え中」の開始と、結果（完了・実行しませんでした）は、アダプターが `begin()`・`finish()` で出す（出来事ではない）。
 - **`HistoryStore` の所有者は `PCRunner`**（`vc plan`・`act` は、起動ごと。`vc listen` は、その間）。`PCRunner` のテストは、偽の `Desktop`・`OptionScorer` で、判断（実行しない判定で残りも中止・確認の拒否・取りやめ・dry-run・履歴）を確かめる。表示との対応は、`Tests/vcTests/PCReporterTests.swift`。
 - **評価**（`vc eval`・`eval-context`）：手の文字列化（`PCEval.canonical`）・コーパスの読み取り・当たりの集計（`PCEval.Tally`）は、`PCEval`（`VCPCControl`）。`Commands/Eval.swift` は、引数の解釈・計画・表示だけ。
-- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` のアダプター（`utteranceHandler` の最後の部分と、`PCRunner` の組み立て）を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
+- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` の PC 操作の部分（ホットキーの声の流れの最後の部分と、Enter で録音する通常モードの `AgentDesktop`・`Planner`・`PCRunner` の組み立て）、`Tests/vcTests/PCReporterTests.swift` を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
 
 ## 状態の所有
 
@@ -175,7 +175,7 @@ flowchart LR
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。
 
-- `eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` のアダプター）に加えて、これらも見直す。
+- `eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` の PC 操作の部分（声の流れの最後と、Enter で録音する通常モード）・`PCReporterTests`）に加えて、これらも見直す。
 - `AgentDesktop.run`（agent-desktop の呼び出し）と `CommandRunner.run`（任意コマンドの実行）が、似た処理を別々に持つ。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。
 - `VCPCControl/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`VCSkill`（SKILL.md のスキル）と名前が紛らわしい。
