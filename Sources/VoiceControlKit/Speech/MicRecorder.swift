@@ -72,6 +72,7 @@ public final class RecordingSession: @unchecked Sendable {
         startError = nil
         guard let r = recorder, let url = file else { return }
         recorder = nil; file = nil
+        // try?: 録音を捨てるときの片付け。止める・消すの失敗は、結果（ファイルがない）を変えない
         try? r.stop()
         try? FileManager.default.removeItem(at: url)
     }

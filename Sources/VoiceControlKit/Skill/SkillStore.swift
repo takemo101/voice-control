@@ -18,12 +18,14 @@ public enum SkillStore {
     public static func load(directory: URL = VoiceControlHome.skillsDirectory, scope: Skill.Scope = .global) -> Loaded {
         var result = Loaded()
         let fm = FileManager.default
+        // try?: スキルのディレクトリがなければ、スキルは 0 件（初めての使用で、普通の状態）
         guard let entries = try? fm.contentsOfDirectory(atPath: directory.path) else { return result }
         for entry in entries.sorted() where !entry.hasPrefix(".") {
             let dir = directory.appendingPathComponent(entry)
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { continue }
             let file = dir.appendingPathComponent("SKILL.md")
+            // SKILL.md が読めないものは、下で『読めなかったスキル』として理由を返す（握りつぶさない）
             guard let text = try? String(contentsOf: file, encoding: .utf8) else {
                 result.problems.append(SkillProblem(location: entry, reason: "SKILL.md が読めない"))
                 continue

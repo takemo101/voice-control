@@ -15,6 +15,7 @@ public enum OutputCompactor {
     }
 
     static func compactAgentDesktop(argv: [String], output: String, aliases: RefAliases) -> String? {
+        // try?: agent-desktop の出力が JSON でなければ、整形せずに、そのまま返す（nil → 呼び出し側が元の出力を使う）
         guard let root = try? JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any] else { return nil }
         guard root["ok"] as? Bool == true else {
             let e = root["error"] as? [String: Any]

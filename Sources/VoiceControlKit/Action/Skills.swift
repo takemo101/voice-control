@@ -31,6 +31,7 @@ public enum SkillCatalog {
         var result = Loaded()
         let fm = FileManager.default
         for dir in directories {
+            // try?: キー操作の定義のディレクトリは、なくてもよい（なければ、その場所は飛ばす）
             guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
             for name in names.filter({ $0.hasSuffix(".json") }).sorted() {
                 let url = dir.appendingPathComponent(name)

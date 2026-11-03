@@ -50,6 +50,7 @@ public struct AgentDesktop: Desktop {
     static func installedApps() -> [String] {
         let fm = FileManager.default
         let dirs = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
+        // try?: 存在しないディレクトリは、アプリ 0 件（アプリ名の候補が減るだけ）
         return dirs.flatMap { (try? fm.contentsOfDirectory(atPath: $0)) ?? [] }.filter { $0.hasSuffix(".app") }.map { String($0.dropLast(4)) }.sorted()
     }
 
@@ -89,6 +90,7 @@ extension AgentDesktop {
 
 extension AgentDesktop {
     private func windowBounds(app: String) -> [Double]? {
+        // try?: 位置が読めなければ nil。呼び出し側が、元のエラー（TIMEOUT）を、そのまま投げる
         guard let root = try? JSONSerialization.jsonObject(with: run(["list-windows", "--app", app])) as? [String: Any],
               let windows = root["data"] as? [[String: Any]], let b = windows.first?["bounds"] as? [String: Any] else { return nil }
         return ["x", "y", "width", "height"].compactMap { b[$0] as? Double }
@@ -132,6 +134,7 @@ extension AgentDesktop {
 
     /// ウィンドウが 1 つもないか（`list-windows`）。読めなければ `false`（分からないので、何もしない）。
     func hasNoWindows(of name: String) -> Bool {
+        // try?: 読めなければ『分からない』（false）として、何もしない（ウィンドウを、勝手に出さない）
         guard let root = try? JSONSerialization.jsonObject(with: run(["list-windows", "--app", name])) as? [String: Any],
               root["ok"] as? Bool == true, let windows = root["data"] as? [Any] else { return false }
         return windows.isEmpty
@@ -147,6 +150,7 @@ extension AgentDesktop {
         p.arguments = ["-e", "tell application \"\(escaped)\" to activate"]
         p.standardError = FileHandle.nullDevice
         p.standardOutput = FileHandle.nullDevice
+        // try?: ウィンドウを出すための AppleScript は、最善の努力。出なければ、次の snapshot が『画面を読めなかった』として伝える
         try? p.run()
         p.waitUntilExit()
         Thread.sleep(forTimeInterval: 1)

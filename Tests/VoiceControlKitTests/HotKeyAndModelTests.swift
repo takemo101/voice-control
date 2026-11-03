@@ -55,12 +55,12 @@ import Testing
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: file) }
         try Data(#"{"disabledSkills":["a"]}"#.utf8).write(to: file)
-        let s = Settings.load(from: file)
+        let s = try Settings.load(from: file)
         #expect(s.disabledSkills == ["a"] && s.hotkey == nil)
         var next = s
         next.hotkey = "f5"
         try next.save(to: file)
-        #expect(Settings.load(from: file) == next)
+        #expect(try Settings.load(from: file) == next)
     }
 }
 

@@ -172,6 +172,7 @@ public struct Planner: Sendable {
     /// アプリ・発話の条件（`app`・`when`）に合うキー操作か。
     private func applies(_ s: Shortcut, utterance: String, app: String) -> Bool {
         if let want = s.app, !app.localizedCaseInsensitiveContains(want) { return false }
+        // try?: 正規表現は、読み込み時（SkillCatalog の検査）に確かめ済み。ここで読めなければ、条件を満たさない扱い
         if let pattern = s.when, let regex = try? NSRegularExpression(pattern: pattern),
            regex.firstMatch(in: utterance, range: NSRange(utterance.startIndex..., in: utterance)) == nil { return false }
         return true

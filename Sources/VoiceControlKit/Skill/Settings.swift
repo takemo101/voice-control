@@ -19,12 +19,27 @@ public struct Settings: Codable, Sendable, Equatable {
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
     }
 
-    public static func load(from file: URL = VoiceControlHome.settingsFile) -> Settings {
-        guard let data = try? Data(contentsOf: file), let s = try? JSONDecoder().decode(Settings.self, from: data) else { return Settings() }
-        return s
+    /// 設定ファイルを読めない理由。**読めないファイルを、黙って空の設定にしない**（そのあとの `save` が、信頼・無効化の設定を消すため）。
+    public struct Unreadable: Error, CustomStringConvertible {
+        public let file: URL
+        public let reason: String
+        public var description: String { "設定ファイル \(file.path) を読めません（\(reason)）。直すか、移動してください。壊れたままのファイルは、上書きしません" }
     }
 
+    /// 読む。ファイルがなければ、空の設定（初めての使用）。あるのに読めなければ（壊れている・権限がない）、`Unreadable`。
+    public static func load(from file: URL = VoiceControlHome.settingsFile) throws -> Settings {
+        guard FileManager.default.fileExists(atPath: file.path) else { return Settings() }
+        do { return try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file)) } catch { throw Unreadable(file: file, reason: "\(error.localizedDescription)") }
+    }
+
+    /// 読み取りだけの使い方：読めなければ、**空の設定**（信頼したプロジェクトは、なし＝安全側）と、その理由を返す。
+    public static func loadOrDefault(from file: URL = VoiceControlHome.settingsFile) -> (settings: Settings, problem: Unreadable?) {
+        do { return (try load(from: file), nil) } catch let error as Unreadable { return (Settings(), error) } catch { return (Settings(), Unreadable(file: file, reason: "\(error)")) }
+    }
+
+    /// 書く。**壊れた既存のファイルは、上書きせず**、`Unreadable` を投げる（直してから、もう一度）。
     public func save(to file: URL = VoiceControlHome.settingsFile) throws {
+        _ = try Self.load(from: file)
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -83,6 +83,25 @@ let skillCatalog: SkillCatalog.Loaded = {
     return loaded
 }()
 
+/// 設定の読み取り：読めなければ（壊れている）、警告を 1 回だけ出して、空の設定（信頼したプロジェクトは、なし）で続ける。書き込みは、`Settings.save` が、壊れたファイルを上書きせずに失敗する。
+final class SettingsWarning: @unchecked Sendable {
+    private let lock = NSLock()
+    private var shown = false
+    func once(_ problem: Settings.Unreadable) {
+        lock.lock(); defer { lock.unlock() }
+        guard !shown else { return }
+        shown = true
+        eprint(Style.yellow("\(problem)"))
+    }
+}
+let settingsWarning = SettingsWarning()
+
+func currentSettings() -> Settings {
+    let (settings, problem) = Settings.loadOrDefault()
+    if let problem { settingsWarning.once(problem) }
+    return settings
+}
+
 /// トリガー（押している間だけ聞く）：`--trigger` → `~/.voice-control/settings.json` の `hotkey` → 既定（`shift` の長押し）。書き方は `HotKeySpec`。
 func resolveHotKey() -> (spec: HotKeySpec, source: String) {
     if let triggerOption {
@@ -91,7 +110,7 @@ func resolveHotKey() -> (spec: HotKeySpec, source: String) {
         case let .failure(f): fail("--trigger \(triggerOption): \(f.reason)")
         }
     }
-    let settings = Settings.load()
+    let settings = currentSettings()
     switch settings.hotkeySpec {
     case let .success(spec): return (spec, settings.hotkey == nil ? "既定" : "設定")
     case let .failure(f): fail("settings.json の hotkey「\(settings.hotkey ?? "")」: \(f.reason)（vc hotkey set で直す）")
@@ -205,7 +224,7 @@ func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, ac
 }
 
 /// スキルを読む：グローバル（`~/.voice-control/skills`）と、プロジェクト（起動した場所の `.voice-control/skills`。信頼したものだけ）。
-func loadSkills(settings: Settings = Settings.load()) -> SkillStore.Loaded {
+func loadSkills(settings: Settings = currentSettings()) -> SkillStore.Loaded {
     SkillStore.loadAll(projectRoot: VoiceControlHome.launchDirectory, settings: settings)
 }
 
@@ -217,7 +236,7 @@ func warnUntrustedProject(_ loaded: SkillStore.Loaded) {
 
 /// 有効なスキル（グローバル＋プロジェクト。そのつど読み直す。起動したまま、足したり、有効・無効を変えたりできる）。読めなかったものは、理由を出す。
 func enabledSkills() -> [Skill] {
-    let settings = Settings.load()
+    let settings = currentSettings()
     let loaded = loadSkills(settings: settings)
     loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
     warnUntrustedProject(loaded)
@@ -561,7 +580,7 @@ case "skills":
     // vc skills show <name>          1 つの詳細（許可するコマンド・本文の場所）
     // vc skills enable|disable <name>  Tiny-Jev の選択肢にするか（既定は有効。設定は ~/.voice-control/settings.json）
     let sub = args.count >= 2 ? args[1] : "list"
-    var settings = Settings.load()
+    var settings = currentSettings()
     let loaded = loadSkills(settings: settings)
     switch sub {
     case "list":
@@ -648,7 +667,7 @@ case "run":
     let forced = option("--skill")
     guard args.count >= 2 else { usageError("run", "依頼を渡してください（例: vc run \"Safariを開いて\"）") }
     let request = args[1]
-    let settings = Settings.load()
+    let settings = currentSettings()
     let loaded = loadSkills(settings: settings)
     loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
     warnUntrustedProject(loaded)
@@ -768,7 +787,7 @@ case "model":
 case "hotkey":
     // vc hotkey [show]／set <キー>／reset：押している間だけ聞くトリガーの設定（~/.voice-control/settings.json）。
     let sub = args.count >= 2 ? args[1] : "show"
-    var settings = Settings.load()
+    var settings = currentSettings()
     switch sub {
     case "show":
         let (spec, source) = resolveHotKey()
