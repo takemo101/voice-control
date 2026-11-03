@@ -37,9 +37,55 @@ public enum CommandPolicy {
         return .success(tokens)
     }
 
+    /// 項目の書き方の正規化。Claude Code の権限ルールの形も受ける：
+    /// - `Bash(open -a *)` → `open -a *`（`Bash(…)` の包みを外す。`Bash` 以外のツール名は不可）
+    /// - 末尾の `:*`（古い書き方）→ 末尾の `*`
+    /// - 末尾の `*` だけのトークンは、外す（前方一致なので、もともと、後ろの引数は何でも通る）
+    /// 戻り値は、照合に使うトークン列。解釈できなければ、理由。
+    public static func normalize(_ entry: String) -> Result<[String], Violation> {
+        var text = entry.trimmingCharacters(in: .whitespaces)
+        if let open = text.firstIndex(of: "("), text.hasSuffix(")") {
+            let tool = String(text[..<open])
+            guard tool == "Bash" else { return .failure(Violation(reason: "ツール名は Bash だけ（\(tool.isEmpty ? "なし" : tool)）")) }
+            text = String(text[text.index(after: open)..<text.index(before: text.endIndex)]).trimmingCharacters(in: .whitespaces)
+        }
+        if text.hasSuffix(":*") { text = String(text.dropLast(2)) }
+        guard case .success(var tokens) = tokenize(text) else { return .failure(Violation(reason: "解釈できない（引用符・\\ の閉じ忘れ）")) }
+        while tokens.last == "*" { tokens.removeLast() }
+        guard !tokens.isEmpty else { return .failure(Violation(reason: "空")) }
+        return .success(tokens)
+    }
+
+    /// `*` が、任意の文字列（空を含む）に一致する、トークン 1 つの照合。
+    static func globMatch(_ pattern: String, _ text: String) -> Bool {
+        let p = Array(pattern), t = Array(text)
+        // 動的計画法：match[i][j] = p[..<i] が t[..<j] に一致
+        var match = Array(repeating: Array(repeating: false, count: t.count + 1), count: p.count + 1)
+        match[0][0] = true
+        for i in stride(from: 1, through: p.count, by: 1) { match[i][0] = match[i - 1][0] && p[i - 1] == "*" }
+        for i in stride(from: 1, through: p.count, by: 1) {
+            for j in stride(from: 1, through: t.count, by: 1) {
+                match[i][j] = p[i - 1] == "*" ? (match[i - 1][j] || match[i][j - 1]) : (match[i - 1][j - 1] && p[i - 1] == t[j - 1])
+            }
+        }
+        return match[p.count][t.count]
+    }
+
+    /// 項目のトークン列が、コマンドの先頭のトークン列に一致するか。トークンに `*` があれば、そのトークンの中で、任意の文字列に一致する（トークンをまたがない）。`*` だけのトークンは、任意の 1 トークン。
+    static func matches(prefix: [String], argv: [String]) -> Bool {
+        guard argv.count >= prefix.count else { return false }
+        return zip(prefix, argv).allSatisfy { pattern, token in pattern.contains("*") ? globMatch(pattern, token) : pattern == token }
+    }
+
     /// `allowed-commands` の 1 項目の検査。不正なら、理由。
     public static func validateEntry(_ entry: String) -> String? {
-        guard case .success(let tokens) = tokenize(entry), let first = tokens.first else { return "空、または、解釈できない" }
+        let tokens: [String]
+        switch normalize(entry) {
+        case .failure(let v): return v.reason
+        case .success(let t): tokens = t
+        }
+        let first = tokens[0]
+        if first.contains("*") { return "コマンド名に * は使えない（どのコマンドにも一致してしまう）" }
         if first.contains("/") { return "コマンド名にパスは使えない（PATH の名前だけ）" }
         if first.range(of: "^[A-Za-z0-9._+-]+$", options: .regularExpression) == nil { return "コマンド名に使えない文字がある" }
         if forbidden.contains(first) { return "\(first) は、許可できない（シェル・別のコマンドを起動する・権限を上げる）" }
@@ -55,8 +101,8 @@ public enum CommandPolicy {
         // agent-desktop の、危険なキー（アプリの終了など）の保護を、外す指定は不可。
         if first == "agent-desktop", argv.contains("--force") { return Violation(reason: "agent-desktop --force は不可") }
         let permitted = allowed.contains { entry in
-            guard case .success(let prefix) = tokenize(entry), !prefix.isEmpty, argv.count >= prefix.count else { return false }
-            return Array(argv.prefix(prefix.count)) == prefix
+            guard case .success(let prefix) = normalize(entry) else { return false }
+            return matches(prefix: prefix, argv: argv)
         }
         return permitted ? nil : Violation(reason: "このスキルでは許可されていない（許可：\(allowed.joined(separator: "、"))）")
     }
