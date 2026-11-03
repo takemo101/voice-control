@@ -4,7 +4,7 @@
 
 ## 構成と依存
 
-- 依存は下向きだけ：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）、`VCSkill`・`VCPCControl` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図）はどのターゲットも使ってよい。向きは `Package.sw, の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出すのは、他のターゲットが使うものだけを `public` にする。
+- 依存は下向きだけ：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）、`VCSkill`・`VCPCControl` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
 - `vc`（実行ファイル）は、**引数の解釈・流れの組み立て・表示・終了コード**だけ。規則・判断は各ターゲットに置き、`vc` から切り離してテストできるようにする。
 - 新しい機能は、変わる理由で置き場所を決める（スキル／PC 操作／音声／選択／モデルの実行）。「util」「helper」に、無関係なものを集めない。
 - `Decision/` の複製したファイルは、**変えない**（meeting-analyzer の版と、同じ内容を保つ）。変える必要があれば、元の側で直して、複製し直す。

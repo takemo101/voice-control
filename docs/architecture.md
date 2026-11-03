@@ -40,7 +40,7 @@ flowchart TB
 
 ## Module の責務
 
-依存は**下向きだけ**：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）。`VCSkill`・`VCPCControl` → `VCDecision`。`VCCore`（場所・設定・取りやめの合図）は、どのターゲットも使ってよい（`VCDecision` も使う。`ModelStore` が `VoiceControlHome` を使う）。向きは `Package.swift` の `dependencies` で宣言し、**コンパイラが強制する**：宣言していないターゲットの `import` は、ビルドが通らない（まっさらなビルドでは `unable to resolve module dependency`。差分ビルドでは、`--explicit-target-dependency-import-check=error` を付けると `missing a dependency` で失敗する。付けないと警告だけ。`scripts/test.sh`・`scripts/package.sh`・`just build`・リリースのワークフローは付けている）。以前の `scripts/check-deps.sh`（型名の `grep`）は、なくした。
+依存は**下向きだけ**：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）。`VCSkill`・`VCPCControl` → `VCDecision`。`VCCore`（場所・設定・取りやめの合図）は、どのターゲットも使ってよい（`VCDecision` も使う。`ModelStore` が `VoiceControlHome` を使う）。向きは `Package.swift` の `dependencies` で宣言し、**コンパイラが強制する**：宣言していないターゲットの `import` は、ビルドが通らない（まっさらなビルドでは（文言はビルドシステムで違う。以下は例）`unable to resolve module dependency`。差分ビルドでは、`--explicit-target-dependency-import-check=error` を付けると `missing a dependency` で失敗する。付けないと警告だけ。`scripts/test.sh`・`scripts/package.sh`・`just build`・リリースのワークフローは付けている）。以前の `scripts/check-deps.sh`（型名の `grep`）は、なくした。
 
 | Module（`Sources/` のターゲット） | 責務 | 持たないもの |
 |---|---|---|
@@ -120,5 +120,5 @@ flowchart TB
 - `vc/main.swift`（約 500 行）が、引数の解釈に加えて、流れの組み立て（`runClauses`・ホットキーの待ち受け・`eval`）を持つ。ライブラリ側のターゲットへ移せる。
 - `AgentDesktop.run`（agent-desktop の呼び出し）と `CommandRunner.run`（任意コマンドの実行）が、似た処理を別々に持つ。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。
-- `Action/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`Skill/`（SKILL.md のスキル）と名前が紛らわしい。
+- `VCPCControl/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`VCSkill`（SKILL.md のスキル）と名前が紛らわしい。
 - `LLMPlanner`・`LLMDecomposer` は、比較用の実験。製品の流れでは、`--llm-split` だけが使う。
