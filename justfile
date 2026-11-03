@@ -12,6 +12,10 @@ default:
 build:
     swift build -c release 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
 
+# フォルダ（層）どうしの依存が下向きだけかを確かめる（暫定。MIK-005 のターゲット分割で、コンパイラに置き換える）
+deps:
+    ./scripts/check-deps.sh
+
 # 単体テスト（Swift Testing）。画面・音声・モデルは使わない
 test:
     ./scripts/test.sh
