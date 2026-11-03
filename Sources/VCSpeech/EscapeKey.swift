@@ -34,6 +34,7 @@ public final class EscapeKey: @unchecked Sendable {
                 if event.keyCode == UInt16(kVK_Escape) { self?.fire() }
             }
         }
+        // 不変条件（`VoiceLoop` のコメントの 3）：修飾キーを押している間は、Carbon のホットキーを登録しない。離したあとの `setActive(true)`（`VoiceLoop` が呼び直す）で登録する。
         let modifiersDown = !NSEvent.modifierFlags.intersection([.shift, .control, .option, .command]).isEmpty
         if refs.isEmpty, !modifiersDown { registerHotKeys() }
         return isActive
