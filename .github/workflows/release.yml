@@ -1,0 +1,202 @@
+# リリース：タグ vX.Y.Z の push で、vc をビルドして GitHub Release に添付する。バージョンごとに、tar.gz（と SHA-256）をダウンロードできる。
+#
+#   タグ vX.Y.Z の push（例：git tag v0.1.0 <main の commit> && git push origin v0.1.0）
+#       Sources/vc/Version.swift の版（vc --version）がタグと一致し、タグの commit が main に含まれているときだけ、Release を作る
+#   手動実行（Actions タブ → Run workflow。タグを選んでも同じ）
+#       Release は作らない。tar.gz をアーティファクトに残し、handoff ジョブが、Release のジョブと同じ手順でダウンロードして SHA-256 を照合する（ドライラン）
+#   Pull Request（リリースに関わるファイルを変えたとき）
+#       同じドライラン。ワークフロー自体は、マージ前に、この経路で検証できる
+# 署名は ad-hoc のまま。署名・公証の鍵や認証情報（secrets）は、このワークフローに渡さない。
+# 権限は最小：ビルドとテストは contents: read、Release の作成だけ contents: write。
+# 実行環境（macOS 26・Xcode 26）には、Apple Intelligence も Tiny-Jev のモデルもない。ここでできるのは、ビルド・単体テスト・モデルを使わないコマンドの実行まで。
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "scripts/package.sh"
+      - "scripts/verify-package.sh"
+      - "scripts/fetch-model.sh"
+      - "Package.swift"
+      - "Sources/vc/Version.swift"
+      - "LICENSE"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, test and inspect the archive
+    runs-on: macos-26
+    timeout-minutes: 40
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      asset: ${{ steps.meta.outputs.asset }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # タグの commit が main に含まれるかを調べるため、全部の履歴を取る
+
+      - name: The tagged commit must be on main
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          if ! git merge-base --is-ancestor "${SHA}" origin/main; then
+            echo "タグの commit ${SHA} は main に含まれていません。Release は作りません。" >&2
+            exit 1
+          fi
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Build and package
+        id: package
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}   # PR は、一時的なマージ commit ではなく、PR の commit をファイル名に使う
+        run: |
+          # ドライラン（手動実行・Pull Request）は、ファイル名に commit を入れて、リリースと見分ける。
+          if [ "${EVENT_NAME}" = "push" ] && [ "${REF_TYPE}" = "tag" ]; then
+            ./scripts/package.sh
+          else
+            NAME_SUFFIX="-dev-${SHA:0:7}" ./scripts/package.sh
+          fi
+
+      - name: Work out the version and the file name
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          built_version="$(.build/release/vc --version | awk '{print $2}')"
+          if [ "${EVENT_NAME}" = "push" ] && [ "${REF_TYPE}" = "tag" ]; then
+            if ! [[ "${REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "タグ ${REF_NAME} は vX.Y.Z の形ではありません" >&2
+              exit 1
+            fi
+            # ビルドした vc の版が、タグと一致していること。版を上げる変更を main に入れてから、タグを付ける。
+            if [ "${built_version}" != "${REF_NAME#v}" ]; then
+              echo "vc --version（${built_version}）が、タグの版 ${REF_NAME#v} と違います。Sources/vc/Version.swift の版を上げる変更を main に入れてから、タグを付けてください。" >&2
+              exit 1
+            fi
+          fi
+          asset="$(cd dist && ls vc-*-macos-arm64*.tar.gz)"
+          echo "version=${built_version}" >> "${GITHUB_OUTPUT}"
+          echo "asset=${asset}" >> "${GITHUB_OUTPUT}"
+          echo "version=${built_version} asset=${asset}"
+
+      - name: Inspect the archive
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          ASSET: ${{ steps.meta.outputs.asset }}
+        run: ./scripts/verify-package.sh "dist/${ASSET}" "${VERSION}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.meta.outputs.asset }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  handoff:
+    name: Check the artifact hand-off (no release)
+    needs: build
+    if: github.event_name != 'push' || github.ref_type != 'tag'   # Release を作らない実行だけ。Release のジョブと同じ手順で、受け渡しを確かめる
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.asset }}
+          path: dist
+
+      - name: Check the downloaded files   # release ジョブの同名のステップと、同じ内容に保つ（両方を一緒に直す）
+        env:
+          ASSET: ${{ needs.build.outputs.asset }}
+        run: |
+          cd dist
+          ls -l
+          sha256sum -c "${ASSET}.sha256"
+
+  release:
+    name: Publish the GitHub Release
+    needs: build
+    if: github.event_name == 'push' && github.ref_type == 'tag'   # 手動実行は、タグの上で起動しても、Release を作らない
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # Release の作成だけに、書き込みを許す
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.asset }}
+          path: dist
+
+      - name: Check the downloaded files   # handoff ジョブの同名のステップと、同じ内容に保つ（両方を一緒に直す）
+        env:
+          ASSET: ${{ needs.build.outputs.asset }}
+        run: |
+          cd dist
+          ls -l
+          sha256sum -c "${ASSET}.sha256"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+          ASSET: ${{ needs.build.outputs.asset }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<'EOF'
+          **試作**です。どの使い道が成り立つかを試す段階で、実アプリでの動作・マイクの実録音は未確認です（[検証手順と記録](https://github.com/takemo101/voice-control/blob/main/docs/verification.md)）。
+
+          ## 必要なもの
+          - macOS 26 以降・Apple silicon・Apple Intelligence（FoundationModels）が使える Mac
+          - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。アクセシビリティの許可が要ります）
+
+          ## インストール
+          ```sh
+          tar -xzf vc-*-macos-arm64.tar.gz && cd vc-*-macos-arm64
+          mkdir -p ~/.local/bin && install -m 755 vc ~/.local/bin/vc
+          # Tiny-Jev のモデル（約 1.2 GB。SHA-256 を検証して取得します）
+          MODEL_DIR="$HOME/Library/Application Support/voice-control/models/tiny-jev-0.6b" ./scripts/fetch-model.sh
+          vc --help
+          ```
+
+          署名が ad-hoc（Developer ID の署名・公証なし）のため、ブラウザでダウンロードして Gatekeeper に止められたら、次のコマンドで検疫属性を外してください。
+
+          ```sh
+          xattr -dr com.apple.quarantine ~/.local/bin/vc
+          ```
+
+          スキルの置き場所は `~/.voice-control/skills/`。作り方は、同梱の `skills/voice-control-skill-author/` と [docs/skills.md](https://github.com/takemo101/voice-control/blob/main/docs/skills.md)。
+
+          ダウンロードしたファイルは、`.sha256` と照合できます：`shasum -a 256 -c vc-*-macos-arm64.tar.gz.sha256`
+
+          ## 変更点
+          EOF
+          gh release create "${TAG}" "dist/${ASSET}" "dist/${ASSET}.sha256" \
+            --repo "${REPO}" \
+            --verify-tag \
+            --title "vc ${VERSION}" \
+            --notes "$(cat notes.md)" \
+            --generate-notes
