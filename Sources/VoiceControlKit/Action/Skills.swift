@@ -64,6 +64,7 @@ public enum SkillCatalog {
             if normalized.isEmpty { return "keys に空の要素" }
             if forbidden.contains(normalized) { return "アプリを終了するキー（\(key)）は使えない" }
         }
+        // try?: 読めなければ nil。読めない正規表現は、ここで『定義の不備』として理由を返す（握りつぶさない）
         if let when = def.when, (try? NSRegularExpression(pattern: when)) == nil { return "when が正規表現として不正" }
         return nil
     }

@@ -11,6 +11,7 @@ final class SaySpeaker: @unchecked Sendable {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
         p.arguments = ["-v", "Kyoko", text]
+        // try?: 読み上げは補助（確認の問いかけは、画面の上の表示にも出る）。起動に失敗しても、確認の流れは続く
         try? p.run()
         lock.lock(); process = p; lock.unlock()
     }
