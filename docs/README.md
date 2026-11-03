@@ -35,6 +35,7 @@ README.md              概要・使い方
 SPEC.md                製品要件・受け入れ条件（実装の状態つき）・対象外・未決事項
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
+install.sh             コマンド 1 つで、最新の Release の vc を入れる（`curl … | bash`。SHA-256 を照合し、`vc model download` まで）
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・package・install・uninstall・eval・fixture・vc）
 Sources/
@@ -54,7 +55,7 @@ skills/
 .voice-control/
   skills/spotify/      このプロジェクトのスキルの例（Spotify の操作。AppleScript）
 scripts/
-  install.sh           vc を ~/.local/bin へ入れる
+  install.sh           ソースからビルドした vc を ~/.local/bin へ入れる（開発用。`just install`）
   uninstall.sh         入れた vc とモデルのリンクを取り除く
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
   package.sh           配布用の tar.gz と SHA-256 を dist/ に作る

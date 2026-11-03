@@ -44,7 +44,15 @@ PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SP
 
 ## はじめかた
 
-**リリース版から入れる**（[v0.1.0](https://github.com/takemo101/voice-control/releases/tag/v0.1.0)。ビルドは要りません）：
+**コマンド 1 つで入れる**（最新の [Release](https://github.com/takemo101/voice-control/releases)。ビルドは要りません）：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash
+```
+
+Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデル（約 1.2 GB）を `~/.voice-control/models` に取得する（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。オプション：`--no-model`（モデルを取得しない）・`--version 0.1.0`（版を指定）・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`。`~/.local/bin` が PATH にないときは、そう知らせる。
+
+**手で入れる**（[v0.1.0](https://github.com/takemo101/voice-control/releases/tag/v0.1.0) の例）：
 
 ```sh
 V=0.1.0
@@ -57,7 +65,7 @@ vc model download     # Tiny-Jev を ~/.voice-control/models に取得（SHA-256
 vc --help
 ```
 
-署名は ad-hoc（Developer ID の署名・公証なし）。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine ~/.local/bin/vc`。上の `curl` なら、止められない。
+署名は ad-hoc（Developer ID の署名・公証なし）。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine ~/.local/bin/vc`。上の `curl` なら、止められない。取り除くとき：`rm ~/.local/bin/vc`（モデル・設定・スキルは `~/.voice-control` に残る）。
 
 **ソースから入れる**（リポジトリを clone して。Swift 6.2 以降が要る）：
 
