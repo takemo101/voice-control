@@ -2,7 +2,7 @@ import Foundation
 
 /// 外部コマンドの実行結果（`ProcessRunner.run`）。
 public struct ProcessResult: Sendable {
-    /// 終了コード。シグナルで終わったときは、その番号（`Process.terminationStatus` のまま。タイムアウトの `terminate` なら 15）。
+    /// 終了コード。シグナルで終わったときは、その番号（`Process.terminationStatus` のまま。`timedOut` で `terminate` の SIGTERM が子を終わらせたなら 15。子が SIGTERM を無視する・孫がパイプを持ち続けるときは、子の終了コードのまま）。
     /// 起動できなかったときは 127、取りやめられたときは 130（どちらもシェルの慣例の番号）。
     public let exitCode: Int32
     /// 標準出力（`mergeStderr` なら、標準エラーも混ぜる）。タイムアウトの `terminate` のあとも出力が終わらなかったときは、空。

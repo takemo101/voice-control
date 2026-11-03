@@ -75,6 +75,7 @@ import VCCore
 
     @Test func standardInputIsEmptyByDefault() {
         // 標準入力が、端末や開いたままのパイプだと、`cat` は入力の終わりを待ち続ける。空（/dev/null）なら、すぐ終わる
+        // （限界：テストを動かす側の標準入力が /dev/null のときは、この確認では、/dev/null への差し替えの有無を区別できない）
         let r = ProcessRunner.run(executable: "cat", mergeStderr: true, timeout: 10)
         #expect(r.exitCode == 0 && r.output.isEmpty && !r.timedOut)
     }
