@@ -20,7 +20,6 @@ on:
       - ".github/workflows/release.yml"
       - "scripts/package.sh"
       - "scripts/verify-package.sh"
-      - "scripts/fetch-model.sh"
       - "Package.swift"
       - "Sources/vc/Version.swift"
       - "LICENSE"
@@ -177,8 +176,8 @@ jobs:
           ```sh
           tar -xzf vc-*-macos-arm64.tar.gz && cd vc-*-macos-arm64
           mkdir -p ~/.local/bin && install -m 755 vc ~/.local/bin/vc
-          # Tiny-Jev のモデル（約 1.2 GB。SHA-256 を検証して取得します）
-          MODEL_DIR="$HOME/Library/Application Support/voice-control/models/tiny-jev-0.6b" ./scripts/fetch-model.sh
+          # Tiny-Jev のモデル（約 1.2 GB）を、~/.voice-control/models に取得して、SHA-256 を検証します
+          vc model download
           vc --help
           ```
 

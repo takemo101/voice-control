@@ -3,7 +3,7 @@ import Foundation
 /// Tiny-Jev（選択肢から 1 つ選び、確率を返すだけのモデル）。
 /// `QwenDecision` ほかの `Decision/` の 5 ファイルは、meeting-analyzer（`Sources/MeetingAnalyzerKit/Decision/`）から、そのまま複製した。
 /// 複製の理由：meeting-analyzer の SwiftPM パッケージは、文字起こしの静的ライブラリ（`scripts/build-native.sh`）と FluidAudio を要求し、この試作には重い。
-/// 版を固定した、ファイルの検証（SHA-256）は、`scripts/fetch-model.sh` が担う。
+/// 版を固定した、取得とファイルの検証（SHA-256）は、`ModelStore`（`vc model download`）が担う。
 public final class TinyJev: @unchecked Sendable {
     /// Tiny-Jev 0.6B の形（meeting-analyzer の `DecisionModelCatalog` と同じ値）。
     static let shape06 = QwenShape(hidden: 1024, layers: 28, heads: 16, kvHeads: 8, headDim: 128, intermediate: 3072, rmsEps: 1e-6, ropeTheta: 1_000_000, temperature: 0.95)

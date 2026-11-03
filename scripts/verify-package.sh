@@ -12,7 +12,7 @@ trap 'rm -rf "$WORK"' EXIT
 tar -xzf "$ARCHIVE" -C "$WORK"
 DIR="$(echo "$WORK"/vc-*)"
 
-for f in vc LICENSE README.md scripts/fetch-model.sh skills/voice-control-skill-author/SKILL.md; do
+for f in vc LICENSE README.md skills/voice-control-skill-author/SKILL.md; do
     [ -e "$DIR/$f" ] || { echo "verify-package: $f がありません" >&2; exit 1; }
 done
 file "$DIR/vc" | grep -q "arm64" || { echo "verify-package: arm64 ではありません" >&2; file "$DIR/vc" >&2; exit 1; }
@@ -25,6 +25,9 @@ fi
 [ "$("$DIR/vc" --version)" = "vc ${VERSION}" ] || { echo "verify-package: vc --version が vc ${VERSION} ではありません" >&2; exit 1; }
 "$DIR/vc" --help > /dev/null
 "$DIR/vc" run --help > /dev/null
-# モデルがなくても動くこと（空の VC_HOME で、スキルの一覧）
+# モデルがなくても動くこと（空の VC_HOME で、スキルの一覧・モデルの状態・ホットキーの設定）
 VC_HOME="$WORK/home" "$DIR/vc" skills > /dev/null
+VC_HOME="$WORK/home" "$DIR/vc" model status > /dev/null
+VC_HOME="$WORK/home" "$DIR/vc" hotkey set ctrl+opt+space > /dev/null
+[ "$(VC_HOME="$WORK/home" "$DIR/vc" hotkey | grep -c "ctrl+opt+space")" -ge 1 ] || { echo "verify-package: vc hotkey が、設定を返しません" >&2; exit 1; }
 echo "verify-package: OK (${VERSION})"

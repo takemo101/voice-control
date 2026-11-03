@@ -35,10 +35,9 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | レシピ | 内容 |
 |---|---|
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
-| `just fetch-model` | Tiny-Jev 0.6B（約 1.2 GB）を、版を固定して `models/` に取得し、SHA-256 を検証する（取得済みなら何もしない。通信が切れたら、再実行で続きから） |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
 | `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
-| `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。モデルは複製せず、`~/Library/Application Support/voice-control/models/tiny-jev-0.6b` から、リポジトリの `models/` へシンボリックリンクを張る |
+| `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
 | `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
 | `just eval` | 固定した画面での当たり率（`SPEAK=1` で、`say` → 文字起こし経由）。実機は操作しない |
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
@@ -47,7 +46,8 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 - テストは `./scripts/test.sh`。Command Line Tools だけの環境では、Swift Testing のマクロのプラグインのパスを、明示して渡す必要があり、素の `swift test` は失敗する。
 - `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
 - 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。
-- モデルの探し方：`--model`、`VC_MODEL_DIR`、`./models/tiny-jev-0.6b`、`~/Library/Application Support/voice-control/models/tiny-jev-0.6b` の順。
+- モデルの取得は `vc model download`（`~/.voice-control/models/tiny-jev-0.6b`。版を固定・SHA-256 の検証・再開）。確認は `vc model status [--verify]`。
+- モデルの探し方：`--model`、`VC_MODEL_DIR`、`~/.voice-control/models/tiny-jev-0.6b`、`./models/tiny-jev-0.6b`（開発用）の順。
 
 ## 変更の進め方
 
@@ -96,7 +96,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 配布は **GitHub Releases**（バイナリの tar.gz と SHA-256）。タグ `vX.Y.Z` の push で、[release.yml](../.github/workflows/release.yml) が、macOS 26 のランナー（Xcode 26）でビルドして、Release に添付する。リリースは、**利用者の依頼があるときだけ**行う。
 
-配布物：`vc-<版>-macos-arm64.tar.gz`（中身：`vc`・`LICENSE`・`README.md`・`scripts/fetch-model.sh`・`skills/voice-control-skill-author/`）と、`.sha256`。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が `fetch-model.sh` で取得する）。署名は ad-hoc（Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから）。
+配布物：`vc-<版>-macos-arm64.tar.gz`（中身：`vc`・`LICENSE`・`README.md`・`skills/voice-control-skill-author/`）と、`.sha256`。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が `vc model download` で取得する）。署名は ad-hoc（Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから）。
 
 **手順**
 
@@ -109,5 +109,5 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 - Release を作らない確認：Pull Request（リリースに関わるファイルを変えたとき）または Actions タブ → release → Run workflow。tar.gz をアーティファクトに残し、ダウンロードして SHA-256 を照合するところまで確かめる。
 - ローカルで同じ配布物を作る：`just package`（`dist/` に tar.gz と `.sha256`。作ったものを `verify-package.sh` で検査する）。
-- 検査の内容：SHA-256・中身・arm64・署名（ad-hoc）・OS 標準以外のライブラリに依存していないこと・`vc --version`・`vc --help`・モデルなしで動く `vc skills`。
+- 検査の内容：SHA-256・中身・arm64・署名（ad-hoc）・OS 標準以外のライブラリに依存していないこと・`vc --version`・`vc --help`・モデルなしで動く `vc skills`・`vc model status`・`vc hotkey set`。
 - **ワークフローの実行環境（macOS 26）には、Apple Intelligence も Tiny-Jev のモデルもない**。そこで確認できるのは、ビルド・単体テスト・モデルを使わないコマンドまで。`vc run`・`just eval` は、人間が実機で確かめる（[検証手順と記録](verification.md)）。

@@ -138,9 +138,21 @@ public enum SkillStore {
     }
 }
 
-/// 設定（`~/.voice-control/settings.json`）。スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
+/// 設定（`~/.voice-control/settings.json`）。
+/// - `disabledSkills`：スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
+/// - `hotkey`：押している間だけ聞くトリガー（`HotKeySpec` の書き方）。なければ、`shift` の長押し。
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
+    public var hotkey: String?
+
+    public init() {}
+
+    // 項目が足りない古いファイルも読めるように、すべて `decodeIfPresent`。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
+        hotkey = try c.decodeIfPresent(String.self, forKey: .hotkey)
+    }
 
     public static func load(from file: URL = VoiceControlHome.settingsFile) -> Settings {
         guard let data = try? Data(contentsOf: file), let s = try? JSONDecoder().decode(Settings.self, from: data) else { return Settings() }
@@ -159,5 +171,11 @@ public struct Settings: Codable, Sendable, Equatable {
     public mutating func setEnabled(_ name: String, _ enabled: Bool) {
         disabledSkills.removeAll { $0 == name }
         if !enabled { disabledSkills.append(name); disabledSkills.sort() }
+    }
+
+    /// 設定されたトリガー。なければ `shift` の長押し。設定が読めなければ、理由。
+    public var hotkeySpec: Result<HotKeySpec, HotKeySpec.Failure> {
+        guard let hotkey else { return .success(.default) }
+        return HotKeySpec.parse(hotkey)
     }
 }

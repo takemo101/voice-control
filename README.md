@@ -22,7 +22,7 @@ $ agent-desktop click @a1:e20
 |---|---|
 | **スキル**（`vc skills`・`vc run`） | 自作ウィンドウで確認（「設定ボタンを押して」6/6）。**実アプリ・複数スキルの取り違えは未確認** |
 | PC 操作（`vc plan`・`act`・`listen`） | **試作**。固定した画面で当たり 8 割台（自作の文・楽観側）。確認なしで実行する外れが残る |
-| 声の入力（Shift の長押し・マイク） | 実装済み。**マイクの実録音は未確認** |
+| 声の入力（ホットキー・マイク） | 実装済み（ホットキーは `vc hotkey` で変更でき、押している間は画面に「録音中」が出る）。**マイクの実録音は未確認** |
 
 詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。
 
@@ -31,17 +31,17 @@ $ agent-desktop click @a1:e20
 - macOS 26 以降・Apple silicon。Swift 6.2 以降（Xcode または Command Line Tools）。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（`agent-desktop permissions`）。
 - Apple Intelligence（FoundationModels）が使える Mac。
-- Tiny-Jev 0.6B のモデル（約 1.2 GB。`just fetch-model`）。[just](https://github.com/casey/just) は任意。
+- Tiny-Jev 0.6B のモデル（約 1.2 GB。`vc model download` で `~/.voice-control/models/` に取得）。[just](https://github.com/casey/just) は任意。
 
 ## はじめかた
 
 ```sh
-just fetch-model      # Tiny-Jev を取得して SHA-256 を検証
-just install          # vc を ~/.local/bin へ入れる（モデルは、リポジトリの models/ へのリンク）
+just install          # vc を ~/.local/bin へ入れる
+vc model download     # Tiny-Jev を ~/.voice-control/models に取得（SHA-256 を検証。途中からの再開ができる）
 just test             # 単体テスト
 ```
 
-**リリース版（tar.gz）から入れる**：[Releases](https://github.com/takemo101/voice-control/releases) の `vc-<版>-macos-arm64.tar.gz` を展開して、`vc` を PATH の通った場所へ置き、同梱の `scripts/fetch-model.sh` でモデルを取得する（手順は各 Release の説明に書いてある。署名は ad-hoc）。**リリースは、まだありません**（作り方：[開発手順](docs/development.md#リリース)）。
+**リリース版（tar.gz）から入れる**：[Releases](https://github.com/takemo101/voice-control/releases) の `vc-<版>-macos-arm64.tar.gz` を展開して、`vc` を PATH の通った場所へ置き、`vc model download` でモデルを取得する（手順は各 Release の説明に書いてある。署名は ad-hoc）。**リリースは、まだありません**（作り方：[開発手順](docs/development.md#リリース)）。
 
 スキルを置いて、使う：
 
@@ -69,6 +69,8 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills show <name>` | 許可するコマンド・確認の要否・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
+| `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
+| `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。押している間は、画面の上に「録音中」が出る |
 | `vc plan` / `act` / `listen` / `eval` … | PC 操作の試作（[PC 操作の流れ](docs/pc-control.md)） |
 
 ヘルプ：`vc --help`（コマンドの一覧・共通のオプション・環境変数）、`vc <コマンド> --help`（使い方・オプション・例）。出力は、端末なら色つき（`NO_COLOR=1` で無効）。

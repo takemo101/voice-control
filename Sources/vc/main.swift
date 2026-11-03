@@ -6,7 +6,7 @@ import VoiceControlKit
 //   vc plan "<発話>" [--app <名前>]     選んだ操作・確率・ゲートの判定だけを出す（実行しない）
 //   vc act  "<発話>" [--app <名前>] [--execute] [--yes]   --execute で実行。確認が要る判定は --yes も要る
 //   vc eval corpus/plans.tsv            固定した画面での、操作の当たり率（実機を操作しない）
-// 共通：--model <dir>（なければ VC_MODEL_DIR、./models/tiny-jev-0.6b、~/Library/Application Support/voice-control/models/tiny-jev-0.6b の順）  --length <tokens>（既定 1024）
+// 共通：--model <dir>（なければ VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b、./models/tiny-jev-0.6b の順）  --length <tokens>（既定 1024）
 
 
 // ヘルプは、モデルの読み込みなど、他の処理より前に出す。
@@ -23,21 +23,22 @@ func flag(_ name: String) -> Bool {
     args.remove(at: i)
     return true
 }
-/// モデルの場所：--model、環境変数 VC_MODEL_DIR、./models/tiny-jev-0.6b、~/Library/Application Support/voice-control/models/tiny-jev-0.6b の順に、最初に tokenizer.json があるもの。
+/// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
 /// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
 let modelOption = option("--model")
 func resolveModelDir() -> URL {
-    let support = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/voice-control/models/tiny-jev-0.6b").path
-    let candidates = [modelOption, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], "models/tiny-jev-0.6b", support].compactMap { $0 }.filter { !$0.isEmpty }
+    let candidates = [modelOption, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], ModelStore.defaultDirectory().path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
     let found = candidates.first { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }
-    guard let found else { fail("モデルが見つかりません（探した場所: \(candidates.joined(separator: ", "))）。just fetch-model で取得") }
+    guard let found else { fail("モデルが見つかりません（探した場所: \(candidates.joined(separator: ", "))）。vc model download で取得") }
     return URL(fileURLWithPath: found)
 }
 let length = option("--length").flatMap(Int.init) ?? 1024
 let appName = option("--app")
 let execute = flag("--execute"), yes = flag("--yes"), speak = flag("--speak"), hotkeyMode = flag("--hotkey"), llmMode = flag("--llm"), llmSplit = flag("--llm-split"), noContext = flag("--no-context"), noLocation = flag("--no-location")
 let audioFile = option("--audio")
-let triggerName = option("--trigger") ?? "shift"
+let triggerOption = option("--trigger")
+/// 声の流れ（`vc listen --hotkey`）で、スキルのコマンドを実行せず、表示だけにするか（`vc run` の `--dry-run` と同じ）。
+let dryRunRequested = args.contains("--dry-run")
 /// これまでに実行した手（前の指示を、次の判断の文脈に使う）。`--no-context` なら、使わない。
 let sessionHistory = HistoryStore()
 var gate = Gate()
@@ -52,7 +53,7 @@ func loadJev() -> TinyJev {
         eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), length)))
         return jev
     } catch {
-        fail("モデルを読めません: \(error)（just fetch-model で取得）")
+        fail("モデルを読めません: \(error)（vc model download で取得）")
     }
 }
 
@@ -82,15 +83,33 @@ let skillCatalog: SkillCatalog.Loaded = {
     return loaded
 }()
 
-/// 押している間だけ聞く入り口。`--trigger shift`（既定：Shift を 0.35 秒以上、単独で押し続ける）か、`--trigger ctrl-opt-space`。
-func makeTrigger() throws -> PushToTalkTrigger {
-    switch triggerName {
-    case "shift":
-        if !ModifierHold.isTrusted { notice("Shift の長押しの検出には、アクセシビリティの許可が要ります（この端末アプリに）。許可がないと、何も届きません") }
-        return ModifierHold(modifier: .shift)
-    case "ctrl-opt-space": return try HotKey()
-    default: fail("知らない --trigger: \(triggerName)（shift か ctrl-opt-space）")
+/// トリガー（押している間だけ聞く）：`--trigger` → `~/.voice-control/settings.json` の `hotkey` → 既定（`shift` の長押し）。書き方は `HotKeySpec`。
+func resolveHotKey() -> (spec: HotKeySpec, source: String) {
+    if let triggerOption {
+        switch HotKeySpec.parse(triggerOption) {
+        case let .success(spec): return (spec, "--trigger")
+        case let .failure(f): fail("--trigger \(triggerOption): \(f.reason)")
+        }
     }
+    let settings = Settings.load()
+    switch settings.hotkeySpec {
+    case let .success(spec): return (spec, settings.hotkey == nil ? "既定" : "設定")
+    case let .failure(f): fail("settings.json の hotkey「\(settings.hotkey ?? "")」: \(f.reason)（vc hotkey set で直す）")
+    }
+}
+
+/// 押している間だけ聞く入り口。長押し（修飾キーだけ）には、アクセシビリティの許可が要る。
+func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
+    if spec.isHold && !ModifierHold.isTrusted {
+        notice("\(spec.displayName) の長押しの検出には、アクセシビリティの許可が要ります。許可がないと、何も届きません")
+        notice("システム設定 > プライバシーとセキュリティ > アクセシビリティで、vc を動かしているターミナルを許可し、そのターミナルを開き直す。許可なしで使うなら、vc hotkey set ctrl+opt+space")
+    }
+    return try spec.makeTrigger()
+}
+
+/// 使い方の文の頭（「…て、離す」「…ている間だけ聞きます」につなぐ）。
+func holdInstruction(_ spec: HotKeySpec) -> String {
+    spec.isHold ? "\(spec.description) を単独で 0.35 秒以上押し続け" : "\(spec.description) を押し"
 }
 
 /// 読み上げる（確認の問いかけ）。終わるまで待たない。
@@ -158,23 +177,115 @@ func clauses(for utterance: String) async -> [String] {
 /// 発話を 1 手ずつに分け、順に、計画し、（act かつ --execute なら）実行する。前の手を実行したあとの画面で、次の手を計画する。
 /// どれかの手が「実行しない」になれば、残りも中止する。確認が要る手は、`confirm` が true を返したときだけ実行する。
 /// 実行しない（plan・--execute なし）ときは、いまの画面で、各手を計画して見せるだけ（前の手の結果は、反映されない）。
-func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, act: Bool, confirm: (Plan) async throws -> Bool) async throws {
+func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, act: Bool, hud: HUDSession? = nil, confirm: (Plan) async throws -> Bool) async throws {
     for (i, clause) in clauses.enumerated() {
         let more = i + 1 < clauses.count
         heading(clauses.count > 1 ? "[\(i + 1)/\(clauses.count)] \(clause)" : clause)
         let plan = try planner.plan(clause, history: noContext ? [] : sessionHistory.entries)
         describe(plan)
-        guard let step = plan.step, plan.verdict != .reject else { print("  " + Style.dim("→ 実行しない" + (more ? "（残りも中止）" : ""))); return }
+        guard let step = plan.step, plan.verdict != .reject else {
+            print("  " + Style.dim("→ 実行しない" + (more ? "（残りも中止）" : "")))
+            hud?.update { $0.steps.append(.init(command: "\(plan.choice)", status: .denied, output: plan.rejection ?? "確信が足りないので、実行しません")) }
+            return
+        }
         guard act, execute else {
             if act { print("  " + Style.dim("dry-run：実行していない（--execute で実行）")) }
+            hud?.update { $0.steps.append(.init(command: step.summary, status: .denied, output: "実行していません（--execute なし）")) }
             continue
         }
-        if plan.verdict == .confirm, !(try await confirm(plan)) { print("  " + Style.yellow("やめた（確認が取れない）" + (more ? "。残りも中止" : ""))); return }
+        if plan.verdict == .confirm, !(try await confirm(plan)) {
+            print("  " + Style.yellow("やめた（確認が取れない）" + (more ? "。残りも中止" : "")))
+            hud?.update { $0.steps.append(.init(command: step.summary, status: .denied, output: "やめました")) }
+            return
+        }
+        hud?.update { $0.steps.append(.init(command: step.summary)) }
         try desktop.perform(step)
         sessionHistory.append(Executed(step: step))
         print("  " + Style.green("✓ done"))
+        hud?.update { if let last = $0.steps.indices.last { $0.steps[last].status = .ok } }
         if more { try await Task.sleep(nanoseconds: 800_000_000) }   // 画面が落ち着くのを待つ
     }
+}
+
+/// 有効なスキル（`~/.voice-control/skills` を、そのつど読み直す。起動したまま、足したり、有効・無効を変えたりできる）。読めなかったものは、理由を出す。
+func enabledSkills() -> [Skill] {
+    let loaded = SkillStore.load()
+    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
+    let settings = Settings.load()
+    return loaded.skills.filter { settings.isEnabled($0.name) }
+}
+
+/// スキルの実行の表示（ターミナル）。`hud` があれば、画面の上の表示にも、コマンドと結果を出す。
+func skillDisplay(hud: HUDSession? = nil) -> SkillAgent.Display {
+    .init(
+        onCommand: { command in
+            print("  " + Style.bold("$ " + command))
+            hud?.update { $0.steps.append(.init(command: command)) }
+        },
+        onResult: { code, output in
+            print("    " + (code == 0 ? Style.green("✓ exit 0") : Style.red("✗ exit \(code)")))
+            let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
+            for line in lines.prefix(8) { print("    " + Style.dim("│ ") + line) }
+            if lines.count > 8 { print("    " + Style.dim("… 他 \(lines.count - 8) 行")) }
+            hud?.update { content in
+                guard let last = content.steps.indices.last else { return }
+                content.steps[last].status = code == 0 ? .ok : .failed(code)
+                content.steps[last].output = HUDSession.firstLine(output)
+            }
+        },
+        onDenied: { command, reason in
+            print("  " + Style.red("✗ 拒否: ") + command + Style.dim("  — " + reason))
+            hud?.update { $0.steps.append(.init(command: command, status: .denied, output: reason)) }
+        })
+}
+
+/// 声の依頼を、スキルで実行する（スキルを選ぶ → 必要なら声で確認 → 言語モデルがコマンドを実行 → 経過と結果を、画面の上に出す）。
+/// Tiny-Jev がスキルを選ばなければ false を返す（呼び出し側が、PC 操作へ回す）。
+func runSkillByVoice(_ utterance: String, skills: [Skill], jev: TinyJev, confirmation: Confirmation, gate: Gate, dryRun: Bool, chip: String,
+                     ask: () async throws -> String?) async throws -> Bool {
+    let t0 = Date()
+    let routed = try SkillRouter(scorer: jev, skills: skills).route(utterance)
+    kv("Tiny-Jev", (routed.skill.map { Style.bold($0.name) } ?? Style.dim("（どれでもない）")) + "  \(pct(routed.probability))" + Style.dim("（\(seconds(t0))）"))
+    guard let skill = routed.skill, routed.probability >= gate.floor else { return false }
+    kv("許可", skill.allowedCommands.joined(separator: "、"))
+
+    let hud = HUDSession(HUDContent(phase: .working, title: dryRun ? "確認のみ（--dry-run）" : "実行中", chip: chip, heard: utterance, skill: skill.name))
+    hud.update()
+    if skill.confirm || routed.probability < gate.execute {
+        say("\(skill.name)を実行しますか")
+        notice("確認待ち：もう一度トリガーを押して「はい」と言う")
+        hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = "もう一度トリガーを押して、「はい」と言う" }
+        guard let answer = try await ask(), try confirmation.isYes(answer) else {
+            print("  " + Style.dim("やめた"))
+            hud.update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil }
+            return true
+        }
+        hud.update { $0.phase = .working; $0.title = dryRun ? "確認のみ（--dry-run）" : "実行中"; $0.hint = nil }
+    }
+
+    let agent = SkillAgent(skill: skill, dryRun: dryRun, display: skillDisplay(hud: hud))
+    let t1 = Date()
+    do {
+        let reply = try await agent.run(request: utterance)
+        kv("返事", reply)
+        kv("所要", seconds(t1) + "・実行したコマンド \(agent.executedCommands.count) 件" + (dryRun ? Style.dim("（dry-run）") : ""))
+        hud.update(hideAfter: HUDSession.readingTime(for: reply)) {
+            if dryRun {
+                // 実行していないので、成功（緑）にしない。言語モデルの返事は、実行したかのように書くことがある。
+                $0.phase = .info
+                $0.title = "実行していません（--dry-run）"
+                $0.reply = "コマンドは実行していません。\n" + reply
+            } else {
+                $0.phase = .success
+                $0.title = "完了"
+                $0.reply = reply
+            }
+        }
+    } catch {
+        print(Style.red("失敗:") + " \(error)")
+        hud.update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = "\(error)" }
+    }
+    return true
 }
 
 switch command {
@@ -192,24 +303,35 @@ case "plan", "act":
     } catch { fail("\(error)") }
 
 case "listen":
-    // vc listen [--app <名前>] [--execute] [--hotkey]：既定は、Enter で録音を始め、もう一度 Enter で止める。--hotkey は、control + option + space を押している間だけ録音する。
+    // vc listen [--app <名前>] [--execute] [--hotkey]：既定は、Enter で録音を始め、もう一度 Enter で止める。--hotkey は、トリガー（既定：Shift の長押し。vc hotkey で変更）を押している間だけ録音する。
     // マイクの許可が要る（初回、macOS が確認を出す）。
-    guard await MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
+    guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
     let desktop = AgentDesktop(app: appName)
     let jev = loadJev()
     let planner = Planner(scorer: jev, desktop: desktop, gate: gate, skills: skillCatalog.shortcuts, useLocation: !noLocation)
     if hotkeyMode {
-        // control + option + space を押している間だけ録音し、離したら、文字にして、計画する。
-        // --app がなければ、そのとき前面にあるアプリを操作する。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
+        // トリガーを押している間だけ録音し（その間、画面の上に「録音中」を出す）、離したら、文字にする。
+        // 有効なスキルがあれば、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（経過と結果を、画面の上に出す）。スキルが選ばれなければ、PC 操作（前面のアプリ。--app があればそのアプリ）へ回す。
+        // --execute がなければ、実行しない（スキルは dry-run、PC 操作は計画の表示だけ）。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
         let confirmation = Confirmation(scorer: jev)
         let (files, filesIn) = AsyncStream<URL>.makeStream()
         let session = RecordingSession()
         do {
-            let hotkey = try makeTrigger()
-            hotkey.onPress = { session.start(); NSSound(named: "Pop")?.play() }
+            let (spec, _) = resolveHotKey()
+            let hotkey = try makeTrigger(spec)
+            hotkey.onPress = {
+                HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します", chip: spec.displayName))
+                session.start(); NSSound(named: "Pop")?.play()
+            }
             hotkey.onRelease = {
                 NSSound(named: "Tink")?.play()
-                do { if let file = try session.stop() { filesIn.yield(file) } } catch { print("録音に失敗: \(error)") }
+                HUD.shared.show(HUDContent(phase: .working, title: "認識中…", chip: spec.displayName))
+                do {
+                    if let file = try session.stop() { filesIn.yield(file) } else { HUD.shared.hide() }
+                } catch {
+                    print("録音に失敗: \(error)")
+                    HUD.shared.show(HUDContent(phase: .failure, title: "録音に失敗しました", reply: "\(error)"), hideAfter: 4)
+                }
             }
             Task {
                 var iterator = files.makeAsyncIterator()
@@ -224,19 +346,51 @@ case "listen":
                 while true {
                     do {
                         guard let utterance = try await nextUtterance() else { break }
-                        guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
-                        try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, confirm: { plan in
+                        guard !utterance.isEmpty else {
+                            notice("聞き取れなかった")
+                            HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: spec.displayName), hideAfter: 2.5)
+                            continue
+                        }
+                        let skills = enabledSkills()
+                        if !skills.isEmpty, try await runSkillByVoice(utterance, skills: skills, jev: jev, confirmation: confirmation, gate: gate, dryRun: dryRunRequested, chip: spec.displayName, ask: nextUtterance) { continue }
+
+                        // スキルが選ばれなかった（または、スキルがない）：PC 操作へ
+                        let hud = HUDSession(HUDContent(phase: .working, title: "考え中", chip: spec.displayName, heard: utterance))
+                        hud.update()
+                        try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, hud: hud, confirm: { plan in
                             say("\(plan.step?.spoken ?? "この操作")。実行しますか")
                             notice("確認待ち：もう一度トリガーを押して「はい」と言う")
+                            hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = "\(plan.step?.spoken ?? "この操作")　もう一度押して「はい」" }
                             guard let answer = try await nextUtterance() else { return false }
-                            return try confirmation.isYes(answer)
+                            let yes = try confirmation.isYes(answer)
+                            hud.update { $0.phase = .working; $0.title = "実行中"; $0.hint = nil }
+                            return yes
                         })
-                    } catch { print(Style.red("失敗:") + " \(error)") }
+                        hud.update(hideAfter: 3) { content in
+                            let done = content.steps.contains { if case .ok = $0.status { return true } else { return false } }
+                            content.phase = done ? .success : .info
+                            content.title = done ? "完了" : "実行しませんでした"
+                            content.hint = nil
+                        }
+                    } catch {
+                        print(Style.red("失敗:") + " \(error)")
+                        HUD.shared.show(HUDContent(phase: .failure, title: "失敗", chip: spec.displayName, reply: "\(error)"), hideAfter: 6)
+                    }
                 }
             }
-            print(Style.bold(triggerName == "shift" ? "Shift を単独で押し続けている間だけ聞きます" : "control + option + space を押している間だけ聞きます") + Style.dim("（Ctrl+C で終了）"))
+            print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了）"))
+            kv("スキル", dryRunRequested ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
+            kv("PC 操作", execute ? Style.green("実行する（--execute）") : Style.yellow("実行しない（計画の表示だけ。--execute で実行）"), width: 8)
+            fflush(stdout)
+            // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
+            if spec.isHold && !ModifierHold.isTrusted {
+                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このターミナルを許可して、開き直してください。許可なしなら vc hotkey set ctrl+opt+space", chip: spec.displayName), hideAfter: 15)
+            } else {
+                HUD.shared.show(HUDContent(phase: .info, title: "準備できました", hint: "\(holdInstruction(spec))ている間だけ聞きます", chip: spec.displayName), hideAfter: 3.5)
+            }
             NSApplication.shared.setActivationPolicy(.accessory)
-            NSApplication.shared.run()
+            // トリガーは、`run()` が終わるまで、手放さない（最適化で、最後の使用のあとに解放され、ホットキーが死ぬのを防ぐ）。
+            withExtendedLifetime(hotkey) { NSApplication.shared.run() }
         } catch { fail("ホットキーを登録できません: \(error)") }
     }
     while true {
@@ -407,15 +561,7 @@ case "run":
     }
 
     heading(dryRun ? "実行（dry-run：コマンドは実行しない）" : "実行")
-    let agent = SkillAgent(skill: skill, dryRun: dryRun, display: .init(
-        onCommand: { print("  " + Style.bold("$ " + $0)) },
-        onResult: { code, output in
-            print("    " + (code == 0 ? Style.green("✓ exit 0") : Style.red("✗ exit \(code)")))
-            let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
-            for line in lines.prefix(8) { print("    " + Style.dim("│ ") + line) }
-            if lines.count > 8 { print("    " + Style.dim("… 他 \(lines.count - 8) 行")) }
-        },
-        onDenied: { print("  " + Style.red("✗ 拒否: ") + $0 + Style.dim("  — " + $1)) }))
+    let agent = SkillAgent(skill: skill, dryRun: dryRun, display: skillDisplay())
     let t1 = Date()
     do {
         let reply = try await agent.run(request: request)
@@ -424,13 +570,157 @@ case "run":
         kv("所要", seconds(t1) + "・実行したコマンド \(agent.executedCommands.count) 件" + (dryRun ? Style.dim("（dry-run）") : ""))
     } catch { fail("\(error)") }
 
+case "model":
+    // vc model [status [--verify]]／download [--force]／path：Tiny-Jev のモデル（~/.voice-control/models/tiny-jev-0.6b）の確認・取得。
+    let sub = args.count >= 2 ? args[1] : "status"
+    let spec = ModelSpec.tinyJev06
+    let dir = ModelStore.defaultDirectory(for: spec)
+    func size(_ bytes: Int64) -> String { String(format: "%.1f MB", Double(bytes) / 1_048_576) }
+    switch sub {
+    case "path":
+        print(dir.path)
+    case "status":
+        let verify = flag("--verify")
+        heading("モデル（Tiny-Jev 0.6B）")
+        kv("置き場所", dir.path)
+        var allGood = true
+        for file in spec.files {
+            let label: String
+            switch ModelStore.state(of: file, in: dir) {
+            case .missing: label = Style.red("なし"); allGood = false
+            case let .wrongSize(actual): label = Style.red("大きさが違う（\(size(actual))。期待 \(size(file.bytes))）"); allGood = false
+            case .present:
+                if verify {
+                    let ok = ModelStore.verify(file, in: dir)
+                    label = ok ? Style.green("あり・SHA-256 一致") : Style.red("SHA-256 が一致しない")
+                    allGood = allGood && ok
+                } else {
+                    label = Style.green("あり") + Style.dim("（\(size(file.bytes))。SHA-256 は --verify で確かめる）")
+                }
+            }
+            kv(file.name, label, width: 18)
+        }
+        let candidates = [modelOption, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], dir.path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
+        if let used = candidates.first(where: { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }) {
+            kv("使う場所", used, width: 18)
+        } else {
+            kv("使う場所", Style.red("見つからない"), width: 18)
+        }
+        if !allGood { notice("取得する：vc model download（約 \(size(spec.files.reduce(0) { $0 + $1.bytes }))。SHA-256 を検証して置く）") }
+    case "download":
+        let force = flag("--force")
+        let total = spec.files.reduce(Int64(0)) { $0 + $1.bytes }
+        heading("モデルの取得（Tiny-Jev 0.6B）")
+        kv("取得元", spec.baseURL.absoluteString)
+        kv("置き場所", dir.path)
+        kv("大きさ", "約 \(size(total))" + Style.dim("（途中で切れたら、もう一度実行すると続きから。取得したファイルは SHA-256 で検証する）"))
+        notice("モデルの取得だけが、外部との通信です。音声・画面は、送りません")
+        let tty = isatty(1) != 0
+        let printer = ProgressPrinter(tty: tty)
+        do {
+            try await ModelStore.download(spec, to: dir, force: force) { printer.report($0) }
+            printer.finish()
+            print(Style.green("✓") + " 取得して、SHA-256 を検証しました: \(dir.path)")
+            notice("使う：vc skills・vc run \"…\"")
+        } catch {
+            printer.finish()
+            fail("\(error)")
+        }
+    default:
+        usageError("model", "知らないサブコマンド: \(sub)（status・download・path）")
+    }
+
+case "hotkey":
+    // vc hotkey [show]／set <キー>／reset：押している間だけ聞くトリガーの設定（~/.voice-control/settings.json）。
+    let sub = args.count >= 2 ? args[1] : "show"
+    var settings = Settings.load()
+    switch sub {
+    case "show":
+        let (spec, source) = resolveHotKey()
+        heading("ホットキー")
+        kv("いまの設定", Style.bold(spec.description) + Style.dim("（\(spec.displayName)・\(source)）"))
+        kv("種類", spec.isHold ? "長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）" : "キーの組み合わせ（許可は要らない）")
+        if spec.isHold { kv("許可", ModifierHold.isTrusted ? Style.green("アクセシビリティ：許可済み") : Style.red("アクセシビリティ：未許可") + Style.dim("（システム設定 > プライバシーとセキュリティ > アクセシビリティで、このターミナルを許可し、開き直す）")) }
+        print("")
+        notice("変える：vc hotkey set <キー>（例：shift・ctrl+opt・ctrl+opt+space・cmd+shift+r・f5）。戻す：vc hotkey reset")
+        notice("確かめる：vc hotkey-check（押して、離す。画面に「録音中」が出る）")
+    case "set":
+        guard args.count >= 3 else { usageError("hotkey", "キーを渡してください（例: vc hotkey set ctrl+opt+space）") }
+        let text = args.dropFirst(2).joined(separator: "+")
+        switch HotKeySpec.parse(text) {
+        case let .failure(f): fail("\(text): \(f.reason)")
+        case let .success(spec):
+            settings.hotkey = spec.description
+            do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+            heading("ホットキー")
+            kv("設定した", Style.bold(spec.description) + Style.dim("（\(spec.displayName)）"))
+            if spec.isHold && !ModifierHold.isTrusted { notice("長押しの検出には、アクセシビリティの許可が要ります（この端末アプリに。agent-desktop permissions）") }
+            notice("次の vc listen --hotkey から有効（確かめる：vc hotkey-check）")
+        }
+    case "reset":
+        settings.hotkey = nil
+        do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+        print(Style.green("✓") + " 既定（shift の長押し）に戻しました")
+    default:
+        usageError("hotkey", "知らないサブコマンド: \(sub)（show・set・reset）")
+    }
+
+case "hud-preview":
+    // vc hud-preview [--stage recording|working|confirm|success|failure|denied] [--seconds <秒>]：画面の上の表示の見本を出す（マイク・言語モデル・コマンドは使わない。見た目の確認用）。
+    // --stage がなければ、順に、すべて出す。
+    let seconds = option("--seconds").flatMap(Double.init) ?? 3
+    let only = option("--stage")
+    let chip = resolveHotKey().spec.displayName
+    func sample(_ stage: String) -> HUDContent? {
+        switch stage {
+        case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します", chip: chip)
+        case "working":
+            var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "音量を50にして", skill: "spotify")
+            c.steps = [.init(command: "osascript …/spotify.applescript volume 50")]
+            return c
+        case "confirm": return HUDContent(phase: .confirm, title: "実行しますか？", hint: "もう一度トリガーを押して、「はい」と言う", chip: chip, heard: "ファイルを削除して", skill: "cleanup")
+        case "success":
+            var c = HUDContent(phase: .success, title: "完了", chip: chip, heard: "音量を50にして", skill: "spotify")
+            c.steps = [.init(command: "osascript …/spotify.applescript volume 50", status: .ok, output: "ok: volume 50")]
+            c.reply = "done: 音量を50に設定しました。"
+            return c
+        case "failure":
+            var c = HUDContent(phase: .failure, title: "失敗", chip: chip, heard: "次の曲にして", skill: "spotify")
+            c.steps = [.init(command: "osascript …/spotify.applescript next", status: .failed(1), output: "error: Spotify が応答しません")]
+            c.reply = "failed: Spotify が応答しません"
+            return c
+        case "denied":
+            var c = HUDContent(phase: .info, title: "実行しませんでした", chip: chip, heard: "ターミナルで ls を実行して", skill: "open-app")
+            c.steps = [.init(command: "ls", status: .denied, output: "許可されていないコマンドです（open だけ許可）")]
+            return c
+        default: return nil
+        }
+    }
+    let stages = ["recording", "working", "confirm", "success", "failure", "denied"]
+    if let only { guard sample(only) != nil else { usageError("hud-preview", "知らない --stage: \(only)（\(stages.joined(separator: "・"))）") } }
+    for (i, stage) in (only.map { [$0] } ?? stages).enumerated() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * seconds) { HUD.shared.show(sample(stage)!) }
+    }
+    let total = Double(only == nil ? stages.count : 1) * seconds
+    DispatchQueue.main.asyncAfter(deadline: .now() + total) { HUD.shared.hide(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) } }
+    NSApplication.shared.setActivationPolicy(.accessory)
+    NSApplication.shared.run()
+
 case "hotkey-check":
     let seconds = option("--seconds").flatMap(Double.init) ?? 10
     do {
-        let hotkey = try makeTrigger()
-        hotkey.onPress = { print(Style.green("▼ pressed")); fflush(stdout) }
-        hotkey.onRelease = { print(Style.dim("▲ released")); fflush(stdout) }
-        print((triggerName == "shift" ? "Shift を単独で 0.35 秒以上押して、離す" : "control + option + space を押して、離す") + Style.dim("（\(Int(seconds)) 秒間）"))
+        let (spec, source) = resolveHotKey()
+        let hotkey = try makeTrigger(spec)
+        hotkey.onPress = {
+            print(Style.green("▼ pressed")); fflush(stdout)
+            HUD.shared.show("録音中（テスト）　離すと終わり（\(spec.displayName)）", mode: .recording)
+        }
+        hotkey.onRelease = {
+            print(Style.dim("▲ released")); fflush(stdout)
+            HUD.shared.show("離しました", mode: .info, hideAfter: 1)
+        }
+        print("\(holdInstruction(spec))て、離す" + Style.dim("（\(spec.description)・\(source)・\(Int(seconds)) 秒間。マイクは使いません）"))
+        fflush(stdout)
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { _ = hotkey; exit(0) }
         NSApplication.shared.setActivationPolicy(.accessory)
         NSApplication.shared.run()
