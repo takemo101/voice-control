@@ -4,6 +4,7 @@ import Testing
 import VCCore
 import VCDecision
 import VCSpeech
+@testable import VCSkill
 
 private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillStore.ParseError> {
     SkillStore.parse(text, directoryName: dir, file: URL(fileURLWithPath: "/tmp/SKILL.md"))
