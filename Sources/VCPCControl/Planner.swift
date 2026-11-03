@@ -8,7 +8,7 @@ public protocol Desktop: Sendable {
     /// 開けるアプリの名前（起動中と、インストール済み）。
     func apps() throws -> [String]
     func perform(_ step: Step) throws
-    /// 画面（snapshot）を読めないときの、前面のアプリの名前（アプリごとのスキルの条件に使う）。分からなければ `nil`。
+    /// 画面（snapshot）を読めないときの、前面のアプリの名前（アプリごとのキー操作の条件（`app`）に使う）。分からなければ `nil`。
     func frontAppName() -> String?
 }
 

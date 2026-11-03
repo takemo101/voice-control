@@ -157,7 +157,7 @@ private struct PicksSpotify: OptionScorer {
 
 @Suite struct KeyBindingCatalogTests {
     private func load(_ json: String) throws -> KeyBindingCatalog.Loaded {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vc-skills-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vc-keys-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
         try Data(json.utf8).write(to: dir.appendingPathComponent("t.json"))
