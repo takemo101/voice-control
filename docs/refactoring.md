@@ -34,7 +34,7 @@ grep -rn "try?" Sources                  # 握りつぶしの候補
 grep -rn "try!" Sources                  # 強制（定数の正規表現だけのはず）
 grep -rn "@unchecked Sendable" Sources   # ロックで守っているか
 grep -rn "TODO\|FIXME" Sources           # 保留
-grep -rln "import FoundationModels\|import AppKit" Sources/VoiceControlKit   # 外部依存が入る場所
+grep -rln "import FoundationModels\|import AppKit" Sources   # 外部依存が入る場所
 wc -l Sources/vc/main.swift              # 実行ファイルに、判断が溜まっていないか
 ```
 

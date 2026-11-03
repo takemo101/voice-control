@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 extension Settings {
     /// 設定されたトリガー。なければ `shift` の長押し。設定が読めなければ、理由。

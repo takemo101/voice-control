@@ -1,9 +1,107 @@
 import Foundation
 import Testing
-@testable import VoiceControlKit
+@testable import VCSkill
+import VCCore
+import VCDecision
+@testable import VCSpeech
+
+/// 質問ごとに、決めた確率を返す偽物（スキルの選択・操作の依頼か・取り消しにくいか）。
+private struct ScriptedScorer: OptionScorer {
+    /// スキルの選択で、勝たせる選択肢（説明の文字列）。`nil` なら「どれでもない」（最後の選択肢）。
+    var routedDescription: String?
+    var actionable = 0.9
+    var destructive = 0.1
+
+    func score(state: String, question: String, options: [String]) throws -> [Double] {
+        if question.hasPrefix("この発話は、どちらか") { return [1 - actionable, actionable] }
+        if question.hasPrefix("この依頼は、削除") { return [1 - destructive, destructive] }
+        var p = options.map { _ in 0.01 }
+        p[routedDescription.flatMap { options.firstIndex(of: $0) } ?? options.count - 1] = 0.9
+        let sum = p.reduce(0, +)
+        return p.map { $0 / sum }
+    }
+}
 
 private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillStore.ParseError> {
     SkillStore.parse(text, directoryName: dir, file: URL(fileURLWithPath: "/tmp/SKILL.md"))
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func increment() { lock.lock(); count += 1; lock.unlock() }
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+}
+
+@Suite struct DefaultSkillTests {
+    private func skill(_ name: String, _ description: String, confirm: Bool = false) -> Skill {
+        Skill(name: name, description: description, allowedCommands: ["open"], confirm: confirm, body: "x", file: URL(fileURLWithPath: "/tmp/\(name)/SKILL.md"))
+    }
+
+    @Test func builtInDefaultSkillHasOnlyValidModestPermissions() {
+        for entry in DefaultSkill.allowedCommands { #expect(CommandPolicy.validateEntry(entry) == nil, "\(entry)") }
+        // 削除・移動・通信・任意のスクリプトは、既定では許可しない
+        for risky in ["rm", "mv", "curl", "osascript", "sh", "bash", "sudo", "git"] {
+            #expect(!DefaultSkill.allowedCommands.contains(risky), "\(risky)")
+        }
+        #expect(DefaultSkill.allowedCommands.contains("agent-desktop"))
+    }
+
+    @Test func loadAllAddsTheBuiltInDefaultUnlessTheUserDefinesOne() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("vc-default-\(UUID().uuidString)")
+        let dir = base.appendingPathComponent("skills")
+        defer { try? FileManager.default.removeItem(at: base) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let builtin = SkillStore.loadAll(projectRoot: nil, settings: Settings(), globalDirectory: dir)
+        #expect(builtin.skills.map(\.name) == ["default"] && builtin.skills[0].scope == .builtin)
+
+        let custom = dir.appendingPathComponent("default")
+        try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+        try Data("---\nname: default\ndescription: mine\nallowed-commands:\n  - git status\n---\nDo it.\n".utf8).write(to: custom.appendingPathComponent("SKILL.md"))
+        let overridden = SkillStore.loadAll(projectRoot: nil, settings: Settings(), globalDirectory: dir)
+        #expect(overridden.skills.count == 1 && overridden.skills[0].allowedCommands == ["git status"] && overridden.skills[0].scope == .global)
+    }
+
+    @Test func aMatchingSkillWinsAndDefaultIsNeverARouterOption() throws {
+        let spotify = skill("spotify", "Spotify の操作")
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: "Spotify の操作"), skills: [DefaultSkill.skill, spotify], gate: Gate())
+        guard case let .resolved(r) = try resolver.resolve("次の曲") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "spotify" && r.kind == .matched && r.confirmReason == nil)
+    }
+
+    @Test func noMatchFallsBackToDefaultWhenItIsAnActionableRequest() throws {
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: nil), skills: [DefaultSkill.skill, skill("spotify", "Spotify の操作")], gate: Gate())
+        guard case let .resolved(r) = try resolver.resolve("電卓を開いて") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "default" && r.kind == .fallback && r.confirmReason == nil)
+    }
+
+    @Test func conversationIsNotSentToTheDefaultSkill() throws {
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: nil, actionable: 0.01), skills: [DefaultSkill.skill], gate: Gate())
+        guard case let .declined(reason, available) = try resolver.resolve("ちょっと待ってね") else { Issue.record("resolved"); return }
+        #expect(available && reason.contains("操作の依頼ではない"))
+    }
+
+    @Test func riskyRequestsAskForConfirmationOnTheFallback() throws {
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: nil, destructive: 0.9), skills: [DefaultSkill.skill], gate: Gate())
+        guard case let .resolved(r) = try resolver.resolve("ファイルを全部削除して") else { Issue.record("not resolved"); return }
+        #expect(r.kind == .fallback && r.confirmReason != nil)
+    }
+
+    @Test func withoutADefaultSkillNothingFallsBack() throws {
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: nil), skills: [skill("spotify", "Spotify の操作")], gate: Gate())
+        guard case let .declined(_, available) = try resolver.resolve("電卓を開いて") else { Issue.record("resolved"); return }
+        #expect(!available)  // 呼び出し側が、従来の PC 操作へ回せる
+    }
+
+    @Test func lowConfidenceMatchStillConfirms() throws {
+        var gate = Gate()
+        gate.execute = 0.99
+        let spotify = skill("spotify", "Spotify の操作")
+        let resolver = SkillResolver(scorer: ScriptedScorer(routedDescription: "Spotify の操作"), skills: [spotify], gate: gate)
+        guard case let .resolved(r) = try resolver.resolve("次の曲") else { Issue.record("not resolved"); return }
+        #expect(r.confirmReason != nil)
+    }
 }
 
 @Suite struct SkillFileTests {
@@ -61,34 +159,6 @@ private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillS
         let loaded = SkillStore.load(directory: root)
         #expect(loaded.skills.map(\.name) == ["good"])
         #expect(loaded.problems.map(\.location) == ["bad"])
-    }
-}
-
-@Suite struct SettingsTests {
-    @Test func skillsAreEnabledByDefaultAndTogglePersistently() throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        var settings = try Settings.load(from: file)
-        #expect(settings.isEnabled("a"))
-        settings.setEnabled("b", false); settings.setEnabled("a", false)
-        try settings.save(to: file)
-        let reloaded = try Settings.load(from: file)
-        #expect(!reloaded.isEnabled("a") && !reloaded.isEnabled("b") && reloaded.isEnabled("c"))
-        var again = reloaded
-        again.setEnabled("a", true)
-        #expect(again.isEnabled("a") && !again.isEnabled("b"))
-    }
-
-    @Test func routerOffersOnlyTheSkillsItIsGiven() throws {
-        final class Spy: OptionScorer, @unchecked Sendable {
-            var seen: [String] = []
-            func score(state: String, question: String, options: [String]) throws -> [Double] { seen += options; return options.map { _ in 1.0 / Double(options.count) } }
-        }
-        func skill(_ n: String) -> Skill { Skill(name: n, description: "説明 \(n)", allowedCommands: ["open"], confirm: false, body: "b", file: URL(fileURLWithPath: "/tmp/x")) }
-        let spy = Spy()
-        _ = try SkillRouter(scorer: spy, skills: [skill("a")]).route("依頼")
-        #expect(spy.seen.contains("説明 a") && !spy.seen.contains("説明 b"))
-        #expect(try SkillRouter(scorer: spy, skills: []).route("依頼").skill == nil)
     }
 }
 
@@ -309,82 +379,30 @@ private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillS
     }
 }
 
-private final class LockedCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
-    func increment() { lock.lock(); count += 1; lock.unlock() }
-    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
-}
-
-@Suite struct VoiceActivityTests {
-    private final class Changes: @unchecked Sendable {
-        private let lock = NSLock()
-        private var values: [Bool] = []
-        func add(_ v: Bool) { lock.lock(); values.append(v); lock.unlock() }
-        var all: [Bool] { lock.lock(); defer { lock.unlock() }; return values }
+@Suite struct SettingsTests {
+    @Test func skillsAreEnabledByDefaultAndTogglePersistently() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        var settings = try Settings.load(from: file)
+        #expect(settings.isEnabled("a"))
+        settings.setEnabled("b", false); settings.setEnabled("a", false)
+        try settings.save(to: file)
+        let reloaded = try Settings.load(from: file)
+        #expect(!reloaded.isEnabled("a") && !reloaded.isEnabled("b") && reloaded.isEnabled("c"))
+        var again = reloaded
+        again.setEnabled("a", true)
+        #expect(again.isEnabled("a") && !again.isEnabled("b"))
     }
 
-    @Test func escWhileRecordingDiscardsTheRecordingAndIgnoresTheLaterRelease() {
-        let activity = VoiceActivity()
-        let changes = Changes()
-        activity.onChange = { changes.add($0) }
-        activity.startRecording()
-        #expect(activity.isActive)
-        #expect(activity.escape() == .recording)
-        #expect(!activity.isActive)
-        #expect(activity.consumeCancelledRecording())    // 離したときの処理は、何もしない
-        #expect(!activity.consumeCancelledRecording())   // 1 度だけ
-        #expect(changes.all == [true, false])
-    }
-
-    @Test func escWhileWorkingCancelsTheTokenAndTheTask() async {
-        let activity = VoiceActivity()
-        let token = CancelToken()
-        activity.beginWork(token)
-        let task = Task { while !Task.isCancelled { try? await Task.sleep(nanoseconds: 10_000_000) } }
-        activity.setTask(task)
-        #expect(activity.escape() == .work)
-        #expect(token.isCancelled)
-        await task.value   // 取りやめられて、終わる
-        #expect(task.isCancelled)
-        activity.endWork()
-        #expect(!activity.isActive)
-    }
-
-    @Test func recordingTakesPriorityOverWorkWhenBothAreActive() {
-        // 確認の返事を録音している間の Esc：まず録音を捨てる（処理は、続く。もう一度 Esc で取りやめる）
-        let activity = VoiceActivity()
-        let token = CancelToken()
-        activity.beginWork(token)
-        activity.startRecording()
-        #expect(activity.escape() == .recording)
-        #expect(!token.isCancelled && activity.isActive)
-        #expect(activity.escape() == .work)
-        #expect(token.isCancelled)
-    }
-
-    @Test func escWhenIdleDoesNothing() {
-        let activity = VoiceActivity()
-        #expect(activity.escape() == .nothing)
-        #expect(!activity.isActive)
-    }
-
-    @Test func queuedAudioKeepsTheActivityActiveUntilItIsConsumed() {
-        let activity = VoiceActivity()
-        activity.startRecording()
-        activity.stopRecording(queuedAudio: true)
-        #expect(activity.isActive)   // 認識の待ち
-        activity.consumedAudio()
-        #expect(!activity.isActive)
-    }
-
-    @Test func cancelSignalWakesAWaitingReader() async {
-        let queue = VoiceInputQueue()
-        let waiting = Task { await queue.next() }
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        queue.push(.cancel)
-        guard case .cancel = await waiting.value else { Issue.record("expected .cancel"); return }
-        queue.push(.audio(URL(fileURLWithPath: "/tmp/a.caf")))   // 待っていないときの入力は、たまる
-        guard case .audio = await queue.next() else { Issue.record("expected .audio"); return }
+    @Test func routerOffersOnlyTheSkillsItIsGiven() throws {
+        final class Spy: OptionScorer, @unchecked Sendable {
+            var seen: [String] = []
+            func score(state: String, question: String, options: [String]) throws -> [Double] { seen += options; return options.map { _ in 1.0 / Double(options.count) } }
+        }
+        func skill(_ n: String) -> Skill { Skill(name: n, description: "説明 \(n)", allowedCommands: ["open"], confirm: false, body: "b", file: URL(fileURLWithPath: "/tmp/x")) }
+        let spy = Spy()
+        _ = try SkillRouter(scorer: spy, skills: [skill("a")]).route("依頼")
+        #expect(spy.seen.contains("説明 a") && !spy.seen.contains("説明 b"))
+        #expect(try SkillRouter(scorer: spy, skills: []).route("依頼").skill == nil)
     }
 }

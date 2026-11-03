@@ -1,51 +1,23 @@
 import Foundation
 import Testing
-@testable import VoiceControlKit
+@testable import VCPCControl
+import VCCore
+import VCDecision
 
-/// 「target」と書かれた選択肢に確率を寄せる偽物。呼ばれた回数と、1 回の選択肢の最大数を記録する。
-private final class FakeScorer: OptionScorer, @unchecked Sendable {
-    let target: String?
-    private(set) var calls = 0
-    private(set) var widest = 0
-    init(target: String?) { self.target = target }
-    func score(state: String, question: String, options: [String]) throws -> [Double] {
-        calls += 1
-        widest = max(widest, options.count)
-        let hit = options.firstIndex { $0 == target }
-        var p = options.map { _ in 0.01 }
-        p[hit ?? options.count - 1] = 0.9   // 該当がなければ、最後（「該当なし」）へ
-        let sum = p.reduce(0, +)
-        return p.map { $0 / sum }
-    }
+private struct BrokenScreenDesktop: Desktop {
+    func snapshot() throws -> Snapshot { throw SnapshotError.notOK(code: "INTERNAL") }
+    func apps() throws -> [String] { ["Spotify"] }
+    func perform(_ step: Step) throws {}
 }
 
-@Suite struct ChooserTests {
-    private let options = (0..<100).map { "option \($0)" }
-
-    @Test func findsTheTargetAmongMoreCandidatesThanOneCallAccepts() throws {
-        for target in [0, 30, 31, 62, 99] {
-            let scorer = FakeScorer(target: "option \(target)")
-            let pick = try Chooser(scorer: scorer, limit: 32).pick(state: "", question: "", options: options, none: "none")
-            #expect(pick.index == target)
-            #expect(scorer.widest <= 32)
-        }
-    }
-
-    @Test func returnsNoneWhenNoCandidateMatches() throws {
-        let scorer = FakeScorer(target: nil)
-        let pick = try Chooser(scorer: scorer, limit: 32).pick(state: "", question: "", options: options, none: "none")
-        #expect(pick.index == nil)
-    }
-
-    @Test func roundCountIsAnUpperBoundOnTheCallsMade() throws {
-        for count in [1, 31, 32, 100, 961, 962] {
-            let scorer = FakeScorer(target: "option 0")
-            let opts = (0..<count).map { "option \($0)" }
-            let chooser = Chooser(scorer: scorer, limit: 32)
-            _ = try chooser.pick(state: "", question: "", options: opts, none: "none")
-            #expect(scorer.calls <= chooser.rounds(for: count), "count \(count)")
-            if count <= 31 { #expect(scorer.calls == 1) }
-        }
+/// 「アプリを開く: Spotify」を選ぶ偽物。
+private struct PicksSpotify: OptionScorer {
+    func score(state: String, question: String, options: [String]) throws -> [Double] {
+        let hit = options.firstIndex(of: "アプリを開く: Spotify")
+        var p = options.map { _ in 0.001 }
+        p[hit ?? options.count - 1] = 0.9
+        let sum = p.reduce(0, +)
+        return p.map { $0 / sum }
     }
 }
 
@@ -61,22 +33,6 @@ private final class FakeScorer: OptionScorer, @unchecked Sendable {
 
     @Test func returnsNilWithoutText() {
         #expect(TextExtractor.text(in: "メッセージを送って") == nil)
-    }
-}
-
-@Suite struct GateTests {
-    @Test func executesOnlyConfidentHarmlessSteps() {
-        let gate = Gate()
-        #expect(gate.verdict(stages: [0.95], destructive: 0.1, forceConfirm: false) == .execute)
-        #expect(gate.verdict(stages: [0.95, 0.60], destructive: nil, forceConfirm: false) == .confirm)
-        #expect(gate.verdict(stages: [0.95, 0.30], destructive: nil, forceConfirm: false) == .reject)
-    }
-
-    @Test func riskyOrForcedStepsAlwaysNeedConfirmation() {
-        let gate = Gate()
-        #expect(gate.verdict(stages: [0.999], destructive: 0.9, forceConfirm: false) == .confirm)
-        #expect(gate.verdict(stages: [0.999], destructive: nil, forceConfirm: true) == .confirm)
-        #expect(gate.verdict(stages: [0.30], destructive: 0.9, forceConfirm: true) == .reject)
     }
 }
 
@@ -188,23 +144,6 @@ private final class FakeScorer: OptionScorer, @unchecked Sendable {
         #expect(recent.count == History.maxCount)
         #expect(!recent.contains { $0.step == step })
         #expect(recent.last?.step == .openApp("B0"))
-    }
-}
-
-private struct BrokenScreenDesktop: Desktop {
-    func snapshot() throws -> Snapshot { throw SnapshotError.notOK(code: "INTERNAL") }
-    func apps() throws -> [String] { ["Spotify"] }
-    func perform(_ step: Step) throws {}
-}
-
-/// 「アプリを開く: Spotify」を選ぶ偽物。
-private struct PicksSpotify: OptionScorer {
-    func score(state: String, question: String, options: [String]) throws -> [Double] {
-        let hit = options.firstIndex(of: "アプリを開く: Spotify")
-        var p = options.map { _ in 0.001 }
-        p[hit ?? options.count - 1] = 0.9
-        let sum = p.reduce(0, +)
-        return p.map { $0 / sum }
     }
 }
 

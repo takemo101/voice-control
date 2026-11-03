@@ -1,4 +1,5 @@
 import Foundation
+import VCDecision
 
 /// 既定スキル（`default`）：どのスキルにも当てはまらない依頼を、Apple の言語モデルが、`agent-desktop` と基本のコマンドで実行する。
 /// - Tiny-Jev の選択肢（`SkillRouter`）には、**入れない**（説明が広すぎて、すべての依頼を吸うため）。当てはまるスキルがないときだけ、使う。

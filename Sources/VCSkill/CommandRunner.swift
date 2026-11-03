@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 public struct CommandResult: Sendable, Equatable {
     public let exitCode: Int32

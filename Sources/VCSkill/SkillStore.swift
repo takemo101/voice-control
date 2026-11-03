@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 public enum SkillStore {
     public static let maxDescription = 200
