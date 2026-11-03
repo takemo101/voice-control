@@ -4,7 +4,7 @@
 
 ## 構成と依存
 
-- 依存は下向きだけ：`vc` → `Skill`・`Action`・`Speech` → `Choice` → `Decision`。下の層は、上の層を `import` しない。`Decision/` は、外へ出す面を `TinyJev` だけにする。
+- 依存は下向きだけ：`vc` → `Skill`・`Action`・`Speech`（互いには依存しない）、`Skill`・`Action` → `Choice` → `Decision`、`Core`（場所・設定・取りやめの合図）はどの層も使ってよい、`Model` は `Core` だけ。下の層は、上の層を `import` しない。`Decision/` は、外へ出す面を `TinyJev` だけにする。
 - `vc`（実行ファイル）は、**引数の解釈・流れの組み立て・表示・終了コード**だけ。規則・判断は Kit に置き、`vc` から切り離してテストできるようにする。
 - 新しい機能は、変わる理由で置き場所を決める（スキル／PC 操作／音声／選択／モデルの実行）。「util」「helper」に、無関係なものを集めない。
 - `Decision/` の複製したファイルは、**変えない**（meeting-analyzer の版と、同じ内容を保つ）。変える必要があれば、元の側で直して、複製し直す。

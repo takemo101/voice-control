@@ -42,7 +42,7 @@ flowchart TB
 
 ## Module の責務
 
-依存は**下向きだけ**：`vc` → `Skill`・`Action`・`Speech`（互いには依存しない）。`Skill`・`Action` → `Choice` → `Decision`。`Core`（場所・設定・取りやめの合図）は、どの層も使ってよい（`Decision` は、いまは使っていない）。`Model` も `Core` だけに依存する。`scripts/check-deps.sh`（暫定。型名の `grep`）が、フォルダどうしの依存を確かめる。**ターゲットの分割（MIK-005）で、コンパイラが強制する**。
+依存は**下向きだけ**：`vc` → `Skill`・`Action`・`Speech`（互いには依存しない）。`Skill`・`Action` → `Choice` → `Decision`。`Core`（場所・設定・取りやめの合図）は、どの層も使ってよい（`Decision` は、いまは使っていない）。`Model` も `Core` だけに依存する。`scripts/check-deps.sh`（暫定。型名の `grep`）が、フォルダどうしの依存を確かめる（`just deps`。型・関数・定数の名前の参照だけが対象で、他の層の型への `extension` のメンバーは見えない）。**ターゲットの分割（MIK-005）で、コンパイラが強制する**。
 
 | Module（`Sources/`） | 責務 | 持たないもの |
 |---|---|---|

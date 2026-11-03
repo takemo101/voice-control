@@ -35,6 +35,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | レシピ | 内容 |
 |---|---|
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
+| `just deps` | フォルダ（層）どうしの依存が下向きだけかを確かめる（暫定） |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
 | `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
 | `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
