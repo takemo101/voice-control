@@ -1,0 +1,79 @@
+# ドキュメント案内
+
+voice-control の補助文書の入口。製品要件・受け入れ条件・対象外の唯一の正本は、ルートの [SPEC.md](../SPEC.md)。`docs/` は、仕様を別管理する場所ではなく、構成の理解・開発手順・検証・書き方のために使う。
+
+## 文書の役割
+
+| 文書 | 答えること | 管理しないこと |
+|---|---|---|
+| [README](../README.md) | どんなツールか、いま何ができるか、どう使うか | 詳細な要件・測定の数値 |
+| [SPEC](../SPEC.md) | 何を満たすか・何を対象にしないか、受け入れ条件と実装の状態、未決事項 | 検証の成功証拠 |
+| [開発規約](../AGENTS.md) | どう調査・変更・検証・文書更新するか、守る不変条件 | 製品仕様の複製・作業履歴 |
+| [開発手順](development.md) | ビルド・テスト・インストール・GitButler・PR を、どう進めるか | 追加の実施権限 |
+| [構成説明](architecture.md) | Module の責務・状態の所有・時間と並行・失敗・信頼の境界はどう関係するか | 確定 API・測定の数値 |
+| [コーディング指針](coding-guidelines.md) | クリーンなコードの具体的な規則（境界・型・失敗・並行・外部コマンド・プロンプト・テスト） | 製品要件 |
+| [参考にした設計原則](references.md) | どの設計原則を選び、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
+| [リファクタリングの観点](refactoring.md) | 動作を変えずに見直すときの観点と進め方 | 製品要件・実施権限・スコア化 |
+| [検証手順と記録](verification.md) | 条件をどう観測し、何をいつ確認したか、何が人間の確認待ちか | 新しい合格条件・未実施の成功 |
+| [スキル](skills.md) | スキルの書き方・`allowed-commands` の仕様・コマンド・表示・安全 | 製品要件（正本は SPEC F1〜F6） |
+| [PC 操作の流れ](pc-control.md) | 候補の作り方・ゲート・複数の手・文脈・音声入力の設計と限界（試作） | 製品要件（正本は SPEC F7・F8）・測定の数値 |
+| [スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md) | エージェントが、`~/.voice-control/skills` のスキルを、正しい形で作る手順 | スキルの形の要件（正本は SPEC F1） |
+
+文書間で矛盾を見つけたら、派生文書を根拠に製品要件を変更しない。SPEC の該当節と利用者の判断を確認し、必要な修正を、関係する文書へ反映する。
+
+## 読む順序
+
+- **ツールを知る**：README → SPEC の位置づけ・機能要件・対象外 → [スキル](skills.md)。
+- **作業を始める**：SPEC の対象節と §6・§7 → [開発規約](../AGENTS.md)・[開発手順](development.md) → [構成説明](architecture.md)の該当 Module → [コーディング指針](coding-guidelines.md) → 実際のソース。
+- **設計を判断する**：[参考にした設計原則](references.md) → [構成説明](architecture.md)。見直すときは、[リファクタリングの観点](refactoring.md)。
+- **動作を確かめる**：SPEC の受け入れ条件 → [検証手順と記録](verification.md)。設計の説明だけで、動作確認を済ませない。
+- **結果を判断する**：検証記録 → SPEC の受け入れ条件。自動の観測と、人間の確認を区別する。
+
+## 配置
+
+```text
+README.md              概要・使い方
+SPEC.md                製品要件・受け入れ条件（実装の状態つき）・対象外・未決事項
+AGENTS.md              開発規約・不変条件
+Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
+justfile               開発用コマンド（build・test・install・eval・fixture）
+Sources/
+  vc/                  実行ファイル（引数・表示・流れの組み立て）
+  Fixture/             検証用の自作ウィンドウ
+  VoiceControlKit/
+    Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
+    Choice/            選択肢の採点・勝ち抜き戦
+    Skill/             SKILL.md の読込・許可の照合・実行・言語モデル
+    Action/            PC 操作の計画・実行・agent-desktop
+    Speech/            文字起こし・録音・トリガー
+Tests/VoiceControlKitTests/   単体テスト（Swift Testing）
+corpus/                評価用の文（plans.tsv・followups.tsv）と、自作ウィンドウの画面（snapshots/）
+keys/                  キー操作の JSON 定義の例
+skills/
+  voice-control-skill-author/  スキルを作るスキル（エージェント向け）
+scripts/
+  fetch-model.sh       Tiny-Jev を取得して SHA-256 を検証する
+  install.sh           vc を ~/.local/bin へ入れる
+  uninstall.sh         入れた vc とモデルのリンクを取り除く
+  test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
+docs/
+  README.md            この索引
+  development.md       ビルド・テスト・GitButler・PR
+  architecture.md      構成・状態・時間と並行・失敗・信頼の境界
+  coding-guidelines.md クリーンなコードの規則
+  references.md        参考にした設計原則・調べた外部の機能
+  refactoring.md       リファクタリングの観点と進め方
+  verification.md      検証手順・記録・人間の確認待ち
+  skills.md            スキルの書き方と仕様
+  pc-control.md        PC 操作の流れ（試作）
+```
+
+`models/`（Tiny-Jev の重み。約 1.2 GB）と `.build/` は Git 対象外。`~/.voice-control/` は、利用者のスキルと設定で、リポジトリの外。
+
+## 更新時の扱い
+
+- 製品の意味・数値・範囲を変えるときは、SPEC を正本とする。補助文書に同じ値を別管理せず、必要な節へ参照する。実装が進んだら、SPEC §6 の「状態」を、同じ変更で更新する。
+- 構成説明は、選択した境界と理由。検証記録は、実際の操作と観測。**説明・予定・結果を混ぜない。**
+- 文書を追加・移動・削除したら、この索引と参照元を、同じ変更で更新する。見出しを変えたら、その見出しを参照するリンクも確認する。
+- 未実施・失敗・限定的な成功を残す。後の修正や再試行は、別の記録として結び付け、過去の証拠を、全面的な成功へ書き換えない。
+- 利用していないツールの操作手順や、架空のコマンドを案内しない。

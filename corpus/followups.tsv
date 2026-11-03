@@ -1,0 +1,25 @@
+# snapshot<TAB>直前の操作<TAB>期待<TAB>発話。前の指示を文脈に使うか（文脈あり）、使わないか（文脈なし）を比べる。自分で書いた文（偏りがある）。
+# 直前の操作の書き方は plans.tsv と同じ。「|」は、同じ結果になる操作。操作でない発話は none。
+fixture-en	scroll:down	scroll:down|press:down	もう少し下
+fixture-en	scroll:down	scroll:down	もう一回
+fixture-en	scroll:down	scroll:down	同じのをもう一度
+fixture-en	scroll:down	scroll:up|press:up	さっきと逆
+fixture-en	scroll:down	scroll:up|press:up	戻して
+fixture-en	scroll:up	scroll:down|press:down	さっきと逆にして
+fixture-en	window:maximize	window:restore	元の大きさに戻して
+fixture-en	window:maximize	window:restore	戻して
+fixture-en	window:maximize	window:restore	さっきと逆
+fixture-en	window:minimize	window:restore	元に戻して
+fixture-en	press:cmd+z	press:cmd+shift+z	さっきの取り消しを取り消して
+fixture-en	press:cmd+z	press:cmd+z	もう一回
+fixture-en	press:cmd+t	press:cmd+t	もう一個開いて
+fixture-en	press:cmd+t	press:cmd+t	もう一度
+fixture-en	click:Reload	click:Reload|press:cmd+r	もう一回
+fixture-en	click:Help	click:Help	同じことをもう一度
+fixture-en	scroll:down	press:cmd+c	コピーして
+fixture-en	press:cmd+c	press:cmd+v	貼り付けて
+fixture-en	window:maximize	press:cmd+z	直前の入力を元に戻して
+fixture-en	scroll:down	none	ありがとう
+fixture-en	scroll:down	none	今日は天気がいいですね
+fixture-en	window:maximize	none	お昼どうしようかな
+fixture-en	press:cmd+c	none	はい、そうですね

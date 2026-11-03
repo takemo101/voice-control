@@ -1,0 +1,41 @@
+Safari
+Finder
+Mail
+Calendar
+Notes
+Reminders
+Messages
+FaceTime
+Maps
+Photos
+Music
+Podcasts
+Terminal
+System Settings
+Google Chrome
+Slack
+Visual Studio Code
+Xcode
+Preview
+TextEdit
+Calculator
+App Store
+Notion
+Zoom
+Microsoft Excel
+Microsoft Word
+Spotify
+Discord
+Figma
+Obsidian
+Numbers
+Pages
+Keynote
+QuickTime Player
+Activity Monitor
+Font Book
+Books
+Stocks
+Weather
+Dictionary
+Shortcuts

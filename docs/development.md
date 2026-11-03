@@ -1,0 +1,73 @@
+# 開発手順
+
+調査・変更・検証・PR を、一つの作業単位として進める手順。製品仕様ではなく、[AGENTS.md](../AGENTS.md) の規約を、具体的な運用に結び付ける。
+
+## 正本と開始時の読取り順
+
+| 対象 | 正本・役割 |
+|---|---|
+| 製品要件・受け入れ条件・実装の状態・未決事項 | [SPEC.md](../SPEC.md) が唯一の正本 |
+| 作業規約・操作権限・不変条件 | [AGENTS.md](../AGENTS.md)。本書は、その派生手順であり、追加の実施許可ではない |
+| 構成・観測方法・証拠 | [構成説明](architecture.md)、[検証手順と記録](verification.md) |
+
+1. 依頼の対象と、SPEC の該当節（機能要件・受け入れ条件と状態・未決事項）を読む。
+2. AGENTS と本書を読み、変更範囲・許可された操作・確認方法を特定する。既存の利用者の変更を保持する。
+3. [構成説明](architecture.md) の該当 Module と、実際のソース・`Package.swift` を読む。
+
+## 作業単位と最小の経路
+
+一回の作業を、利用者に見える一つの成果と、それを観測する方法で定義する。文書量・テスト件数・部品数を、完成の基準にしない。許可された範囲の**最小で安全な端から端までの経路**を早く確かめ、周辺の抽象化や将来対応を先行させない。
+
+- 調べて分かる環境の前提は、先に読む。設定・権限・鍵・認証を変えて、前提不足を補わない。
+- **実機でしか確かめられないこと（マイク・画面・権限・実アプリ）は、小さな試作（CLI・自作ウィンドウ）で、先に確かめる。** 試行の前に、仮説・結果を区別できる観測・停止条件を決める。
+- プロンプトの文面（選択肢の説明・言語モデルへの指示）を変えたら、**測定**（`just eval`）で、効果を確かめる。印象で直さない。結果を見て文面・コーパスを直したら、記録に書く（[検証手順と記録](verification.md#コーパスの扱い)）。
+- 利用者が報告した結果は、事実として扱う。同じ失敗を確認するだけの再試行や、根拠のない推測の修正はしない。
+
+## 環境
+
+macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない。実行時の外部ツール：[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
+
+## ビルドと実行
+
+`just` で入口を一覧できる（[justfile](../justfile)）。
+
+| レシピ | 内容 |
+|---|---|
+| `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
+| `just fetch-model` | Tiny-Jev 0.6B（約 1.2 GB）を、版を固定して `models/` に取得し、SHA-256 を検証する（取得済みなら何もしない。通信が切れたら、再実行で続きから） |
+| `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
+| `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。モデルは複製せず、`~/Library/Application Support/voice-control/models/tiny-jev-0.6b` から、リポジトリの `models/` へシンボリックリンクを張る |
+| `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
+| `just eval` | 固定した画面での当たり率（`SPEAK=1` で、`say` → 文字起こし経由）。実機は操作しない |
+| `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
+| `just vc <args>` | ビルドして `vc` を呼ぶ |
+
+- テストは `./scripts/test.sh`。Command Line Tools だけの環境では、Swift Testing のマクロのプラグインのパスを、明示して渡す必要があり、素の `swift test` は失敗する。
+- `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
+- 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。
+- モデルの探し方：`--model`、`VC_MODEL_DIR`、`./models/tiny-jev-0.6b`、`~/Library/Application Support/voice-control/models/tiny-jev-0.6b` の順。
+
+## 変更の進め方
+
+1. 守る振る舞いを確かめるテストがあるか見る（なければ、利用者に見える振る舞いを確かめるテストを、先に足す）。
+2. 変更して、`just test`。プロンプト・候補・ゲートに触れたら、`just eval`（と該当する比較）。
+3. 実機の挙動に関わるなら、自作ウィンドウ（`just fixture`）で、実際の経路を動かして観測する。
+4. 構成・要件・検証の記録に影響するなら、同じ変更で、文書を更新する（[AGENTS.md](../AGENTS.md#文書とツールの保守)）。
+
+## Git・GitHub・GitButler
+
+リポジトリは GitHub の公開リポジトリ（`takemo101/voice-control`）。基本のブランチは **`main`**。**GitButler で進める**：`main` を target（`origin/main`）にし、作業ツリーは `gitbutler/workspace` ブランチ（`but setup`）。
+
+- **Git の書込みは `but`**。raw Git の `add`・`commit`・`checkout`・`merge`・`rebase`・`push` で書き込まない（読取りは可）。変更は、専用の branch に `but commit -b <branch> -m <message> <ids…>`。`main` へ直接 commit しない。
+- 変更の確認：`but diff`（未コミットの差分と ID）、`but status`（branch・commit の概観）。ID は、直前の出力からそのまま写す。
+- 同期：`but pull`（target の更新を、workspace に取り込む）。先に確認したいときは `but pull --check`。
+- PR：`but pr new <branch> -F <message-file>`（push を含む）。PR を依頼されたときだけ作る。PR の target・head・差分を確かめてから、`main` へ normal merge する。admin・force・保護の迂回・`but land` による PR 回避をしない。
+- push・公開・リリース・認証は、利用者の依頼があるときだけ。**秘密・個人の情報（トークン・API キー・実際の発話・画面の内容・個人のパス）をコミットしない**（コミットの前に確かめる）。
+- コミットの作者は、リポジトリの設定（`user.name`・`user.email`）のまま。
+- `but unapply <branch>` は、その stack のファイルを作業ツリーから外す（commit は残る）。唯一の stack を unapply すると、ソースが消えたように見える。
+
+コミットの粒度：利用者に見える一つの変更（実装・必要なテスト・文書）を、まとめて 1 commit。無関係な変更を混ぜない。メッセージは、何を・なぜ変えたかを、1 行目に短く。
+
+## リリース
+
+いまは、リリース（タグ・配布物）を作らない。作るときは、利用者の判断で、署名・配布の方法を決めてから、この節に手順を書く。

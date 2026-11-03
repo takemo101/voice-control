@@ -1,0 +1,7 @@
+[
+  { "id": "spotify-play-pause", "label": "Spotify の再生・一時停止（曲を止める・流す）", "keys": ["space"], "app": "Spotify" },
+  { "id": "spotify-next", "label": "Spotify で次の曲へ", "keys": ["cmd+right"], "app": "Spotify" },
+  { "id": "spotify-previous", "label": "Spotify で前の曲へ", "keys": ["cmd+left"], "app": "Spotify" },
+  { "id": "spotify-volume-up", "label": "Spotify の音量を上げる", "keys": ["cmd+up"], "app": "Spotify" },
+  { "id": "spotify-volume-down", "label": "Spotify の音量を下げる", "keys": ["cmd+down"], "app": "Spotify" }
+]
