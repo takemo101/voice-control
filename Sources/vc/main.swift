@@ -112,13 +112,8 @@ func holdInstruction(_ spec: HotKeySpec) -> String {
     spec.isHold ? "\(spec.description) を単独で 0.35 秒以上押し続け" : "\(spec.description) を押し"
 }
 
-/// 読み上げる（確認の問いかけ）。終わるまで待たない。
-func say(_ text: String) {
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-    p.arguments = ["-v", "Kyoko", text]
-    try? p.run()
-}
+/// 読み上げる（確認の問いかけ）。終わるまで待たない。取りやめたときは、止める（`Speech`）。
+func say(_ text: String) { Speech.shared.say(text) }
 
 /// 文を、合成音声（say）にして、オンデバイスで文字起こしする。
 func speakAndTranscribe(_ text: String) async throws -> String {
@@ -177,10 +172,11 @@ func clauses(for utterance: String) async -> [String] {
 /// 発話を 1 手ずつに分け、順に、計画し、（act かつ --execute なら）実行する。前の手を実行したあとの画面で、次の手を計画する。
 /// どれかの手が「実行しない」になれば、残りも中止する。確認が要る手は、`confirm` が true を返したときだけ実行する。
 /// 実行しない（plan・--execute なし）ときは、いまの画面で、各手を計画して見せるだけ（前の手の結果は、反映されない）。
-func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, act: Bool, hud: HUDSession? = nil, confirm: (Plan) async throws -> Bool) async throws {
+func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, act: Bool, hud: HUDSession? = nil, cancel: CancelToken? = nil, confirm: (Plan) async throws -> Bool) async throws {
     for (i, clause) in clauses.enumerated() {
         let more = i + 1 < clauses.count
         heading(clauses.count > 1 ? "[\(i + 1)/\(clauses.count)] \(clause)" : clause)
+        if cancel?.isCancelled == true { throw CancellationError() }
         let plan = try planner.plan(clause, history: noContext ? [] : sessionHistory.entries)
         describe(plan)
         guard let step = plan.step, plan.verdict != .reject else {
@@ -199,6 +195,7 @@ func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, ac
             return
         }
         hud?.update { $0.steps.append(.init(command: step.summary)) }
+        if cancel?.isCancelled == true { throw CancellationError() }
         try desktop.perform(step)
         sessionHistory.append(Executed(step: step))
         print("  " + Style.green("✓ done"))
@@ -207,11 +204,23 @@ func runClauses(_ clauses: [String], planner: Planner, desktop: AgentDesktop, ac
     }
 }
 
-/// 有効なスキル（`~/.voice-control/skills` を、そのつど読み直す。起動したまま、足したり、有効・無効を変えたりできる）。読めなかったものは、理由を出す。
+/// スキルを読む：グローバル（`~/.voice-control/skills`）と、プロジェクト（起動した場所の `.voice-control/skills`。信頼したものだけ）。
+func loadSkills(settings: Settings = Settings.load()) -> SkillStore.Loaded {
+    SkillStore.loadAll(projectRoot: VoiceControlHome.launchDirectory, settings: settings)
+}
+
+/// 未信頼のプロジェクトのスキルがあれば、読み込んでいないことを伝える。
+func warnUntrustedProject(_ loaded: SkillStore.Loaded) {
+    guard loaded.untrustedProjectCount > 0, let directory = loaded.projectDirectory else { return }
+    eprint(Style.yellow("このプロジェクトのスキル \(loaded.untrustedProjectCount) 件（\(directory.path)）は、未信頼のため、読み込んでいません。内容を確かめて、vc skills trust"))
+}
+
+/// 有効なスキル（グローバル＋プロジェクト。そのつど読み直す。起動したまま、足したり、有効・無効を変えたりできる）。読めなかったものは、理由を出す。
 func enabledSkills() -> [Skill] {
-    let loaded = SkillStore.load()
-    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
     let settings = Settings.load()
+    let loaded = loadSkills(settings: settings)
+    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
+    warnUntrustedProject(loaded)
     return loaded.skills.filter { settings.isEnabled($0.name) }
 }
 
@@ -239,22 +248,37 @@ func skillDisplay(hud: HUDSession? = nil) -> SkillAgent.Display {
         })
 }
 
-/// 声の依頼を、スキルで実行する（スキルを選ぶ → 必要なら声で確認 → 言語モデルがコマンドを実行 → 経過と結果を、画面の上に出す）。
-/// Tiny-Jev がスキルを選ばなければ false を返す（呼び出し側が、PC 操作へ回す）。
+/// 声の依頼を、スキルで実行する（スキルを選ぶ → 選ばれなければ既定スキル → 必要なら声で確認 → 言語モデルがコマンドを実行 → 経過と結果を、画面の上に出す）。
+/// 既定スキルが無効（または、ない）で、スキルも選ばれなければ false を返す（呼び出し側が、従来の PC 操作へ回す）。
 func runSkillByVoice(_ utterance: String, skills: [Skill], jev: TinyJev, confirmation: Confirmation, gate: Gate, dryRun: Bool, chip: String,
-                     ask: () async throws -> String?) async throws -> Bool {
+                     cancel: CancelToken? = nil, ask: () async throws -> String?) async throws -> Bool {
     let t0 = Date()
-    let routed = try SkillRouter(scorer: jev, skills: skills).route(utterance)
-    kv("Tiny-Jev", (routed.skill.map { Style.bold($0.name) } ?? Style.dim("（どれでもない）")) + "  \(pct(routed.probability))" + Style.dim("（\(seconds(t0))）"))
-    guard let skill = routed.skill, routed.probability >= gate.floor else { return false }
+    let resolution: SkillResolver.Resolution
+    switch try SkillResolver(scorer: jev, skills: skills, gate: gate).resolve(utterance) {
+    case let .declined(reason, fallbackAvailable):
+        kv("Tiny-Jev", Style.dim("（どのスキルでもない）") + Style.dim("（\(seconds(t0))）"))
+        guard fallbackAvailable else { return false }
+        print("  " + Style.dim("→ 実行しない（\(reason)）"))
+        HUD.shared.show(HUDContent(phase: .info, title: "操作の依頼ではありませんでした", hint: reason, chip: chip, heard: utterance), hideAfter: 3)
+        return true
+    case let .resolved(r):
+        resolution = r
+    }
+    let skill = resolution.skill
+    if resolution.kind == .matched {
+        kv("Tiny-Jev", Style.bold(skill.name) + "  \(pct(resolution.probability))" + Style.dim("（\(seconds(t0))）"))
+    } else {
+        kv("Tiny-Jev", Style.dim("どのスキルでもない") + " → 既定スキル " + Style.bold(skill.name)
+           + Style.dim("（操作の依頼 \(pct(resolution.probability))・取り消しにくさ \(pct(resolution.risk ?? 0))・\(seconds(t0))）"))
+    }
     kv("許可", skill.allowedCommands.joined(separator: "、"))
 
     let hud = HUDSession(HUDContent(phase: .working, title: dryRun ? "確認のみ（--dry-run）" : "実行中", chip: chip, heard: utterance, skill: skill.name))
     hud.update()
-    if skill.confirm || routed.probability < gate.execute {
+    if let reason = resolution.confirmReason {
         say("\(skill.name)を実行しますか")
-        notice("確認待ち：もう一度トリガーを押して「はい」と言う")
-        hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = "もう一度トリガーを押して、「はい」と言う" }
+        notice("確認待ち：もう一度トリガーを押して「はい」と言う（\(reason)）")
+        hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = reason + "。もう一度トリガーを押して、「はい」と言う" }
         guard let answer = try await ask(), try confirmation.isYes(answer) else {
             print("  " + Style.dim("やめた"))
             hud.update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil }
@@ -263,7 +287,7 @@ func runSkillByVoice(_ utterance: String, skills: [Skill], jev: TinyJev, confirm
         hud.update { $0.phase = .working; $0.title = dryRun ? "確認のみ（--dry-run）" : "実行中"; $0.hint = nil }
     }
 
-    let agent = SkillAgent(skill: skill, dryRun: dryRun, display: skillDisplay(hud: hud))
+    let agent = SkillAgent(skill: skill, dryRun: dryRun, display: skillDisplay(hud: hud), cancel: cancel)
     let t1 = Date()
     do {
         let reply = try await agent.run(request: utterance)
@@ -282,8 +306,13 @@ func runSkillByVoice(_ utterance: String, skills: [Skill], jev: TinyJev, confirm
             }
         }
     } catch {
-        print(Style.red("失敗:") + " \(error)")
-        hud.update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = "\(error)" }
+        if cancel?.isCancelled == true || error is CancellationError {
+            print("  " + Style.yellow("取りやめました（Esc）"))
+            hud.update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil }
+        } else {
+            print(Style.red("失敗:") + " \(error)")
+            hud.update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = "\(error)" }
+        }
     }
     return true
 }
@@ -314,54 +343,96 @@ case "listen":
         // 有効なスキルがあれば、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（経過と結果を、画面の上に出す）。スキルが選ばれなければ、PC 操作（前面のアプリ。--app があればそのアプリ）へ回す。
         // --execute がなければ、実行しない（スキルは dry-run、PC 操作は計画の表示だけ）。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
         let confirmation = Confirmation(scorer: jev)
-        let (files, filesIn) = AsyncStream<URL>.makeStream()
+        let queue = VoiceInputQueue()
+        let activity = VoiceActivity()
+        let escape = EscapeKey()
         let session = RecordingSession()
+        // Esc は、録音中・認識待ち・実行中の間だけ受ける（それ以外は、Esc は、ほかのアプリへそのまま届く）。
+        activity.onChange = { active in DispatchQueue.main.async { escape.setActive(active) } }
         do {
             let (spec, _) = resolveHotKey()
             let hotkey = try makeTrigger(spec)
             hotkey.onPress = {
-                HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します", chip: spec.displayName))
+                activity.startRecording()
+                HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: spec.displayName))
                 session.start(); NSSound(named: "Pop")?.play()
             }
             hotkey.onRelease = {
+                if activity.consumeCancelledRecording() { return }   // Esc で捨てた録音の「離した」
                 NSSound(named: "Tink")?.play()
-                HUD.shared.show(HUDContent(phase: .working, title: "認識中…", chip: spec.displayName))
+                HUD.shared.show(HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: spec.displayName))
+                // 修飾キーを押している間は、Esc のホットキーを登録できない（実測）。離したあとに、登録し直す（修飾キーが離れるまでの間、数回試す）。
+                for delay in [0.05, 0.3, 0.8, 1.5] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { if activity.isActive { escape.setActive(true) } }
+                }
                 do {
-                    if let file = try session.stop() { filesIn.yield(file) } else { HUD.shared.hide() }
+                    if let file = try session.stop() {
+                        activity.stopRecording(queuedAudio: true)
+                        queue.push(.audio(file))
+                    } else {
+                        activity.stopRecording(queuedAudio: false)
+                        HUD.shared.hide()
+                    }
                 } catch {
+                    activity.stopRecording(queuedAudio: false)
                     print("録音に失敗: \(error)")
                     HUD.shared.show(HUDContent(phase: .failure, title: "録音に失敗しました", reply: "\(error)"), hideAfter: 4)
                 }
             }
+            escape.onEscape = {
+                switch activity.escape() {
+                case .recording:
+                    session.discard()
+                    print("  " + Style.yellow("録音を取りやめました（Esc）"))
+                    HUD.shared.show(HUDContent(phase: .info, title: "録音を取りやめました", chip: spec.displayName), hideAfter: 1.5)
+                case .work:
+                    Speech.shared.stop()
+                    queue.push(.cancel)   // 発話や確認の返事を待っている処理を起こす
+                    HUD.shared.show(HUDContent(phase: .info, title: "取りやめています…", chip: spec.displayName))
+                case .nothing:
+                    break
+                }
+            }
             Task {
-                var iterator = files.makeAsyncIterator()
-                /// 次の発話（確認の返事にも使う）。
-                func nextUtterance() async throws -> String? {
-                    guard let file = await iterator.next() else { return nil }
+                /// 列から取り出した音声を、文字にする。取りやめられていれば nil。
+                func transcribe(_ file: URL, _ token: CancelToken) async throws -> String? {
+                    activity.consumedAudio()
                     defer { try? FileManager.default.removeItem(at: file) }
+                    if token.isCancelled { return nil }
                     let text = try await FileTranscriber().transcribe(file: file)
+                    if token.isCancelled { return nil }
                     kv("聞こえた", text)
                     return text
                 }
-                while true {
+                /// 次の発話（確認の返事にも使う）。取りやめられたら nil。
+                func nextUtterance(_ token: CancelToken) async throws -> String? {
+                    while true {
+                        switch await queue.next() {
+                        case .cancel: if token.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる
+                        case let .audio(file): return try await transcribe(file, token)
+                        }
+                    }
+                }
+                func handle(_ file: URL, _ token: CancelToken) async {
                     do {
-                        guard let utterance = try await nextUtterance() else { break }
+                        guard let utterance = try await transcribe(file, token) else { throw CancellationError() }
                         guard !utterance.isEmpty else {
                             notice("聞き取れなかった")
                             HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: spec.displayName), hideAfter: 2.5)
-                            continue
+                            return
                         }
                         let skills = enabledSkills()
-                        if !skills.isEmpty, try await runSkillByVoice(utterance, skills: skills, jev: jev, confirmation: confirmation, gate: gate, dryRun: dryRunRequested, chip: spec.displayName, ask: nextUtterance) { continue }
+                        if !skills.isEmpty, try await runSkillByVoice(utterance, skills: skills, jev: jev, confirmation: confirmation, gate: gate, dryRun: dryRunRequested, chip: spec.displayName,
+                                                                      cancel: token, ask: { try await nextUtterance(token) }) { return }
 
-                        // スキルが選ばれなかった（または、スキルがない）：PC 操作へ
+                        // スキルが選ばれなかった（既定スキルも使えない）：PC 操作へ
                         let hud = HUDSession(HUDContent(phase: .working, title: "考え中", chip: spec.displayName, heard: utterance))
                         hud.update()
-                        try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, hud: hud, confirm: { plan in
+                        try await runClauses(await clauses(for: utterance), planner: planner, desktop: desktop, act: true, hud: hud, cancel: token, confirm: { plan in
                             say("\(plan.step?.spoken ?? "この操作")。実行しますか")
                             notice("確認待ち：もう一度トリガーを押して「はい」と言う")
                             hud.update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = "\(plan.step?.spoken ?? "この操作")　もう一度押して「はい」" }
-                            guard let answer = try await nextUtterance() else { return false }
+                            guard let answer = try await nextUtterance(token) else { throw CancellationError() }
                             let yes = try confirmation.isYes(answer)
                             hud.update { $0.phase = .working; $0.title = "実行中"; $0.hint = nil }
                             return yes
@@ -373,12 +444,26 @@ case "listen":
                             content.hint = nil
                         }
                     } catch {
-                        print(Style.red("失敗:") + " \(error)")
-                        HUD.shared.show(HUDContent(phase: .failure, title: "失敗", chip: spec.displayName, reply: "\(error)"), hideAfter: 6)
+                        if token.isCancelled || error is CancellationError {
+                            print("  " + Style.yellow("取りやめました（Esc）"))
+                            HUD.shared.show(HUDContent(phase: .info, title: "取りやめました", chip: spec.displayName), hideAfter: 2)
+                        } else {
+                            print(Style.red("失敗:") + " \(error)")
+                            HUD.shared.show(HUDContent(phase: .failure, title: "失敗", chip: spec.displayName, reply: "\(error)"), hideAfter: 6)
+                        }
                     }
                 }
+                while true {
+                    guard case let .audio(file) = await queue.next() else { continue }   // 待っている処理がないときの Esc の合図は、読み捨てる
+                    let token = CancelToken()
+                    activity.beginWork(token)
+                    let work = Task { await handle(file, token) }
+                    activity.setTask(work)
+                    await work.value
+                    activity.endWork()
+                }
             }
-            print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了）"))
+            print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
             kv("スキル", dryRunRequested ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
             kv("PC 操作", execute ? Style.green("実行する（--execute）") : Style.yellow("実行しない（計画の表示だけ。--execute で実行）"), width: 8)
             fflush(stdout)
@@ -390,7 +475,7 @@ case "listen":
             }
             NSApplication.shared.setActivationPolicy(.accessory)
             // トリガーは、`run()` が終わるまで、手放さない（最適化で、最後の使用のあとに解放され、ホットキーが死ぬのを防ぐ）。
-            withExtendedLifetime(hotkey) { NSApplication.shared.run() }
+            withExtendedLifetime((hotkey, escape)) { NSApplication.shared.run() }
         } catch { fail("ホットキーを登録できません: \(error)") }
     }
     while true {
@@ -476,23 +561,35 @@ case "skills":
     // vc skills show <name>          1 つの詳細（許可するコマンド・本文の場所）
     // vc skills enable|disable <name>  Tiny-Jev の選択肢にするか（既定は有効。設定は ~/.voice-control/settings.json）
     let sub = args.count >= 2 ? args[1] : "list"
-    let loaded = SkillStore.load()
     var settings = Settings.load()
+    let loaded = loadSkills(settings: settings)
     switch sub {
     case "list":
         let enabledCount = loaded.skills.filter { settings.isEnabled($0.name) }.count
-        print(Style.bold("スキル") + " \(loaded.skills.count) 件（有効 \(enabledCount)）  " + Style.dim(VoiceControlHome.skillsDirectory.path))
+        print(Style.bold("スキル") + " \(loaded.skills.count) 件（有効 \(enabledCount)）")
+        kv("グローバル", VoiceControlHome.skillsDirectory.path, width: 12)
+        if let projectDirectory = loaded.projectDirectory {
+            let state = loaded.untrustedProjectCount > 0
+                ? Style.yellow("未信頼：\(loaded.untrustedProjectCount) 件を読み込んでいない。確認して vc skills trust")
+                : Style.green("信頼済み")
+            kv("プロジェクト", projectDirectory.path + "（" + state + "）", width: 12)
+        } else {
+            kv("プロジェクト", Style.dim("なし（\(VoiceControlHome.projectSkillsDirectory(root: VoiceControlHome.launchDirectory).path)）"), width: 12)
+        }
         if loaded.skills.isEmpty {
-            print("\n  まだありません。\(VoiceControlHome.skillsDirectory.path)/<name>/SKILL.md に置きます。")
+            print("\n  まだありません。\(VoiceControlHome.skillsDirectory.path)/<name>/SKILL.md（全体）か、\(VoiceControlHome.projectSkillsDirectory(root: VoiceControlHome.launchDirectory).path)/<name>/SKILL.md（このプロジェクト）に置きます。")
             print("  作り方: skills/voice-control-skill-author/SKILL.md、書式: docs/skills.md")
         } else {
             let width = max(4, loaded.skills.map { displayWidth($0.name) }.max() ?? 0)
-            print("\n  " + Style.dim(pad("状態", to: 6) + pad("name", to: width + 2) + "説明"))
+            print("\n  " + Style.dim(pad("状態", to: 6) + pad("name", to: width + 2) + pad("置き場所", to: 14) + "説明"))
             for s in loaded.skills {
                 let on = settings.isEnabled(s.name)
-                print("  " + (on ? Style.green(pad("有効", to: 6)) : Style.dim(pad("無効", to: 6))) + pad(s.name, to: width + 2) + (on ? s.description : Style.dim(s.description)))
+                let scope: String
+                switch s.scope { case .project: scope = "プロジェクト"; case .builtin: scope = "組み込み"; case .global: scope = "グローバル" }
+                print("  " + (on ? Style.green(pad("有効", to: 6)) : Style.dim(pad("無効", to: 6))) + pad(s.name, to: width + 2) + pad(scope, to: 14) + (on ? s.description : Style.dim(s.description)))
             }
         }
+        if !loaded.overridden.isEmpty { notice("プロジェクトのスキルが、同じ名前のグローバルを上書きしている：" + loaded.overridden.joined(separator: "、")) }
         if !loaded.problems.isEmpty {
             print("\n" + Style.yellow("読み込めなかった \(loaded.problems.count) 件"))
             loaded.problems.forEach { print("  \(pad($0.location, to: 18))\($0.reason)") }
@@ -505,15 +602,42 @@ case "skills":
         kv("説明", s.description, width: 6)
         kv("許可", s.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", s.confirm ? "必須" : "なし", width: 6)
-        kv("場所", s.file.path, width: 6)
+        switch s.scope {
+        case .project: kv("置き場所", "プロジェクト" + (loaded.overridden.contains(s.name) ? Style.dim("（同名のグローバルを上書き）") : ""), width: 6)
+        case .builtin: kv("置き場所", "組み込み", width: 6)
+        case .global: kv("置き場所", "グローバル", width: 6)
+        }
+        if s.scope != .builtin { kv("場所", s.file.path, width: 6) }
     case "enable", "disable":
         guard args.count >= 3 else { usageError("skills", "name を渡してください（例: vc skills \(sub) open-app）") }
         guard loaded.skills.contains(where: { $0.name == args[2] }) else { fail("スキルがありません: \(args[2])（一覧：vc skills）") }
         settings.setEnabled(args[2], sub == "enable")
         do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
         print(sub == "enable" ? Style.green("✓") + " \(args[2]) を有効にしました" : Style.dim("−") + " \(args[2]) を無効にしました")
+    case "trust", "untrust":
+        // このプロジェクト（起動した場所）の .voice-control/skills を、読み込んでよいか。外から来たリポジトリのスキルは、許可したコマンドを実行できるので、確認してから信頼する。
+        let root = VoiceControlHome.launchDirectory
+        let directory = VoiceControlHome.projectSkillsDirectory(root: root)
+        if sub == "untrust" {
+            settings.setTrusted(project: root, false)
+            do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+            print(Style.dim("−") + " 信頼をやめました: \(root.path)")
+            break
+        }
+        let project = SkillStore.load(directory: directory, scope: .project)
+        guard !project.skills.isEmpty || !project.problems.isEmpty else { fail("このプロジェクトに、スキルがありません（\(directory.path)）") }
+        heading("信頼するプロジェクト")
+        kv("場所", root.path, width: 6)
+        for s in project.skills {
+            print("  " + Style.bold(s.name) + Style.dim("  確認：\(s.confirm ? "必須" : "なし")"))
+            print("    許可するコマンド: " + s.allowedCommands.joined(separator: "、"))
+        }
+        project.problems.forEach { print("  " + Style.yellow("読めない: \($0.location)：\($0.reason)")) }
+        settings.setTrusted(project: root, true)
+        do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+        print("\n" + Style.green("✓") + " 信頼しました。このプロジェクトで vc を起動すると、上のスキルを読み込みます（やめる：vc skills untrust）")
     default:
-        usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable）")
+        usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable・trust・untrust）")
     }
 
 case "run":
@@ -524,37 +648,48 @@ case "run":
     let forced = option("--skill")
     guard args.count >= 2 else { usageError("run", "依頼を渡してください（例: vc run \"Safariを開いて\"）") }
     let request = args[1]
-    let loaded = SkillStore.load()
-    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
     let settings = Settings.load()
+    let loaded = loadSkills(settings: settings)
+    loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
+    warnUntrustedProject(loaded)
     let enabled = loaded.skills.filter { settings.isEnabled($0.name) }
     guard !enabled.isEmpty else { fail("有効なスキルがありません（vc skills で確認）") }
 
     var skill: Skill
-    var probability = 1.0
+    var confirmReason: String?
     heading("スキルの選択")
     if let forced {
         guard let s = loaded.skills.first(where: { $0.name == forced }) else { fail("スキルがありません: \(forced)（一覧：vc skills）") }
         guard settings.isEnabled(s.name) else { fail("スキル \(forced) は無効です（vc skills enable \(forced)）") }
         skill = s
+        confirmReason = s.confirm ? "このスキルは、実行の前に確認が要ります" : nil
         kv("指定", Style.bold(s.name))
     } else {
         let jev = loadJev()
         let t0 = Date()
         do {
-            let routed = try SkillRouter(scorer: jev, skills: enabled).route(request)
-            let chosen = routed.skill.map { Style.bold($0.name) } ?? Style.dim("（どれでもない）")
-            kv("Tiny-Jev", "\(chosen)  \(pct(routed.probability))" + Style.dim("（\(seconds(t0))）"))
-            guard let s = routed.skill, routed.probability >= gate.floor else { print("\n  " + Style.dim("→ 実行しない")); exit(0) }
-            skill = s
-            probability = routed.probability
+            switch try SkillResolver(scorer: jev, skills: enabled, gate: gate).resolve(request) {
+            case let .declined(reason, _):
+                kv("Tiny-Jev", Style.dim("（どのスキルでもない）") + Style.dim("（\(seconds(t0))）"))
+                print("\n  " + Style.dim("→ 実行しない（\(reason)）"))
+                exit(0)
+            case let .resolved(r):
+                if r.kind == .matched {
+                    kv("Tiny-Jev", Style.bold(r.skill.name) + "  \(pct(r.probability))" + Style.dim("（\(seconds(t0))）"))
+                } else {
+                    kv("Tiny-Jev", Style.dim("どのスキルでもない") + " → 既定スキル " + Style.bold(r.skill.name)
+                       + Style.dim("（操作の依頼 \(pct(r.probability))・取り消しにくさ \(pct(r.risk ?? 0))・\(seconds(t0))）"))
+                }
+                skill = r.skill
+                confirmReason = r.confirmReason
+            }
         } catch { fail("\(error)") }
     }
     kv("説明", skill.description)
     kv("許可", skill.allowedCommands.joined(separator: "、"))
 
-    if skill.confirm || probability < gate.execute {
-        notice(skill.confirm ? "このスキルは、実行の前に確認が要ります。" : "確信度が高くないので、確認します。")
+    if let reason = confirmReason {
+        notice(reason + "。")
         var approved = yes
         if !yes { print("  実行しますか？ [y/N] ", terminator: ""); approved = (readLine() ?? "").lowercased().hasPrefix("y") }
         guard approved else { print("  " + Style.dim("やめた")); exit(0) }
@@ -705,6 +840,27 @@ case "hud-preview":
     DispatchQueue.main.asyncAfter(deadline: .now() + total) { HUD.shared.hide(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) } }
     NSApplication.shared.setActivationPolicy(.accessory)
     NSApplication.shared.run()
+
+case "eval-gate":
+    // vc eval-gate <gate.tsv>：「操作の依頼か」の判定（既定スキルに回すか）の、当たり率。正解（op・chat）つきの文で測る。
+    guard args.count >= 2 else { usageError("eval-gate", "コーパスを渡してください（例: vc eval-gate corpus/gate.tsv）") }
+    let jev = loadJev()
+    let text: String
+    do { text = try String(contentsOfFile: args[1], encoding: .utf8) } catch { fail("読めません: \(args[1])（\(error)）") }
+    let rows = text.split(separator: "\n").filter { !$0.hasPrefix("#") }.map { $0.split(separator: "\t", maxSplits: 1).map(String.init) }.filter { $0.count == 2 }
+    var missed: [String] = [], passedChat: [String] = []
+    var ops = 0, chats = 0
+    for row in rows {
+        let p: Double
+        do { p = try SkillResolver.actionableProbability(scorer: jev, request: row[1]) } catch { fail("\(error)") }
+        let passes = p >= DefaultSkill.actionableThreshold
+        if row[0] == "op" { ops += 1; if !passes { missed.append("\(row[1])（\(pct(p))）") } } else { chats += 1; if passes { passedChat.append("\(row[1])（\(pct(p))）") } }
+    }
+    heading("操作の依頼か（しきい値 \(pct(DefaultSkill.actionableThreshold))）")
+    kv("操作の依頼", "\(ops - missed.count)/\(ops) を、既定スキルへ回した", width: 10)
+    kv("会話・独り言", "\(chats - passedChat.count)/\(chats) を、止めた", width: 10)
+    if !missed.isEmpty { kv("取りこぼし", missed.joined(separator: "・"), width: 10) }
+    if !passedChat.isEmpty { kv("誤通過", passedChat.joined(separator: "・"), width: 10) }
 
 case "hotkey-check":
     let seconds = option("--seconds").flatMap(Double.init) ?? 10

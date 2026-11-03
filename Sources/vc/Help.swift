@@ -26,16 +26,20 @@ enum Help {
 
     static let commands: [CommandInfo] = [
         CommandInfo(
-            name: "skills", group: groups[0], summary: "スキルの一覧・詳細・有効／無効",
-            usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>"],
+            name: "skills", group: groups[0], summary: "スキルの一覧・詳細・有効／無効・プロジェクトの信頼",
+            usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>", "vc skills trust", "vc skills untrust"],
             details: [
-                "スキルは ~/.voice-control/skills/<name>/SKILL.md に置く（環境変数 VC_HOME で ~/.voice-control を変えられる）。",
-                "list：name・description・有効／無効の一覧。読み込めなかったスキルは、理由つきで、下に出る。",
-                "show：許可するコマンド・確認の要否・ファイルの場所。",
-                "enable / disable：Tiny-Jev の選択肢にするか。既定は有効。設定は ~/.voice-control/settings.json。",
+                "置き場所は 2 つ。グローバル：~/.voice-control/skills/<name>/SKILL.md（環境変数 VC_HOME で ~/.voice-control を変えられる）。プロジェクト：<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md（起動した場所が、プロジェクトのルート）。",
+                "同じ名前なら、プロジェクトのスキルが、グローバルを上書きする。",
+                "既定スキル（default）：どのスキルにも当てはまらない依頼を、Apple の言語モデルが、agent-desktop と基本のコマンド（open・say・ls・pwd・date）で実行する組み込みのスキル。Tiny-Jev の選択肢には入らない。許可を広げるなら、同じ名前（default）のスキルを置く。使わないなら vc skills disable default。",
+                "プロジェクトのスキルは、外から来るもの（リポジトリなど）なので、**信頼したプロジェクトだけ**読み込む。初めは、未信頼で、件数だけを出す。中身（許可するコマンド）を確かめてから、そのプロジェクトで vc skills trust。やめるのは vc skills untrust。信頼は ~/.voice-control/settings.json に、プロジェクトの場所ごとに記録する。",
+                "list：name・置き場所・description・有効／無効の一覧。読み込めなかったスキルは、理由つきで、下に出る。",
+                "show：許可するコマンド・確認の要否・置き場所・ファイルの場所。",
+                "enable / disable：Tiny-Jev の選択肢にするか。既定は有効。設定は ~/.voice-control/settings.json（名前ごと。プロジェクトのスキルも、同じ名前なら、まとめて）。",
+                "trust / untrust：起動した場所のプロジェクトのスキルを、読み込んでよいか。trust は、許可するコマンドを表示してから、信頼する。",
             ],
             options: [],
-            examples: ["vc skills", "vc skills show open-app", "vc skills disable open-app"]),
+            examples: ["vc skills", "vc skills show open-app", "vc skills disable open-app", "vc skills trust"]),
         CommandInfo(
             name: "run", group: groups[0], summary: "スキルを選んで、コマンドを実行する",
             usage: ["vc run <依頼> [--skill <name>] [--dry-run] [--yes]"],
@@ -84,9 +88,10 @@ enum Help {
             usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--app <名前>] [--execute] [--yes]"],
             details: [
                 "既定：Enter で録音を始め、もう一度 Enter で止める（q で終了）。マイクの許可が要る。",
-                "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、有効なスキルがあれば Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。スキルが選ばれなければ、PC 操作（前面のアプリ）へ回す。確認が要る手は、問いかけを読み上げ、次の発話の「はい」で実行する。",
+                "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。**当てはまるスキルがなければ、既定スキル（default）**が、agent-desktop と基本のコマンド（open・say・ls・pwd・date）で実行する。会話・独り言は、実行しない。取り消しにくい依頼（削除・送信・購入など）は、実行の前に、声の「はい」で確認する。既定スキルを無効にする（vc skills disable default）と、従来の PC 操作へ回す。",
                 "画面の上に、録音中・認識中・選んだスキル・実行したコマンドと結果・言語モデルの返事を出す（クリックを通し、フォーカスを奪わない）。",
-                "実行の既定：スキルは、vc run と同じく、**実行する**（--dry-run を付けたときだけ、表示だけ）。PC 操作（スキルが選ばれなかったとき）は、**--execute を付けたときだけ**実行する（なければ、計画の表示だけ）。",
+                "**Esc で取りやめ**：録音中は、録音を捨てる（認識しない）。認識中・実行中・確認の待ちは、処理を止める（実行中のコマンドも止める）。Esc を受けるのは、これらの間だけで、ふだんの Esc には触れない。録音中（Shift などを押している間）の Esc は、アクセシビリティの許可が要る。",
+                "実行の既定：スキルは、vc run と同じく、**実行する**（--dry-run を付けたときだけ、表示だけ）。PC 操作（既定スキルも使えないとき）は、**--execute を付けたときだけ**実行する（なければ、計画の表示だけ）。",
                 "トリガーは、既定が Shift の長押し。変えるには vc hotkey set <キー>（~/.voice-control/settings.json に保存）か、その回だけ --trigger <キー>。長押し（修飾キーだけ）の検出には、アクセシビリティの許可が要る（vc を動かす端末アプリに）。",
             ],
             options: [
@@ -121,6 +126,11 @@ enum Help {
                 ("--no-location", "位置情報なしで測る（比較用）"),
             ],
             examples: ["vc eval corpus/plans.tsv", "vc eval corpus/plans.tsv --no-location"]),
+        CommandInfo(
+            name: "eval-gate", group: groups[2], summary: "「操作の依頼か」の判定（既定スキルに回すか）の、当たり率を測る",
+            usage: ["vc eval-gate <gate.tsv>"],
+            details: ["コーパスの形：正解（op＝操作の依頼・chat＝会話や独り言）<TAB>発話。操作の依頼を、既定スキルへ回せたか・会話を止めたかを数え、取りこぼしと誤通過を出す。"],
+            options: [], examples: ["vc eval-gate corpus/gate.tsv"]),
         CommandInfo(
             name: "eval-context", group: groups[2], summary: "前の指示を文脈に使うときと使わないときの、当たり率",
             usage: ["vc eval-context <followups.tsv>"],

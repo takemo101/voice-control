@@ -1,0 +1,22 @@
+import Foundation
+import VoiceControlKit
+
+/// 読み上げ（確認の問いかけ）の、いま鳴っているもの。取りやめたときに止める。
+final class Speech: @unchecked Sendable {
+    nonisolated(unsafe) static let shared = Speech()
+    private let lock = NSLock()
+    private var process: Process?
+
+    func say(_ text: String) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        p.arguments = ["-v", "Kyoko", text]
+        try? p.run()
+        lock.lock(); process = p; lock.unlock()
+    }
+
+    func stop() {
+        lock.lock(); let p = process; process = nil; lock.unlock()
+        if let p, p.isRunning { p.terminate() }
+    }
+}

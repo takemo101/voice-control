@@ -39,20 +39,22 @@ LICENSE                MIT
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・install・eval・fixture）
 Sources/
-  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift：録音中などの画面表示）
+  vc/                  実行ファイル（main.swift：引数・流れの組み立て、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift：録音中などの画面表示、VoiceFlow.swift：読み上げの停止）
   Fixture/             検証用の自作ウィンドウ
   VoiceControlKit/
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
     Choice/            選択肢の採点・勝ち抜き戦
-    Skill/             SKILL.md の読込・許可の照合・実行・言語モデル
+    Skill/             SKILL.md の読込・許可の照合・実行・言語モデル・既定スキル（DefaultSkill）・取りやめの合図（CancelToken）
     Action/            PC 操作の計画・実行・agent-desktop
-    Speech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方）
+    Speech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方）・Esc（EscapeKey）・声の流れの状態（VoiceActivity）
     Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
 Tests/VoiceControlKitTests/   単体テスト（Swift Testing）
-corpus/                評価用の文（plans.tsv・followups.tsv）と、自作ウィンドウの画面（snapshots/）
+corpus/                評価用の文（plans.tsv・followups.tsv・gate.tsv）と、自作ウィンドウの画面（snapshots/）
 keys/                  キー操作の JSON 定義の例
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
+.voice-control/
+  skills/spotify/      このプロジェクトのスキルの例（Spotify の操作。AppleScript）
 scripts/
   install.sh           vc を ~/.local/bin へ入れる
   uninstall.sh         入れた vc とモデルのリンクを取り除く
