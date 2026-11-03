@@ -178,7 +178,7 @@ private final class EventLog: @unchecked Sendable {
 
 // MARK: - テスト
 
-@MainActor @Suite struct VoiceLoopTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct VoiceLoopTests {
     @Test func utteranceReachesTheHandlerAndTheTemporaryFileIsRemoved() async throws {
         let handled = Mailbox<String>()
         let fileGone = Mailbox<Bool>()

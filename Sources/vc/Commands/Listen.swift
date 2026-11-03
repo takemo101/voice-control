@@ -175,7 +175,7 @@ struct ListenCommand: Command {
 }
 
 /// 録音を始めたあとに、開始の音（Pop）を鳴らす（録音の開始 → 音、の順を保つ。`VoiceLoop` は、音を知らない）。
-private final class PopRecorder: Recording, @unchecked Sendable {
+private final class PopRecorder: Recording {
     private let base: Recording
     init(_ base: Recording) { self.base = base }
 
