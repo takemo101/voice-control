@@ -2,20 +2,20 @@ import Foundation
 import VCCore
 
 /// 声の流れ（`vc listen --hotkey`）に届く入力：録音した音声か、Esc による取りやめの合図（待っている処理を起こす）。
-public enum VoiceInput: Sendable {
+enum VoiceInput: Sendable {
     case audio(URL)
     case cancel
 }
 
 /// 入力の列（1 人が取り出す）。`next()` は、入力が来るまで待つ。Esc の `.cancel` が、待っている処理を起こす。
-public final class VoiceInputQueue: @unchecked Sendable {
+final class VoiceInputQueue: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [VoiceInput] = []
     private var waiter: CheckedContinuation<VoiceInput, Never>?
 
-    public init() {}
+    init() {}
 
-    public func push(_ input: VoiceInput) {
+    func push(_ input: VoiceInput) {
         lock.lock()
         if let waiter {
             self.waiter = nil
@@ -27,7 +27,7 @@ public final class VoiceInputQueue: @unchecked Sendable {
         }
     }
 
-    public func next() async -> VoiceInput {
+    func next() async -> VoiceInput {
         await withCheckedContinuation { continuation in
             lock.lock()
             if items.isEmpty {
@@ -44,8 +44,8 @@ public final class VoiceInputQueue: @unchecked Sendable {
 
 /// 声の流れの「いま、何をしているか」：録音中・認識待ちの音声・実行中。**Esc は、どれかをしている間だけ**受ける（`isActive`）。
 /// Esc が来たら、録音中なら録音を捨て、そうでなければ、実行中の処理を取りやめる（`CancelToken`・`Task`）。
-public final class VoiceActivity: @unchecked Sendable {
-    public enum Target: Equatable, Sendable { case recording, work, nothing }
+final class VoiceActivity: @unchecked Sendable {
+    enum Target: Equatable, Sendable { case recording, work, nothing }
 
     private let lock = NSLock()
     private var recording = false
@@ -56,13 +56,13 @@ public final class VoiceActivity: @unchecked Sendable {
     private var task: Task<Void, Never>?
     private var lastActive = false
 
-    public init() {}
+    init() {}
 
     /// いま、Esc を受けるべきか（録音中・認識待ち・実行中）。
-    public var isActive: Bool { lock.lock(); defer { lock.unlock() }; return recording || queued > 0 || running }
+    var isActive: Bool { lock.lock(); defer { lock.unlock() }; return recording || queued > 0 || running }
 
     /// 「Esc を受けるべきか」が変わったときに呼ぶ（どのスレッドからでも呼ばれる）。
-    public var onChange: (@Sendable (Bool) -> Void)?
+    var onChange: (@Sendable (Bool) -> Void)?
 
     private func commit(_ change: () -> Void) {
         lock.lock()
@@ -75,13 +75,13 @@ public final class VoiceActivity: @unchecked Sendable {
         if changed { callback?(active) }
     }
 
-    public func startRecording() { commit { recording = true; cancelledRecording = false } }
+    func startRecording() { commit { recording = true; cancelledRecording = false } }
 
     /// 録音を終えた。`queuedAudio`：音声を、認識の列に入れた。
-    public func stopRecording(queuedAudio: Bool) { commit { recording = false; if queuedAudio { queued += 1 } } }
+    func stopRecording(queuedAudio: Bool) { commit { recording = false; if queuedAudio { queued += 1 } } }
 
     /// Esc で録音を捨てていたら true（そのあとの「離した」は、何もしない）。
-    public func consumeCancelledRecording() -> Bool {
+    func consumeCancelledRecording() -> Bool {
         lock.lock(); defer { lock.unlock() }
         let was = cancelledRecording
         cancelledRecording = false
@@ -89,14 +89,14 @@ public final class VoiceActivity: @unchecked Sendable {
     }
 
     /// 列の音声を、取り出した（認識に回す）。
-    public func consumedAudio() { commit { queued = max(0, queued - 1) } }
+    func consumedAudio() { commit { queued = max(0, queued - 1) } }
 
-    public func beginWork(_ token: CancelToken) { commit { self.token = token; running = true } }
-    public func setTask(_ task: Task<Void, Never>) { lock.lock(); self.task = task; lock.unlock() }
-    public func endWork() { commit { running = false; token = nil; task = nil } }
+    func beginWork(_ token: CancelToken) { commit { self.token = token; running = true } }
+    func setTask(_ task: Task<Void, Never>) { lock.lock(); self.task = task; lock.unlock() }
+    func endWork() { commit { running = false; token = nil; task = nil } }
 
     /// Esc：録音中なら、録音を捨てる。そうでなく、処理中なら、取りやめる。
-    public func escape() -> Target {
+    func escape() -> Target {
         var target = Target.nothing
         var toCancel: (CancelToken?, Task<Void, Never>?) = (nil, nil)
         commit {

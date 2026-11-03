@@ -57,7 +57,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 1. `Sources/vc/Commands/<Name>.swift` に、`Command` を実装した型を置く：`static let info`（名前・グループ・使い方・説明・オプション・例。`vc --help`・`vc <name> --help` は、ここから作られる）と、`run(_ arguments: Arguments, _ context: CommandContext)`。`run` の中では、自分のオプションを `var arguments = arguments` に写して `option`・`flag` で取り除き、位置引数は `arguments.positionals`（コマンド名を除く）、共通のオプション（`--model`・`--app`・`--execute` など）は `context.options`、モデルは `context.loadJev()`、設定は `context.currentSettings()`、スキルは `context.loadSkills()` から使う。失敗は `fail`（終了コード 1）、使い方の誤りは `usageError`（2）。Tiny-Jev のモデルを読むコマンドは、`Help.modelUsers` に名前を足す（共通のオプションを案内する）。
 2. `Commands.all`（`Sources/vc/Command.swift`）に、型を足す。**この並びが、`vc --help` の表示順**（グループの中）になる。
    - モデルを使うコマンドなら、`Help.modelUsers`（`Sources/vc/Help.swift`）に名前を足す（`vc <name> --help` に、共通のオプションが出る）。
-3. テストを足す：引数の読み方に関わるなら `Tests/vcTests/ArgumentsTests.swift`。コマンドの一覧とヘルプは、同じファイルの `CommandRegistryTests` が確かめる（名前の重複・グループごとの表示）。スキルの実行の流れ（判断）は `Tests/VCSkillTests/SkillRunnerTests.swift`、その出来事の表示（`TerminalReporter`・`HUDReporter`）は `Tests/vcTests/ReporterTests.swift`。出力は、変更の前後の `vc` を、`NO_COLOR=1`・一時の `VC_HOME` で動かして、比べる。
+3. テストを足す：引数の読み方に関わるなら `Tests/vcTests/ArgumentsTests.swift`。コマンドの一覧とヘルプは、同じファイルの `CommandRegistryTests` が確かめる（名前の重複・グループごとの表示）。スキルの実行の流れ（判断）は `Tests/VCSkillTests/SkillRunnerTests.swift`、その出来事の表示（`TerminalReporter`・`HUDReporter`）は `Tests/vcTests/ReporterTests.swift`。声の流れ（`vc listen --hotkey` の調整：Esc・待ち行列・録音）は `Tests/VCSpeechTests/VoiceLoopTests.swift`（録音・文字起こし・トリガー・Esc の偽物をつなぐ。マイク・音声認識は使わない）。出力は、変更の前後の `vc` を、`NO_COLOR=1`・一時の `VC_HOME` で動かして、比べる。
 
 ## 変更の進め方
 
