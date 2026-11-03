@@ -34,4 +34,4 @@ elif [ -f "$REPO_MODEL/tokenizer.json" ] && [ -f "$REPO_MODEL/model.safetensors"
 else
     echo "注: モデルがありません。vc model download で取得してください（~/.voice-control/models/tiny-jev-0.6b に置きます）" >&2
 fi
-echo "使い方: vc --help / vc run \"Safariを開いて\" --dry-run / vc listen --hotkey --execute（アクセシビリティ：agent-desktop permissions）"
+echo "使い方: vc --help / vc run \"Safariを開いて\" --dry-run / vc listen --hotkey（アクセシビリティ：agent-desktop permissions）"
