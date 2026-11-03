@@ -80,6 +80,7 @@ public struct LLMPlanner: Sendable {
         let content = try await session.respond(to: prompt, schema: Self.schema).content
         if ProcessInfo.processInfo.environment["VC_LLM_DEBUG"] != nil { print("LLM raw: \(content.jsonString)") }   // 検証用
         let kind = try content.value(String.self, forProperty: "kind")
+        // try?: 任意のプロパティ（省略されうる）。取れなければ nil
         let target = ((try? content.value(String?.self, forProperty: "target")) ?? nil)?.trimmingCharacters(in: .whitespaces)
         let text = ((try? content.value(String?.self, forProperty: "text")) ?? nil)?.trimmingCharacters(in: .whitespaces)
 

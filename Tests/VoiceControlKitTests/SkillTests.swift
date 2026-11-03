@@ -68,11 +68,11 @@ private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillS
     @Test func skillsAreEnabledByDefaultAndTogglePersistently() throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        var settings = Settings.load(from: file)
+        var settings = try Settings.load(from: file)
         #expect(settings.isEnabled("a"))
         settings.setEnabled("b", false); settings.setEnabled("a", false)
         try settings.save(to: file)
-        let reloaded = Settings.load(from: file)
+        let reloaded = try Settings.load(from: file)
         #expect(!reloaded.isEnabled("a") && !reloaded.isEnabled("b") && reloaded.isEnabled("c"))
         var again = reloaded
         again.setEnabled("a", true)
@@ -267,7 +267,7 @@ private func parse(_ text: String, dir: String = "demo") -> Result<Skill, SkillS
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: file) }
         try Data(#"{"disabledSkills":[],"hotkey":"f5"}"#.utf8).write(to: file)
-        let settings = Settings.load(from: file)
+        let settings = try Settings.load(from: file)
         #expect(settings.trustedProjects.isEmpty && settings.hotkey == "f5")
     }
 }

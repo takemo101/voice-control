@@ -55,6 +55,7 @@ public enum ModelStore {
     /// ファイルの有無と大きさ（SHA-256 は計算しない。速い確認）。
     public static func state(of file: ModelFile, in directory: URL) -> FileState {
         let path = directory.appendingPathComponent(file.name).path
+        // try?: ファイルがなければ、『ない』（.missing）として扱う
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: path), let size = attrs[.size] as? Int64 else { return .missing }
         return size == file.bytes ? .present : .wrongSize(size)
     }
@@ -66,6 +67,7 @@ public enum ModelStore {
     /// SHA-256（8 MB ずつ読む。大きなファイルでも、メモリを使い切らない）。
     public static func sha256(of url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
+        // try?: 読み終えたファイルを閉じる失敗は、結果に関係しない
         defer { try? handle.close() }
         var hasher = SHA256()
         while let chunk = try handle.read(upToCount: 8 << 20), !chunk.isEmpty { hasher.update(data: chunk) }
@@ -75,6 +77,7 @@ public enum ModelStore {
     /// 取得済みで、SHA-256 まで一致するか。
     public static func verify(_ file: ModelFile, in directory: URL) -> Bool {
         guard state(of: file, in: directory) == .present else { return false }
+        // try?: 読めないものは、『検証に通らない』（false）
         return (try? sha256(of: directory.appendingPathComponent(file.name))) == file.sha256
     }
 
@@ -90,16 +93,20 @@ public enum ModelStore {
                 continue
             }
             let part = directory.appendingPathComponent(file.name + ".part")
+            // try?: 取り直すための片付け
             if force { try? FileManager.default.removeItem(at: part) }
             var freshRetry = false
             while true {
                 try await downloadWithRetry(url: spec.baseURL.appendingPathComponent(file.name), part: part, file: file, progress: progress)
+                // try?: 読めない・ハッシュを作れないものは、『一致しない』と同じに扱う
                 if (try? sha256(of: part)) == file.sha256 { break }
+                // try?: 検証に通らなかった途中のファイルの片付け
                 try? FileManager.default.removeItem(at: part)
                 // 続きから取った結果が壊れていたら、最初から 1 回だけやり直す。
                 if freshRetry { throw ModelStoreError.checksumMismatch(file.name) }
                 freshRetry = true
             }
+            // try?: 正式な名前のファイルがなければ、消すものはない。移動の失敗は、次の行が投げる
             try? FileManager.default.removeItem(at: final)
             try FileManager.default.moveItem(at: part, to: final)
         }
@@ -109,8 +116,10 @@ public enum ModelStore {
         var attempt = 0
         while true {
             do {
+                // try?: 途中のファイルがなければ、0 バイトから
                 let offset = (try? FileManager.default.attributesOfItem(atPath: part.path)[.size] as? Int64) ?? 0
                 if offset == file.bytes { return }  // 前回、取り終えていた（検証は、呼び出し側）
+                // try?: 想定より大きい途中のファイルは、捨てて、最初から取り直す（捨てる失敗は、次の検証で分かる）
                 if offset > file.bytes { try? FileManager.default.removeItem(at: part) }
                 try await ChunkDownload(url: url, part: part, name: file.name, expected: file.bytes, progress: progress).run()
                 return
@@ -151,6 +160,7 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
         if offset > 0 { request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range") }
         let session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
+        // try?: 通信の後始末。閉じる失敗は、取得の成否に関係しない
         defer { session.invalidateAndCancel(); try? h.close() }
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             continuation = cont
@@ -173,6 +183,7 @@ private final class ChunkDownload: NSObject, URLSessionDataDelegate, @unchecked 
     }
 
     private func restartFromZero() {
+        // try?: 先頭へ戻せなくても、あとの SHA-256 の検証が、壊れた取得を必ず拒否する
         try? handle?.truncate(atOffset: 0)
         try? handle?.seek(toOffset: 0)
         received = 0

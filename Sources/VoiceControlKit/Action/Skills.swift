@@ -31,6 +31,7 @@ public enum SkillCatalog {
         var result = Loaded()
         let fm = FileManager.default
         for dir in directories {
+            // try?: キー操作の定義のディレクトリは、なくてもよい（なければ、その場所は飛ばす）
             guard let names = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
             for name in names.filter({ $0.hasSuffix(".json") }).sorted() {
                 let url = dir.appendingPathComponent(name)
@@ -63,6 +64,7 @@ public enum SkillCatalog {
             if normalized.isEmpty { return "keys に空の要素" }
             if forbidden.contains(normalized) { return "アプリを終了するキー（\(key)）は使えない" }
         }
+        // try?: 読めなければ nil。読めない正規表現は、ここで『定義の不備』として理由を返す（握りつぶさない）
         if let when = def.when, (try? NSRegularExpression(pattern: when)) == nil { return "when が正規表現として不正" }
         return nil
     }
