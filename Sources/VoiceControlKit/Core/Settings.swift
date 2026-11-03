@@ -2,7 +2,7 @@ import Foundation
 
 /// 設定（`~/.voice-control/settings.json`）。
 /// - `disabledSkills`：スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
-/// - `hotkey`：押している間だけ聞くトリガー（`HotKeySpec` の書き方）。なければ、`shift` の長押し。
+/// - `hotkey`：押している間だけ聞くトリガーの書き方（文字列。解釈は Speech 層）。なければ、`shift` の長押し。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
@@ -62,11 +62,5 @@ public struct Settings: Codable, Sendable, Equatable {
         let path = Self.key(project)
         trustedProjects.removeAll { $0 == path }
         if trusted { trustedProjects.append(path); trustedProjects.sort() }
-    }
-
-    /// 設定されたトリガー。なければ `shift` の長押し。設定が読めなければ、理由。
-    public var hotkeySpec: Result<HotKeySpec, HotKeySpec.Failure> {
-        guard let hotkey else { return .success(.default) }
-        return HotKeySpec.parse(hotkey)
     }
 }

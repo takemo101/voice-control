@@ -13,13 +13,18 @@ flowchart TB
         Skill[Skill<br/>SKILL.md・ポリシー・実行]
         Action[Action<br/>PC 操作の計画・実行]
         Speech[Speech<br/>文字起こし・録音・トリガー]
-        Choice[Choice<br/>選択肢の採点・勝ち抜き戦]
+        Choice[Choice<br/>選択肢の採点・勝ち抜き戦・ゲート]
         Decision[Decision<br/>Tiny-Jev の実行]
+        Model[Model<br/>モデルの取得・検証]
+        Core[Core<br/>場所・設定・取りやめの合図]
     end
-    main --> Skill & Action & Speech
+    main --> Skill & Action & Speech & Model
     Skill --> Choice
+    Skill --> Core
     Action --> Choice
     Choice --> Decision
+    Model --> Core
+    Speech --> Core
     Action -.子プロセス.-> AD[agent-desktop]
     Skill -.子プロセス.-> CMD[許可されたコマンド]
     Skill -.-> FM[FoundationModels]
@@ -37,15 +42,17 @@ flowchart TB
 
 ## Module の責務
 
-依存は**下向きだけ**：`vc` → `Skill`・`Action`・`Speech` → `Choice` → `Decision`。
+依存は**下向きだけ**：`vc` → `Skill`・`Action`・`Speech`（互いには依存しない）。`Skill`・`Action` → `Choice` → `Decision`。`Core`（場所・設定・取りやめの合図）は、どの層も使ってよい（`Decision` は、いまは使っていない）。`Model` も `Core` だけに依存する。`scripts/check-deps.sh`（暫定。型名の `grep`）が、フォルダどうしの依存を確かめる。**ターゲットの分割（MIK-005）で、コンパイラが強制する**。
 
 | Module（`Sources/`） | 責務 | 持たないもの |
 |---|---|---|
+| `VoiceControlKit/Core` | **どの層も使う小さな部品**：`VoiceControlHome`（`~/.voice-control` の場所）、`Settings`（設定の読み書き。ホットキーは文字列のまま）、`CancelToken`（取りやめの合図） | 層に固有の判断 |
 | `VoiceControlKit/Decision` | Tiny-Jev（Qwen3 の decoder ＋判断の頭）を、MPSGraph で動かす。トークナイザ・重みの読込。`TinyJev`（公開の入口）。**meeting-analyzer からの複製**（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`。`QwenShape` は抜粋） | 選択肢の作り方・用途 |
-| `VoiceControlKit/Choice` | `OptionScorer`（選択肢に確率を返す口）と、`Chooser`（32 個を超える候補の勝ち抜き戦） | 選択肢の中身 |
-| `VoiceControlKit/Skill` | `SkillStore`（SKILL.md の読込・検証・設定）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`（Tiny-Jev で選ぶ）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
-| `VoiceControlKit/Action` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`Gate`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
-| `VoiceControlKit/Speech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`（押している間だけ聞く入口） | 操作の判断 |
+| `VoiceControlKit/Choice` | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度・危険度の門：実行・確認・却下） | 選択肢の中身 |
+| `VoiceControlKit/Model` | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
+| `VoiceControlKit/Skill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
+| `VoiceControlKit/Action` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
+| `VoiceControlKit/Speech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`・`VoiceActivity`・`VoiceInputQueue`（Esc での取りやめと、声の流れの状態）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断 |
 | `vc` | 引数の解釈・流れの組み立て（`main.swift`：`runClauses`・ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（Kit に置く） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 
