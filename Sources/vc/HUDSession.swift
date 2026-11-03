@@ -4,13 +4,18 @@ import Foundation
 final class HUDSession: @unchecked Sendable {
     private var content: HUDContent
     private let lock = NSLock()
+    private let present: @Sendable (HUDContent, TimeInterval?) -> Void
 
-    init(_ content: HUDContent) { self.content = content }
+    /// `present`：出す先（既定は、画面の上の表示。テストで差し替える）。
+    init(_ content: HUDContent, present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) }) {
+        self.content = content
+        self.present = present
+    }
 
     /// 中身を変えて、出し直す。`hideAfter` 秒後に消す。
     func update(hideAfter: TimeInterval? = nil, _ change: (inout HUDContent) -> Void = { _ in }) {
         lock.lock(); change(&content); let snapshot = content; lock.unlock()
-        HUD.shared.show(snapshot, hideAfter: hideAfter)
+        present(snapshot, hideAfter)
     }
 
     /// 返事の長さに合わせた、読む時間（4〜12 秒）。

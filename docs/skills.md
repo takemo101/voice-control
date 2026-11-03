@@ -19,6 +19,7 @@ flowchart LR
 - **選ぶのは Tiny-Jev**（`description` だけを読む。0.1 秒）。**実行するのは Apple の言語モデル**（本文と依頼文を読み、`run_command` という道具 1 つで、コマンドを実行する）。
 - 実行してよいコマンドは、スキルの `allowed-commands` だけ。言語モデルの出力を、そのまま信用しない（[構成説明の信頼の境界](architecture.md#信頼の境界)）。
 - 実行するコマンドと結果は、すべて画面に出る。
+- この流れ（選ぶ → 確認 → 実行 → 結果）は、`VCSkill` の `SkillRunner` が持つ。`vc run`（端末へ表示）と `vc listen --hotkey`（画面の上の表示と、声の確認）は、同じものを呼び、表示だけが違う（[構成説明](architecture.md#スキルの実行の流れskillrunner)）。
 
 ## 置き場所
 

@@ -65,6 +65,9 @@ public struct SkillResolver: Sendable {
         case declined(reason: String, fallbackAvailable: Bool)
     }
 
+    /// スキルが `confirm: true` のときの、確認の理由（Tiny-Jev で選んだときも、`--skill` で指定したときも、同じ文）。
+    public static let confirmRequiredReason = "このスキルは、実行の前に確認が要ります"
+
     private let scorer: OptionScorer
     private let skills: [Skill]
     private let gate: Gate
@@ -78,7 +81,7 @@ public struct SkillResolver: Sendable {
     public func resolve(_ request: String) throws -> Outcome {
         let routed = try SkillRouter(scorer: scorer, skills: skills.filter { $0.name != DefaultSkill.name }).route(request)
         if let skill = routed.skill, routed.probability >= gate.floor {
-            let reason = skill.confirm ? "このスキルは、実行の前に確認が要ります" : (routed.probability < gate.execute ? "確信度が高くないので、確認します" : nil)
+            let reason = skill.confirm ? Self.confirmRequiredReason : (routed.probability < gate.execute ? "確信度が高くないので、確認します" : nil)
             return .resolved(Resolution(skill: skill, kind: .matched, probability: routed.probability, risk: nil, confirmReason: reason))
         }
         guard let fallback = skills.first(where: { $0.name == DefaultSkill.name }) else {
@@ -92,7 +95,7 @@ public struct SkillResolver: Sendable {
             state: "依頼: \(request)",
             question: "この依頼は、削除・送信・購入・終了・退出など、取り消しにくい、または外へ影響する操作か",
             options: ["no", "yes"])[1]
-        let reason = fallback.confirm ? "このスキルは、実行の前に確認が要ります" : (risk >= gate.destructive ? "取り消しにくい操作かもしれないので、確認します" : nil)
+        let reason = fallback.confirm ? Self.confirmRequiredReason : (risk >= gate.destructive ? "取り消しにくい操作かもしれないので、確認します" : nil)
         return .resolved(Resolution(skill: fallback, kind: .fallback, probability: actionable, risk: risk, confirmReason: reason))
     }
 }
