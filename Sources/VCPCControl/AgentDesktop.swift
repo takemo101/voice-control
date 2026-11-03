@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 
 /// `agent-desktop` CLI を子プロセスで呼ぶ。画面の内容は、この Mac の中だけで扱い、ログに残さない。
 public struct AgentDesktop: Desktop {
@@ -11,19 +12,12 @@ public struct AgentDesktop: Desktop {
     public init(app: String? = nil, executable: String = "agent-desktop") { self.app = app; self.executable = executable }
 
     func run(_ arguments: [String]) throws -> Data {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        p.arguments = [executable] + arguments
-        let out = Pipe()
-        p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { throw Failure.launch("\(error)") }
-        // 出力が大きいとき、パイプが詰まらないよう、終了の前に読む。
-        let data = out.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
+        // 標準エラーは捨て、時間の上限は設けず、標準入力は引き継ぐ：これまでの呼び方のまま（上限を足すかは、別の判断）
+        let result = ProcessRunner.run(executable: executable, arguments: arguments, mergeStderr: false, timeout: nil, inheritStandardInput: true)
+        if let error = result.launchError { throw Failure.launch("\(error)") }
         // agent-desktop は、失敗も JSON（ok:false）で標準出力に返す。
-        if data.isEmpty { throw Failure.noOutput(p.terminationStatus) }
-        return data
+        if result.output.isEmpty { throw Failure.noOutput(result.exitCode) }
+        return result.output
     }
 
     func checked(_ arguments: [String]) throws {
@@ -113,6 +107,7 @@ extension AgentDesktop {
     /// アプリを開いて前面に出す。macOS の `open -a`（LaunchServices）を使う。
     /// `agent-desktop launch` は、アプリ一覧に壊れた記録（pid -1）が 1 つあるだけで、`TIMEOUT`（application_inventory_unstable）になり、何も開かなかった（実測）。
     /// 開いたあと、そのアプリが前面になるまで（最大 10 秒）待つ：次の手が、そのアプリの画面で計画されるように。
+    /// `ProcessRunner` には載せない：`/usr/bin/open` を絶対パスで直接起動し、起動の失敗は `Process` の元のエラーのまま投げる（`ProcessRunner` は env 経由で、失敗を終了コード 127 にする）。出力は読まず、標準出力・標準入力は引き継ぐ（`ProcessRunner` は、パイプで出力の終わりまで読む）。
     func openApp(_ name: String) throws {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
@@ -142,6 +137,7 @@ extension AgentDesktop {
 
     /// `open -a` では、ウィンドウを出さないアプリがある（Spotify を、ウィンドウなしで起動した場合：実測）。ウィンドウがなければ、AppleScript の `activate` で、出す。
     /// 初回は、macOS が「このアプリがアプリ（名前）を制御しようとしています」の確認（オートメーションの許可）を出すことがある。
+    /// `ProcessRunner` には載せない：`/usr/bin/osascript` を絶対パスで直接起動し、標準出力・標準エラーは /dev/null へ捨て、標準入力は引き継ぐ。パイプで出力の終わりまで読む `ProcessRunner` に載せると、終了待ちの条件が変わる。
     func showWindowIfNone(_ name: String) {
         guard hasNoWindows(of: name) else { return }
         let p = Process()

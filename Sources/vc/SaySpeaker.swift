@@ -6,6 +6,7 @@ final class SaySpeaker: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
 
+    /// `ProcessRunner` には載せない：鳴り終わるまで待たずに戻り、`Process` を持っておいて、取りやめで `terminate` する（`ProcessRunner` は、終わるまで呼び出したスレッドを止める）。
     func say(_ text: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/say")

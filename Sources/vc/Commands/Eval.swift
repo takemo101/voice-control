@@ -93,6 +93,7 @@ struct EvalCommand: Command {
         let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-\(UUID().uuidString).aiff")
         // try?: 一時の音声ファイルの片付け。消せなくても、結果は変わらない
         defer { try? FileManager.default.removeItem(at: file) }
+        // `ProcessRunner` には載せない：`say` の標準出力・標準エラーは、画面へ引き継ぐ（出力ファイルを開けないなどのメッセージを、利用者が読める）。起動の失敗も、`Process` の元のエラーのまま投げる。
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
         p.arguments = ["-v", "Kyoko", "-o", file.path, text]
