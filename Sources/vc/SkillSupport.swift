@@ -26,3 +26,10 @@ extension CommandContext {
         return LoadedSkills(loaded: SkillStore.loadAll(projectRoot: VoiceControlHome.launchDirectory, settings: settings), settings: settings)
     }
 }
+
+/// 端末での確認：`--yes` なら聞かずに承認。そうでなければ `[y/N]` を聞く（`vc run`・Enter で録音する `vc listen`）。
+func askOnTerminal(yes: Bool) -> Bool {
+    if yes { return true }
+    print("  実行しますか？ [y/N] ", terminator: "")
+    return (readLine() ?? "").lowercased().hasPrefix("y")
+}

@@ -72,7 +72,7 @@ import VCSkill
         #expect(cancelled.shown.values.last?.content.title == "取りやめました" && cancelled.shown.values.last?.content.reply == nil && cancelled.shown.values.last?.hideAfter == 2)
     }
 
-    @Test func declinedShowsAnInfoPanelOnlyWhenTheDefaultSkillCouldHaveRun() {
+    @Test func declinedShowsAnInfoPanelWhetherOrNotTheDefaultSkillCouldHaveRun() {
         let conversation = reporter()
         conversation.reporter.report(.declined(reason: "操作の依頼ではない", fallbackAvailable: true, elapsed: 0))
         #expect(conversation.shown.values.count == 1)
@@ -80,8 +80,12 @@ import VCSkill
         #expect(panel.content.phase == .info && panel.content.title == "操作の依頼ではありませんでした" && panel.content.hint == "操作の依頼ではない")
         #expect(panel.content.chip == "shift" && panel.content.heard == "テスト" && panel.hideAfter == 3)
 
-        let handedOver = reporter()
-        handedOver.reporter.report(.declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false, elapsed: 0))
-        #expect(handedOver.shown.values.isEmpty)
+        // 当てはまるスキルがなく、既定スキルも使えない：実行せず、そう示す（ほかの流れへは回さない）
+        let noDefault = reporter()
+        noDefault.reporter.report(.declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false, elapsed: 0))
+        #expect(noDefault.shown.values.count == 1)
+        let none = noDefault.shown.values[0]
+        #expect(none.content.phase == .info && none.content.title == "どのスキルでもありません" && none.content.hint == "実行しません（既定スキルが無効：vc skills enable default）")
+        #expect(none.content.chip == "shift" && none.content.heard == "テスト" && none.hideAfter == 3)
     }
 }

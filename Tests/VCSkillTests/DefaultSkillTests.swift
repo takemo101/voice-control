@@ -59,7 +59,7 @@ import VCDecision
     @Test func withoutADefaultSkillNothingFallsBack() throws {
         let resolver = SkillResolver(scorer: SkillScorer(routedDescription: nil), skills: [skill("spotify", "Spotify の操作")], gate: Gate())
         guard case let .declined(_, available) = try resolver.resolve("電卓を開いて") else { Issue.record("resolved"); return }
-        #expect(!available)  // 呼び出し側が、従来の PC 操作へ回せる
+        #expect(!available)  // 既定スキルがないので、何も実行しない
     }
 
     @Test func lowConfidenceMatchStillConfirms() throws {

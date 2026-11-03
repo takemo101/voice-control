@@ -58,7 +58,7 @@ public enum VoiceLoopEvent: Sendable {
 /// 次の発話（確認の返事など）を待つ。取りやめられたら `nil`。待っている間の Esc で、解ける。
 public typealias NextUtterance = @MainActor @Sendable () async throws -> String?
 
-/// 1 回の発話の処理（スキル・PC 操作の振り分けなど）。`VoiceLoop` は、中身を知らない。
+/// 1 回の発話の処理（スキルの振り分けなど）。`VoiceLoop` は、中身を知らない。
 /// - `utterance`：文字にした発話（聞き取れなければ空）。
 /// - `cancel`：Esc で取りやめられる。実行中の処理は、これを見て止まる（処理の `Task` も取りやめられる）。
 /// - `next`：確認の返事など、次の発話を待つ。
@@ -68,7 +68,7 @@ public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _
 // MARK: - VoiceLoop
 
 /// 声の流れ（`vc listen --hotkey`）の**調整**：トリガー（押した・離した）・録音・Esc・認識の待ち行列・発話ごとの処理の `Task`。
-/// 状態の遷移は `VoiceActivity`、入力の列は `VoiceInputQueue`。スキル・PC 操作・画面の表示は、知らない（`UtteranceHandler`・`VoiceLoopEvent` の向こう側）。
+/// 状態の遷移は `VoiceActivity`、入力の列は `VoiceInputQueue`。スキル・画面の表示は、知らない（`UtteranceHandler`・`VoiceLoopEvent` の向こう側）。
 ///
 /// **守る不変条件**（実際に起きた不具合）：
 /// 1. **`run(onReady:)` は同期**で、`NSApplication.run()` の前に `await` を挟まない。`await` のあとの処理は、メインキューのブロックの中で動き、

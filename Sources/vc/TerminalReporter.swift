@@ -27,12 +27,11 @@ struct TerminalReporter: RunReporter {
             out(kvText("Tiny-Jev", Style.dim("どのスキルでもない") + " → 既定スキル " + Style.bold(skill.name)
                        + Style.dim("（操作の依頼 \(pct(probability))・取り消しにくさ \(pct(risk))・\(seconds(elapsed: elapsed))）")))
             describe(skill)
-        case let .declined(reason, fallbackAvailable, elapsed):
+        case let .declined(reason, _, elapsed):
             out(kvText("Tiny-Jev", Style.dim("（どのスキルでもない）") + Style.dim("（\(seconds(elapsed: elapsed))）")))
-            // 声の流れで、既定スキルがないときは、PC 操作へ回る（ここでは、何も言わない）
             switch layout {
             case .command: out("\n  " + Style.dim("→ 実行しない（\(reason)）"))
-            case .voice: if fallbackAvailable { out("  " + Style.dim("→ 実行しない（\(reason)）")) }
+            case .voice: out("  " + Style.dim("→ 実行しない（\(reason)）"))
             }
         case let .confirmRequired(_, reason):
             switch layout {

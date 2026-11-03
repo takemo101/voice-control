@@ -10,7 +10,7 @@ public enum RunEvent: Sendable, Equatable {
     case matched(Skill, probability: Double, elapsed: TimeInterval)
     /// どのスキルでもなかったので、既定スキルへ回した。`probability`：操作の依頼である確率、`risk`：取り消しにくい依頼である確率。
     case fellBack(Skill, probability: Double, risk: Double, elapsed: TimeInterval)
-    /// 実行しない（会話・独り言など）。`fallbackAvailable`：既定スキルがある（なければ、呼び出し側が、別の流れへ回せる）。
+    /// 実行しない（会話・独り言など）。`fallbackAvailable`：既定スキルが使える（使えなければ、当てはまるスキルがなく、実行しない）。
     case declined(reason: String, fallbackAvailable: Bool, elapsed: TimeInterval)
     /// 実行の前に、確認が要る。このあと、`confirm` を呼ぶ。
     case confirmRequired(Skill, reason: String)
