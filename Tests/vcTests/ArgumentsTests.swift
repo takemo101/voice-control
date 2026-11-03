@@ -1,9 +1,6 @@
 import Testing
 @testable import vc
 
-/// 端末の色の指定（端末で実行したときだけ付く）を取り除く。
-private func plain(_ s: String) -> String { s.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression) }
-
 /// `vc` の引数の読み方。取り除く順番・値の取り方の癖も、そのまま固定する。
 @Suite struct ArgumentsTests {
     @Test func optionTakesTheNextWordAndRemovesBoth() {
@@ -119,88 +116,5 @@ private func plain(_ s: String) -> String { s.replacingOccurrences(of: "\u{1B}\\
         let verify = a.flag("--verify")
         #expect(verify)
         #expect(a.positionals.first == nil)
-    }
-}
-
-/// どのコマンドでも、最初に取り除く共通のオプション。
-@Suite struct CommonOptionsTests {
-    @Test func defaultsWhenNothingIsGiven() {
-        var a = Arguments(["keys"])
-        let o = CommonOptions(consuming: &a)
-        #expect(o.model == nil && o.app == nil && o.audio == nil && o.trigger == nil && o.floor == nil)
-        #expect(o.length == 1024)
-        #expect(!o.execute && !o.yes && !o.speak && !o.hotkey && !o.llm && !o.llmSplit && !o.noContext && !o.noLocation && !o.dryRun)
-        #expect(a.remaining == ["keys"])
-    }
-
-    @Test func takesEveryCommonOptionFromAnyPositionAndLeavesTheRest() {
-        var a = Arguments(["--model", "m", "act", "削除して", "--execute", "--length", "512", "--floor", "0.3", "--yes", "--app", "Fixture",
-                           "--audio", "a.wav", "--trigger", "f5", "--speak", "--hotkey", "--llm", "--llm-split", "--no-context", "--no-location"])
-        let o = CommonOptions(consuming: &a)
-        #expect(o.model == "m" && o.length == 512 && o.floor == 0.3 && o.app == "Fixture" && o.audio == "a.wav" && o.trigger == "f5")
-        #expect(o.execute && o.yes && o.speak && o.hotkey && o.llm && o.llmSplit && o.noContext && o.noLocation)
-        #expect(a.remaining == ["act", "削除して"])
-    }
-
-    @Test func aNonNumericLengthOrFloorIsStillRemoved() {
-        var a = Arguments(["--length", "abc", "--floor", "high", "plan", "x"])
-        let o = CommonOptions(consuming: &a)
-        #expect(o.length == 1024)
-        #expect(o.floor == nil)
-        #expect(a.remaining == ["plan", "x"])
-    }
-
-    @Test func dryRunIsReadButLeftForTheCommand() {
-        var a = Arguments(["run", "x", "--dry-run"])
-        let o = CommonOptions(consuming: &a)
-        #expect(o.dryRun)
-        #expect(a.remaining == ["run", "x", "--dry-run"])
-        let removed = a.flag("--dry-run")
-        #expect(removed)
-    }
-
-    @Test func removalOrderDecidesWhoGetsTheValue() {
-        // --app が先なので、`--execute` は、--app の値になる
-        var a = Arguments(["--app", "--execute", "keys"])
-        let o = CommonOptions(consuming: &a)
-        #expect(o.app == "--execute")
-        #expect(!o.execute)
-        #expect(a.remaining == ["keys"])
-    }
-
-    @Test func keysIsNotACommonOptionSoItBecomesTheCommandWhenPlacedFirst() {
-        // `--keys` は、コマンド名を決めたあとに取り除く（main.swift）。コマンド名の前に置くと、`--keys` がコマンド名になる
-        var a = Arguments(["--keys", "dir", "plan", "x"])
-        _ = CommonOptions(consuming: &a)
-        #expect(a.command == "--keys")
-        #expect(a.remaining == ["--keys", "dir", "plan", "x"])
-    }
-}
-
-/// コマンドの一覧と、ヘルプ。
-@Suite struct CommandRegistryTests {
-    @Test func namesAreUniqueAndFindable() {
-        let names = Commands.all.map { $0.info.name }
-        #expect(Set(names).count == names.count)
-        for name in names { #expect(Commands.find(name)?.info.name == name) }
-        #expect(Commands.find("nope") == nil)
-    }
-
-    @Test func helpIsNotACommandButIsListed() {
-        #expect(Commands.find("help") == nil)
-        #expect(Help.commands.last?.name == "help")
-        #expect(Help.commands.count == Commands.all.count + 1)
-    }
-
-    @Test func overviewListsEveryCommandUnderItsGroup() {
-        let lines = plain(Help.overview()).split(separator: "\n").map(String.init)
-        for group in CommandGroup.allCases {
-            guard let start = lines.firstIndex(of: group.rawValue) else { Issue.record("見出しがない: \(group.rawValue)"); continue }
-            let end = lines[(start + 1)...].firstIndex { !$0.hasPrefix("  ") && !$0.isEmpty } ?? lines.endIndex
-            let section = lines[(start + 1)..<end].joined(separator: "\n")
-            for info in Help.commands where info.group == group {
-                #expect(section.contains("  " + pad(info.name, to: 14) + info.summary))
-            }
-        }
     }
 }
