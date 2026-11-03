@@ -4,100 +4,100 @@ import Testing
 /// `vc` の引数の読み方。取り除く順番・値の取り方の癖も、そのまま固定する。
 @Suite struct ArgumentsTests {
     @Test func optionTakesTheNextWordAndRemovesBoth() {
-        var a = Arguments(["plan", "下にスクロールして", "--app", "Safari"])
-        let app = a.option("--app")
-        #expect(app == "Safari")
-        #expect(a.remaining == ["plan", "下にスクロールして"])
+        var a = Arguments(["run", "テスト", "--model", "m"])
+        let model = a.option("--model")
+        #expect(model == "m")
+        #expect(a.remaining == ["run", "テスト"])
     }
 
     @Test func optionBeforeTheCommandWorksToo() {
-        var a = Arguments(["--app", "Safari", "plan", "x"])
-        let app = a.option("--app")
-        #expect(app == "Safari")
-        #expect(a.command == "plan")
+        var a = Arguments(["--model", "m", "run", "x"])
+        let model = a.option("--model")
+        #expect(model == "m")
+        #expect(a.command == "run")
     }
 
     @Test func equalsFormIsNotSupported() {
-        var a = Arguments(["plan", "--app=Safari"])
-        let app = a.option("--app")
-        #expect(app == nil)
-        #expect(a.positionals == ["--app=Safari"])
+        var a = Arguments(["run", "--model=m"])
+        let model = a.option("--model")
+        #expect(model == nil)
+        #expect(a.positionals == ["--model=m"])
     }
 
     @Test func optionAtTheEndHasNoValueAndStaysAsAPositional() {
-        var a = Arguments(["plan", "--app"])
-        let app = a.option("--app")
-        #expect(app == nil)
-        #expect(a.remaining == ["plan", "--app"])
-        #expect(a.positionals == ["--app"])
+        var a = Arguments(["run", "--model"])
+        let model = a.option("--model")
+        #expect(model == nil)
+        #expect(a.remaining == ["run", "--model"])
+        #expect(a.positionals == ["--model"])
     }
 
     @Test func optionTakesTheNextWordEvenWhenItLooksLikeAnOption() {
-        var a = Arguments(["plan", "--app", "--execute"])
-        let app = a.option("--app")
-        let execute = a.flag("--execute")
-        #expect(app == "--execute")
-        #expect(!execute)
-        #expect(a.remaining == ["plan"])
+        var a = Arguments(["run", "--model", "--yes"])
+        let model = a.option("--model")
+        let yes = a.flag("--yes")
+        #expect(model == "--yes")
+        #expect(!yes)
+        #expect(a.remaining == ["run"])
     }
 
     @Test func optionAcceptsAnEmptyValue() {
-        var a = Arguments(["plan", "--app", "", "x"])
-        let app = a.option("--app")
-        #expect(app == "")
-        #expect(a.remaining == ["plan", "x"])
+        var a = Arguments(["run", "--model", "", "x"])
+        let model = a.option("--model")
+        #expect(model == "")
+        #expect(a.remaining == ["run", "x"])
     }
 
     @Test func onlyTheFirstOccurrenceOfAnOptionIsTaken() {
-        var a = Arguments(["plan", "--app", "A", "--app", "B"])
-        let first = a.option("--app")
+        var a = Arguments(["run", "--model", "A", "--model", "B"])
+        let first = a.option("--model")
         #expect(first == "A")
-        #expect(a.remaining == ["plan", "--app", "B"])
-        let second = a.option("--app")
-        let third = a.option("--app")
+        #expect(a.remaining == ["run", "--model", "B"])
+        let second = a.option("--model")
+        let third = a.option("--model")
         #expect(second == "B")
         #expect(third == nil)
     }
 
     @Test func optionCanTakeTheCommandPosition() {
         // 先頭の語も、探す対象（コマンド名が値として取られ、コマンドがなくなる）
-        var a = Arguments(["--app", "plan"])
-        let app = a.option("--app")
-        #expect(app == "plan")
+        var a = Arguments(["--model", "run"])
+        let model = a.option("--model")
+        #expect(model == "run")
         #expect(a.command == nil)
     }
 
     @Test func flagRemovesOnlyTheFirstOccurrence() {
-        var a = Arguments(["plan", "--yes", "x", "--yes"])
+        var a = Arguments(["run", "--yes", "x", "--yes"])
         let first = a.flag("--yes")
         #expect(first)
-        #expect(a.remaining == ["plan", "x", "--yes"])
+        #expect(a.remaining == ["run", "x", "--yes"])
         let second = a.flag("--yes")
         let third = a.flag("--yes")
         #expect(second)
         #expect(!third)
-        #expect(a.remaining == ["plan", "x"])
+        #expect(a.remaining == ["run", "x"])
     }
 
     @Test func absentFlagChangesNothing() {
-        var a = Arguments(["plan", "x"])
+        var a = Arguments(["run", "x"])
         let yes = a.flag("--yes")
         #expect(!yes)
-        #expect(a.remaining == ["plan", "x"])
+        #expect(a.remaining == ["run", "x"])
     }
 
     @Test func unknownOptionsAreNotRemovedAndBecomePositionals() {
-        var a = Arguments(["plan", "--foo", "bar"])
+        var a = Arguments(["run", "--foo", "bar"])
         let yes = a.flag("--yes")
-        let app = a.option("--app")
+        let model = a.option("--model")
         #expect(!yes)
-        #expect(app == nil)
+        #expect(model == nil)
         #expect(a.positionals == ["--foo", "bar"])
     }
 
     @Test func positionalsExcludeTheCommandName() {
         #expect(Arguments(["hotkey", "set", "ctrl", "opt"]).positionals == ["set", "ctrl", "opt"])
-        #expect(Arguments(["keys"]).positionals.isEmpty)
+        #expect(Arguments(["skills"]).positionals.isEmpty)
         #expect(Arguments([]).command == nil)
         #expect(Arguments([]).positionals.isEmpty)
     }

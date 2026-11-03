@@ -2,7 +2,7 @@ import Foundation
 
 enum Help {
     /// Tiny-Jev のモデルを読むコマンド（共通のオプションを案内する）。
-    static let modelUsers: Set<String> = ["run", "plan", "act", "listen", "eval", "eval-context"]
+    static let modelUsers: Set<String> = ["run", "listen"]
 
     /// `vc help` の説明。実際の処理は、`handle` が、コマンドを探す前に済ませる（コマンドではない）。
     static let helpInfo = CommandInfo(
@@ -42,7 +42,6 @@ enum Help {
         lines.append(Style.cyan("環境変数"))
         lines.append("  " + pad("VC_HOME", to: 24) + "~/.voice-control の場所（スキル・設定）")
         lines.append("  " + pad("VC_MODEL_DIR", to: 24) + "Tiny-Jev のモデルの場所")
-        lines.append("  " + pad("VC_KEYS_DIR", to: 24) + "キー操作の JSON 定義の場所")
         lines.append("  " + pad("NO_COLOR", to: 24) + "設定すると、色を使わない")
         lines.append("")
         lines.append("コマンドごとの説明: " + Style.bold("vc <コマンド> --help"))

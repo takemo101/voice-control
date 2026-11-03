@@ -1,7 +1,6 @@
 import Foundation
 import VCCore
 import VCDecision
-import VCPCControl
 import VCSkill
 
 /// 設定の読み取りで、壊れていることを、1 回だけ知らせる。
@@ -23,28 +22,13 @@ struct CommandContext {
     let options: CommonOptions
     /// 確信度の下限（`--floor`）を反映したゲート。
     let gate: Gate
-    /// 利用者が足したキー操作の定義（`vc plan`・`vc act` の候補）。
-    let keyCatalog: KeyBindingCatalog.Loaded
     private let settingsWarning = SettingsWarning()
 
-    init(options: CommonOptions, keyCatalog: KeyBindingCatalog.Loaded) {
+    init(options: CommonOptions) {
         self.options = options
         var gate = Gate()
         if let floor = options.floor { gate.floor = floor }
         self.gate = gate
-        self.keyCatalog = keyCatalog
-    }
-
-    /// キー操作の定義を読んで、作る。`--keys <dir>`、`VC_KEYS_DIR`、`./keys`、`~/.voice-control/keys` の、あるものを全部読む。
-    /// 読めなかったものは、起動のたびに、標準エラーへ出す（どのコマンドでも）。
-    static func make(options: CommonOptions, keysDirectory: String?) -> CommandContext {
-        let support = VoiceControlHome.root.appendingPathComponent("keys").path
-        let dirs = [keysDirectory, ProcessInfo.processInfo.environment["VC_KEYS_DIR"], "keys", support].compactMap { $0 }.filter { !$0.isEmpty }
-        var seen = Set<String>()
-        let unique = dirs.map { URL(fileURLWithPath: $0).standardizedFileURL }.filter { seen.insert($0.path).inserted }
-        let loaded = KeyBindingCatalog.load(directories: unique)
-        for p in loaded.problems { FileHandle.standardError.write(Data("skill: \(p)\n".utf8)) }
-        return CommandContext(options: options, keyCatalog: loaded)
     }
 
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
