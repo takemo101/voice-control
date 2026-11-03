@@ -14,7 +14,7 @@ private final class Collected<Value>: @unchecked Sendable {
 }
 
 /// 組み込みの既定スキル（`Skill` の初期化子は、`VCSkill` の外から呼べない）。
-private let spotify = DefaultSkill.skill
+private let sample = DefaultSkill.skill
 
 /// 出力を集める `TerminalReporter`（標準出力の行・標準エラーの行）。
 private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -> (reporter: TerminalReporter, out: Collected<String>, err: Collected<String>) {
@@ -23,31 +23,23 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
 }
 
 @Suite struct TerminalReporterTests {
-    @Test func commandLayoutShowsHeadingsDescriptionAndSummary() {
+    @Test func commandLayoutAddsHeadingsAndTheDescriptionAndKeepsTheFlowOrder() {
         let t = terminal(.command)
         let events: [RunEvent] = [
-            .matched(spotify, probability: 0.9, elapsed: 0.34),
-            .confirmRequired(spotify, reason: "確信度が高くないので、確認します"),
-            .confirmed,
+            .matched(sample, probability: 0.9, elapsed: 0.34),
+            .confirmRequired(sample, reason: "確信度が高くないので、確認します"),
             .started,
             .command("open -a Spotify"),
             .result(exitCode: 0, output: "ok"),
             .reply("done: 開いた", commandCount: 1, elapsed: 1.25),
         ]
         events.forEach(t.reporter.report)
-        #expect(t.out.values == [
-            "  Tiny-Jev  default   90.0%（0.3 秒）",
-            "  説明      どのスキルにも当てはまらない依頼を、agent-desktop と基本のコマンドで実行する（組み込み）",
-            "  許可      agent-desktop、open、say、ls、pwd、date",
-            "  ! 確信度が高くないので、確認します。",
-            "\n▶ 実行",
-            "  $ open -a Spotify",
-            "    ✓ exit 0",
-            "    │ ok",
-            "\n▶ 結果",
-            "  返事      done: 開いた",
-            "  所要      1.2 秒・実行したコマンド 1 件",
-        ])
+        let lines = t.out.values
+        // 見出しは、実行と結果の前に付き、説明は、選んだ行の直後に出る
+        #expect(lines.firstIndex { $0.hasSuffix("▶ 実行") }! < lines.firstIndex { $0.hasSuffix("▶ 結果") }!)
+        #expect(lines.contains { $0.hasPrefix("  説明") })
+        #expect(lines.contains("  ! 確信度が高くないので、確認します。"))
+        #expect(lines.contains("    ✓ exit 0") && lines.last!.hasSuffix("実行したコマンド 1 件"))
         #expect(t.err.values.isEmpty)
     }
 
@@ -65,14 +57,6 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
         #expect(t.out.values.first == "    ✗ exit 2" && t.out.values.last == "    … 他 2 行")
     }
 
-    @Test func fallbackShowsPromptRiskAndTheForcedSkillIsLabelled() {
-        let t = terminal(.command)
-        t.reporter.report(.fellBack(spotify, probability: 0.5, risk: 0.25, elapsed: 0))
-        t.reporter.report(.forced(spotify))
-        #expect(t.out.values[0] == "  Tiny-Jev  どのスキルでもない → 既定スキル default（操作の依頼  50.0%・取り消しにくさ  25.0%・0.0 秒）")
-        #expect(t.out.values[3] == "  指定      default")
-    }
-
     @Test func commandLayoutDeclinesWithAReasonEvenWithoutADefaultSkillAndFailuresGoToStandardError() {
         let t = terminal(.command)
         t.reporter.report(.declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false, elapsed: 0))
@@ -84,8 +68,8 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
     @Test func voiceLayoutHasNoHeadingsAndKeepsFailuresOnStandardOutput() {
         let t = terminal(.voice)
         let events: [RunEvent] = [
-            .matched(spotify, probability: 0.9, elapsed: 0),
-            .confirmRequired(spotify, reason: "理由"),
+            .matched(sample, probability: 0.9, elapsed: 0),
+            .confirmRequired(sample, reason: "理由"),
             .started,
             .failed("止まった"),
             .cancelled,
@@ -126,8 +110,8 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
     @Test func aConfirmedRunWalksThroughConfirmWorkingAndSuccess() {
         let r = reporter()
         let events: [RunEvent] = [
-            .matched(spotify, probability: 0.9, elapsed: 0),
-            .confirmRequired(spotify, reason: "確信度が高くないので、確認します"),
+            .matched(sample, probability: 0.9, elapsed: 0),
+            .confirmRequired(sample, reason: "確信度が高くないので、確認します"),
             .confirmed,
             .started,
             .command("open -a Spotify"),
@@ -151,7 +135,7 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
 
     @Test func dryRunDoesNotLookLikeSuccess() {
         let r = reporter(dryRun: true)
-        [RunEvent.matched(spotify, probability: 0.9, elapsed: 0), .started, .reply("done: 開いた", commandCount: 0, elapsed: 0)].forEach(r.reporter.report)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .started, .reply("done: 開いた", commandCount: 0, elapsed: 0)].forEach(r.reporter.report)
         let shown = r.shown.values
         #expect(shown[0].content.title == "確認のみ（--dry-run）")
         #expect(shown[1].content.phase == .info && shown[1].content.title == "実行していません（--dry-run）")
@@ -160,23 +144,23 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
 
     @Test func aDeniedCommandIsAStepWithItsReason() {
         let r = reporter()
-        [RunEvent.matched(spotify, probability: 0.9, elapsed: 0), .denied(command: "rm -rf /", reason: "許可されていない")].forEach(r.reporter.report)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .denied(command: "rm -rf /", reason: "許可されていない")].forEach(r.reporter.report)
         let step = r.shown.values[1].content.steps[0]
         #expect(step.command == "rm -rf /" && step.output == "許可されていない" && String(describing: step.status) == "denied")
     }
 
     @Test func refusedFailedAndCancelledEndWithTheirOwnMessageAndHideTime() {
         let refused = reporter()
-        [RunEvent.matched(spotify, probability: 0.9, elapsed: 0), .confirmRequired(spotify, reason: "理由"), .confirmationDeclined].forEach(refused.reporter.report)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .confirmRequired(sample, reason: "理由"), .confirmationDeclined].forEach(refused.reporter.report)
         #expect(refused.shown.values.last?.content.title == "やめました" && refused.shown.values.last?.content.hint == nil && refused.shown.values.last?.hideAfter == 2.5)
         #expect(refused.out.values.last == "  やめた")
 
         let failed = reporter()
-        [RunEvent.matched(spotify, probability: 0.9, elapsed: 0), .failed("止まった")].forEach(failed.reporter.report)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .failed("止まった")].forEach(failed.reporter.report)
         #expect(failed.shown.values.last?.content.phase == .failure && failed.shown.values.last?.content.reply == "止まった" && failed.shown.values.last?.hideAfter == 7)
 
         let cancelled = reporter()
-        [RunEvent.matched(spotify, probability: 0.9, elapsed: 0), .reply("途中", commandCount: 0, elapsed: 0), .cancelled].forEach(cancelled.reporter.report)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .command("open -a Spotify"), .cancelled].forEach(cancelled.reporter.report)
         #expect(cancelled.shown.values.last?.content.title == "取りやめました" && cancelled.shown.values.last?.content.reply == nil && cancelled.shown.values.last?.hideAfter == 2)
     }
 

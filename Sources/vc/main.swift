@@ -201,7 +201,7 @@ struct ListenCommand: Command {
                             if !skills.enabled.isEmpty {
                                 let runner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token)
                                 let reporter = HUDReporter(chip: spec.displayName, utterance: utterance, dryRun: context.options.dryRun)
-                                let outcome = try await runner.run(utterance, reporter: reporter, confirm: { _ in
+                                let outcome = try await runner.run(utterance, reporter: reporter, confirm: {
                                     guard let answer = try await nextUtterance(token) else { return false }
                                     return try confirmation.isYes(answer)
                                 })

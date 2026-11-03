@@ -45,7 +45,7 @@ struct RunCommand: Command {
         let yes = context.options.yes
         let outcome: RunOutcome
         do {
-            outcome = try await SkillRunner(selection: selection, dryRun: dryRun).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { _ in
+            outcome = try await SkillRunner(selection: selection, dryRun: dryRun).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: {
                 if yes { return true }
                 print("  実行しますか？ [y/N] ", terminator: "")
                 return (readLine() ?? "").lowercased().hasPrefix("y")

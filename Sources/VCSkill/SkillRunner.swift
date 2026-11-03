@@ -47,7 +47,7 @@ public enum RunOutcome: Sendable, Equatable {
     case declined(fallbackAvailable: Bool)
     /// 確認で、承認されなかった。
     case notConfirmed
-    case failed(String)
+    case failed
     case cancelled
 }
 
@@ -62,23 +62,28 @@ public struct SkillRunner: Sendable {
     }
 
     /// 実行者の作り方（スキル・dry-run・コマンドの知らせ先・取りやめの合図）。
-    public typealias ExecutorFactory = @Sendable (Skill, Bool, ExecutionDisplay, CancelToken?) -> any SkillExecuting
+    typealias ExecutorFactory = @Sendable (Skill, Bool, ExecutionDisplay, CancelToken?) -> any SkillExecuting
 
     private let selection: Selection
     private let dryRun: Bool
     private let cancel: CancelToken?
     private let makeExecutor: ExecutorFactory
 
-    /// `makeExecutor`：`nil` なら、`SkillAgent`（Apple の言語モデル）。テストで、偽の実行者を渡す。
-    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, makeExecutor: ExecutorFactory? = nil) {
+    /// 実行者は、`SkillAgent`（Apple の言語モデル）。
+    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil) {
+        self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { SkillAgent(skill: $0, dryRun: $1, display: $2, cancel: $3) })
+    }
+
+    /// テストで、偽の実行者を渡す。
+    init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, makeExecutor: @escaping ExecutorFactory) {
         self.selection = selection
         self.dryRun = dryRun
         self.cancel = cancel
-        self.makeExecutor = makeExecutor ?? { SkillAgent(skill: $0, dryRun: $1, display: $2, cancel: $3) }
+        self.makeExecutor = makeExecutor
     }
 
-    /// `confirm`：確認が要るときに、理由を渡して呼ぶ（承認なら true）。
-    public func run(_ request: String, reporter: RunReporter, confirm: (_ reason: String) async throws -> Bool) async throws -> RunOutcome {
+    /// `confirm`：確認が要るときに呼ぶ（承認なら true）。理由は、直前の `RunEvent.confirmRequired` で渡す。
+    public func run(_ request: String, reporter: RunReporter, confirm: () async throws -> Bool) async throws -> RunOutcome {
         let skill: Skill
         var confirmReason: String?
         switch selection {
@@ -104,7 +109,7 @@ public struct SkillRunner: Sendable {
 
         if let reason = confirmReason {
             reporter.report(.confirmRequired(skill, reason: reason))
-            guard try await confirm(reason) else {
+            guard try await confirm() else {
                 reporter.report(.confirmationDeclined)
                 return .notConfirmed
             }
@@ -129,7 +134,7 @@ public struct SkillRunner: Sendable {
                 return .cancelled
             }
             reporter.report(.failed("\(error)"))
-            return .failed("\(error)")
+            return .failed
         }
     }
 }

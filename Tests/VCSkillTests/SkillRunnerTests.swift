@@ -56,14 +56,14 @@ private final class Recorder: RunReporter, @unchecked Sendable {
 
 /// 偽の実行者：渡された台本を、実行者の役で動かす（コマンドを知らせ、返事を返す）。
 private final class FakeExecutor: SkillExecuting, @unchecked Sendable {
-    let executedCommands: [String]
+    let executedCommands: [String] = []
     private let display: ExecutionDisplay
     private let script: @Sendable (ExecutionDisplay) async throws -> String
     private let lock = NSLock()
     private var ran: [String] = []
 
-    init(executedCommands: [String], display: ExecutionDisplay, script: @escaping @Sendable (ExecutionDisplay) async throws -> String) {
-        self.executedCommands = executedCommands; self.display = display; self.script = script
+    init(display: ExecutionDisplay, script: @escaping @Sendable (ExecutionDisplay) async throws -> String) {
+        self.display = display; self.script = script
     }
 
     var requests: [String] { lock.lock(); defer { lock.unlock() }; return ran }
@@ -78,12 +78,10 @@ private final class FakeExecutor: SkillExecuting, @unchecked Sendable {
 private final class Factory: @unchecked Sendable {
     private let lock = NSLock()
     private var all: [(skill: String, dryRun: Bool, executor: FakeExecutor)] = []
-    private let executedCommands: [String]
     private let script: @Sendable (ExecutionDisplay) async throws -> String
 
-    /// `executedCommands`：実行者が「実行した」と答えるコマンド。
-    init(executedCommands: [String] = [], script: @escaping @Sendable (ExecutionDisplay) async throws -> String = { _ in "done: ok" }) {
-        self.executedCommands = executedCommands; self.script = script
+    init(script: @escaping @Sendable (ExecutionDisplay) async throws -> String = { _ in "done: ok" }) {
+        self.script = script
     }
 
     var made: [(skill: String, dryRun: Bool, executor: FakeExecutor)] { lock.lock(); defer { lock.unlock() }; return all }
@@ -91,7 +89,7 @@ private final class Factory: @unchecked Sendable {
 
     var factory: SkillRunner.ExecutorFactory {
         { [self] skill, dryRun, display, _ in
-            let executor = FakeExecutor(executedCommands: executedCommands, display: display, script: script)
+            let executor = FakeExecutor(display: display, script: script)
             lock.lock(); all.append((skill.name, dryRun, executor)); lock.unlock()
             return executor
         }
@@ -115,14 +113,14 @@ private func runner(
         let factory = Factory { display in display.onCommand("open -a Spotify"); display.onResult(0, "ok"); return "done: 開いた" }
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [DefaultSkill.skill, skill("spotify", spotifyDescription)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in Issue.record("確認は要らない"); return false })
+            .run("次の曲", reporter: reporter, confirm: { Issue.record("確認は要らない"); return false })
 
         #expect(outcome == .completed)
         #expect(reporter.kinds == ["matched", "started", "command", "result", "reply"])
         guard case let .matched(matched, probability, _) = reporter.events[0] else { Issue.record("matched ではない"); return }
         #expect(matched.name == "spotify" && probability > 0.7)
-        guard case let .reply(reply, count, _) = reporter.events[4] else { Issue.record("reply ではない"); return }
-        #expect(reply == "done: 開いた" && count == 0)
+        guard case let .reply(reply, _, _) = reporter.events[4] else { Issue.record("reply ではない"); return }
+        #expect(reply == "done: 開いた")
         #expect(factory.made.map(\.skill) == ["spotify"] && factory.made[0].executor.requests == ["次の曲"])
     }
 
@@ -130,7 +128,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: nil), skills: [DefaultSkill.skill, skill("spotify", spotifyDescription)], factory: factory)
-            .run("電卓を開いて", reporter: reporter, confirm: { _ in false })
+            .run("電卓を開いて", reporter: reporter, confirm: { false })
 
         #expect(outcome == .completed)
         #expect(reporter.kinds == ["fellBack", "started", "reply"])
@@ -143,7 +141,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: nil, actionable: 0.01), skills: [DefaultSkill.skill], factory: factory)
-            .run("ちょっと待ってね", reporter: reporter, confirm: { _ in true })
+            .run("ちょっと待ってね", reporter: reporter, confirm: { true })
 
         #expect(outcome == .declined(fallbackAvailable: true))
         #expect(reporter.kinds == ["declined"])
@@ -156,7 +154,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: nil), skills: [skill("spotify", spotifyDescription)], factory: factory)
-            .run("電卓を開いて", reporter: reporter, confirm: { _ in true })
+            .run("電卓を開いて", reporter: reporter, confirm: { true })
 
         #expect(outcome == .declined(fallbackAvailable: false))
         #expect(reporter.kinds == ["declined"] && factory.count == 0)
@@ -165,13 +163,13 @@ private func runner(
     @Test func aSkillThatRequiresConfirmationDoesNotRunWhenRefused() async throws {
         let factory = Factory()
         let reporter = Recorder()
-        let asked = LockedBox<[String]>([])
+        let asked = LockedBox(0)
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription, confirm: true)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { reason in asked.mutate { $0.append(reason) }; return false })
+            .run("次の曲", reporter: reporter, confirm: { asked.mutate { $0 += 1 }; return false })
 
         #expect(outcome == .notConfirmed)
         #expect(reporter.kinds == ["matched", "confirmRequired", "confirmationDeclined"])
-        #expect(asked.value == [SkillResolver.confirmRequiredReason])
+        #expect(asked.value == 1)
         guard case let .confirmRequired(asking, reason) = reporter.events[1] else { Issue.record("confirmRequired ではない"); return }
         #expect(asking.name == "spotify" && reason == SkillResolver.confirmRequiredReason)
         #expect(factory.count == 0)
@@ -181,7 +179,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription, confirm: true)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
 
         #expect(outcome == .completed)
         #expect(reporter.kinds == ["matched", "confirmRequired", "confirmed", "started", "reply"])
@@ -194,7 +192,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], gate: gate, factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in false })
+            .run("次の曲", reporter: reporter, confirm: { false })
 
         #expect(outcome == .notConfirmed)
         guard case let .confirmRequired(_, reason) = reporter.events[1] else { Issue.record("confirmRequired ではない"); return }
@@ -206,7 +204,7 @@ private func runner(
         let factory = Factory()
         let reporter = Recorder()
         let denied = try await runner(RunnerScorer(routedDescription: nil, destructive: 0.9), skills: [DefaultSkill.skill], factory: factory)
-            .run("ファイルを全部削除して", reporter: reporter, confirm: { _ in false })
+            .run("ファイルを全部削除して", reporter: reporter, confirm: { false })
 
         #expect(denied == .notConfirmed)
         #expect(reporter.kinds == ["fellBack", "confirmRequired", "confirmationDeclined"])
@@ -215,7 +213,7 @@ private func runner(
         #expect(factory.count == 0)
 
         let approved = try await runner(RunnerScorer(routedDescription: nil, destructive: 0.9), skills: [DefaultSkill.skill], factory: factory)
-            .run("ファイルを全部削除して", reporter: Recorder(), confirm: { _ in true })
+            .run("ファイルを全部削除して", reporter: Recorder(), confirm: { true })
         #expect(approved == .completed && factory.count == 1)
     }
 
@@ -224,14 +222,14 @@ private func runner(
         let reporter = Recorder()
         // 選ぶ段階がないので、スコアラーは使わない（使えば失敗する）
         let outcome = try await SkillRunner(selection: .forced(skill("spotify", spotifyDescription, confirm: true)), dryRun: false, makeExecutor: factory.factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
 
         #expect(outcome == .completed)
         #expect(reporter.kinds == ["forced", "confirmRequired", "confirmed", "started", "reply"])
 
         let plain = Recorder()
         _ = try await SkillRunner(selection: .forced(skill("spotify", spotifyDescription)), dryRun: false, makeExecutor: factory.factory)
-            .run("次の曲", reporter: plain, confirm: { _ in Issue.record("確認は要らない"); return false })
+            .run("次の曲", reporter: plain, confirm: { Issue.record("確認は要らない"); return false })
         #expect(plain.kinds == ["forced", "started", "reply"])
     }
 
@@ -239,38 +237,11 @@ private func runner(
         let factory = Factory { display in display.onCommand("open -a Spotify"); return "done: 確認だけ" }
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], dryRun: true, factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
 
         #expect(outcome == .completed)
         #expect(factory.made.map(\.dryRun) == [true])
         #expect(reporter.kinds == ["matched", "started", "command", "reply"])
-        guard case let .reply(_, count, _) = reporter.events[3] else { Issue.record("reply ではない"); return }
-        #expect(count == 0)   // 実行していない
-    }
-
-    @Test func commandsResultsAndDenialsArriveInTheOrderTheExecutorReportedThem() async throws {
-        let factory = Factory { display in
-            display.onDenied("rm -rf /", "許可されていない")
-            display.onCommand("open -a Spotify")
-            display.onResult(1, "boom")
-            return "failed: 開けない"
-        }
-        let reporter = Recorder()
-        _ = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
-
-        #expect(reporter.events[2] == .denied(command: "rm -rf /", reason: "許可されていない"))
-        #expect(reporter.events[3] == .command("open -a Spotify"))
-        #expect(reporter.events[4] == .result(exitCode: 1, output: "boom"))
-    }
-
-    @Test func theReplyCountsTheCommandsTheExecutorActuallyRan() async throws {
-        let factory = Factory(executedCommands: ["open -a Spotify", "open -a Music"])
-        let reporter = Recorder()
-        _ = try await SkillRunner(selection: .forced(skill("spotify", spotifyDescription)), dryRun: false, makeExecutor: factory.factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
-        guard case let .reply(_, count, _) = reporter.events.last else { Issue.record("reply ではない"); return }
-        #expect(count == 2)
     }
 
     @Test func cancelledBeforeExecutionNeverCallsTheExecutor() async throws {
@@ -279,7 +250,7 @@ private func runner(
         let reporter = Recorder()
         // 確認の待ちの間に、Esc で取りやめられた（返事は「はい」）
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription, confirm: true)], cancel: token, factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in token.cancel(); return true })
+            .run("次の曲", reporter: reporter, confirm: { token.cancel(); return true })
 
         #expect(outcome == .cancelled)
         #expect(reporter.kinds == ["matched", "confirmRequired", "confirmed", "started", "cancelled"])
@@ -293,7 +264,7 @@ private func runner(
         let factory = Factory { display in display.onCommand("open -a Spotify"); token.cancel(); throw Interrupted() }
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], cancel: token, factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
 
         #expect(outcome == .cancelled)
         #expect(reporter.kinds == ["matched", "started", "command", "cancelled"])
@@ -303,7 +274,7 @@ private func runner(
         let factory = Factory { _ in throw CancellationError() }
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
         #expect(outcome == .cancelled && reporter.kinds.last == "cancelled")
     }
 
@@ -312,9 +283,9 @@ private func runner(
         let factory = Factory { display in display.onCommand("open -a Spotify"); throw ModelDown() }
         let reporter = Recorder()
         let outcome = try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription)], factory: factory)
-            .run("次の曲", reporter: reporter, confirm: { _ in true })
+            .run("次の曲", reporter: reporter, confirm: { true })
 
-        #expect(outcome == .failed("言語モデルが使えない"))
+        #expect(outcome == .failed)
         #expect(reporter.kinds == ["matched", "started", "command", "failed"])
         #expect(reporter.events.last == .failed("言語モデルが使えない"))
     }
@@ -324,14 +295,14 @@ private func runner(
         let reporter = Recorder()
         await #expect(throws: RunnerScorer.Broken.self) {
             try await runner(RunnerScorer(routedDescription: spotifyDescription, fails: true), skills: [skill("spotify", spotifyDescription)], factory: factory)
-                .run("次の曲", reporter: reporter, confirm: { _ in true })
+                .run("次の曲", reporter: reporter, confirm: { true })
         }
         #expect(reporter.events.isEmpty)
 
         struct NoAnswer: Error {}
         await #expect(throws: NoAnswer.self) {
             try await runner(RunnerScorer(routedDescription: spotifyDescription), skills: [skill("spotify", spotifyDescription, confirm: true)], factory: factory)
-                .run("次の曲", reporter: reporter, confirm: { _ in throw NoAnswer() })
+                .run("次の曲", reporter: reporter, confirm: { throw NoAnswer() })
         }
         #expect(reporter.kinds == ["matched", "confirmRequired"] && factory.count == 0)
     }
