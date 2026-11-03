@@ -65,15 +65,22 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 | コマンド | 内容 |
 |---|---|
-| `vc skills [list]` | スキルの一覧（name・description・有効／無効） |
-| `vc skills show <name>` | 許可するコマンド・確認の要否・場所 |
+| `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
+| `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
+| `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
 | `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。押している間は、画面の上に「録音中」が出る |
 | `vc plan` / `act` / `listen` / `eval` … | PC 操作の試作（[PC 操作の流れ](docs/pc-control.md)） |
 
 ヘルプ：`vc --help`（コマンドの一覧・共通のオプション・環境変数）、`vc <コマンド> --help`（使い方・オプション・例）。出力は、端末なら色つき（`NO_COLOR=1` で無効）。
+
+**プロジェクトのスキル**：`<プロジェクトのルート>/.voice-control/skills/<name>/SKILL.md` にも置ける（ルートは、`vc` を起動した場所。同じ名前なら、プロジェクトが、グローバルを上書きする）。外から来るリポジトリのスキルは、許可したコマンドを実行できるので、**`vc skills trust` したプロジェクトだけ**読み込む（既定は未信頼）。詳しくは [スキル](docs/skills.md#置き場所)。
+
+**既定スキル**：どのスキルにも当てはまらない依頼は、組み込みの `default` スキルが、Apple の言語モデルで、`agent-desktop` と基本のコマンド（`open`・`say`・`ls`・`pwd`・`date`）を使って実行する。会話・独り言は実行せず、取り消しにくい依頼（削除・送信・購入など）は確認する。許可を広げるなら、同じ名前（`default`）のスキルを置く（シェルは許可できない）。使わないなら `vc skills disable default`。詳しくは [スキル](docs/skills.md#既定スキルdefault)。
+
+**Esc で取りやめ**（`vc listen --hotkey`）：録音中は録音を捨て、認識中・実行中・確認の待ちは処理（実行中のコマンドも）を止める。Esc を受けるのは、その間だけ。録音中（Shift を押している間）の Esc には、アクセシビリティの許可が要る。
 
 スキルの書き方・`allowed-commands` の仕様・表示は [スキル](docs/skills.md)。スキルをエージェントに作らせるときは、[スキルを作るスキル](skills/voice-control-skill-author/SKILL.md)。
 

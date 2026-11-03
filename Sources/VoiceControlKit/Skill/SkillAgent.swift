@@ -20,13 +20,15 @@ public final class SkillAgent: @unchecked Sendable {
     let skill: Skill
     let dryRun: Bool
     let display: Display
+    /// 取りやめの合図（Esc）。取りやめられたら、実行中のコマンドを止め、以降のコマンドは実行しない。
+    let cancel: CancelToken?
     let aliases = RefAliases()
     private let lock = NSLock()
     private var count = 0
     private var log: [String] = []
 
-    public init(skill: Skill, dryRun: Bool, display: Display) {
-        self.skill = skill; self.dryRun = dryRun; self.display = display
+    public init(skill: Skill, dryRun: Bool, display: Display, cancel: CancelToken? = nil) {
+        self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel
     }
 
     /// 実行したコマンド（拒否したものを除く）。
@@ -51,11 +53,21 @@ public final class SkillAgent: @unchecked Sendable {
 
     /// 返事（`done: …` / `failed: …`）。
     public func run(request: String) async throws -> String {
+        try checkCancelled()
         let session = LanguageModelSession(tools: [RunCommandTool(self)], instructions: instructions)
-        return try await session.respond(to: "User request: \(request)").content
+        let reply = try await session.respond(to: "User request: \(request)").content
+        try checkCancelled()
+        return reply
+    }
+
+    /// 取りやめられていれば、`CancellationError` を投げる。
+    func checkCancelled() throws {
+        if cancel?.isCancelled == true { throw CancellationError() }
+        try Task.checkCancellation()
     }
 
     fileprivate func execute(_ command: String) -> String {
+        if cancel?.isCancelled == true { return "ERROR: cancelled by the user. Stop now and do not run more commands." }
         let n = nextCall()
         if n > Self.maxCommands { return "ERROR: too many commands (limit \(Self.maxCommands)). Stop now and reply: failed: <reason>" }
         let argv: [String]
@@ -70,7 +82,7 @@ public final class SkillAgent: @unchecked Sendable {
         display.onCommand(command)
         if dryRun { return "(dry-run) not executed. Assume it succeeded and continue; reply done when the SKILL's steps are listed." }
         record(command)
-        let result = CommandRunner.run(argv: argv.map(aliases.expand))
+        let result = CommandRunner.run(argv: argv.map(aliases.expand), cancel: cancel)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
         display.onResult(result.exitCode, compact)
         return "exit \(result.exitCode)\(result.timedOut ? " (timed out)" : "")\n\(compact)"

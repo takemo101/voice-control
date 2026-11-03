@@ -66,6 +66,16 @@ public final class RecordingSession: @unchecked Sendable {
         do { try r.start(to: url); recorder = r; file = url; startError = nil } catch { startError = error }
     }
 
+    /// 録音を捨てる（Esc で取りやめたとき）。録音したファイルは、消す。文字にはしない。
+    public func discard() {
+        lock.lock(); defer { lock.unlock() }
+        startError = nil
+        guard let r = recorder, let url = file else { return }
+        recorder = nil; file = nil
+        try? r.stop()
+        try? FileManager.default.removeItem(at: url)
+    }
+
     /// 録音したファイル。録音が始まっていなければ `nil`（始めに失敗していれば、その失敗を投げる）。
     public func stop() throws -> URL? {
         lock.lock(); defer { lock.unlock() }

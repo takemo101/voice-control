@@ -9,6 +9,12 @@ public final class HotKey: @unchecked Sendable {
     public var onRelease: (@Sendable () -> Void)?
     private var ref: EventHotKeyRef?
     private var handler: EventHandlerRef?
+    /// このホットキーの番号。複数のホットキー（トリガーと Esc など）が、互いのイベントを受けないようにする。
+    private let id: UInt32
+    private static let counter = NSLock()
+    nonisolated(unsafe) private static var lastID: UInt32 = 0
+
+    private static func nextID() -> UInt32 { counter.lock(); defer { counter.unlock() }; lastID += 1; return lastID }
 
     public enum Failure: Error { case register(OSStatus) }
 
@@ -18,9 +24,13 @@ public final class HotKey: @unchecked Sendable {
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
         ]
+        id = Self.nextID()
         let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
             guard let event, let userData else { return OSStatus(eventNotHandledErr) }
             let me = Unmanaged<HotKey>.fromOpaque(userData).takeUnretainedValue()
+            var pressed = EventHotKeyID()
+            let got = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+            guard got == noErr, pressed.id == me.id else { return OSStatus(eventNotHandledErr) }   // ほかのホットキーのイベントは、通す
             switch GetEventKind(event) {
             case UInt32(kEventHotKeyPressed): me.onPress?()
             case UInt32(kEventHotKeyReleased): me.onRelease?()
@@ -29,8 +39,8 @@ public final class HotKey: @unchecked Sendable {
             return noErr
         }, 2, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
         guard status == noErr else { throw Failure.register(status) }
-        let id = EventHotKeyID(signature: OSType(0x7663_6b79), id: 1)   // 'vcky'
-        let reg = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &ref)
+        let hotKeyID = EventHotKeyID(signature: OSType(0x7663_6b79), id: id)   // 'vcky'
+        let reg = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &ref)
         guard reg == noErr else { throw Failure.register(reg) }
     }
 
