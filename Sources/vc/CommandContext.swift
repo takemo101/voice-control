@@ -24,8 +24,6 @@ struct CommandContext {
     let gate: Gate
     /// 利用者が足したキー操作の定義（`vc plan`・`vc act` の候補）。
     let skillCatalog: SkillCatalog.Loaded
-    /// これまでに実行した手（前の指示を、次の判断の文脈に使う）。`--no-context` なら、使わない。
-    let sessionHistory = HistoryStore()
     private let settingsWarning = SettingsWarning()
 
     init(options: CommonOptions, skillCatalog: SkillCatalog.Loaded) {
