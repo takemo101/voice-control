@@ -54,29 +54,35 @@ Then reply done.
 **書き方**
 
 ```yaml
-allowed-commands:               # リスト
+allowed-commands:                      # リスト
   - open
-  - agent-desktop click
-allowed-commands: [open, say]   # インライン
-allowed-commands: open          # 1 つだけ
+  - agent-desktop click @a*
+  - Bash(open -a *)                    # Claude Code の権限ルールの形も読める
+allowed-commands: [open, say]          # インライン
+allowed-commands: open                 # 1 つだけ
 ```
 
-**照合**：項目は、シェルと同じ規則（空白区切り・引用符・`\`）でトークンに分ける。言語モデルが実行を頼んだコマンドも同じ規則で分け、**先頭のトークン列が、項目のトークンと完全一致**したときだけ実行する。大文字小文字を区別し、ワイルドカードや正規表現はない。
+**照合**：項目は、シェルと同じ規則（空白区切り・引用符・`\`）でトークンに分ける。言語モデルが実行を頼んだコマンドも同じ規則で分け、**先頭のトークン列が、項目のトークンに一致**したときだけ実行する（**前方一致**。大文字小文字を区別する）。
 
 | 項目 | 通る | 通らない |
 |---|---|---|
 | `open` | `open -a Safari` | `say hi` |
 | `agent-desktop click` | `agent-desktop click @a1:e3` | `agent-desktop type …` |
 | `open -a Spotify` | `open -a Spotify` | `open -a Safari`、`open Spotify` |
+| `agent-desktop click @a*` | `agent-desktop click @a1:e3` | `agent-desktop click @s1:e3` |
+| `open -a *.app` | `open -a Safari.app` | `open -a Safari` |
+| `agent-desktop * @a1:e1` | `agent-desktop click @a1:e1` | `agent-desktop @a1:e1`、`agent-desktop click @a1:e2` |
 
-- 項目の後ろの引数は、何でも通る。絞りたいときは、項目に引数まで書く。
+- **`*`（ワイルドカード）**：トークンの中の `*` は、**そのトークンの中で**、任意の文字列（空を含む）に一致する。トークンをまたがない。`*` だけのトークンは、任意の 1 トークンに一致する。**コマンド名（先頭のトークン）には使えない**（どのコマンドにも一致してしまうため）。
+- 項目の**後ろ**の引数は、何でも通る（前方一致）。末尾の `*`（`open *`・`open:*`）は、あってもなくても同じ。絞りたいときは、項目に引数まで書く。
+- `Bash(…)` の包みは外して読む（`Bash(open -a *)` ＝ `open -a`）。`Bash` 以外のツール名（`Read(…)`）は不可。
 - オプションの位置が、一致に影響する（`agent-desktop --headed click …` は、`agent-desktop click` に一致しない）。
 
 **読み込み時の検査**（違反するとスキル全体を読み込まない。理由は `vc skills` に出る）
 
-- 先頭のトークンは、`A-Za-z0-9._+-` だけのコマンド名。パス（`/bin/rm`）は不可。
+- 先頭のトークンは、`A-Za-z0-9._+-` だけのコマンド名。`*` とパス（`/bin/rm`）は不可。
 - 次のコマンドは不可：`sh bash zsh dash fish ksh csh tcsh env xargs sudo su doas eval exec nohup command builtin`（許可の意味を失わせる）。
-- 空・引用符の閉じ忘れ・末尾が `\` の項目は不可。
+- 空・引用符の閉じ忘れ・末尾が `\` の項目、`Bash` 以外のツール名は不可。
 
 **実行時の検査**（許可されていても、毎回かける）
 
@@ -85,9 +91,26 @@ allowed-commands: open          # 1 つだけ
 
 **実行の方式**：シェルなし。`; | && $() > <` は、ただの文字として引数に渡る。コマンドは PATH から探す。1 回の実行で最大 15 コマンド・1 コマンド 30 秒。
 
-**できないこと**：引数の値の制限（「この参照だけ」）、ワイルドカード・否定の指定、環境変数の指定。
+**できないこと**：完全一致の指定（前方一致のみ）、複数のトークンをまたぐ `*`、正規表現・否定の指定、環境変数の指定。
 
 **責任の範囲**：`allowed-commands` は、言語モデルの暴走への歯止め。許可したコマンドの中身は守らない（`rm` を許可すれば、`rm` が実行される）。`osascript`・`python`・`node` のような、任意のコードを実行できるコマンドを許可するかは、スキルの作者の責任（読み込みは止めない）。
+
+### Claude Code の `allowed-tools` との違い
+
+[Claude Code のスキル](https://code.claude.com/docs/en/skills.md)・[権限ルール](https://code.claude.com/docs/en/permissions.md)（2026-11-03 に確認）と比べる。
+
+| | Claude Code（`allowed-tools`） | このツール（`allowed-commands`） |
+|---|---|---|
+| 意味 | **事前承認**（そのターンだけ、確認なしで使える）。制限ではない。制限は `disallowed-tools`・deny ルール | **許可リスト**（書いていないコマンドは、実行できない） |
+| 項目の形 | `Bash(git add *)` など、ツール名つき（`Read`・`Grep` なども） | コマンドだけ。`Bash(…)` の形も読める（`Bash` のみ） |
+| `*` | 任意の位置・複数トークンをまたぐ。`ls *` は `ls` 単体にも一致 | トークンの中だけ。後ろの引数は、もともと何でも通る |
+| `*` のない項目 | **完全一致** | **前方一致**（逆）。`open` は `open -a Safari` にも一致する |
+| 実行 | シェル経由。`&&` `;` `\|` を理解して、サブコマンドごとに照合。`timeout` `nice` `xargs` などを外して照合 | **シェルなし**。`;` `&&` は、ただの引数。ラッパーは外さない（`timeout 30 open` は、`open` の許可に含まれない） |
+| 名前 | 標準（Agent Skills）にあるフィールド | 標準にない。claude.ai へのアップロードでは、許可外のキーとして拒否される |
+
+- Claude Code の Bash の deny ルールは、`/usr/bin/curl`・`sh -c '…'`・`git -C . push` のような別の形をすり抜ける（公式にも「境界ではない」とある）。このツールは、許可リスト・シェルなし・パス指定の拒否・ラッパーの不許可で、その経路を作らない。
+- **`allowed-commands` を持たない Claude Code のスキルは、`vc` では読み込まれない**（必須のため）。`name`・`description`・本文は、同じ形で共有できる。
+- 名前を `allowed-tools` にしないのは、意味が違う（制限か、承認か）ため。
 
 ## コマンド
 

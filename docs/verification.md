@@ -17,7 +17,7 @@
 
 | 目的 | コマンド | 何も操作しない |
 |---|---|---|
-| 単体テスト（43 件） | `just test` | ○ |
+| 単体テスト（49 件） | `just test` | ○ |
 | PC 操作の当たり率（固定した画面） | `just eval`（`corpus/plans.tsv`）。候補・説明文・ゲートを変えたら回す | ○ |
 | 前の指示の効果 | `vc eval-context corpus/followups.tsv` | ○ |
 | 位置情報の効果 | `vc eval corpus/plans.tsv --no-location`（あり・なしを比べる） | ○ |

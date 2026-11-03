@@ -46,14 +46,16 @@ Then reply done.
 |---|---|---|
 | `name` | ○ | ディレクトリ名と同じ。英小文字・数字・ハイフン |
 | `description` | ○ | Tiny-Jev が読む。200 文字まで（**60 字ほどに収める**） |
-| `allowed-commands` | ○ | 実行してよいコマンド。リスト（`- open`）か `[open, say]`。**先頭のトークン列**が一致したものだけ実行する：`agent-desktop` ならどの引数でも、`agent-desktop click` なら click だけ |
+| `allowed-commands` | ○ | 実行してよいコマンド（**許可リスト**）。リスト（`- open`）か `[open, say]`。**先頭のトークン列**が一致したものだけ実行する（前方一致）：`agent-desktop` ならどの引数でも、`agent-desktop click` なら click だけ |
 | `confirm` | | `true` なら、実行の前に、必ず確認する |
 
 `allowed-commands` の規則：
-- コマンド名だけ（パス不可。`/bin/rm` は不可）。引数の一部（`agent-desktop snapshot`）で、さらに絞れる。**できるだけ絞る**（`agent-desktop` 全体より `agent-desktop click`）。
+- コマンド名だけ（パス不可。`/bin/rm` は不可。`*` も不可）。引数の一部（`agent-desktop snapshot`）で、さらに絞れる。**できるだけ絞る**（`agent-desktop` 全体より `agent-desktop click`）。
+- トークンの中の `*` は、そのトークンの中で任意の文字列に一致する（`agent-desktop click @a*`、`open -a *.app`）。`*` だけのトークンは、任意の 1 トークン。トークンをまたぐ `*`・完全一致・正規表現はない。
+- Claude Code の形（`Bash(open -a *)`）も読める（`Bash` だけ）。**意味は違う**：Claude Code の `allowed-tools` は「確認なしで使える」の承認で、こちらは「これ以外は実行しない」の制限。`*` のない項目は、前方一致（Claude Code は完全一致）。詳細は `docs/skills.md` の「Claude Code との違い」。
 - **許可できない**（読み込まれない）：`sh bash zsh dash fish ksh csh tcsh env xargs sudo su doas eval exec nohup command builtin`。シェルなどを通すと、許可の意味がなくなるため。`agent-desktop --force` も、実行時に拒否される。
 - `osascript`・`python`・`node` など、**任意のコードを実行できるもの**は、許可しない。必要なら、利用者に、理由を説明して、確認してもらう。
-- コマンドは、**シェルなし**で実行される：パイプ・リダイレクト・`&&`・`;`・`$(…)`・ワイルドカードは、使えない。1 回に、1 コマンド。
+- コマンドは、**シェルなし**で実行される：パイプ・リダイレクト・`&&`・`;`・`$(…)`・グロブ（`*.txt` の展開）は、使えない。1 回に、1 コマンド。
 
 ## description の書き方（Tiny-Jev）
 
