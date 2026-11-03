@@ -75,15 +75,15 @@ public extension Step {
 }
 
 /// 実行した手の記録（セッション内で共有する。非同期の処理から、安全に追記・読み出しできる）。
-public final class HistoryStore: @unchecked Sendable {
+final class HistoryStore: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [Executed] = []
 
-    public init() {}
+    init() {}
 
-    public var entries: [Executed] { lock.lock(); defer { lock.unlock() }; return items }
+    var entries: [Executed] { lock.lock(); defer { lock.unlock() }; return items }
 
-    public func append(_ entry: Executed) {
+    func append(_ entry: Executed) {
         lock.lock(); defer { lock.unlock() }
         items.append(entry)
         if items.count > 50 { items.removeFirst(items.count - 50) }   // 文脈に使うのは、新しい数件だけ。増え続けない。
