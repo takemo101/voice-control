@@ -41,6 +41,8 @@ just install          # vc を ~/.local/bin へ入れる（モデルは、リポ
 just test             # 単体テスト
 ```
 
+**リリース版（tar.gz）から入れる**：[Releases](https://github.com/takemo101/voice-control/releases) の `vc-<版>-macos-arm64.tar.gz` を展開して、`vc` を PATH の通った場所へ置き、同梱の `scripts/fetch-model.sh` でモデルを取得する（手順は各 Release の説明に書いてある。署名は ad-hoc）。**リリースは、まだありません**（作り方：[開発手順](docs/development.md#リリース)）。
+
 スキルを置いて、使う：
 
 ```sh
@@ -100,4 +102,4 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 - `Sources/VoiceControlKit/Decision/` の Tiny-Jev の実行（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`）は、同じ作者の meeting-analyzer の複製（変更なし）。
 - モデル：[lostargon/Tiny-Jev](https://huggingface.co/lostargon/Tiny-Jev)（版 `62449fb`）。**ライセンスの条件は未確認**。リポジトリには含めない。
 - agent-desktop は、子プロセスとして呼ぶだけ（Apache-2.0）。
-- このリポジトリのライセンスは、**未設定**（[SPEC §7](SPEC.md#7-未決事項)）。
+- このリポジトリのライセンスは **MIT**（[LICENSE](LICENSE)）。

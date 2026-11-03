@@ -20,6 +20,11 @@ fetch-model:
 test:
     ./scripts/test.sh
 
+# 配布用の tar.gz と SHA-256 を dist/ に作って、検査する（リリースのワークフローと同じ手順）
+package:
+    ./scripts/package.sh
+    ./scripts/verify-package.sh dist/vc-*-macos-arm64.tar.gz "$(.build/release/vc --version | awk '{print $2}')"
+
 # 開発用に、vc を ~/.local/bin へ入れる（BIN_DIR で場所）。モデルは、このリポジトリの models/ を、~/Library/Application Support/voice-control/models から指す
 install: build
     ./scripts/install.sh

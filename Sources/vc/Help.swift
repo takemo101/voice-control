@@ -21,6 +21,7 @@ enum Help {
         ("--length <トークン数>", "Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）"),
         ("--floor <0〜1>", "確信度の下限（既定 0.40。未満は実行しない）"),
         ("-h, --help", "このヘルプを表示"),
+        ("-V, --version", "版を表示"),
     ]
 
     static let commands: [CommandInfo] = [
@@ -138,7 +139,7 @@ enum Help {
 
     static func overview() -> String {
         var lines: [String] = []
-        lines.append(Style.bold("vc") + " — Mac を依頼文・声で操作する試作")
+        lines.append(Style.bold("vc") + " " + AppInfo.version + " — Mac を依頼文・声で操作する試作")
         lines.append(Style.dim("Tiny-Jev がスキルを選び、Apple の言語モデルが、許可されたコマンドを実行する。"))
         lines.append("")
         lines.append(Style.bold("使い方") + ": vc <コマンド> [引数] [オプション]")
@@ -199,6 +200,7 @@ enum Help {
 
     /// ヘルプが求められていれば、表示して `true`。モデルの読み込みなど、他の処理の前に呼ぶ。
     static func handle(_ arguments: [String]) -> Bool {
+        if arguments.first == "--version" || arguments.first == "-V" { print("vc \(AppInfo.version)"); return true }
         let wantsHelp = arguments.contains("--help") || arguments.contains("-h")
         guard let first = arguments.first else { print(overview()); return true }
         if first == "help" || first == "--help" || first == "-h" {
