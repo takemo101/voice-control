@@ -7,7 +7,7 @@ let package = Package(
     name: "voice-control",
     platforms: [.macOS("26.0")],
     targets: [
-        // 設定・置き場所・取りやめの合図。どのターゲットも使ってよい。
+        // 設定・置き場所・取りやめの合図・外部コマンドの実行。どのターゲットも使ってよい。
         .target(name: "VCCore", path: "Sources/VCCore"),
         // 選択（Chooser・Gate）とモデル（ModelStore）。Tiny-Jev の実行（MPSGraph。Decision/）は meeting-analyzer からの複製を含む（docs/architecture.md）。
         .target(name: "VCDecision", dependencies: ["VCCore"], path: "Sources/VCDecision"),

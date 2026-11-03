@@ -4,7 +4,7 @@
 
 ## 構成と依存
 
-- 依存は下向きだけ：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）、`VCSkill`・`VCPCControl` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
+- 依存は下向きだけ：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）、`VCSkill`・`VCPCControl` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
 - `vc`（実行ファイル）は、**引数の解釈・流れの組み立て・表示・終了コード**だけ。規則・判断は各ターゲットに置き、`vc` から切り離してテストできるようにする。
 - 新しい機能は、変わる理由で置き場所を決める（スキル／PC 操作／音声／選択／モデルの実行）。「util」「helper」に、無関係なものを集めない。
 - `Decision/` の複製したファイルは、**変えない**（meeting-analyzer の版と、同じ内容を保つ）。変える必要があれば、元の側で直して、複製し直す。
@@ -33,9 +33,9 @@
 
 ## 外部コマンドの実行
 
-- **シェルを使わない**。`Process` に、実行ファイルと引数の配列を渡す（`CommandRunner`・`AgentDesktop`）。文字列を連結してコマンド行を作らない。
+- **シェルを使わない**。`ProcessRunner`（`VCCore`）に、実行ファイルと引数の配列を渡す（`CommandRunner`・`AgentDesktop.run` が使う）。文字列を連結してコマンド行を作らない。`Process` を直接扱う所（`open`・`osascript`・`say`。理由は、各コードのコメント）も、シェルは使わない。外部コマンドを足すときは、まず `ProcessRunner` で足りるかを見る。
 - 言語モデルが作ったコマンドは、実行の前に、毎回、`CommandPolicy.check` を通す。許可の判断を、プロンプトの指示に任せない。
-- 出力は、読み切ってから待つ（パイプが詰まらないように）。時間の上限を付ける（1 コマンド 30 秒）。
+- 出力は、読み切ってから待つ（パイプが詰まらないように）：`ProcessRunner` が守る。時間の上限は、呼び出し側が渡す（`CommandRunner` は 1 コマンド 30 秒。`AgentDesktop.run` は、これまでどおり上限なし）。
 - agent-desktop の失敗は、JSON（`ok:false`）が標準出力に出る。終了コードだけで判断しない。
 
 ## プロンプトと選択肢（Tiny-Jev・言語モデル）
