@@ -48,6 +48,7 @@ public enum SnapshotParser {
     /// `agent-desktop snapshot -i --include-bounds` の JSON → `Snapshot`。
     /// 含める要素：押せる（`Click`）要素（名前が空でもよい：「右上のボタン」に使う）、文字入力、スクロールの対象。
     public static func parse(_ data: Data) throws -> Snapshot {
+        // try?: JSON として読めないことは、すぐ下で型のあるエラー（malformed）にする
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw SnapshotError.malformed }
         guard root["ok"] as? Bool == true else {
             throw SnapshotError.notOK(code: ((root["error"] as? [String: Any])?["code"] as? String) ?? "UNKNOWN")

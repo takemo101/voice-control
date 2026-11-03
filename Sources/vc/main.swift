@@ -137,6 +137,7 @@ func say(_ text: String) { SaySpeaker.shared.say(text) }
 /// 文を、合成音声（say）にして、オンデバイスで文字起こしする。
 func speakAndTranscribe(_ text: String) async throws -> String {
     let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-\(UUID().uuidString).aiff")
+    // try?: 一時の音声ファイルの片付け。消せなくても、結果は変わらない
     defer { try? FileManager.default.removeItem(at: file) }
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
@@ -416,6 +417,7 @@ case "listen":
                 /// 列から取り出した音声を、文字にする。取りやめられていれば nil。
                 func transcribe(_ file: URL, _ token: CancelToken) async throws -> String? {
                     activity.consumedAudio()
+                    // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
                     defer { try? FileManager.default.removeItem(at: file) }
                     if token.isCancelled { return nil }
                     let text = try await FileTranscriber().transcribe(file: file)
@@ -501,6 +503,7 @@ case "listen":
         print("\n" + Style.bold("Enter で録音開始（q で終了）> "), terminator: "")
         guard let line = readLine(), line != "q" else { break }
         let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-\(UUID().uuidString).caf")
+        // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
         defer { try? FileManager.default.removeItem(at: file) }
         do {
             let recorder = MicRecorder()
@@ -517,7 +520,9 @@ case "listen":
 
 case "llm":
     // vc llm <snapshot.json> <発話>：言語モデルが選ぶ次の 1 手を見る（VC_LLM_DEBUG=1 で、生の出力も）。
+    // try?: 読めなければ、同じ行の else で usage を出して終了する
     guard args.count >= 3, let data = try? Data(contentsOf: URL(fileURLWithPath: args[1])), let snap = try? SnapshotParser.parse(data) else { fail("usage: vc llm <snapshot.json> <発話>") }
+    // try?: apps.txt（アプリ名の一覧）は、なくてもよい（空の一覧で続ける）
     let apps = ((try? String(contentsOfFile: "corpus/apps.txt", encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
     do { print(try await LLMPlanner(desktop: ReplayDesktop(snapshot: snap, apps: apps)).next(utterance: args[2], done: [])) } catch { fail("\(error)") }
 
@@ -536,14 +541,18 @@ case "decompose":
 case "eval-context":
     // vc eval-context corpus/followups.tsv：前の指示を、文脈に使うときと、使わないときの、当たり率。
     // コーパスの形：snapshot<TAB>直前の操作<TAB>期待<TAB>発話（操作の書き方は、eval と同じ）。
+    // try?: コーパスが読めなければ、usage を出して終了する
     guard args.count >= 2, let text = try? String(contentsOfFile: args[1], encoding: .utf8) else { fail("usage: vc eval-context <followups.tsv>") }
     let dir = URL(fileURLWithPath: args[1]).deletingLastPathComponent()
+    // try?: apps.txt（アプリ名の一覧）は、なくてもよい（空の一覧で続ける）
     let apps = ((try? String(contentsOf: dir.appendingPathComponent("apps.txt"), encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
     let jev = loadJev()
     var hitsWith = 0, hitsWithout = 0, total = 0, wrongSilentWith = 0, wrongSilentWithout = 0
     for line in text.split(separator: "\n") where !line.hasPrefix("#") {
         let f = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
-        guard f.count == 4, let data = try? Data(contentsOf: dir.appendingPathComponent("snapshots/\(f[0]).json")), let snap = try? SnapshotParser.parse(data) else { continue }
+        guard f.count == 4 else { continue }   // 空行・形の違う行は、飛ばす
+        // try?: 画面（snapshot）が読めなければ、fail する。黙って飛ばすと、当たり率が、実際とずれる
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("snapshots/\(f[0]).json")), let snap = try? SnapshotParser.parse(data) else { fail("snapshot を読めません: \(f[0])") }
         guard let prev = stepFromCanonical(f[1], snapshot: snap) else { fail("直前の操作を作れません: \(f[1])") }
         let planner = Planner(scorer: jev, desktop: ReplayDesktop(snapshot: snap, apps: apps), gate: gate, skills: skillCatalog.shortcuts, useLocation: !noLocation)
         let accepted = f[2].split(separator: "|").map(String.init)
@@ -904,8 +913,10 @@ case "hotkey-check":
 case "eval":
     // コーパスの形：snapshot<TAB>期待<TAB>発話。期待は open:<アプリ> click:<要素名> type:<文字> press:<キー> scroll:<向き> none。
     // snapshot は corpus/snapshots/<名前>.json（自作の fixture を agent-desktop で撮ったもの）。アプリの一覧は corpus/apps.txt。
+    // try?: コーパスが読めなければ、usage を出して終了する
     guard args.count >= 2, let text = try? String(contentsOfFile: args[1], encoding: .utf8) else { fail("usage: vc eval <plans.tsv>") }
     let dir = URL(fileURLWithPath: args[1]).deletingLastPathComponent()
+    // try?: apps.txt（アプリ名の一覧）は、なくてもよい（空の一覧で続ける）
     let apps = ((try? String(contentsOf: dir.appendingPathComponent("apps.txt"), encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
     let jev = loadJev()
     var snapshots: [String: Snapshot] = [:]
@@ -919,6 +930,7 @@ case "eval":
         let f = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
         guard f.count == 3 else { continue }
         if snapshots[f[0]] == nil {
+            // try?: 読めなければ、すぐ下で fail する（黙って飛ばさない）
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("snapshots/\(f[0]).json")), let s = try? SnapshotParser.parse(data) else { fail("snapshot を読めません: \(f[0])") }
             snapshots[f[0]] = s
         }

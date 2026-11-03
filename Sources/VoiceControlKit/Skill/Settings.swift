@@ -34,7 +34,7 @@ public struct Settings: Codable, Sendable, Equatable {
 
     /// 読み取りだけの使い方：読めなければ、**空の設定**（信頼したプロジェクトは、なし＝安全側）と、その理由を返す。
     public static func loadOrDefault(from file: URL = VoiceControlHome.settingsFile) -> (settings: Settings, problem: Unreadable?) {
-        do { return (try load(from: file), nil) } catch let error as Unreadable { return (Settings(), error) } catch { return (Settings(), Unreadable(file: file, reason: "\(error)")) }
+        do { return (try load(from: file), nil) } catch { return (Settings(), error as? Unreadable ?? Unreadable(file: file, reason: "\(error)")) }
     }
 
     /// 書く。**壊れた既存のファイルは、上書きせず**、`Unreadable` を投げる（直してから、もう一度）。
