@@ -1,12 +1,12 @@
 /// コマンドラインの引数（`CommandLine.arguments` の 2 番目以降）。値型で、グローバルの状態を持たない。
 ///
-/// 読み方は、先頭から順に取り除いていく形で、次の決まりに従う（従来の `option()`・`flag()` と同じ）：
+/// 読み方は、先頭から順に取り除いていく形で、次の決まりに従う：
 /// - `option("--x")`：最初の `--x` と、その次の 1 語を取り除いて、次の語を返す。次の語が別のオプションの名前でも、値として取る。`--x` が最後の語なら、取り除かず nil
 ///   （`--x` は、残ったまま、位置引数になる）。`--x=値` の形は、扱わない。
 /// - `flag("--x")`：最初の `--x` を取り除いて true。なければ false。2 つ目以降は、残る。
 /// - 知らないオプションは、取り除かれない。残ったものは、すべて位置引数になる（`vc plan --foo` の `--foo` は発話）。
 /// - 位置引数は、取り除いたあとに残った語のうち、先頭（コマンド名）を除いたもの。だから、何を先に取り除くかで、位置引数が変わる。
-struct Arguments: Equatable {
+struct Arguments {
     /// まだ取り除かれていない語（先頭がコマンド名）。
     private(set) var remaining: [String]
 
@@ -38,9 +38,9 @@ struct Arguments: Equatable {
 }
 
 /// どのコマンドでも、起動の最初に取り除く共通のオプション（`vc <コマンド>` のコマンド名の前後どちらに書いてもよい）。
-/// 取り除く順番は、位置引数に響く（`--app --execute` は、`--app` の値が `--execute` になる）ので、従来のまま変えない。
+/// 取り除く順番は、位置引数に響く（`--app --execute` は、`--app` の値が `--execute` になる）ので、この順番で固定する（テストが確かめる）。
 /// `--keys` は、コマンド名を決めたあとに取り除く（`CommandContext.make`）。
-struct CommonOptions: Equatable {
+struct CommonOptions {
     var model: String?
     var length: Int
     var app: String?

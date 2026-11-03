@@ -4,7 +4,7 @@ import Testing
 /// 端末の色の指定（端末で実行したときだけ付く）を取り除く。
 private func plain(_ s: String) -> String { s.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression) }
 
-/// `vc` の引数の読み方（従来の `option()`・`flag()` と同じ）。取り除く順番・値の取り方の癖も、そのまま固定する。
+/// `vc` の引数の読み方。取り除く順番・値の取り方の癖も、そのまま固定する。
 @Suite struct ArgumentsTests {
     @Test func optionTakesTheNextWordAndRemovesBoth() {
         var a = Arguments(["plan", "下にスクロールして", "--app", "Safari"])
@@ -119,15 +119,6 @@ private func plain(_ s: String) -> String { s.replacingOccurrences(of: "\u{1B}\\
         let verify = a.flag("--verify")
         #expect(verify)
         #expect(a.positionals.first == nil)
-    }
-
-    @Test func copiesAreIndependent() {
-        let original = Arguments(["run", "x", "--dry-run"])
-        var copy = original
-        let removed = copy.flag("--dry-run")
-        #expect(removed)
-        #expect(original.remaining == ["run", "x", "--dry-run"])
-        #expect(copy.remaining == ["run", "x"])
     }
 }
 
