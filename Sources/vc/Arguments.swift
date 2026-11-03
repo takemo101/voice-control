@@ -4,7 +4,7 @@
 /// - `option("--x")`：最初の `--x` と、その次の 1 語を取り除いて、次の語を返す。次の語が別のオプションの名前でも、値として取る。`--x` が最後の語なら、取り除かず nil
 ///   （`--x` は、残ったまま、位置引数になる）。`--x=値` の形は、扱わない。
 /// - `flag("--x")`：最初の `--x` を取り除いて true。なければ false。2 つ目以降は、残る。
-/// - 知らないオプションは、取り除かれない。残ったものは、すべて位置引数になる（`vc plan --foo` の `--foo` は発話）。
+/// - 知らないオプションは、取り除かれない。残ったものは、すべて位置引数になる（`vc run --foo` の `--foo` は、位置引数）。
 /// - 位置引数は、取り除いたあとに残った語のうち、先頭（コマンド名）を除いたもの。だから、何を先に取り除くかで、位置引数が変わる。
 struct Arguments {
     /// まだ取り除かれていない語（先頭がコマンド名）。
@@ -15,7 +15,7 @@ struct Arguments {
     /// コマンド名（残った語の先頭）。
     var command: String? { remaining.first }
 
-    /// コマンド名を除いた、残りの語（`vc plan 発話` の「発話」）。
+    /// コマンド名を除いた、残りの語（`vc run 依頼` の「依頼」）。
     var positionals: [String] { Array(remaining.dropFirst()) }
 
     /// `--x 値` の値。取り除く。
@@ -38,21 +38,12 @@ struct Arguments {
 }
 
 /// どのコマンドでも、起動の最初に取り除く共通のオプション（`vc <コマンド>` のコマンド名の前後どちらに書いてもよい）。
-/// 取り除く順番は、位置引数に響く（`--app --execute` は、`--app` の値が `--execute` になる）ので、この順番で固定する（テストが確かめる）。
-/// `--keys` は、コマンド名を決めたあとに取り除く（`CommandContext.make`）。
+/// 取り除く順番は、位置引数に響く（`--length --yes` は、`--length` の値が `--yes` になる）ので、この順番で固定する（テストが確かめる）。
 struct CommonOptions {
     var model: String?
     var length: Int
-    var app: String?
-    var execute: Bool
     var yes: Bool
-    var speak: Bool
     var hotkey: Bool
-    var llm: Bool
-    var llmSplit: Bool
-    var noContext: Bool
-    var noLocation: Bool
-    var audio: String?
     var trigger: String?
     /// 取り除かない（`vc run` は、自分の `--dry-run` を、あとで取り除く）。
     var dryRun: Bool
@@ -62,16 +53,8 @@ struct CommonOptions {
     init(consuming arguments: inout Arguments) {
         model = arguments.option("--model")
         length = arguments.option("--length").flatMap(Int.init) ?? 1024
-        app = arguments.option("--app")
-        execute = arguments.flag("--execute")
         yes = arguments.flag("--yes")
-        speak = arguments.flag("--speak")
         hotkey = arguments.flag("--hotkey")
-        llm = arguments.flag("--llm")
-        llmSplit = arguments.flag("--llm-split")
-        noContext = arguments.flag("--no-context")
-        noLocation = arguments.flag("--no-location")
-        audio = arguments.option("--audio")
         trigger = arguments.option("--trigger")
         dryRun = arguments.contains("--dry-run")
         floor = arguments.option("--floor").flatMap(Double.init)

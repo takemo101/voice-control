@@ -15,8 +15,7 @@ voice-control の補助文書の入口。製品要件・受け入れ条件・対
 | [参考にした設計原則](references.md) | どの設計原則を選び、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
 | [リファクタリングの観点](refactoring.md) | 動作を変えずに見直すときの観点と進め方 | 製品要件・実施権限・スコア化 |
 | [検証手順と記録](verification.md) | 条件をどう観測し、何をいつ確認したか、何が人間の確認待ちか | 新しい合格条件・未実施の成功 |
-| [スキル](skills.md) | スキルの書き方・`allowed-commands` の仕様・コマンド・表示・安全 | 製品要件（正本は SPEC F1〜F6） |
-| [PC 操作の流れ](pc-control.md) | 候補の作り方・ゲート・複数の手・文脈・音声入力の設計と限界（試作） | 製品要件（正本は SPEC F7・F8）・測定の数値 |
+| [スキル](skills.md) | スキルの書き方・`allowed-commands` の仕様・コマンド・表示・声の入力（`vc listen`）・安全 | 製品要件（正本は SPEC F1〜F6・F8・F12） |
 | [スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md) | エージェントが、`~/.voice-control/skills` のスキルを、正しい形で作る手順 | スキルの形の要件（正本は SPEC F1） |
 
 文書間で矛盾を見つけたら、派生文書を根拠に製品要件を変更しない。SPEC の該当節と利用者の判断を確認し、必要な修正を、関係する文書へ反映する。
@@ -39,19 +38,17 @@ LICENSE                MIT
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・package・install・uninstall・eval・fixture・vc）
 Sources/
-  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。スキルが選ばれなければ、`PCRunner` を呼ぶアダプター）・`plan`・`act`（PCControl.swift）・`eval`（Eval.swift）・`keys`・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`・`llm`・`decompose`・`eval-context`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、TerminalPCReporter.swift・HUDPCReporter.swift：PC 操作の経過の表示（`PCRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
+  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
   Fixture/             検証用の自作ウィンドウ
   VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図、ProcessRunner：外部コマンドの実行）
   VCDecision/          選択と判断の土台
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
-    Choice/            選択肢の採点・勝ち抜き戦・ゲート（Gate）
+    Choice/            選択肢の採点・勝ち抜き戦（Chooser）・しきい値（Gate）・声の「はい」の判定（Confirmation）
     Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合（CommandPolicy）・実行（CommandRunner・OutputCompactor・RefAliases）・言語モデル（SkillAgent）・スキルの選択（SkillRouter：Tiny-Jev で選ぶ。SkillResolver・DefaultSkill：選ばれなければ既定スキル）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
-  VCPCControl/         PC 操作の計画（Planner）・実行・agent-desktop（AgentDesktop。画面の読み取りは UIElement の SnapshotParser）・手（Action.swift の Step・Shortcut）・分け方（ClauseSplitter）・文字の取り出し（TextExtractor）・履歴（History）・キー操作の JSON 定義（KeyBindings.swift の KeyBindingCatalog）・確認の問いかけと返事の判定（Confirmation）・固定した画面（ReplayDesktop）・流れ（PCRunner：計画 → 門 → 確認 → 実行 → 履歴。経過は PCEvent で PCReporter へ）・PCEval：評価コーパスの部品。Experiments/：比較用の実験（LLMPlanner・LLMDecomposer）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
-Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・VCPCControlTests（PCRunner・PCEval を含む）・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルと PC 操作の実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer`・`Desktop` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
-corpus/                評価用の文（plans.tsv・followups.tsv・gate.tsv）・アプリ名の一覧（apps.txt）と、自作ウィンドウの画面（snapshots/）
-keys/                  キー操作の JSON 定義の例
+Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
+corpus/                評価用の文（gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`）
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 .voice-control/
@@ -72,8 +69,7 @@ docs/
   references.md        参考にした設計原則・調べた外部の機能
   refactoring.md       リファクタリングの観点と進め方
   verification.md      検証手順・記録・人間の確認待ち
-  skills.md            スキルの書き方と仕様
-  pc-control.md        PC 操作の流れ（試作）
+  skills.md            スキルの書き方と仕様・声の入力（`vc listen`）
 ```
 
 `models/`（開発用に、Tiny-Jev の重みを置いてもよい場所。約 1.2 GB）と `.build/`・`dist/` は Git 対象外。`~/.voice-control/` は、利用者のスキル・設定・モデル（`vc model download`）で、リポジトリの外。

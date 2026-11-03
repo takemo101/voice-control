@@ -48,9 +48,11 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             begin(skill)
         case let .declined(reason, fallbackAvailable, _):
             terminal.report(event)
-            // 既定スキルがなければ、PC 操作へ回るので、ここでは出さない
             if fallbackAvailable {
                 present(HUDContent(phase: .info, title: "操作の依頼ではありませんでした", hint: reason, chip: chip, heard: utterance), 3)
+            } else {
+                // 当てはまるスキルがなく、既定スキルも使えない：実行しない
+                present(HUDContent(phase: .info, title: "どのスキルでもありません", hint: "実行しません（既定スキルが無効：vc skills enable default）", chip: chip, heard: utterance), 3)
             }
         case let .confirmRequired(skill, reason):
             speak("\(skill.name)を実行しますか")

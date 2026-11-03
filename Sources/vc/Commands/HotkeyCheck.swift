@@ -3,7 +3,7 @@ import Foundation
 
 struct HotkeyCheckCommand: Command {
     static let info = CommandInfo(
-        name: "hotkey-check", group: .pcControl, summary: "トリガーが届くかを確かめる（マイクは使わない）",
+        name: "hotkey-check", group: .evaluation, summary: "トリガーが届くかを確かめる（マイクは使わない）",
         usage: ["vc hotkey-check [--trigger <キー>] [--seconds <秒>]"],
         details: ["押した・離したを表示し、画面の上に「録音中」を出す。いまの設定（vc hotkey）を使う。既定は 10 秒間。"],
         options: [("--trigger <キー>", "この回だけのトリガー"), ("--seconds <秒>", "待つ時間（既定 10）")],

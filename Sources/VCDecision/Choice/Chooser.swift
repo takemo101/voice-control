@@ -32,16 +32,6 @@ public struct Chooser: Sendable {
         self.limit = limit
     }
 
-    /// 採点の回数の上限（候補が `limit - 1` 個以下なら 1 回。ある組が「該当なし」で勝ち残りなしなら、実際の回数は少ない）。
-    public func rounds(for count: Int) -> Int {
-        var n = count, total = 0
-        while n > limit - 1 {
-            total += (n + limit - 2) / (limit - 1)
-            n = (n + limit - 2) / (limit - 1)
-        }
-        return total + 1
-    }
-
     public func pick(state: String, question: String, options: [String], none: String) throws -> Pick {
         guard !options.isEmpty else { return Pick(index: nil, probability: 1, ranked: [(nil, 1)]) }
         var survivors = Array(options.indices)

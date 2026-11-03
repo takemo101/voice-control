@@ -1,8 +1,7 @@
 import Foundation
-import TestSupport
 import Testing
-import VCDecision
-@testable import VCPCControl
+import TestSupport
+@testable import VCDecision
 
 /// 声の確認：「はい」と確信できたときだけ、実行を許す（聞き違い・迷いで、確認が必要な操作が実行されない）。
 @Suite struct ConfirmationTests {

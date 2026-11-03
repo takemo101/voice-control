@@ -21,14 +21,12 @@ import TestSupport
         #expect(pick.index == nil)
     }
 
-    @Test func roundCountIsAnUpperBoundOnTheCallsMade() throws {
-        for count in [1, 31, 32, 100, 961, 962] {
+    @Test func aListThatFitsInOneQuestionIsScoredOnce() throws {
+        for count in [1, 31] {
             let scorer = TargetScorer(target: "option 0")
             let opts = (0..<count).map { "option \($0)" }
-            let chooser = Chooser(scorer: scorer, limit: 32)
-            _ = try chooser.pick(state: "", question: "", options: opts, none: "none")
-            #expect(scorer.calls <= chooser.rounds(for: count), "count \(count)")
-            if count <= 31 { #expect(scorer.calls == 1) }
+            _ = try Chooser(scorer: scorer, limit: 32).pick(state: "", question: "", options: opts, none: "none")
+            #expect(scorer.calls == 1, "count \(count)")
         }
     }
 }

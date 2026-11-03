@@ -4,29 +4,28 @@ import Testing
 /// どのコマンドでも、最初に取り除く共通のオプション。
 @Suite struct CommonOptionsTests {
     @Test func defaultsWhenNothingIsGiven() {
-        var a = Arguments(["keys"])
+        var a = Arguments(["skills"])
         let o = CommonOptions(consuming: &a)
-        #expect(o.model == nil && o.app == nil && o.audio == nil && o.trigger == nil && o.floor == nil)
+        #expect(o.model == nil && o.trigger == nil && o.floor == nil)
         #expect(o.length == 1024)
-        #expect(!o.execute && !o.yes && !o.speak && !o.hotkey && !o.llm && !o.llmSplit && !o.noContext && !o.noLocation && !o.dryRun)
-        #expect(a.remaining == ["keys"])
+        #expect(!o.yes && !o.hotkey && !o.dryRun)
+        #expect(a.remaining == ["skills"])
     }
 
     @Test func takesEveryCommonOptionFromAnyPositionAndLeavesTheRest() {
-        var a = Arguments(["--model", "m", "act", "削除して", "--execute", "--length", "512", "--floor", "0.3", "--yes", "--app", "Fixture",
-                           "--audio", "a.wav", "--trigger", "f5", "--speak", "--hotkey", "--llm", "--llm-split", "--no-context", "--no-location"])
+        var a = Arguments(["--model", "m", "run", "削除して", "--length", "512", "--floor", "0.3", "--yes", "--trigger", "f5", "--hotkey"])
         let o = CommonOptions(consuming: &a)
-        #expect(o.model == "m" && o.length == 512 && o.floor == 0.3 && o.app == "Fixture" && o.audio == "a.wav" && o.trigger == "f5")
-        #expect(o.execute && o.yes && o.speak && o.hotkey && o.llm && o.llmSplit && o.noContext && o.noLocation)
-        #expect(a.remaining == ["act", "削除して"])
+        #expect(o.model == "m" && o.length == 512 && o.floor == 0.3 && o.trigger == "f5")
+        #expect(o.yes && o.hotkey)
+        #expect(a.remaining == ["run", "削除して"])
     }
 
     @Test func aNonNumericLengthOrFloorIsStillRemoved() {
-        var a = Arguments(["--length", "abc", "--floor", "high", "plan", "x"])
+        var a = Arguments(["--length", "abc", "--floor", "high", "run", "x"])
         let o = CommonOptions(consuming: &a)
         #expect(o.length == 1024)
         #expect(o.floor == nil)
-        #expect(a.remaining == ["plan", "x"])
+        #expect(a.remaining == ["run", "x"])
     }
 
     @Test func dryRunIsReadButLeftForTheCommand() {
@@ -39,19 +38,18 @@ import Testing
     }
 
     @Test func removalOrderDecidesWhoGetsTheValue() {
-        // --app が先なので、`--execute` は、--app の値になる
-        var a = Arguments(["--app", "--execute", "keys"])
+        // --length が先なので、`--yes` は、--length の値になる
+        var a = Arguments(["--length", "--yes", "skills"])
         let o = CommonOptions(consuming: &a)
-        #expect(o.app == "--execute")
-        #expect(!o.execute)
-        #expect(a.remaining == ["keys"])
+        #expect(o.length == 1024)
+        #expect(!o.yes)
+        #expect(a.remaining == ["skills"])
     }
 
-    @Test func keysIsNotACommonOptionSoItBecomesTheCommandWhenPlacedFirst() {
-        // `--keys` は、コマンド名を決めたあとに取り除く（main.swift）。コマンド名の前に置くと、`--keys` がコマンド名になる
-        var a = Arguments(["--keys", "dir", "plan", "x"])
+    @Test func optionsOfRemovedFeaturesAreNotCommonOptionsAnymore() {
+        // 廃止した機能（PC 操作）のオプションは、取り除かれず、そのまま残る
+        var a = Arguments(["run", "x", "--app", "Fixture", "--execute", "--keys", "dir"])
         _ = CommonOptions(consuming: &a)
-        #expect(a.command == "--keys")
-        #expect(a.remaining == ["--keys", "dir", "plan", "x"])
+        #expect(a.remaining == ["run", "x", "--app", "Fixture", "--execute", "--keys", "dir"])
     }
 }

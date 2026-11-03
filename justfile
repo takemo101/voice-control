@@ -36,10 +36,10 @@ fixture *args: build
 fixture-stop:
     pkill -x Fixture || true
 
-# 固定した画面での、操作の当たり率（実機は操作しない。SPEAK=1 で、say → 文字起こし経由）
+# 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（corpus/gate.tsv。Tiny-Jev のモデルが要る）
 eval: build
-    "{{vc}}" eval corpus/plans.tsv ${SPEAK:+--speak}
+    "{{vc}}" eval-gate corpus/gate.tsv
 
-# ビルドして、vc を呼ぶ（例: just vc plan "下にスクロールして" / just vc listen --execute）
+# ビルドして、vc を呼ぶ（例: just vc run "Safariを開いて" --dry-run / just vc listen --hotkey）
 vc *args: build
     "{{vc}}" "$@"

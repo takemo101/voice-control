@@ -73,10 +73,10 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
         #expect(t.err.values.isEmpty)
     }
 
-    @Test func voiceLayoutStaysSilentWhenThePCControlFlowTakesOver() {
-        let silent = terminal(.voice)
-        silent.reporter.report(.declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false, elapsed: 0))
-        #expect(silent.out.values == ["  Tiny-Jev  （どのスキルでもない）（0.0 秒）"])
+    @Test func voiceLayoutSaysItDoesNotRunEvenWithoutADefaultSkill() {
+        let noDefault = terminal(.voice)
+        noDefault.reporter.report(.declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false, elapsed: 0))
+        #expect(noDefault.out.values == ["  Tiny-Jev  （どのスキルでもない）（0.0 秒）", "  → 実行しない（どのスキルにも当てはまらない）"])
 
         let spoken = terminal(.voice)
         spoken.reporter.report(.declined(reason: "会話", fallbackAvailable: true, elapsed: 0))

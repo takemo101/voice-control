@@ -47,8 +47,6 @@ func notice(_ text: String) { print(noticeText(text)) }
 
 func pct(_ p: Double) -> String { String(format: "%5.1f%%", p * 100) }
 
-func seconds(_ since: Date) -> String { seconds(elapsed: Date().timeIntervalSince(since)) }
-
 func seconds(elapsed: TimeInterval) -> String { String(format: "%.1f 秒", elapsed) }
 
 /// 標準エラーへ（エラー・進行の通知）。

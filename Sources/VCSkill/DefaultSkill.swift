@@ -4,7 +4,7 @@ import VCDecision
 /// 既定スキル（`default`）：どのスキルにも当てはまらない依頼を、Apple の言語モデルが、`agent-desktop` と基本のコマンドで実行する。
 /// - Tiny-Jev の選択肢（`SkillRouter`）には、**入れない**（説明が広すぎて、すべての依頼を吸うため）。当てはまるスキルがないときだけ、使う。
 /// - 利用者が、同じ名前（`default`）のスキルを置けば、それが使われる（許可するコマンドを広げる・狭める）。
-/// - `vc skills disable default` で、使わなくなる（声の流れは、従来の PC 操作へ戻る）。
+/// - `vc skills disable default` で、使わなくなる（声の流れは、当てはまるスキルがない依頼を実行しない）。
 public enum DefaultSkill {
     public static let name = "default"
 
@@ -61,7 +61,7 @@ public struct SkillResolver: Sendable {
 
     public enum Outcome: Sendable {
         case resolved(Resolution)
-        /// 実行しない。`fallbackAvailable`：既定スキルがある（なければ、呼び出し側が、別の流れへ回せる）。
+        /// 実行しない。`fallbackAvailable`：既定スキルが使える（使えなければ、当てはまるスキルがなく、実行しない）。
         case declined(reason: String, fallbackAvailable: Bool)
     }
 

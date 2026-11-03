@@ -47,7 +47,7 @@ import VCDecision
         #expect(factory.count == 0)
     }
 
-    @Test func withoutADefaultSkillTheCallerCanFallBackToAnotherFlow() async throws {
+    @Test func withoutADefaultSkillNothingIsRunAndTheOutcomeSaysSo() async throws {
         let factory = Factory()
         let reporter = Recorder()
         let outcome = try await runner(SkillScorer(routedDescription: nil), skills: [skill("spotify", spotifyDescription)], factory: factory)

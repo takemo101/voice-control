@@ -2,7 +2,7 @@ import Foundation
 import VCSkill
 
 /// スキルの実行の出来事（`RunEvent`）を、端末へ出す。
-/// 表示の組み立ては 2 つ：`vc run`（見出しつき。失敗は標準エラーへ）と、声の流れ（見出しなし。確認は声で。失敗は標準出力へ。`HUDReporter` が、これを使う）。
+/// 表示の組み立ては 2 つ：`.command`（`vc run` と、Enter で録音する `vc listen`。見出しつき。失敗は標準エラーへ）と、声の流れ（見出しなし。確認は声で。失敗は標準出力へ。`HUDReporter` が、これを使う）。
 struct TerminalReporter: RunReporter {
     enum Layout: Sendable {
         case command
@@ -27,12 +27,11 @@ struct TerminalReporter: RunReporter {
             out(kvText("Tiny-Jev", Style.dim("どのスキルでもない") + " → 既定スキル " + Style.bold(skill.name)
                        + Style.dim("（操作の依頼 \(pct(probability))・取り消しにくさ \(pct(risk))・\(seconds(elapsed: elapsed))）")))
             describe(skill)
-        case let .declined(reason, fallbackAvailable, elapsed):
+        case let .declined(reason, _, elapsed):
             out(kvText("Tiny-Jev", Style.dim("（どのスキルでもない）") + Style.dim("（\(seconds(elapsed: elapsed))）")))
-            // 声の流れで、既定スキルがないときは、PC 操作へ回る（ここでは、何も言わない）
             switch layout {
             case .command: out("\n  " + Style.dim("→ 実行しない（\(reason)）"))
-            case .voice: if fallbackAvailable { out("  " + Style.dim("→ 実行しない（\(reason)）")) }
+            case .voice: out("  " + Style.dim("→ 実行しない（\(reason)）"))
             }
         case let .confirmRequired(_, reason):
             switch layout {

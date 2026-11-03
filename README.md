@@ -31,10 +31,9 @@ model loaded 4.3s (length 1024)
 | 機能 | 状態 |
 |---|---|
 | **スキル**（`vc skills`・`vc run`） | 自作ウィンドウで確認（「設定ボタンを押して」6/6）。**実アプリ・複数スキルの取り違えは未確認** |
-| PC 操作（`vc plan`・`act`・`listen`） | **試作**。固定した画面で当たり 8 割台（自作の文・楽観側）。確認なしで実行する外れが残る |
-| 声の入力（ホットキー・マイク） | 実装済み（ホットキーは `vc hotkey` で変更でき、押している間は画面に「録音中」が出る）。**マイクの実録音は未確認** |
+| 声の入力（`vc listen`。ホットキー・マイク） | 実装済み（聞こえた文は、スキルの流れで実行する。ホットキーは `vc hotkey` で変更でき、押している間は画面に「録音中」が出る）。**マイクの実録音は未確認** |
 
-詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。
+PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SPEC](SPEC.md)）。詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。
 
 ## 必要なもの
 
@@ -82,7 +81,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
 | `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。押している間は、画面の上に「録音中」が出る |
-| `vc plan` / `act` / `listen` / `eval` … | PC 操作の試作（[PC 操作の流れ](docs/pc-control.md)） |
+| `vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes]` | マイクから聞いて、スキルで実行する（既定：Enter で録音。`--hotkey`：押している間だけ録音。[声の入力](docs/skills.md#声の入力vc-listen)） |
 
 ヘルプ：`vc --help`（コマンドの一覧・共通のオプション・環境変数）、`vc <コマンド> --help`（使い方・オプション・例）。出力は、端末なら色つき（`NO_COLOR=1` で無効）。
 
@@ -120,5 +119,5 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 - `Sources/VCDecision/Decision/` の Tiny-Jev の実行（`BPETokenizer.swift`・`Safetensors.swift`・`QwenDecision.swift`・`OptionMarkerPrompt.swift`・`DecisionError.swift`）は、同じ作者の meeting-analyzer の複製（変更なし）。
 - モデル：[lostargon/Tiny-Jev](https://huggingface.co/lostargon/Tiny-Jev)（版 `62449fb`）。**ライセンスの条件は未確認**。リポジトリには含めない。
-- agent-desktop は、子プロセスとして呼ぶだけ（Apache-2.0）。
+- agent-desktop は、スキルが許可したコマンドとして、言語モデルが子プロセスで呼ぶだけ（Swift のコードは、直接は呼ばない。Apache-2.0）。
 - このリポジトリのライセンスは **MIT**（[LICENSE](LICENSE)）。
