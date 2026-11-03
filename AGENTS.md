@@ -54,8 +54,8 @@
 [構成説明](docs/architecture.md) と、変更対象の SPEC の節を読み、次の 4 点を確認する。原則の出典・採用・不採用は [参考にした設計原則](docs/references.md)、具体的な規則は [コーディング指針](docs/coding-guidelines.md)。
 
 1. **変更理由と所有権**：コードは SwiftPM のターゲット `VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）・`VCDecision`（`Decision/` Tiny-Jev の実行・`Choice/` 選択肢の採点・しきい値（`Gate`）・声の「はい」の判定・`Model/` モデルの取得）・`VCSkill`（スキル）・`VCSpeech`（音声）に分け、**依存は下向きだけ**にする（`vc` → `VCSkill`・`VCSpeech`〔互いには依存しない〕、`VCSkill` → `VCDecision`、`VCCore` はどのターゲットも使ってよい。`Package.swift` で宣言し、コンパイラが強制する。差分ビルドでは `--explicit-target-dependency-import-check=error` が要る）。`vc` は、引数・表示・流れの組み立てだけ（コマンドは `Sources/vc/Commands/`。足し方は [開発手順](docs/development.md#コマンドの足し方)）。状態の所有者は、構成説明の表で 1 か所に決める。
-2. **型付きの境界**：外（ファイル・引数・JSON・OS・言語モデルの出力）からの値を、必要な境界で一度だけ検査・変換して型にする（`SkillStore.parse`・`CommandPolicy`・`SnapshotParser`）。内側で再検証しない。
-3. **独立して検証できる規則**：許可の照合・SKILL.md の解析・分け方・ゲート・勝ち抜き戦は、画面・音声・モデルから分けて確かめられる形に保つ（`just test`）。
+2. **型付きの境界**：外（ファイル・引数・JSON・OS・言語モデルの出力）からの値を、必要な境界で一度だけ検査・変換して型にする（`SkillStore.parse`・`CommandPolicy`）。内側で再検証しない。
+3. **独立して検証できる規則**：許可の照合・SKILL.md の解析・スキルの選び方（`SkillResolver`）・声の「はい」の判定（`Confirmation`）・勝ち抜き戦は、画面・音声・モデルから分けて確かめられる形に保つ（`just test`）。
 4. **明示的な失敗**：失敗・取消・古い操作を区別し、何を継続・停止するかを明確にする。回復できる失敗は `throws`・`Result` と小さな `enum` で返し、見せ方（メッセージ・終了コード）を決めるのは境界（`vc`）だけ。握り潰さない。成功に見える代用品に置き換えない。
 
 - 外部の Swift パッケージを足さない。外部ツールは agent-desktop だけ（子プロセスとして呼ぶ）。`Decision/` の複製したファイルは変えない（元は meeting-analyzer）。

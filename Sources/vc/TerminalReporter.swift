@@ -2,7 +2,7 @@ import Foundation
 import VCSkill
 
 /// スキルの実行の出来事（`RunEvent`）を、端末へ出す。
-/// 表示の組み立ては 2 つ：`vc run`（見出しつき。失敗は標準エラーへ）と、声の流れ（見出しなし。確認は声で。失敗は標準出力へ。`HUDReporter` が、これを使う）。
+/// 表示の組み立ては 2 つ：`.command`（`vc run` と、Enter で録音する `vc listen`。見出しつき。失敗は標準エラーへ）と、声の流れ（見出しなし。確認は声で。失敗は標準出力へ。`HUDReporter` が、これを使う）。
 struct TerminalReporter: RunReporter {
     enum Layout: Sendable {
         case command
