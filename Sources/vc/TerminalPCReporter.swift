@@ -1,5 +1,4 @@
 import Foundation
-import VCDecision
 import VCPCControl
 
 /// PC 操作の流れの出来事（`PCEvent`）を、端末へ出す（`vc plan`・`vc act`。声の流れの `HUDPCReporter` も、端末の分は、これを使う）。
