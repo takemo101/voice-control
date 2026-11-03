@@ -1,0 +1,100 @@
+import Foundation
+import VCSkill
+
+/// 声の流れでの、スキルの実行の出来事（`RunEvent`）を、画面の上の表示（`HUDSession`）と、端末（声の流れの組み立ての `TerminalReporter`）へ出す。
+/// 1 つの発話ごとに作る。確認が要るときは、問いかけを読み上げる。
+final class HUDReporter: RunReporter, @unchecked Sendable {
+    private let chip: String
+    private let utterance: String
+    private let dryRun: Bool
+    private let terminal: TerminalReporter
+    private let present: @Sendable (HUDContent, TimeInterval?) -> Void
+    private let speak: @Sendable (String) -> Void
+    private let lock = NSLock()
+    private var session: HUDSession?
+
+    /// `chip`：右上のチップ（トリガーの名前）。`utterance`：聞こえた文。`terminal`・`present`・`speak`：出力先（既定は、端末・画面の上の表示・`say`。テストで差し替える）。
+    init(chip: String, utterance: String, dryRun: Bool,
+         terminal: TerminalReporter? = nil,
+         present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
+         speak: @escaping @Sendable (String) -> Void = { say($0) }) {
+        self.chip = chip
+        self.utterance = utterance
+        self.dryRun = dryRun
+        self.terminal = terminal ?? TerminalReporter(layout: .voice, dryRun: dryRun)
+        self.present = present
+        self.speak = speak
+    }
+
+    private var workingTitle: String { dryRun ? "確認のみ（--dry-run）" : "実行中" }
+
+    private func update(hideAfter: TimeInterval? = nil, _ change: (inout HUDContent) -> Void = { _ in }) {
+        lock.lock(); let current = session; lock.unlock()
+        current?.update(hideAfter: hideAfter, change)
+    }
+
+    /// スキルが決まったら、画面の上の表示を、実行中で始める。
+    private func begin(_ skill: Skill) {
+        let hud = HUDSession(HUDContent(phase: .working, title: workingTitle, chip: chip, heard: utterance, skill: skill.name), present: present)
+        lock.lock(); session = hud; lock.unlock()
+        hud.update()
+    }
+
+    func report(_ event: RunEvent) {
+        switch event {
+        case .forced(let skill), .matched(let skill, _, _), .fellBack(let skill, _, _, _):
+            terminal.report(event)
+            begin(skill)
+        case let .declined(reason, fallbackAvailable, _):
+            terminal.report(event)
+            // 既定スキルがなければ、PC 操作へ回るので、ここでは出さない
+            if fallbackAvailable {
+                present(HUDContent(phase: .info, title: "操作の依頼ではありませんでした", hint: reason, chip: chip, heard: utterance), 3)
+            }
+        case let .confirmRequired(skill, reason):
+            speak("\(skill.name)を実行しますか")
+            terminal.report(event)
+            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = reason + "。もう一度トリガーを押して、「はい」と言う" }
+        case .confirmationDeclined:
+            terminal.report(event)
+            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil }
+        case .confirmed:
+            update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil }
+        case .started:
+            break
+        case let .command(command):
+            terminal.report(event)
+            update { $0.steps.append(.init(command: command)) }
+        case let .result(code, output):
+            terminal.report(event)
+            update { content in
+                guard let last = content.steps.indices.last else { return }
+                content.steps[last].status = code == 0 ? .ok : .failed(code)
+                content.steps[last].output = HUDSession.firstLine(output)
+            }
+        case let .denied(command, reason):
+            terminal.report(event)
+            update { $0.steps.append(.init(command: command, status: .denied, output: reason)) }
+        case let .reply(reply, _, _):
+            terminal.report(event)
+            update(hideAfter: HUDSession.readingTime(for: reply)) { [dryRun] in
+                if dryRun {
+                    // 実行していないので、成功（緑）にしない。言語モデルの返事は、実行したかのように書くことがある。
+                    $0.phase = .info
+                    $0.title = "実行していません（--dry-run）"
+                    $0.reply = "コマンドは実行していません。\n" + reply
+                } else {
+                    $0.phase = .success
+                    $0.title = "完了"
+                    $0.reply = reply
+                }
+            }
+        case let .failed(message):
+            terminal.report(event)
+            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = message }
+        case .cancelled:
+            terminal.report(event)
+            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil }
+        }
+    }
+}

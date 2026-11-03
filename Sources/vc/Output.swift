@@ -34,18 +34,23 @@ func displayWidth(_ s: String) -> Int {
 /// 表示の幅が `width` になるまで、右に空白を足す。
 func pad(_ s: String, to width: Int) -> String { s + String(repeating: " ", count: max(0, width - displayWidth(s))) }
 
-/// 見出し：`▶ 実行`。
-func heading(_ title: String) { print("\n" + Style.cyan("▶ " + title)) }
+/// 見出し：`▶ 実行`。（`headingText` は、出さずに、文だけを返す。`TerminalReporter` が、出力先を差し替えられるようにするため）
+func headingText(_ title: String) -> String { "\n" + Style.cyan("▶ " + title) }
+func heading(_ title: String) { print(headingText(title)) }
 
 /// 項目：`  ラベル   値`（ラベルは薄く、幅をそろえる）。
-func kv(_ label: String, _ value: String, width: Int = 8) { print("  " + Style.dim(pad(label, to: width)) + "  " + value) }
+func kvText(_ label: String, _ value: String, width: Int = 8) -> String { "  " + Style.dim(pad(label, to: width)) + "  " + value }
+func kv(_ label: String, _ value: String, width: Int = 8) { print(kvText(label, value, width: width)) }
 
 /// 注意の 1 行。
-func notice(_ text: String) { print("  " + Style.yellow("! " + text)) }
+func noticeText(_ text: String) -> String { "  " + Style.yellow("! " + text) }
+func notice(_ text: String) { print(noticeText(text)) }
 
 func pct(_ p: Double) -> String { String(format: "%5.1f%%", p * 100) }
 
-func seconds(_ since: Date) -> String { String(format: "%.1f 秒", Date().timeIntervalSince(since)) }
+func seconds(_ since: Date) -> String { seconds(elapsed: Date().timeIntervalSince(since)) }
+
+func seconds(elapsed: TimeInterval) -> String { String(format: "%.1f 秒", elapsed) }
 
 /// 標準エラーへ（エラー・進行の通知）。
 func eprint(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
