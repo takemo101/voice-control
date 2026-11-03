@@ -4,16 +4,26 @@ Mac を、依頼文や声で操作する試作。**依頼に合うスキルを T
 
 いまは CLI（`vc`）。どの使い道が成り立つかを、測定で確かめる段階で、完成した製品ではない。
 
+`echo` だけを許可した使い捨てのスキルでの、実際の出力（返事の文言・秒数は、実行のたびに変わる。表示の詳細は [スキル](docs/skills.md#画面の表示)）：
+
 ```text
-$ vc run "設定ボタンを押して"
-Tiny-Jev の選択（0.11 秒）: fixture-press  95.8%
-  許可するコマンド: agent-desktop snapshot、agent-desktop click
-$ agent-desktop snapshot -i --app Fixture
-  exit 0
-  │ @a1:e20 [button] Settings …
-$ agent-desktop click @a1:e20
-  exit 0
-返事: done: 設定ボタンを押しました。
+$ vc run テスト
+model loaded 4.3s (length 1024)
+
+▶ スキルの選択
+  Tiny-Jev  echo-test   98.6%（0.1 秒）
+  説明      テストを実行する
+  許可      echo
+
+▶ 実行
+  $ echo test
+    ✓ exit 0
+    │ test
+    │ 
+
+▶ 結果
+  返事      done: テストされました。
+  所要      1.1 秒・実行したコマンド 1 件
 ```
 
 ## 状況
@@ -108,7 +118,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 ## 出典とライセンス
 
-- `Sources/VCDecision/Decision/` の Tiny-Jev の実行（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`）は、同じ作者の meeting-analyzer の複製（変更なし）。
+- `Sources/VCDecision/Decision/` の Tiny-Jev の実行（`BPETokenizer.swift`・`Safetensors.swift`・`QwenDecision.swift`・`OptionMarkerPrompt.swift`・`DecisionError.swift`）は、同じ作者の meeting-analyzer の複製（変更なし）。
 - モデル：[lostargon/Tiny-Jev](https://huggingface.co/lostargon/Tiny-Jev)（版 `62449fb`）。**ライセンスの条件は未確認**。リポジトリには含めない。
 - agent-desktop は、子プロセスとして呼ぶだけ（Apache-2.0）。
 - このリポジトリのライセンスは **MIT**（[LICENSE](LICENSE)）。

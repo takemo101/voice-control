@@ -53,7 +53,7 @@
 
 [構成説明](docs/architecture.md) と、変更対象の SPEC の節を読み、次の 4 点を確認する。原則の出典・採用・不採用は [参考にした設計原則](docs/references.md)、具体的な規則は [コーディング指針](docs/coding-guidelines.md)。
 
-1. **変更理由と所有権**：コードは SwiftPM のターゲット `VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）・`VCDecision`（`Decision/` Tiny-Jev の実行・`Choice/` 選択肢の採点・ゲート・`Model/` モデルの取得）・`VCSkill`（スキル）・`VCPCControl`（PC 操作）・`VCSpeech`（音声）に分け、**依存は下向きだけ**にする（`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`〔互いには依存しない〕、`VCSkill`・`VCPCControl` → `VCDecision`、`VCCore` はどのターゲットも使ってよい。`Package.swift` で宣言し、コンパイラが強制する。差分ビルドでは `--explicit-target-dependency-import-check=error` が要る）。`vc` は、引数・表示・流れの組み立てだけ。状態の所有者は、構成説明の表で 1 か所に決める。
+1. **変更理由と所有権**：コードは SwiftPM のターゲット `VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）・`VCDecision`（`Decision/` Tiny-Jev の実行・`Choice/` 選択肢の採点・ゲート・`Model/` モデルの取得）・`VCSkill`（スキル）・`VCPCControl`（PC 操作）・`VCSpeech`（音声）に分け、**依存は下向きだけ**にする（`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`〔互いには依存しない〕、`VCSkill`・`VCPCControl` → `VCDecision`、`VCCore` はどのターゲットも使ってよい。`Package.swift` で宣言し、コンパイラが強制する。差分ビルドでは `--explicit-target-dependency-import-check=error` が要る）。`vc` は、引数・表示・流れの組み立てだけ（コマンドは `Sources/vc/Commands/`。足し方は [開発手順](docs/development.md#コマンドの足し方)）。状態の所有者は、構成説明の表で 1 か所に決める。
 2. **型付きの境界**：外（ファイル・引数・JSON・OS・言語モデルの出力）からの値を、必要な境界で一度だけ検査・変換して型にする（`SkillStore.parse`・`CommandPolicy`・`SnapshotParser`）。内側で再検証しない。
 3. **独立して検証できる規則**：許可の照合・SKILL.md の解析・分け方・ゲート・勝ち抜き戦は、画面・音声・モデルから分けて確かめられる形に保つ（`just test`）。
 4. **明示的な失敗**：失敗・取消・古い操作を区別し、何を継続・停止するかを明確にする。回復できる失敗は `throws`・`Result` と小さな `enum` で返し、見せ方（メッセージ・終了コード）を決めるのは境界（`vc`）だけ。握り潰さない。成功に見える代用品に置き換えない。
@@ -61,6 +61,7 @@
 - 外部の Swift パッケージを足さない。外部ツールは agent-desktop だけ（子プロセスとして呼ぶ）。`Decision/` の複製したファイルは変えない（元は meeting-analyzer）。
 - 不要な確保・コピー・計算を避ける。
 - 一律の層構成・DDD・不要なリポジトリ・全操作の protocol 化を、先回りで導入しない。
+- コマンド：ビルドは `just build`、単体テストは `just test`（`./scripts/test.sh`。1 ターゲットだけなら `--filter <ターゲット>Tests`）、測定は `just eval`、配布物は `just package`。ビルド・テストの入口は、`--explicit-target-dependency-import-check=error` を付けている（素の `swift build`・`swift test` を直接呼ぶときは、自分で付ける）。一覧と手順は [開発手順](docs/development.md#ビルドと実行)。
 
 ## 安全とプライバシー（この製品の不変条件）
 
