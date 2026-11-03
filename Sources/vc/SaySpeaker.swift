@@ -1,5 +1,4 @@
 import Foundation
-import VoiceControlKit
 
 /// 読み上げ（確認の問いかけ）の、いま鳴っているもの。取りやめたときに止める。
 final class SaySpeaker: @unchecked Sendable {

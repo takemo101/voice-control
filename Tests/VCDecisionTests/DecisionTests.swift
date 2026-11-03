@@ -1,69 +1,22 @@
 import Foundation
 import Testing
-@testable import VoiceControlKit
+@testable import VCDecision
 import VCCore
-import VCDecision
-@testable import VCSpeech
 
-@Suite struct HotKeySpecTests {
-    private func parsed(_ text: String) throws -> HotKeySpec { try HotKeySpec.parse(text).get() }
-    private func reason(_ text: String) -> String? {
-        if case let .failure(f) = HotKeySpec.parse(text) { return f.reason }
-        return nil
-    }
-
-    @Test func modifierOnlyIsAHold() throws {
-        let shift = try parsed("shift")
-        #expect(shift.isHold && shift == .default)
-        let combo = try parsed("Ctrl + Opt")
-        #expect(combo.isHold)
-        #expect(combo.description == "ctrl+opt")
-    }
-
-    @Test func modifiersPlusKeyIsACombination() throws {
-        let spec = try parsed("cmd+shift+R")
-        #expect(!spec.isHold)
-        #expect(spec.keyCode != nil)
-        #expect(spec.description == "shift+cmd+r")  // 正規化：ctrl・opt・shift・cmd の順
-    }
-
-    @Test func legacyDashFormAndAliases() throws {
-        #expect(try parsed("ctrl-opt-space") == parsed("control+alt+space"))
-        #expect(try parsed("cmd+enter") == parsed("command+return"))
-    }
-
-    @Test func functionKeyMayStandAlone() throws {
-        #expect(try parsed("f5").description == "f5")
-    }
-
-    @Test func rejectsWhatWouldStealTyping() {
-        #expect(reason("r") != nil)       // 修飾キーなしの文字
-        #expect(reason("space") != nil)
-        #expect(reason("shift+a+b") != nil)  // キーが 2 つ
-        #expect(reason("ctrl+") != nil)
-        #expect(reason("") != nil)
-        #expect(reason("ctrl+nope") != nil)
-    }
-
-    @Test func settingsFallBackToShiftAndReportBadValues() throws {
-        var s = Settings()
-        #expect(try s.hotkeySpec.get() == .default)
-        s.hotkey = "ctrl+opt+space"
-        #expect(try s.hotkeySpec.get().description == "ctrl+opt+space")
-        s.hotkey = "bogus+"
-        #expect(throws: HotKeySpec.Failure.self) { try s.hotkeySpec.get() }
-    }
-
-    @Test func oldSettingsFileWithoutHotkeyStillLoads() throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: file) }
-        try Data(#"{"disabledSkills":["a"]}"#.utf8).write(to: file)
-        let s = try Settings.load(from: file)
-        #expect(s.disabledSkills == ["a"] && s.hotkey == nil)
-        var next = s
-        next.hotkey = "f5"
-        try next.save(to: file)
-        #expect(try Settings.load(from: file) == next)
+/// 「target」と書かれた選択肢に確率を寄せる偽物。呼ばれた回数と、1 回の選択肢の最大数を記録する。
+private final class FakeScorer: OptionScorer, @unchecked Sendable {
+    let target: String?
+    private(set) var calls = 0
+    private(set) var widest = 0
+    init(target: String?) { self.target = target }
+    func score(state: String, question: String, options: [String]) throws -> [Double] {
+        calls += 1
+        widest = max(widest, options.count)
+        let hit = options.firstIndex { $0 == target }
+        var p = options.map { _ in 0.01 }
+        p[hit ?? options.count - 1] = 0.9   // 該当がなければ、最後（「該当なし」）へ
+        let sum = p.reduce(0, +)
+        return p.map { $0 / sum }
     }
 }
 
@@ -116,5 +69,51 @@ import VCDecision
 
         try await ModelStore.download(spec, to: dest) { _ in }
         #expect(ModelStore.verify(spec.files[0], in: dest))
+    }
+}
+
+@Suite struct ChooserTests {
+    private let options = (0..<100).map { "option \($0)" }
+
+    @Test func findsTheTargetAmongMoreCandidatesThanOneCallAccepts() throws {
+        for target in [0, 30, 31, 62, 99] {
+            let scorer = FakeScorer(target: "option \(target)")
+            let pick = try Chooser(scorer: scorer, limit: 32).pick(state: "", question: "", options: options, none: "none")
+            #expect(pick.index == target)
+            #expect(scorer.widest <= 32)
+        }
+    }
+
+    @Test func returnsNoneWhenNoCandidateMatches() throws {
+        let scorer = FakeScorer(target: nil)
+        let pick = try Chooser(scorer: scorer, limit: 32).pick(state: "", question: "", options: options, none: "none")
+        #expect(pick.index == nil)
+    }
+
+    @Test func roundCountIsAnUpperBoundOnTheCallsMade() throws {
+        for count in [1, 31, 32, 100, 961, 962] {
+            let scorer = FakeScorer(target: "option 0")
+            let opts = (0..<count).map { "option \($0)" }
+            let chooser = Chooser(scorer: scorer, limit: 32)
+            _ = try chooser.pick(state: "", question: "", options: opts, none: "none")
+            #expect(scorer.calls <= chooser.rounds(for: count), "count \(count)")
+            if count <= 31 { #expect(scorer.calls == 1) }
+        }
+    }
+}
+
+@Suite struct GateTests {
+    @Test func executesOnlyConfidentHarmlessSteps() {
+        let gate = Gate()
+        #expect(gate.verdict(stages: [0.95], destructive: 0.1, forceConfirm: false) == .execute)
+        #expect(gate.verdict(stages: [0.95, 0.60], destructive: nil, forceConfirm: false) == .confirm)
+        #expect(gate.verdict(stages: [0.95, 0.30], destructive: nil, forceConfirm: false) == .reject)
+    }
+
+    @Test func riskyOrForcedStepsAlwaysNeedConfirmation() {
+        let gate = Gate()
+        #expect(gate.verdict(stages: [0.999], destructive: 0.9, forceConfirm: false) == .confirm)
+        #expect(gate.verdict(stages: [0.999], destructive: nil, forceConfirm: true) == .confirm)
+        #expect(gate.verdict(stages: [0.30], destructive: 0.9, forceConfirm: true) == .reject)
     }
 }

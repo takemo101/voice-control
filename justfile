@@ -10,11 +10,7 @@ default:
 
 # リリースビルド（.build/release/vc と Fixture）。Command Line Tools だけの環境で出る、リンカの「search path ... not found」の警告（無害）は、表示しない
 build:
-    swift build -c release 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
-
-# フォルダ（層）どうしの依存が下向きだけかを確かめる（暫定。MIK-005 のターゲット分割で、コンパイラに置き換える）
-deps:
-    ./scripts/check-deps.sh
+    swift build -c release --explicit-target-dependency-import-check=error 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
 
 # 単体テスト（Swift Testing）。画面・音声・モデルは使わない
 test:

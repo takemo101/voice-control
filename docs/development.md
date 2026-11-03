@@ -35,7 +35,6 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | レシピ | 内容 |
 |---|---|
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
-| `just deps` | フォルダ（層）どうしの依存が下向きだけかを確かめる（暫定） |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
 | `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
 | `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
@@ -44,6 +43,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
 | `just vc <args>` | ビルドして `vc` を呼ぶ |
 
+- ターゲットは `VCCore`・`VCDecision`・`VCSpeech`・`VCSkill`・`VCPCControl`（ライブラリ）と、`vc`・`Fixture`（実行ファイル）。依存の向き（下向きだけ）は `Package.swift` で宣言し、コンパイラが強制する。宣言にない `import` を差分ビルドでも失敗させるには、`--explicit-target-dependency-import-check=error` を付ける（上の入口は付けている。素の `swift build` は、警告だけのことがある）。テストもターゲットごと（`Tests/VCCoreTests` など。`@testable import` で、対応するターゲットの `internal` を使う）。1 つのターゲットだけを試すには `./scripts/test.sh --filter VCSkillTests`。
 - テストは `./scripts/test.sh`。Command Line Tools だけの環境では、Swift Testing のマクロのプラグインのパスを、明示して渡す必要があり、素の `swift test` は失敗する。
 - `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
 - 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。

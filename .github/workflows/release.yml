@@ -62,7 +62,7 @@ jobs:
           swift --version
 
       - name: Unit tests
-        run: swift test
+        run: swift test --explicit-target-dependency-import-check=error
 
       - name: Build and package
         id: package

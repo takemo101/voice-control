@@ -108,7 +108,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 ## 出典とライセンス
 
-- `Sources/VoiceControlKit/Decision/` の Tiny-Jev の実行（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`）は、同じ作者の meeting-analyzer の複製（変更なし）。
+- `Sources/VCDecision/Decision/` の Tiny-Jev の実行（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`）は、同じ作者の meeting-analyzer の複製（変更なし）。
 - モデル：[lostargon/Tiny-Jev](https://huggingface.co/lostargon/Tiny-Jev)（版 `62449fb`）。**ライセンスの条件は未確認**。リポジトリには含めない。
 - agent-desktop は、子プロセスとして呼ぶだけ（Apache-2.0）。
 - このリポジトリのライセンスは **MIT**（[LICENSE](LICENSE)）。

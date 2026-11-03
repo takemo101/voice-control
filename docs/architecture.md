@@ -9,21 +9,19 @@ flowchart TB
     subgraph CLI[vc（実行ファイル）]
         main[main.swift<br/>引数・表示・流れの組み立て]
     end
-    subgraph Kit[VoiceControlKit]
-        Skill[Skill<br/>SKILL.md・ポリシー・実行]
-        Action[Action<br/>PC 操作の計画・実行]
-        Speech[Speech<br/>文字起こし・録音・トリガー]
-        Choice[Choice<br/>選択肢の採点・勝ち抜き戦・ゲート]
-        Decision[Decision<br/>Tiny-Jev の実行]
-        Model[Model<br/>モデルの取得・検証]
-        Core[Core<br/>場所・設定・取りやめの合図]
+    subgraph Targets[SwiftPM ターゲット]
+        Skill[VCSkill<br/>SKILL.md・ポリシー・実行]
+        Action[VCPCControl<br/>PC 操作の計画・実行]
+        Speech[VCSpeech<br/>文字起こし・録音・トリガー]
+        Decision[VCDecision<br/>選択肢の採点・勝ち抜き戦・ゲート・<br/>Tiny-Jev の実行・モデルの取得]
+        Core[VCCore<br/>場所・設定・取りやめの合図]
     end
-    main --> Skill & Action & Speech & Model
-    Skill --> Choice
+    main --> Skill & Action & Speech & Decision & Core
+    Skill --> Decision
     Skill --> Core
-    Action --> Choice
-    Choice --> Decision
-    Model --> Core
+    Action --> Decision
+    Action --> Core
+    Decision --> Core
     Speech --> Core
     Action -.子プロセス.-> AD[agent-desktop]
     Skill -.子プロセス.-> CMD[許可されたコマンド]
@@ -42,21 +40,21 @@ flowchart TB
 
 ## Module の責務
 
-依存は**下向きだけ**：`vc` → `Skill`・`Action`・`Speech`（互いには依存しない）。`Skill`・`Action` → `Choice` → `Decision`。`Core`（場所・設定・取りやめの合図）は、どの層も使ってよい（`Decision` は、いまは使っていない）。`Model` も `Core` だけに依存する。`scripts/check-deps.sh`（暫定。型名の `grep`）が、フォルダどうしの依存を確かめる（`just deps`。型・関数・定数の名前の参照だけが対象で、他の層の型への `extension` のメンバーは見えない）。**ターゲットの分割（MIK-005）で、コンパイラが強制する**。
+依存は**下向きだけ**：`vc` → `VCSkill`・`VCPCControl`・`VCSpeech`（互いには依存しない）。`VCSkill`・`VCPCControl` → `VCDecision`。`VCCore`（場所・設定・取りやめの合図）は、どのターゲットも使ってよい（`VCDecision` も使う。`ModelStore` が `VoiceControlHome` を使う）。向きは `Package.swift` の `dependencies` で宣言し、**コンパイラが強制する**：宣言していないターゲットの `import` は、ビルドが通らない（まっさらなビルドでは `unable to resolve module dependency`。差分ビルドでは、`--explicit-target-dependency-import-check=error` を付けると `missing a dependency` で失敗する。付けないと警告だけ。`scripts/test.sh`・`scripts/package.sh`・`just build`・リリースのワークフローは付けている）。以前の `scripts/check-deps.sh`（型名の `grep`）は、なくした。
 
-| Module（`Sources/`） | 責務 | 持たないもの |
+| Module（`Sources/` のターゲット） | 責務 | 持たないもの |
 |---|---|---|
-| `VoiceControlKit/Core` | **どの層も使う小さな部品**：`VoiceControlHome`（`~/.voice-control` の場所）、`Settings`（設定の読み書き。ホットキーは文字列のまま）、`CancelToken`（取りやめの合図） | 層に固有の判断 |
-| `VoiceControlKit/Decision` | Tiny-Jev（Qwen3 の decoder ＋判断の頭）を、MPSGraph で動かす。トークナイザ・重みの読込。`TinyJev`（公開の入口）。**meeting-analyzer からの複製**（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`。`QwenShape` は抜粋） | 選択肢の作り方・用途 |
-| `VoiceControlKit/Choice` | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度・危険度の門：実行・確認・却下） | 選択肢の中身 |
-| `VoiceControlKit/Model` | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
-| `VoiceControlKit/Skill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
-| `VoiceControlKit/Action` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
-| `VoiceControlKit/Speech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`・`VoiceActivity`・`VoiceInputQueue`（Esc での取りやめと、声の流れの状態）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断 |
-| `vc` | 引数の解釈・流れの組み立て（`main.swift`：`runClauses`・ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（Kit に置く） |
+| `VCCore` | **どの層も使う小さな部品**：`VoiceControlHome`（`~/.voice-control` の場所）、`Settings`（設定の読み書き。ホットキーは文字列のまま）、`CancelToken`（取りやめの合図） | 層に固有の判断 |
+| `VCDecision`（`Decision/`） | Tiny-Jev（Qwen3 の decoder ＋判断の頭）を、MPSGraph で動かす。トークナイザ・重みの読込。`TinyJev`（公開の入口）。**meeting-analyzer からの複製**（`BPETokenizer`・`Safetensors`・`QwenDecision`・`OptionMarkerPrompt`・`DecisionError`。`QwenShape` は抜粋） | 選択肢の作り方・用途 |
+| `VCDecision`（`Choice/`） | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度・危険度の門：実行・確認・却下） | 選択肢の中身 |
+| `VCDecision`（`Model/`） | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
+| `VCSkill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
+| `VCPCControl` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
+| `VCSpeech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`・`VoiceActivity`・`VoiceInputQueue`（Esc での取りやめと、声の流れの状態）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断 |
+| `vc` | 引数の解釈・流れの組み立て（`main.swift`：`runClauses`・ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 
-- `Decision` は外部に出す面を `TinyJev` だけにする。`Choice` の `OptionScorer` が、`TinyJev` と、テストの偽物を、同じ形で受ける。
+- `VCDecision` の `Decision/` は、トークナイザ・重みの読込・`QwenDecision`・`OptionMarkerPrompt`（複製の部分）を、ターゲットの外へ出さない（`internal`）。外へ出る（`public`）のは、入口の `TinyJev`・エラーの `DecisionModelError`・`QwenShape` で、`Choice/`・`Model/` の型（`OptionScorer`・`Chooser`・`Gate`・`ModelStore` など）も同じターゲットから `public` で出る。`OptionScorer` が、`TinyJev` と、テストの偽物を、同じ形で受ける。
 - `Desktop`（画面・アプリ・実行の口）も、実機（`AgentDesktop`）と、固定の画面（`ReplayDesktop`）・偽物を、同じ形で受ける。**差し替えが実際に要る 2 か所だけ**を protocol にしている（[参考にした設計原則](references.md)）。
 
 ## 状態の所有
@@ -119,7 +117,7 @@ flowchart TB
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。
 
-- `vc/main.swift`（約 500 行）が、引数の解釈に加えて、流れの組み立て（`runClauses`・ホットキーの待ち受け・`eval`）を持つ。Kit 側（`CLI`）へ移せる。
+- `vc/main.swift`（約 500 行）が、引数の解釈に加えて、流れの組み立て（`runClauses`・ホットキーの待ち受け・`eval`）を持つ。ライブラリ側のターゲットへ移せる。
 - `AgentDesktop.run`（agent-desktop の呼び出し）と `CommandRunner.run`（任意コマンドの実行）が、似た処理を別々に持つ。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。
 - `Action/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`Skill/`（SKILL.md のスキル）と名前が紛らわしい。

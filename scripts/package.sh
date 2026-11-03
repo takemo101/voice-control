@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release --product vc 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
+swift build -c release --explicit-target-dependency-import-check=error --product vc 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
 BIN=.build/release/vc
 VERSION="$("$BIN" --version | awk '{print $2}')"
 [ -n "$VERSION" ] || { echo "package.sh: vc --version を読めません" >&2; exit 1; }

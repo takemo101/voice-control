@@ -1,7 +1,6 @@
 import Foundation
 import Testing
-@testable import VoiceControlKit
-import VCCore
+@testable import VCCore
 
 /// 壊れた settings.json を、黙って空にしない（そのあとの保存が、信頼・無効化の設定を消すため）。
 @Suite struct SettingsFailureTests {
