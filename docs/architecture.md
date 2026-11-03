@@ -46,7 +46,7 @@ flowchart TB
 | `VoiceControlKit/Skill` | `SkillStore`（SKILL.md の読込・検証・設定）、`CommandPolicy`（許可の照合）、`CommandRunner`（実行）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`（Tiny-Jev で選ぶ）、`SkillAgent`（言語モデルと `run_command`） | PC 操作の候補作り |
 | `VoiceControlKit/Action` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`Gate`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル |
 | `VoiceControlKit/Speech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`（押している間だけ聞く入口） | 操作の判断 |
-| `vc` | 引数の解釈・流れの組み立て（`runClauses`・ホットキーの待ち受け）・表示・終了コード | 規則・判断（Kit に置く） |
+| `vc` | 引数の解釈・流れの組み立て（`main.swift`：`runClauses`・ホットキーの待ち受け）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（Kit に置く） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 
 - `Decision` は外部に出す面を `TinyJev` だけにする。`Choice` の `OptionScorer` が、`TinyJev` と、テストの偽物を、同じ形で受ける。

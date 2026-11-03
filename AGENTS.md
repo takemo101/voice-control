@@ -9,7 +9,7 @@
 
 補助文書の入口は [docs/README.md](docs/README.md)。目的に応じて読む。
 
-- [開発手順](docs/development.md)：ビルド・テスト・GitButler・PR。
+- [開発手順](docs/development.md)：ビルド・テスト・mikan の Issue 進行・GitButler・PR。
 - [構成説明](docs/architecture.md)：Module の責務・状態の所有・時間と並行・失敗・信頼の境界。
 - [コーディング指針](docs/coding-guidelines.md)：クリーンなコードの具体的な規則。
 - [参考にした設計原則](docs/references.md)：採用・不採用の原則と、レビュー質問。
@@ -36,12 +36,17 @@
 - YAGNI を優先する。依頼されていない機能・抽象化・互換経路・将来への備えを、追加しない。protocol は、差し替えが実際に要る箇所だけに置く。
 - **プロンプト・候補・ゲートの変更は、測定（`just eval`）で効果を確かめる。** うまくいかなかった案も、記録に残す。
 
+## mikan flow
+
+作業状態は **mikan で管理する**（このリポジトリで初期化済み。Issue の ID は mikan が採番する）。`.mikan/` は Git 対象外（`.git/info/exclude`）で、配下を直接参照・編集せず、文書のリンク対象にしない。Issue の作成・読取り・Status 遷移・Report 追加は MCP だけで行う。運用は [開発手順](docs/development.md#mikan-の-issue-進行) に従う（`backlog → ready → active → completed`、active の実装 Issue は最大 1 件、Report に対象・検証・レビュー・PR・同期・未実施を残す）。
+
 ## GitButler と PR
 
 **GitButler で進める**：基本のブランチは `main`、target は `origin/main`、作業ツリーは `gitbutler/workspace`。手順は [開発手順](docs/development.md#gitgithubgitbutler) に従う。
 
 - Git の書込みは `but`（raw Git の `add`・`commit`・`checkout`・`merge`・`rebase`・`push` は使わない。読取りは可）。変更は専用 branch に `but commit -b <branch> -m <message> <ids…>`。`main` へ直接 commit しない。同期は `but pull`。
 - PR は、依頼があるときだけ（`but pr new`）。admin・force・保護の迂回・`but land` による PR 回避をしない。
+- **PR を `main` に merge したら、毎回、すぐに `but pull` で `gitbutler/workspace` を `main`（`origin/main`）へ同期する**。そのあと `but status` で、base が merge 後の `main` になったこと・統合された branch がローカルから消えたことを確かめる。未コミットの変更は、そのまま残る。同期が済むまで、次の作業・PR を始めない。
 - 利用者の依頼があるとき以外、`but setup`・`but teardown`・target の変更をしない。
 
 ## 設計と実装
