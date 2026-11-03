@@ -6,21 +6,12 @@ import VCCore
 /// - 実行してよいのは、スキルの `allowed-commands` に一致するものだけ（`CommandPolicy`）。シェルは使わない。
 /// - 実行するコマンドと結果は、すべて、`onCommand`・`onResult` で、画面に出す。
 /// - `dryRun` なら、何も実行しない（どんなコマンドを実行しようとするかだけを見る）。
-public final class SkillAgent: @unchecked Sendable {
+public final class SkillAgent: SkillExecuting, @unchecked Sendable {
     public static let maxCommands = 15
-
-    public struct Display: Sendable {
-        public var onCommand: @Sendable (String) -> Void
-        public var onResult: @Sendable (_ exitCode: Int32, _ output: String) -> Void
-        public var onDenied: @Sendable (_ command: String, _ reason: String) -> Void
-        public init(onCommand: @escaping @Sendable (String) -> Void, onResult: @escaping @Sendable (Int32, String) -> Void, onDenied: @escaping @Sendable (String, String) -> Void) {
-            self.onCommand = onCommand; self.onResult = onResult; self.onDenied = onDenied
-        }
-    }
 
     let skill: Skill
     let dryRun: Bool
-    let display: Display
+    let display: ExecutionDisplay
     /// 取りやめの合図（Esc）。取りやめられたら、実行中のコマンドを止め、以降のコマンドは実行しない。
     let cancel: CancelToken?
     let aliases = RefAliases()
@@ -28,7 +19,7 @@ public final class SkillAgent: @unchecked Sendable {
     private var count = 0
     private var log: [String] = []
 
-    public init(skill: Skill, dryRun: Bool, display: Display, cancel: CancelToken? = nil) {
+    public init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil) {
         self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel
     }
 

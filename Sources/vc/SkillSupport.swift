@@ -25,7 +25,7 @@ func enabledSkills(_ context: CommandContext) -> [Skill] {
 }
 
 /// スキルの実行の表示（ターミナル）。`hud` があれば、画面の上の表示にも、コマンドと結果を出す。
-func skillDisplay(hud: HUDSession? = nil) -> SkillAgent.Display {
+func skillDisplay(hud: HUDSession? = nil) -> ExecutionDisplay {
     .init(
         onCommand: { command in
             print("  " + Style.bold("$ " + command))
