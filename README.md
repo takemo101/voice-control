@@ -37,20 +37,37 @@ PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SP
 
 ## 必要なもの
 
-- macOS 26 以降・Apple silicon。Swift 6.2 以降（Xcode または Command Line Tools）。
+- macOS 26 以降・Apple silicon。ソースからビルドするときは、Swift 6.2 以降（Xcode または Command Line Tools）。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（`agent-desktop permissions`）。
 - Apple Intelligence（FoundationModels）が使える Mac。
 - Tiny-Jev 0.6B のモデル（約 1.2 GB。`vc model download` で `~/.voice-control/models/` に取得）。[just](https://github.com/casey/just) は任意。
 
 ## はじめかた
 
+**リリース版から入れる**（[v0.1.0](https://github.com/takemo101/voice-control/releases/tag/v0.1.0)。ビルドは要りません）：
+
+```sh
+V=0.1.0
+curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
+curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
+shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
+tar -xzf vc-$V-macos-arm64.tar.gz
+mkdir -p ~/.local/bin && install -m 755 vc-$V-macos-arm64/vc ~/.local/bin/vc   # ~/.local/bin を PATH に入れておく
+vc model download     # Tiny-Jev を ~/.voice-control/models に取得（SHA-256 を検証。途中からの再開ができる）
+vc --help
+```
+
+署名は ad-hoc（Developer ID の署名・公証なし）。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine ~/.local/bin/vc`。上の `curl` なら、止められない。
+
+**ソースから入れる**（リポジトリを clone して。Swift 6.2 以降が要る）：
+
 ```sh
 just install          # vc を ~/.local/bin へ入れる
-vc model download     # Tiny-Jev を ~/.voice-control/models に取得（SHA-256 を検証。途中からの再開ができる）
+vc model download
 just test             # 単体テスト
 ```
 
-**リリース版（tar.gz）から入れる**：[Releases](https://github.com/takemo101/voice-control/releases) の `vc-<版>-macos-arm64.tar.gz` を展開して、`vc` を PATH の通った場所へ置き、`vc model download` でモデルを取得する（手順は各 Release の説明に書いてある。署名は ad-hoc）。**リリースは、まだありません**（作り方：[開発手順](docs/development.md#リリース)）。
+配布物の作り方：[開発手順](docs/development.md#リリース)。
 
 スキルを置いて、使う：
 
