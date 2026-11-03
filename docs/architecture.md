@@ -85,7 +85,7 @@ flowchart LR
 - **投げるものと、出来事にするもの**：実行者の失敗・取りやめは、`failed`・`cancelled` の出来事。スキルを選ぶ段の失敗と、`confirm` の失敗（声の確認の文字起こしの失敗など）は、`run` が投げる（呼び出し側が、従来どおり扱う）。
 - **2 つの表示の違いは、受け手の側に置く**（利用者に見える出力を変えないため）：`TerminalReporter` は、`vc run` では見出し（`▶ 実行`・`▶ 結果`）と説明を出し、実行者の失敗は標準エラーへ出す（終了コードは `vc run` が `RunOutcome` で決める。最初の見出し `▶ スキルの選択` は、モデルの読み込みの前に出すので、`Run.swift` が出す）。声の流れでは、見出しなしで、失敗は標準出力へ出し、既定スキルがなければ（PC 操作へ回るので）`Tiny-Jev` の行だけを出して、「実行しない」は出さない。`HUDReporter` は、声の流れ用の `TerminalReporter` を内に持ち、各出来事で `HUDSession` を更新する（確認が要るときは、先に問いかけを読み上げる）。
 - **確認の問い合わせは、呼び出し側が持つ**：`vc run` は `[y/N]` を読む（`--yes` なら、聞かない）。声の流れは、次の発話を待って、Tiny-Jev で「はい」かを判定する。
-- 実行者は `SkillExecuting`（実装は `SkillAgent` の 1 つ。どちらも `VCSkill` の内側の型で、`vc` は `SkillRunner` だけを呼ぶ）。`SkillRunner` のテストは、`@testable` で偽の実行者を渡し、偽の `OptionScorer` と合わせて、判断（一致・既定スキル・会話・確認・dry-run・取りやめ・失敗）を確かめる。表示との対応は、`Tests/vcTests/ReporterTests.swift`。
+- 実行者は `SkillExecuting`（実装は `SkillAgent` の 1 つ。どちらも `VCSkill` の内側の型で、`vc` は `SkillRunner` だけを呼ぶ）。`SkillRunner` のテストは、`@testable` で偽の実行者を渡し、偽の `OptionScorer`（`TestSupport` の `SkillScorer`）と合わせて、判断（一致・既定スキル・会話・確認・dry-run・取りやめ・失敗）を確かめる。表示との対応は、`Tests/vcTests/TerminalReporterTests.swift`・`HUDReporterTests.swift`。
 
 ### PC 操作の実行の流れ（`PCRunner`）
 
@@ -108,9 +108,9 @@ flowchart LR
 - **`PCEvent`**：`llmSplit`・`llmSplitFailed`（言語モデルでの分け方）・`clause`（1 手の処理の開始）・`planned`・`rejected`（実行しない判定。残りも中止するか）・`planOnly`・`dryRun`・`confirmRequired`・`confirmAnswered`・`notConfirmed`（承認されなかった。残りも中止するか）・`executing`・`executed`。
 - **規則はここ**：どれかの手が「実行しない」なら、残りも中止する。確認が要る手は、承認されたときだけ実行し、承認されなければ、その手と残りを中止する。`CancelToken` が取りやめられていれば、手の計画の前と、実行の直前に、`CancellationError` を投げる。実行した手は、`HistoryStore` に積む（次の手の計画に使う）。実行した手のあとに次の手があれば、画面が落ち着くのを 0.8 秒待つ。計画・実行の失敗と、`confirm` の失敗は、そのまま投げる。
 - **2 つの表示の違いは、受け手の側に置く**：`TerminalPCReporter` は、端末へ出すだけで、確認は問い合わせない（`confirm` は `--yes` を返す）。`HUDPCReporter` は、`TerminalPCReporter` を内に持ち、各出来事で `HUDSession` を更新する（確認が要るときは、先に問いかけを読み上げ、端末へ注意を出す。声の確認の返事は、アダプターの `confirm` が、次の発話から判定する）。「考え中」の開始と、結果（完了・実行しませんでした）は、アダプターが `begin()`・`finish()` で出す（出来事ではない）。
-- **`HistoryStore` の所有者は `PCRunner`**（`vc plan`・`act` は、起動ごと。`vc listen` は、その間）。`PCRunner` のテストは、偽の `Desktop`・`OptionScorer` で、判断（実行しない判定で残りも中止・確認の拒否・取りやめ・dry-run・履歴）を確かめる。表示との対応は、`Tests/vcTests/PCReporterTests.swift`。
+- **`HistoryStore` の所有者は `PCRunner`**（`vc plan`・`act` は、起動ごと。`vc listen` は、その間）。`PCRunner` のテストは、偽の `Desktop`・`OptionScorer`（`TestSupport` の `RecordingDesktop`・`UtteranceScorer`）で、判断（実行しない判定で残りも中止・確認の拒否・取りやめ・dry-run・履歴）を確かめる。表示との対応は、`Tests/vcTests/TerminalPCReporterTests.swift`・`HUDPCReporterTests.swift`。
 - **評価**（`vc eval`・`eval-context`）：手の文字列化（`PCEval.canonical`）・コーパスの読み取り・当たりの集計（`PCEval.Tally`）は、`PCEval`（`VCPCControl`）。`Commands/Eval.swift` は、引数の解釈・計画・表示だけ。
-- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` の PC 操作の部分（ホットキーの声の流れの最後の部分と、Enter で録音する通常モードの `AgentDesktop`・`Planner`・`PCRunner` の組み立て）、`Tests/vcTests/PCReporterTests.swift` を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
+- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` の PC 操作の部分（ホットキーの声の流れの最後の部分と、Enter で録音する通常モードの `AgentDesktop`・`Planner`・`PCRunner` の組み立て）、`Tests/vcTests/TerminalPCReporterTests.swift`・`HUDPCReporterTests.swift`・`PCReporterFixtures.swift`、`Tests/VCPCControlTests`、`TestSupport` の `Desktops.swift`・`UtteranceScorer.swift`（と、`Package.swift` の `TestSupport` の依存）を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
 
 ## 状態の所有
 
@@ -177,7 +177,7 @@ flowchart LR
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。
 
-- `eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` の PC 操作の部分（声の流れの最後と、Enter で録音する通常モード）・`PCReporterTests`）に加えて、これらも見直す。
+- `eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` の PC 操作の部分（声の流れの最後と、Enter で録音する通常モード）・`TerminalPCReporterTests`・`HUDPCReporterTests`）に加えて、これらも見直す。
 - `Experiments/LLMDecomposer` は、`PCRunner`（`--llm-split`。既定はオフ）が呼ぶ。実験を外すときは、このオプションも外す。
 - `ProcessRunner` に載せていない `Process` の呼び出しが、4 か所ある（意図した対象外。理由は、各コードのコメント）：`AgentDesktop.openApp`（`open -a`）と `AgentDesktop.showWindowIfNone`（`osascript`）は、絶対パスで直接起動し、出力を読まない。`SaySpeaker`（`say`）は、鳴り終わるまで待たず、取りやめで止める。`vc eval --speak` の `say -o` は、標準出力・標準エラーを画面へ引き継ぐ。いまの `ProcessRunner` に載せると、挙動が変わる。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。

@@ -8,7 +8,7 @@ vc := justfile_directory() / ".build/release/vc"
 default:
     @just --list
 
-# リリースビルド（.build/release/vc と Fixture）。Command Line Tools だけの環境で出る、リンカの「search path ... not found」の警告（無害）は、表示しない
+# リリースビルド（`.build/release/vc` と Fixture。テスト用の `TestSupport` も、コンパイルされる）。Command Line Tools だけの環境で出る、リンカの「search path ... not found」の警告（無害）は、表示しない
 build:
     swift build -c release --explicit-target-dependency-import-check=error 2>&1 | { grep -v "ld: warning: search path .*/CommandLineTools/Developer" || true; }
 
