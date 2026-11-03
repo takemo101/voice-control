@@ -1,6 +1,6 @@
 import Foundation
 
-/// キー操作の選択肢（キーの組み合わせは、agent-desktop の `press` の表記）。組み込み（`all`）と、利用者が JSON で足したもの（`SkillCatalog`）。
+/// キー操作の選択肢（キーの組み合わせは、agent-desktop の `press` の表記）。組み込み（`all`）と、利用者が JSON で足したもの（`KeyBindingCatalog`）。
 /// アプリを終了するもの（cmd+q 系）は、入れない。
 public struct Shortcut: Sendable, Equatable {
     /// 順に押すキー（1 つが普通）。

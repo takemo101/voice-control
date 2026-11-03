@@ -37,7 +37,7 @@ struct EvalCommand: Command {
                 snapshots[f[0]] = s
             }
             let snapshot = snapshots[f[0]]!
-            let planner = Planner(scorer: jev, desktop: ReplayDesktop(snapshot: snapshot, apps: apps), gate: context.gate, skills: context.skillCatalog.shortcuts, useLocation: !context.options.noLocation)
+            let planner = Planner(scorer: jev, desktop: ReplayDesktop(snapshot: snapshot, apps: apps), gate: context.gate, keyBindings: context.keyCatalog.shortcuts, useLocation: !context.options.noLocation)
             let t0 = Date()
             let plan: Plan
             var utterance = f[2]

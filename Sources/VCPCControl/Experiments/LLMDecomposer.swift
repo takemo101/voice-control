@@ -1,6 +1,9 @@
 import FoundationModels
 import Foundation
 
+// 比較用の実験（このフォルダ全体）。製品の流れは使わない。使うのは `--llm-split`（`PCRunner`）と `vc decompose` だけ。
+// 削除・統合の判断は SPEC §7（未決）。
+
 /// 長い依頼を、1 手ずつの短い命令文に、書き直す（Apple の FoundationModels。オンデバイス）。
 /// 選ぶ・実行を決めるのは、ここではない：書き直した各文は、`Planner`（Tiny-Jev）とゲートが、1 文ずつ判断する。
 /// 検証：かぎ括弧の中の文字は、元の依頼にあるものだけ（言語モデルが、入力する文字を作らないように）。

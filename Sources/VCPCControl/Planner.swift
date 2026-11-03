@@ -50,15 +50,15 @@ public struct Planner: Sendable {
     private let desktop: Desktop
     private let gate: Gate
 
-    /// 利用者が足したキー操作（`SkillCatalog`）。
-    private let skills: [Shortcut]
+    /// 利用者が足したキー操作（`KeyBindingCatalog`）。
+    private let keyBindings: [Shortcut]
 
     /// 選択肢に、要素の位置（左上・右・下…）を添えるか（`--no-location` で外して、比べる）。
     private let useLocation: Bool
 
-    public init(scorer: OptionScorer, desktop: Desktop, gate: Gate = Gate(), skills: [Shortcut] = [], useLocation: Bool = true) {
+    public init(scorer: OptionScorer, desktop: Desktop, gate: Gate = Gate(), keyBindings: [Shortcut] = [], useLocation: Bool = true) {
         self.useLocation = useLocation
-        self.skills = skills
+        self.keyBindings = keyBindings
         self.scorer = scorer
         chooser = Chooser(scorer: scorer)
         self.desktop = desktop
@@ -90,7 +90,7 @@ public struct Planner: Sendable {
         let arrows: Set<String> = ["up", "down", "left", "right"]
         // 「ボタン・アイコン・メニュー・タブ」と言っているなら、矢印キーではない（「下の方にある再生ボタンを押して」が、下矢印キーに引きずられた：測定）。
         let namesAWidget = utterance.contains("ボタン") || utterance.contains("アイコン") || utterance.contains("メニュー") || utterance.contains("タブ")
-        for s in Shortcut.all + skills where applies(s, utterance: utterance, app: snapshot.app) && !((namesAnElement || namesAWidget) && arrows.contains(s.combo)) {
+        for s in Shortcut.all + keyBindings where applies(s, utterance: utterance, app: snapshot.app) && !((namesAnElement || namesAWidget) && arrows.contains(s.combo)) {
             out.append(Candidate(option: "キー操作: \(s.option)", step: .press(s), confirm: s.needsConfirmation))
         }
         if let target = snapshot.elements.first(where: \.isScrollable) {
@@ -173,7 +173,7 @@ public struct Planner: Sendable {
     /// アプリ・発話の条件（`app`・`when`）に合うキー操作か。
     private func applies(_ s: Shortcut, utterance: String, app: String) -> Bool {
         if let want = s.app, !app.localizedCaseInsensitiveContains(want) { return false }
-        // try?: 正規表現は、読み込み時（SkillCatalog の検査）に確かめ済み。ここで読めなければ、条件を満たさない扱い
+        // try?: 正規表現は、読み込み時（KeyBindingCatalog の検査）に確かめ済み。ここで読めなければ、条件を満たさない扱い
         if let pattern = s.when, let regex = try? NSRegularExpression(pattern: pattern),
            regex.firstMatch(in: utterance, range: NSRange(utterance.startIndex..., in: utterance)) == nil { return false }
         return true

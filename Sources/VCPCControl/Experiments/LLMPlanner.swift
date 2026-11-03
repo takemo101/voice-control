@@ -1,6 +1,9 @@
 import FoundationModels
 import Foundation
 
+// 比較用の実験（このフォルダ全体）。製品の流れ（スキル・PC 操作の通常の経路）は使わない。使うのは `vc llm` と `vc eval --llm` だけ。
+// 削除・統合の判断は SPEC §7（未決）。
+
 /// Apple の FoundationModels（オンデバイスの言語モデル）で、「次の 1 手」を決める。
 /// 出力の形は、動的なスキーマで固定する（`@Generable` のマクロは、Command Line Tools だけの環境では、プラグインが無く使えない）。
 /// 言語モデルは、コマンドの文字列を作らない：候補の番号・アプリ名・入力する文字だけを返し、**検証してから** `Step` にする。

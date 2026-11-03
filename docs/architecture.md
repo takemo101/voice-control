@@ -49,7 +49,7 @@ flowchart TB
 | `VCDecision`（`Choice/`） | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度・危険度の門：実行・確認・却下） | 選択肢の中身 |
 | `VCDecision`（`Model/`） | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
 | `VCSkill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`CommandPolicy`（許可の照合）、`CommandRunner`（許可済みのコマンドの実行。`ProcessRunner` の上）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`SkillRunner`（選ぶ → 確認 → 実行 → 結果の流れと、その判断。経過を `RunEvent` にして `RunReporter` へ送る）、`SkillExecuting`（実行者の口）・`SkillAgent`（その実装：言語モデルと `run_command`） | PC 操作の候補作り・表示・終了コード・声の読み上げ |
-| `VCPCControl` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`PCRunner`（発話を 1 手ずつに分け、計画 → 門 → 確認 → 実行 → 履歴の流れと、その判断。経過を `PCEvent` にして `PCReporter` へ送る。`HistoryStore` を持つ）、`PCEval`（評価コーパスの部品：手の文字列化・コーパスの読み取り・当たりの集計）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`SkillCatalog`（キー操作の JSON 定義）、`LLMPlanner`・`LLMDecomposer`（実験） | スキル・表示・終了コード・声の読み上げ |
+| `VCPCControl` | `Planner`（候補を作り、Tiny-Jev で選び、ゲートを通す）、`PCRunner`（発話を 1 手ずつに分け、計画 → 門 → 確認 → 実行 → 履歴の流れと、その判断。経過を `PCEvent` にして `PCReporter` へ送る。`HistoryStore` を持つ）、`PCEval`（評価コーパスの部品：手の文字列化・コーパスの読み取り・当たりの集計）、`Step`（実行する 1 手）、`AgentDesktop`（agent-desktop・`open`・AppleScript の呼び出し）、`SnapshotParser`、`ClauseSplitter`、`TextExtractor`、`History`、`Shortcut`・`KeyBindingCatalog`（`KeyBindings.swift`。キー操作の JSON 定義）、`Experiments/`（`LLMPlanner`・`LLMDecomposer`。比較用の実験） | スキル・表示・終了コード・声の読み上げ |
 | `VCSpeech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`（Esc の受け付け）、`VoiceLoop`（声の流れの**調整**：トリガー・録音・Esc・認識の待ち行列・発話ごとの `Task`。`VoiceActivity`・`VoiceInputQueue` は、その内部の状態と列）、差し替え口（`Transcribing`・`Recording`・`EscapeSource`）と出来事（`VoiceLoopEvent`）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断・スキル・PC 操作・画面の表示（`VoiceLoop` は、発話の処理を `UtteranceHandler` として外から受ける） |
 | `vc` | 引数の解釈（`Arguments`・`CommonOptions`）、コマンド（`Command`・`Commands.all`・`Commands/`）と、その共有物（`CommandContext`）、流れの組み立て（`Commands/Listen.swift` の `listen`：`VoiceLoop` に、`SkillRunner`＋`HUDReporter` と PC 操作への振り分け（`UtteranceHandler`。スキルが選ばれなければ `PCRunner`＋`HUDPCReporter` を呼ぶアダプター）と、出来事の表示を渡す。`Commands/PCControl.swift` の `plan`・`act`、`Commands/Eval.swift` の `eval`：引数の解釈と表示だけ）、スキルの実行の表示（`TerminalReporter`・`HUDReporter`。`SkillSupport.swift` の `LoadedSkills`：スキルを読み、問題を標準エラーへ出す）、PC 操作の実行の表示（`TerminalPCReporter`・`HUDPCReporter`）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
@@ -110,7 +110,7 @@ flowchart LR
 - **2 つの表示の違いは、受け手の側に置く**：`TerminalPCReporter` は、端末へ出すだけで、確認は問い合わせない（`confirm` は `--yes` を返す）。`HUDPCReporter` は、`TerminalPCReporter` を内に持ち、各出来事で `HUDSession` を更新する（確認が要るときは、先に問いかけを読み上げ、端末へ注意を出す。声の確認の返事は、アダプターの `confirm` が、次の発話から判定する）。「考え中」の開始と、結果（完了・実行しませんでした）は、アダプターが `begin()`・`finish()` で出す（出来事ではない）。
 - **`HistoryStore` の所有者は `PCRunner`**（`vc plan`・`act` は、起動ごと。`vc listen` は、その間）。`PCRunner` のテストは、偽の `Desktop`・`OptionScorer` で、判断（実行しない判定で残りも中止・確認の拒否・取りやめ・dry-run・履歴）を確かめる。表示との対応は、`Tests/vcTests/PCReporterTests.swift`。
 - **評価**（`vc eval`・`eval-context`）：手の文字列化（`PCEval.canonical`）・コーパスの読み取り・当たりの集計（`PCEval.Tally`）は、`PCEval`（`VCPCControl`）。`Commands/Eval.swift` は、引数の解釈・計画・表示だけ。
-- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` の PC 操作の部分（ホットキーの声の流れの最後の部分と、Enter で録音する通常モードの `AgentDesktop`・`Planner`・`PCRunner` の組み立て）、`Tests/vcTests/PCReporterTests.swift` を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
+- **PC 操作を無くす・統合するとき**：`VCPCControl` と、`Commands/PCControl.swift`・`Commands/Eval.swift`・`TerminalPCReporter`・`HUDPCReporter`、`Commands/Listen.swift` の PC 操作の部分（ホットキーの声の流れの最後の部分と、Enter で録音する通常モードの `AgentDesktop`・`Planner`・`PCRunner` の組み立て）、`Tests/vcTests/PCReporterTests.swift` を消す。`VCPCControl` を使う `vc` のほかの部分は、`eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）。
 
 ## 状態の所有
 
@@ -118,7 +118,7 @@ flowchart LR
 |---|---|---|
 | スキル定義 | グローバル：`~/.voice-control/skills/<name>/SKILL.md`。プロジェクト：`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`（利用者・リポジトリのファイル）。`SkillStore.loadAll` が読む（同名はプロジェクトが勝つ） | ファイル。コードは書き換えない |
 | スキルの有効・無効・信頼したプロジェクト | `Settings`（`~/.voice-control/settings.json`） | ファイル。`vc skills enable/disable/trust/untrust` だけが書く。有効・無効は既定が有効（無効だけを記録する）。信頼は既定が未信頼（信頼したものだけを記録する。読めないファイルは、信頼なしとして扱う） |
-| キー操作の JSON 定義 | `SkillCatalog.load`（`keys/`・`~/.voice-control/keys`） | ファイル |
+| キー操作の JSON 定義 | `KeyBindingCatalog.load`（`keys/`・`~/.voice-control/keys`） | ファイル |
 | Tiny-Jev の重み・GPU のグラフ | `TinyJev`（`QwenDecision`） | プロセスの間。起動のたびに、数秒かけて読む |
 | 実行した手の記録 | `HistoryStore`（`PCRunner` が 1 つ持つ。`vc plan`・`act` は、起動ごと。`vc listen` は、その間） | プロセスの間。**操作の名前だけ**（発話・入れた文字は持たない）。最大 50 件、文脈に使うのは 3 件・180 秒以内 |
 | 画面の内容（snapshot） | 1 回の判断の間だけ（`Planner.plan` の引数） | 保存しない |
@@ -176,8 +176,6 @@ flowchart LR
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。
 
-- `eval-context`・`llm`・`decompose`・`keys`（`SkillCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` の PC 操作の部分（声の流れの最後と、Enter で録音する通常モード）・`PCReporterTests`）に加えて、これらも見直す。
+- `eval-context`・`llm`・`decompose`・`keys`（`KeyBindingCatalog`）と、`CommandContext`（キー操作の定義の読み込み）も、`VCPCControl` を使う。PC 操作を無くす・統合するときは、`PCRunner` 側（`Commands/PCControl.swift`・`Commands/Eval.swift`・PC 操作の表示・`Listen` の PC 操作の部分（声の流れの最後と、Enter で録音する通常モード）・`PCReporterTests`）に加えて、これらも見直す。
 - `ProcessRunner` に載せていない `Process` の呼び出しが、4 か所ある（意図した対象外。理由は、各コードのコメント）：`AgentDesktop.openApp`（`open -a`）と `AgentDesktop.showWindowIfNone`（`osascript`）は、絶対パスで直接起動し、出力を読まない。`SaySpeaker`（`say`）は、鳴り終わるまで待たず、取りやめで止める。`vc eval --speak` の `say -o` は、標準出力・標準エラーを画面へ引き継ぐ。いまの `ProcessRunner` に載せると、挙動が変わる。
 - 2 つの流れ（スキル・PC 操作）が同居している。PC 操作の流れは、実測で外れが多く、試作の位置づけ（[SPEC](../SPEC.md)）。
-- `VCPCControl/Skills.swift`・`SkillCatalog` は、「キー操作の JSON 定義」で、`VCSkill`（SKILL.md のスキル）と名前が紛らわしい。
-- `LLMPlanner`・`LLMDecomposer` は、比較用の実験。製品の流れでは、`--llm-split` だけが使う。
