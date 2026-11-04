@@ -15,15 +15,29 @@ extension SkillStore {
         guard description.count <= maxDescription else { return .failure(ParseError(reason: "description が長い（\(description.count) 文字。\(maxDescription) まで）")) }
         // 形：リスト（`- open`）、インライン（`[open, say]`）、1 つだけなら `allowed-commands: open`。
         let field = fields["allowed-commands"]
-        let commands = field?.list ?? field?.scalar.map { [$0] } ?? []
+        let commands = (field?.list ?? field?.scalar.map { [$0] } ?? []).map { expandSkillDir($0, file: file) }
         guard !commands.isEmpty else { return .failure(ParseError(reason: "allowed-commands がない（実行してよいコマンドを、明示する）")) }
         for c in commands {
             if let why = CommandPolicy.validateEntry(c) { return .failure(ParseError(reason: "allowed-commands「\(c)」：\(why)")) }
         }
         let confirm = (fields["confirm"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
-        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = expandSkillDir(body, file: file).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
         return .success(Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file))
+    }
+
+    /// スキルのディレクトリを表す、`allowed-commands` と本文の中の記号。
+    static let skillDirPlaceholder = "${SKILL_DIR}"
+
+    /// `${SKILL_DIR}` を、そのスキルのディレクトリ（SKILL.md のある場所。絶対パス）に置き換える。
+    /// スクリプトを同梱するスキルが、置かれた場所（グローバルでも、プロジェクトでも）に関わらず、同じ SKILL.md で動く（個人のパスを、書かずに済む）。
+    /// 空白・引用符・`\` を含むパスは、`CommandPolicy.tokenize` が 1 つに読めるよう、`"…"` で囲む。置き換えるのは、ファイルシステムの場所だけ（言語モデルの出力ではない）。
+    static func expandSkillDir(_ text: String, file: URL) -> String {
+        guard text.contains(skillDirPlaceholder) else { return text }
+        let path = file.deletingLastPathComponent().path
+        let plain = path.range(of: #"[\s'"\\]"#, options: .regularExpression) == nil
+        let value = plain ? path : "\"" + path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        return text.replacingOccurrences(of: skillDirPlaceholder, with: value)
     }
 
     /// `---` で囲まれた先頭の部分と、残り。

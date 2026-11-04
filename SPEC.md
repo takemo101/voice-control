@@ -26,7 +26,7 @@ Mac を、声や依頼文で操作する**試作**。「依頼 → どの操作�
 
 | ID | 要件 |
 |---|---|
-| F1 | スキルを、グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）に置ける。フロントマター `name`（ディレクトリ名と同じ）・`description`・`allowed-commands`（必須）・`confirm`（任意）。不正なスキルは、読み込まず、理由を示す。他のスキルは使える。**同じ名前なら、プロジェクトが、グローバルを上書きする** |
+| F1 | スキルを、グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）に置ける。フロントマター `name`（ディレクトリ名と同じ）・`description`・`allowed-commands`（必須）・`confirm`（任意）。`allowed-commands` と本文の `${SKILL_DIR}` は、そのスキルのディレクトリの絶対パスに置き換える（スクリプトを同梱するスキルが、グローバルでも、プロジェクトでも、同じ SKILL.md で動く）。不正なスキルは、読み込まず、理由を示す。他のスキルは使える。**同じ名前なら、プロジェクトが、グローバルを上書きする** |
 | F2 | `vc skills` で、スキルの name・置き場所・description・有効／無効を一覧できる。`vc skills enable/disable <name>` で、選択肢にするかを設定できる（既定は有効。設定は `~/.voice-control/settings.json`。名前ごと） |
 | F3 | `vc run "<依頼>"` は、有効なスキルから、**Tiny-Jev が**呼ぶものを選ぶ（「どれでもない」を含む）。確信度が下限未満なら実行しない。確信度が高くない・`confirm: true` のときは、実行の前に確認する |
 | F4 | 選んだスキルの本文と依頼文を、**Apple の言語モデルに**渡し、コマンドを実行させる。実行してよいのは、スキルの `allowed-commands` に一致するコマンドだけ（前方一致。トークンの中の `*`・`Bash(…)` の形を読める）。シェルを使わない。シェル・権限昇格などのコマンドは、許可できない |

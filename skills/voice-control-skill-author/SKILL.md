@@ -55,6 +55,7 @@ Then reply done.
 - Claude Code の形（`Bash(open -a *)`）も読める（`Bash` だけ）。**意味は違う**：Claude Code の `allowed-tools` は「確認なしで使える」の承認で、こちらは「これ以外は実行しない」の制限。`*` のない項目は、前方一致（Claude Code は完全一致）。詳細は `docs/skills.md` の「Claude Code との違い」。
 - **許可できない**（読み込まれない）：`sh bash zsh dash fish ksh csh tcsh env xargs sudo su doas eval exec nohup command builtin`。シェルなどを通すと、許可の意味がなくなるため。`agent-desktop --force` も、実行時に拒否される。
 - `osascript`・`python`・`node` など、**任意のコードを実行できるもの**は、許可しない。必要なら、利用者に、理由を説明して、確認してもらう。
+- スクリプトを同梱するときは、`allowed-commands` と本文で、スクリプトの場所を **`${SKILL_DIR}`**（そのスキルのディレクトリ。`vc` が、読み込むとき、絶対パスに置き換える）で書く。例：`osascript ${SKILL_DIR}/run.applescript`。相対パスで書くと、グローバルに置いたとき（起動した場所が違うとき）、見つからず失敗する。
 - コマンドは、**シェルなし**で実行される：パイプ・リダイレクト・`&&`・`;`・`$(…)`・グロブ（`*.txt` の展開）は、使えない。1 回に、1 コマンド。
 
 ## description の書き方（Tiny-Jev）
