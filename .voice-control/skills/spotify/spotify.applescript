@@ -12,7 +12,12 @@ on run argv
 	if {"play", "pause", "playpause", "next", "previous", "volume-up", "volume-down", "volume", "shuffle", "repeat", "search"} contains theAction then my ensureRunning()
 
 	if theAction is "open" then
-		tell application "Spotify" to activate
+		if application "Spotify" is running then
+			tell application "Spotify" to activate
+		else
+			-- 起動していないとき、AppleScript の activate は、アプリが答えるまで待ち続けて、vc の 30 秒の上限に掛かることがある。`open -a` は、すぐ戻る
+			do shell script "/usr/bin/open -a Spotify"
+		end if
 		return "ok"
 	else if theAction is "status" then
 		-- 起動していなければ、起動しない
