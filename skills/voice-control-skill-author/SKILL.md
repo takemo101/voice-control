@@ -46,7 +46,7 @@ Then reply done.
 |---|---|---|
 | `name` | ○ | ディレクトリ名と同じ。英小文字・数字・ハイフン |
 | `description` | ○ | Tiny-Jev が読む。200 文字まで（**60 字ほどに収める**） |
-| `result` | | `markdown-note` なら、最後の返事（Markdown）を、ファイルにして開く。本文では「Markdown の本文だけを返す（done: を付けない）」と書く。例：`.voice-control/skills/screen-note` |
+| `result` | | `markdown-note` なら、最後の返事（Markdown）を、ファイルにして開く。本文では「Markdown の本文だけを返す（done: を付けない）」と書く。例：`.voice-control/skills/clipboard-note` |
 | `allowed-commands` | ○ | 実行してよいコマンド（**許可リスト**）。リスト（`- open`）か `[open, say]`。**先頭のトークン列**が一致したものだけ実行する（前方一致）：`agent-desktop` ならどの引数でも、`agent-desktop click` なら click だけ |
 | `confirm` | | `true` なら、実行の前に、必ず確認する |
 
