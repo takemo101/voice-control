@@ -1,6 +1,6 @@
 ---
 name: spotify
-description: Spotify の操作：再生・一時停止・次の曲・前の曲・音量・今流れている曲は何か（曲名を教える）・検索・シャッフル
+description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量・今流れている曲は何か（曲名を教える）・検索・シャッフル。「音楽をかけて」「曲を流して」も
 allowed-commands:
   - osascript .voice-control/skills/spotify/spotify.applescript
 ---
@@ -14,10 +14,11 @@ Use only these actions:
 - shuffle on|off | repeat on|off
 - status   (prints the player state, track, artist, volume)
 - search "<text>"   (opens the Spotify search page; use only the words the user said; does not start playback)
-- open   (brings Spotify to the front)
+- open   (launches Spotify if it is not running, and brings it to the front)
 
 Which action for which request:
-- start / resume playing → play. stop / pause → pause. "toggle play and pause" → playpause.
+- launch the app / open it / bring it to the front (起動して・開いて・立ち上げて) → open. There is NO action named start or launch. Never run `open -a` yourself: the script launches Spotify when needed.
+- play music / put on a song / resume (再生して・かけて・流して) → play. stop / pause → pause. "toggle play and pause" → playpause.
 - next song / skip → next. previous song / go back → previous.
 - louder / volume up → volume-up. quieter / volume down → volume-down. "volume 50" → volume 50.
 - what is playing now / which song → status. search for something → search "<text>".
