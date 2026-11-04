@@ -36,7 +36,14 @@ public struct FileTranscriber: Sendable {
 
     /// 確定した認識結果をつないだ文字。何も聞き取れなければ空。
     public func transcribe(file url: URL) async throws -> String {
-        let supported = await SpeechTranscriber.supportedLocales.contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
+        let wanted = locale.identifier(.bcp47)
+        let supported: Bool
+        do {
+            // この確認も、止まりうる OS の呼び出しなので、用意と同じ上限の中で行う
+            supported = try await withDeadline(seconds: preparationTimeout) { await SpeechTranscriber.supportedLocales.contains { $0.identifier(.bcp47) == wanted } }
+        } catch is DeadlineExceeded {
+            throw TranscriptionError.timedOut(stage: "対応言語の確認", seconds: Int(preparationTimeout))
+        }
         guard supported else { throw TranscriptionError.unsupportedLocale(locale.identifier) }
         let file: AVAudioFile
         do { file = try AVAudioFile(forReading: url) } catch { throw TranscriptionError.unreadableAudio(url.lastPathComponent) }

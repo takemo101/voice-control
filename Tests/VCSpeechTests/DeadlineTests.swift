@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import VCSpeech
 
-@Suite struct DeadlineTests {
+@Suite(.timeLimit(.minutes(1))) struct DeadlineTests {
     /// 取りやめに応えず、止まったままの処理（`stop` が立つまで、取りやめを無視して回り続ける）。
     private final class Stuck: @unchecked Sendable {   // 偽物：テストの数行。lock で守る
         private let lock = NSLock()
@@ -52,7 +52,7 @@ import Testing
         let stuck = Stuck()
         defer { stuck.stop() }
         let task = Task { () async throws -> Int in
-            while !Task.isCancelled { try await Task.sleep(nanoseconds: 1_000_000) }
+            while !Task.isCancelled { await Task.yield() }   // 取りやめられるまで、withDeadline を呼ばない（取りやめ済みの経路を通すため）
             return try await withDeadline(seconds: 60) { await stuck.run() }
         }
         task.cancel()
