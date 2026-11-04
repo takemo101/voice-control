@@ -162,7 +162,7 @@ allowed-commands: open                 # 1 つだけ
 |---|---|
 | `vc skills [list]` | 一覧：有効／無効・name・置き場所（グローバル／プロジェクト）・description。読み込めなかったスキルは、理由つきで下に出る |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・ファイルの場所 |
-| `vc skills install [<name>…] [--force]` | プロジェクトのスキルを、スクリプトごとグローバルへコピーする（名前なしは、コピーできる一覧）。同名は、`--force` で置き換える。許可するコマンドを表示する |
+| `vc skills install [<name>…] [--force] [--ref <版>]` | **GitHub の公開リポジトリ（`takemo101/voice-control`）のスキルを、スクリプトごとグローバルへインストールする**（名前なしは、一覧）。リポジトリが手元になくてよい。版は、入っている vc と同じタグ（なければ main）。同名は、`--force` で置き換える。取得元と許可するコマンドを表示する。取得するのは、スキルのファイルだけ（音声・画面の内容は、送らない） |
 | `vc skills trust` / `untrust` | 起動した場所のプロジェクトのスキルを、読み込んでよいか（trust は、許可するコマンドを表示してから信頼する） |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか。**既定は有効**。設定は `settings.json` |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | 選んで、実行する |
@@ -236,7 +236,7 @@ model loaded 4.3s (length 1024)
 
 - **残る**：メモには、画面の内容から作った文章が入る。`$TMPDIR/voice-control-notes/` に、**消さずに残る**（OS の一時領域の掃除に任せる）。ディレクトリ 700・ファイル 600。
 - **読めない画面**：Electron 系のアプリ（Slack など）は、アクセシビリティの木が取れず、読めないことがある（読めないときは、失敗と理由を返す）。
-- 使うには、グローバルへコピー：`vc skills install screen-note`（このリポジトリのルートで）。
+- 使うには：`vc skills install screen-note`（リポジトリは、手元になくてよい。GitHub から取得して、`~/.voice-control/skills` に置く）。
 
 ## agent-desktop を使うスキルの要点
 
