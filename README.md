@@ -39,7 +39,7 @@ PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SP
 
 - macOS 26 以降・Apple silicon。ソースからビルドするときは、Swift 6.2 以降（Xcode または Command Line Tools）。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（`agent-desktop permissions`）。
-- Apple Intelligence（FoundationModels）が使える Mac。
+- Apple Intelligence（FoundationModels）が使える Mac。**オンにしておく**：システム設定 > Apple Intelligence と Siri（オンにすると、言語モデルのダウンロードが始まる）。オフ・準備中・非対応のとき、`vc run`・`vc listen` は、理由と手順を示して終わる。
 - Tiny-Jev 0.6B のモデル（約 1.2 GB。`vc model download` で `~/.voice-control/models/` に取得）。[just](https://github.com/casey/just) は任意。
 
 ## はじめかた
@@ -104,6 +104,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
+| `vc doctor` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめ、使えないものは直す手順を示す（必須が使えなければ、終了コード 1） |
 | `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。押している間は、画面の上に「録音中」が出る |
 | `vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes]` | マイクから聞いて、スキルで実行する（既定：Enter で録音。`--hotkey`：押している間だけ録音。[声の入力](docs/skills.md#声の入力vc-listen)） |

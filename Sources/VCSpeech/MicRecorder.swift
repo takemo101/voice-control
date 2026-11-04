@@ -16,6 +16,16 @@ public final class MicRecorder: @unchecked Sendable {
 
     public init() {}
 
+    /// マイクの許可の状態（**聞かない**：確認のダイアログを出さない。`vc doctor` が使う）。
+    public enum Permission: Equatable, Sendable { case granted, notDetermined, denied }
+    public static var permission: Permission {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: return .granted
+        case .notDetermined: return .notDetermined
+        default: return .denied   // denied・restricted
+        }
+    }
+
     /// マイクの許可。未決なら、macOS の確認を出して、答えを待つ（この関数を呼ぶのは、利用者が `vc listen` を実行したときだけ）。
     /// **同期**にしてある：`await` を挟むと、そのあとの処理は、メインキューのブロックの中で動き、続けて呼ぶ `NSApplication.run()` が、
     /// `DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）を動かせない。

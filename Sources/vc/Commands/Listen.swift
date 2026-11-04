@@ -29,6 +29,7 @@ struct ListenCommand: Command {
         // vc listen [--hotkey]：既定は、Enter で録音を始め、もう一度 Enter で止める。--hotkey は、トリガー（既定：Shift の長押し。vc hotkey で変更）を押している間だけ録音する。どちらも、聞こえた文は、スキルの流れ（`SkillRunner`）で動かす（違うのは、きっかけと、確認の取り方だけ）。
         // マイクの許可が要る（初回、macOS が確認を出す）。
         // **ここから `VoiceLoop.run` まで、`await` を挟まない**（`NSApplication.run()` の前の `await` は、画面の表示・長押しの判定を止める。docs/architecture.md「時間と並行」）。
+        requireAppleIntelligence()   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
         if context.options.hotkey {
