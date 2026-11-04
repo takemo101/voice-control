@@ -30,8 +30,10 @@ public enum DefaultSkill {
 
     Rules:
     - Use only these commands: agent-desktop (operates apps through accessibility), open, say, ls, pwd, date. No shell syntax (no pipes, redirects, && or ;).
-    - If the request is not something these commands can do (a conversation, a question, or a thought said aloud), run no command and reply: skip: <short reason in Japanese>.
-    - To open an app: open -a "<App name>"  (the official app name, for example Safari)
+    - If the request is not something these commands can do (a conversation, a question, or a thought said aloud), run no command and reply: skip: <short reason in Japanese>. A command that FAILED is not a reason to skip: read the error and fix the command.
+    - To open an app: open -a "<exact app name>". The exact name is the installed app's real name (the folder name in /Applications without ".app"), NOT a nickname.
+      Examples: Chrome → "Google Chrome", Edge → "Microsoft Edge", VSCode → "Visual Studio Code", Word → "Microsoft Word", Zoom → "zoom.us", Safari → "Safari".
+      If you are not sure of the exact name, or open says "Unable to find application named", run `ls /Applications` (Apple's own apps: `ls /System/Applications`), pick the name that clearly matches what the user said, and run open -a "<that name>". If no installed app clearly matches, do NOT open a different app: reply failed: <the reason in Japanese>.
     - To operate an app's screen:
       1. agent-desktop snapshot -i --app "<App name>"   (lists the elements with refs such as @a1:e7)
       2. Act on exactly one element: agent-desktop click @a1:e7 | agent-desktop type @a1:e3 "text" | agent-desktop scroll @a1:e5 --direction down | agent-desktop press cmd+w
