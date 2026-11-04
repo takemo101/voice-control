@@ -37,7 +37,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
 | `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
-| `just install` | `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がそろっているもの）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
+| `just install` | ソースからビルドした `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がそろっているもの）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
 | `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
 | `just eval` | 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（`vc eval-gate corpus/gate.tsv`。Tiny-Jev のモデルが要る。実機は操作しない） |
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
@@ -110,6 +110,8 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 配布は **GitHub Releases**（バイナリの tar.gz と SHA-256）。タグ `vX.Y.Z` の push で、[release.yml](../.github/workflows/release.yml) が、macOS 26 のランナー（Xcode 26）でビルドして、Release に添付する。リリースは、**利用者の依頼があるときだけ**行う。
 
 配布物：`vc-<版>-macos-arm64.tar.gz`（中身：`vc`・`LICENSE`・`README.md`・`skills/voice-control-skill-author/`）と、`.sha256`。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が `vc model download` で取得する）。署名は ad-hoc（Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから）。
+
+**利用者向けの入れ方**：リポジトリ直下の [install.sh](../install.sh)（`curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash`）。最新の Release（`/releases/latest` の転送先のタグ）の tar.gz と `.sha256` を取得して照合し、取り出した `vc` を実行して版を確かめ（通らなければ、いまの `vc` を置き換えない）、`~/.local/bin` へ置き、`vc model download` を実行する。https だけで取得する。`--no-model`・`--version <版>`・`--bin-dir <場所>`。変更したら、**Release を作ったあとの版で**、一時の `--bin-dir` に入れて確かめる（`VC_RELEASE_BASE_URL` で取得元を差し替えて、SHA-256 の不一致も試せる）。`main` の install.sh が、最新の Release を入れるので、Release の tar.gz の構成（`vc-<版>-macos-arm64/vc`）を変えるときは、一緒に直す。
 
 **手順**
 
