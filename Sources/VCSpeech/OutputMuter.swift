@@ -11,13 +11,15 @@ public protocol OutputSilencing: Sendable {
 /// - **元の状態にしか戻さない**：消したのが自分のときだけ、戻す。もともと消音だったなら、触らない（戻して、利用者の設定を変えない）。
 /// - **遅れて消す**（`engage(after:)`）：録音の開始の合図（Pop）を、聞こえるようにする。消す前に、`restore()` が呼ばれたら、消さない（世代で見分ける）。
 /// - `restore()` は、何回呼んでもよい。
-/// `@unchecked Sendable` の理由：可変な状態（`generation`・`undo`）は、すべて `lock` で守る。
+/// `@unchecked Sendable` の理由：可変な状態（`generation`・`undo`）は、すべて `lock` で守る（`deviceLock` は、デバイスの操作を 1 つずつにするだけで、状態は持たない）。
 public final class OutputMuter: @unchecked Sendable {
     public typealias Schedule = @Sendable (TimeInterval, @escaping @Sendable () -> Void) -> Void
 
     private let backend: OutputSilencing?
     private let schedule: Schedule
     private let lock = NSLock()
+    /// 消す・戻すの、デバイスの操作を、1 つずつにする。再入できる（`silence()` の中から `restore()` が呼ばれても、止まらない）。
+    private let deviceLock = NSRecursiveLock()
     private var generation = 0
     private var undo: (@Sendable () -> Void)?
 
@@ -43,11 +45,12 @@ public final class OutputMuter: @unchecked Sendable {
         lock.lock(); generation += 1; let mine = generation; lock.unlock()
         schedule(delay) { [weak self] in
             guard let self else { return }
+            // 消す処理（CoreAudio）と、結果の保存を、ひとまとめにする：`restore()`（Ctrl+C の処理を含む）が、消している最中に来ても、終わるのを待って、戻す
+            self.deviceLock.lock(); defer { self.deviceLock.unlock() }
             self.lock.lock()
             let stale = self.generation != mine || self.undo != nil
             self.lock.unlock()
             if stale { return }
-            // 消す処理（CoreAudio）は、ロックの外で行う（戻す手続きを受け取ってから、ロックを取り直す）
             let undo = backend.silence()
             self.lock.lock()
             if self.generation == mine, self.undo == nil { self.undo = undo; self.lock.unlock() } else { self.lock.unlock(); undo?() }
@@ -56,6 +59,7 @@ public final class OutputMuter: @unchecked Sendable {
 
     /// 消していたら、戻す。まだ消していなければ、これから消すのを、取りやめる。
     public func restore() {
+        deviceLock.lock(); defer { deviceLock.unlock() }
         lock.lock()
         generation += 1
         let undo = self.undo
@@ -109,12 +113,12 @@ struct CoreAudioOutput: OutputSilencing {
         return AudioObjectIsPropertySettable(device, &a, &settable) == noErr && settable.boolValue
     }
 
-    private static func get<T>(_ device: AudioDeviceID, _ a: AudioObjectPropertyAddress, _ initial: T) -> T? {
+    private static func get<T: BitwiseCopyable>(_ device: AudioDeviceID, _ a: AudioObjectPropertyAddress, _ initial: T) -> T? {
         var a = a, value = initial, size = UInt32(MemoryLayout<T>.size)
         return AudioObjectGetPropertyData(device, &a, 0, nil, &size, &value) == noErr ? value : nil
     }
 
-    private static func set<T>(_ device: AudioDeviceID, _ a: AudioObjectPropertyAddress, _ value: T) -> Bool {
+    private static func set<T: BitwiseCopyable>(_ device: AudioDeviceID, _ a: AudioObjectPropertyAddress, _ value: T) -> Bool {
         var a = a, value = value
         return AudioObjectSetPropertyData(device, &a, 0, nil, UInt32(MemoryLayout<T>.size), &value) == noErr
     }
