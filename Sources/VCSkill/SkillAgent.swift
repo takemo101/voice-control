@@ -30,6 +30,12 @@ final class SkillAgent: SkillExecuting, @unchecked Sendable {
     func nextCall() -> Int { lock.lock(); defer { lock.unlock() }; count += 1; return count }
     func record(_ c: String) { lock.lock(); log.append(c); lock.unlock() }
 
+    private var finishInstruction: String {
+        skill.opensResultAsNote
+            ? "When finished, reply with the finished Markdown note ONLY: its whole text, nothing before or after it (it is saved as a file and opened for the user). If you cannot, reply: failed: <reason in Japanese>."
+            : "When finished, reply with: done: <one short sentence in Japanese>. If you cannot, reply: failed: <reason in Japanese>."
+    }
+
     private var instructions: String {
         """
         You carry out the user's request by running shell commands ONLY through the tool `run_command`. Never answer with commands in text.
@@ -37,7 +43,7 @@ final class SkillAgent: SkillExecuting, @unchecked Sendable {
         Commands run WITHOUT a shell: no pipes, redirects, `&&`, `;` or `$(...)`. Quote arguments that contain spaces. Run one command at a time and read its output before the next.
         Do exactly what the SKILL says; do nothing else. Never invent text to type: use only text the user actually said.
         If a command fails, read the error, fix the command, and try again (at most twice) before giving up.
-        When finished, reply with: done: <one short sentence in Japanese>. If you cannot, reply: failed: <reason in Japanese>.
+        \(finishInstruction)
 
         SKILL (\(skill.name)):
         \(skill.body)
@@ -50,7 +56,18 @@ final class SkillAgent: SkillExecuting, @unchecked Sendable {
         let session = LanguageModelSession(tools: [RunCommandTool(self)], instructions: instructions)
         let reply = try await session.respond(to: "User request: \(request)").content
         try checkCancelled()
-        return reply
+        return openAsNoteIfRequested(reply)
+    }
+
+    /// `result: markdown-note` のスキル：返事を、Markdown のファイルにして開き、`done: …` に置き換える（dry-run・失敗の返事は、そのまま）。
+    /// 保存先と名前は、ここ（`ResultNote`）が決める：言語モデルは、本文だけを渡す（任意の場所へは書けない）。
+    func openAsNoteIfRequested(_ reply: String) -> String {
+        guard skill.opensResultAsNote, !dryRun, !reply.lowercased().hasPrefix("failed") else { return reply }
+        let url: URL
+        do { url = try ResultNote.write(reply) } catch { return "failed: メモを保存できません（\(error.localizedDescription)）" }
+        let opened = CommandRunner.run(argv: ["open", url.path], timeout: 10, cancel: cancel)
+        guard opened.exitCode == 0 else { return "failed: メモを開けません（\(url.path)）" }
+        return "done: メモを開きました（\(url.path)）"
     }
 
     /// 取りやめられていれば、`CancellationError` を投げる。

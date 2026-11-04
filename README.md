@@ -102,6 +102,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
+| `vc skills install [<name>…] [--force]` | プロジェクトのスキルを、グローバル（`~/.voice-control/skills`）へコピーする（名前なしは一覧） |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
 | `vc doctor` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめ、使えないものは直す手順を示す（必須が使えなければ、終了コード 1） |

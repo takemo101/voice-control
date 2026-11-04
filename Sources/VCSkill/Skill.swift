@@ -24,6 +24,8 @@ public struct Skill: Sendable, Equatable {
     public let file: URL
     /// どこに置かれているか。
     public var scope: Scope = .global
+    /// 言語モデルの最後の返事（Markdown）を、一時ディレクトリのファイルに保存して、開く（フロントマター `result: markdown-note`）。
+    public var opensResultAsNote = false
 
     public enum Scope: String, Sendable { case global, project, builtin }
 }
