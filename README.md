@@ -52,10 +52,10 @@ curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/instal
 
 Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデル（約 1.2 GB）を `~/.voice-control/models` に取得し、`vc doctor` で環境（Apple Intelligence など）を確かめる（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。オプション：`--no-model`（モデルを取得しない）・`--version 0.1.0`（版を指定）・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`。`~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.1.0](https://github.com/takemo101/voice-control/releases/tag/v0.1.0) の例）：
+**手で入れる**（[v0.1.1](https://github.com/takemo101/voice-control/releases/tag/v0.1.1) の例）：
 
 ```sh
-V=0.1.0
+V=0.1.1
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
