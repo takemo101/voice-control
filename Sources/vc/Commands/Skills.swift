@@ -4,8 +4,8 @@ import VCSkill
 
 struct SkillsCommand: Command {
     static let info = CommandInfo(
-        name: "skills", group: .skills, summary: "スキルの一覧・詳細・有効／無効・プロジェクトの信頼",
-        usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>", "vc skills trust", "vc skills untrust"],
+        name: "skills", group: .skills, summary: "スキルの一覧・詳細・有効／無効・プロジェクトの信頼・グローバルへのコピー",
+        usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>", "vc skills trust", "vc skills untrust", "vc skills install [<name>…] [--force]"],
         details: [
             "置き場所は 2 つ。グローバル：~/.voice-control/skills/<name>/SKILL.md（環境変数 VC_HOME で ~/.voice-control を変えられる）。プロジェクト：<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md（起動した場所が、プロジェクトのルート）。",
             "同じ名前なら、プロジェクトのスキルが、グローバルを上書きする。",
@@ -15,14 +15,18 @@ struct SkillsCommand: Command {
             "show：許可するコマンド・確認の要否・置き場所・ファイルの場所。",
             "enable / disable：Tiny-Jev の選択肢にするか。既定は有効。設定は ~/.voice-control/settings.json（名前ごと。プロジェクトのスキルも、同じ名前なら、まとめて）。",
             "trust / untrust：起動した場所のプロジェクトのスキルを、読み込んでよいか。trust は、許可するコマンドを表示してから、信頼する。",
+            "install：プロジェクトのスキル（<vc を起動した場所>/.voice-control/skills/<name>）を、グローバルへ、スクリプトごとコピーする。名前を渡さなければ、コピーできるスキルの一覧。コピーしたスキルは、信頼の手続きなしで、どこでも、いつも読み込まれる：許可するコマンドを表示するので、確かめる。同名があれば、--force で置き換える。シンボリックリンクを含むスキル・読めないスキルは、コピーしない。",
         ],
-        options: [],
+        options: [("--force", "install：グローバルに同名があっても、置き換える")],
         examples: ["vc skills", "vc skills show open-app", "vc skills disable open-app", "vc skills trust"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         // vc skills [list]               スキルの一覧（name・description・有効／無効）
         // vc skills show <name>          1 つの詳細（許可するコマンド・本文の場所）
         // vc skills enable|disable <name>  Tiny-Jev の選択肢にするか（既定は有効。設定は ~/.voice-control/settings.json）
+        // vc skills install [<name>…] [--force]  プロジェクトのスキルを、グローバルへコピーする
+        var arguments = arguments
+        let force = arguments.flag("--force")
         let positionals = arguments.positionals
         let sub = positionals.first ?? "list"
         let catalog = context.loadSkills()
@@ -101,8 +105,46 @@ struct SkillsCommand: Command {
             settings.setTrusted(project: root, true)
             do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
             print("\n" + Style.green("✓") + " 信頼しました。このプロジェクトで vc を起動すると、上のスキルを読み込みます（やめる：vc skills untrust）")
+        case "install":
+            // プロジェクトのスキルを、グローバルへコピーする（スクリプトごと）。コピーしたスキルは、どこで起動しても使える：許可するコマンドを、表示する
+            let root = VoiceControlHome.launchDirectory
+            let source = VoiceControlHome.projectSkillsDirectory(root: root)
+            let destination = VoiceControlHome.skillsDirectory
+            if source.resolvingSymlinksInPath().path == destination.resolvingSymlinksInPath().path { fail("ここは、グローバルの置き場所（\(destination.path)）と同じです。スキルのあるプロジェクトのルートで、実行してください") }
+            let names = Array(positionals.dropFirst())
+            let project = SkillStore.load(directory: source, scope: .project)
+            if names.isEmpty {
+                guard !project.skills.isEmpty || !project.problems.isEmpty else { fail("このプロジェクトに、スキルがありません（\(source.path)）") }
+                heading("コピーできるプロジェクトのスキル")
+                let width = max(4, project.skills.map { displayWidth($0.name) }.max() ?? 0)
+                for s in project.skills { print("  " + pad(s.name, to: width + 2) + s.description) }
+                project.problems.forEach { print("  " + Style.yellow("読めない: \($0.location)：\($0.reason)")) }
+                print("\n  コピーする：vc skills install <name>…（すでにあれば、--force で置き換える）")
+                break
+            }
+            var failures = 0
+            for name in names {
+                do {
+                    let result = try SkillInstaller.install(name: name, from: source, to: destination, overwrite: force)
+                    print(Style.green("✓") + " " + Style.bold(name) + (result.overwritten ? " を置き換えました" : " をコピーしました") + Style.dim("  → \(result.destination.path)"))
+                    kv("許可", result.allowedCommands.joined(separator: "、"), width: 6)
+                    kv("確認", result.confirm ? "必須" : "なし", width: 6)
+                    if result.usesProjectRelativePath { notice("SKILL.md が、プロジェクトからの相対パス（.voice-control/skills/…）を使っています。グローバルでは、起動した場所によって見つからないので、${SKILL_DIR} に直してください（docs/skills.md）") }
+                } catch let error as SkillInstaller.Failure {
+                    failures += 1
+                    switch error {
+                    case .notFound: print(Style.red("✗") + " \(name)：このプロジェクトに、読めるスキルがありません（一覧：vc skills install）")
+                    case .unreadable(_, let reason): print(Style.red("✗") + " \(name)：SKILL.md が読めません（\(reason)）")
+                    case .alreadyInstalled: print(Style.red("✗") + " \(name)：グローバルに、すでにあります。置き換えるなら --force")
+                    case .containsSymlink(_, let path): print(Style.red("✗") + " \(name)：シンボリックリンク（\(path)）を含むので、コピーしません")
+                    case .copyFailed(_, let reason): print(Style.red("✗") + " \(name)：コピーできません（\(reason)）")
+                    }
+                }
+            }
+            if failures > 0 { fail("\(failures) 件、コピーできませんでした") }
+            print("\n  グローバルのスキルは、どこで起動しても、いつも読み込まれます。一覧：vc skills")
         default:
-            usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable・trust・untrust）")
+            usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable・trust・untrust・install）")
         }
     }
 }

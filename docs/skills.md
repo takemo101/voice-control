@@ -87,6 +87,7 @@ Then reply done.
 | `description` | ○ | **Tiny-Jev が選ぶための説明**。日本語・短く（200 文字まで） |
 | `allowed-commands` | ○ | 実行してよいコマンド（下記）。書かなければ、そのスキルは読み込まれない |
 | `confirm` | | `true` なら、実行の前に、必ず確認する |
+| `result` | | `markdown-note` なら、**最後の返事（Markdown）を、`$TMPDIR/voice-control-notes/note-<日時>.md`（ディレクトリ 700・ファイル 600。消さない）に保存して、`open` で開く**。モデルは、本文だけを返す（「done:」を付けない）。保存先と名前は `vc` が決める。ほかの値は、読み込めない。例：`.voice-control/skills/screen-note` |
 
 本文は、実行を担当する言語モデルへの指示。**英語**で、番号つきの手順と、実際のコマンドを書く。書き方（測定で分かったこと）は、[スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md)。
 
@@ -161,6 +162,7 @@ allowed-commands: open                 # 1 つだけ
 |---|---|
 | `vc skills [list]` | 一覧：有効／無効・name・置き場所（グローバル／プロジェクト）・description。読み込めなかったスキルは、理由つきで下に出る |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・ファイルの場所 |
+| `vc skills install [<name>…] [--force]` | プロジェクトのスキルを、スクリプトごとグローバルへコピーする（名前なしは、コピーできる一覧）。同名は、`--force` で置き換える。許可するコマンドを表示する |
 | `vc skills trust` / `untrust` | 起動した場所のプロジェクトのスキルを、読み込んでよいか（trust は、許可するコマンドを表示してから信頼する） |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか。**既定は有効**。設定は `settings.json` |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | 選んで、実行する |
@@ -228,9 +230,21 @@ model loaded 4.3s (length 1024)
 - モデルへ返す出力は最大 1800 文字。画面には 8 行まで。タイムアウト（30 秒）は、モデルには `(timed out)` と伝えるが、画面には付けない（終了コードと出力だけ）。声の流れ（`vc listen --hotkey`）では、見出しを出さず、結果は画面の上にも出る（[声の入力](#声の入力vc-listen)）。
 - 画面の表示は、ファイルに残さない（画面の内容を含むため）。
 
+## 画面を読んで、メモを開くスキル（screen-note）
+
+`.voice-control/skills/screen-note`：「表示している画面のメッセージの返信案を考えて」「この画面を解説して」。`agent-desktop snapshot` で、前面のウィンドウの文字を読み、返信案・解説を Markdown で書き、`result: markdown-note` で、ファイルにして開く。許可は、**読み取りだけ**（`agent-desktop snapshot`・`get`）。入力・送信・クリックはしない。画面の文字は、他人の文章（非信頼のデータ）なので、本文で、命令に従わないと明記してある。
+
+- **残る**：メモには、画面の内容から作った文章が入る。`$TMPDIR/voice-control-notes/` に、**消さずに残る**（OS の一時領域の掃除に任せる）。ディレクトリ 700・ファイル 600。
+- **読めない画面**：Electron 系のアプリ（Slack など）は、アクセシビリティの木が取れず、読めないことがある（読めないときは、失敗と理由を返す）。
+- 使うには、グローバルへコピー：`vc skills install screen-note`（このリポジトリのルートで）。
+
 ## agent-desktop を使うスキルの要点
 
-- `agent-desktop snapshot` の JSON は、モデルの入力に収まらない。`OutputCompactor` が、操作できる要素だけの行（`@参照 [役割] 名前`）にして返す。エラーは、種類と文だけにする。
+- `agent-desktop snapshot` の JSON は、モデルの入力に収まらない。`OutputCompactor` が整形して返す。エラーは、種類と文だけにする。
+  - **`snapshot -i`（操作用）**：操作できる要素だけの行（`@参照 [役割] 名前`）。本文のような、押せない文字は、載らない。
+  - **`snapshot`（`-i` なし。読む用）**：画面の文字（`statictext`・`text`・`textarea`・`textfield` の値・`heading`・`link`）を、上から順に 1 行ずつ。参照は付かない。上限 2500 文字で、超えたら、先頭 500 文字と末尾を残す（チャットは、新しい発言が下にある）。`get` は、取った文字そのまま。
+  - agent-desktop の警告（stderr）が、結果の JSON の前に混ざっても、`{` で始まる最後の行を読む。
+  - `agent-desktop snapshot`（`--app` なし）は、**いま前面のウィンドウ**を読む。`vc run` を端末から打つと、前面は端末になる（声で `vc listen --hotkey` を使うと、前面は、利用者のアプリのまま）。
 - agent-desktop の参照（`@s17tb038elj2nz:e13`）は、長いランダムな文字列で、モデルが写し間違える（測定）。**モデルには短い別名（`@a1:e13`）を見せ、実行の直前に、本物へ戻す**（`RefAliases`）。
 - 本文に、`click @a1:e7` の形の**例**が要る。例がないと、モデルは名前を渡して失敗した（測定）。
 - アプリを開くのは、`agent-desktop launch` ではなく、`open -a`（`launch` は、アプリ一覧に壊れた記録があると TIMEOUT する）。

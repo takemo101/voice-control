@@ -21,9 +21,17 @@ extension SkillStore {
             if let why = CommandPolicy.validateEntry(c) { return .failure(ParseError(reason: "allowed-commands「\(c)」：\(why)")) }
         }
         let confirm = (fields["confirm"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
+        // 返事の扱い：書かなければ、画面に出すだけ。`markdown-note` なら、返事を、Markdown のファイルにして開く
+        var opensResultAsNote = false
+        if let result = fields["result"]?.scalar {
+            guard result == "markdown-note" else { return .failure(ParseError(reason: "result「\(result)」は使えない（markdown-note だけ）")) }
+            opensResultAsNote = true
+        }
         let trimmed = expandSkillDir(body, file: file).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
-        return .success(Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file))
+        var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
+        skill.opensResultAsNote = opensResultAsNote
+        return .success(skill)
     }
 
     /// スキルのディレクトリを表す、`allowed-commands` と本文の中の記号。
