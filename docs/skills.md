@@ -33,7 +33,7 @@ flowchart LR
 - **プロジェクトのルートは、`vc` を起動した場所**（カレントディレクトリ）。親のディレクトリへは、さかのぼらない。プロジェクトのルートで起動する。
 - **同じ名前なら、プロジェクトが、グローバルを上書きする**（`vc skills` に、上書きを表示する）。
 - ホームで起動したときは、`~/.voice-control/skills` が、グローバルと同じ場所になるので、二重には読まない。
-- **スクリプトを同梱するプロジェクトのスキルは、相対パスで書く**（個人のパスを、リポジトリに入れないため）。プロジェクトのルートで起動する前提なので、`allowed-commands` も本文も、`osascript .voice-control/skills/spotify/spotify.applescript` のように、ルートからの相対で書ける。例：このリポジトリの `.voice-control/skills/spotify/`（AppleScript の許可リスト方式。`osascript` に、任意の `-e` を渡させず、決まったスクリプトの、決まった action だけを実行させる）。使うには、このリポジトリで `vc skills trust`。
+- **スクリプトを同梱するスキルは、`${SKILL_DIR}`（そのスキルのディレクトリ）で書く**：`allowed-commands` と本文の `${SKILL_DIR}` は、`vc` が読み込むとき、SKILL.md のある場所の絶対パスに置き換える（空白などを含むパスは、`"…"` で囲む）。同じ SKILL.md が、**グローバル（`~/.voice-control/skills/`）に置いても、プロジェクトに置いても**動く（相対パスで書くと、置き場所と起動した場所が違うとき、スクリプトが見つからず失敗する）。個人のパスを、リポジトリに入れずに済む。例：このリポジトリの `.voice-control/skills/spotify/`（`osascript ${SKILL_DIR}/spotify.applescript`。AppleScript の許可リスト方式。`osascript` に、任意の `-e` を渡させず、決まったスクリプトの、決まった action だけを実行させる）。プロジェクトのスキルとして使うには、このリポジトリで `vc skills trust`。置き換えるのは `${SKILL_DIR}` だけで、ほかの `$` は、そのまま。
 - 設定（有効・無効・ホットキー・信頼したプロジェクト）は、グローバルの `~/.voice-control/settings.json` だけ。有効・無効は、**名前ごと**（同じ名前のスキルは、まとめて）。
 
 ### プロジェクトのスキルの信頼

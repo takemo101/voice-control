@@ -2,11 +2,11 @@
 name: spotify
 description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・検索・シャッフル。「音楽をかけて」「曲を流して」も
 allowed-commands:
-  - osascript .voice-control/skills/spotify/spotify.applescript
+  - osascript ${SKILL_DIR}/spotify.applescript
 ---
 Control the Spotify desktop app. Run EXACTLY ONE command for the request:
 
-  osascript .voice-control/skills/spotify/spotify.applescript <action> [argument]
+  osascript ${SKILL_DIR}/spotify.applescript <action> [argument]
 
 Use only these actions:
 - play | pause | playpause (toggle) | next | previous
