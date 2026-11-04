@@ -96,3 +96,29 @@ import Testing
         #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: warning) == warning)
     }
 }
+
+/// ブラウザの画面：メニュー・アドレス欄・ポップアップではなく、ページの本文を渡す。長いときは、雑音（短い行）から落とす。
+@Suite struct BrowserPageTests {
+    @Test func onlyThePageWithTheMostTextIsKeptAndTheBrowsersOwnTextIsDropped() {
+        let json = #"""
+        {"ok":true,"data":{"app":"Google Chrome","tree":{"role":"window","children":[
+          {"role":"toolbar","children":[{"role":"textfield","value":"https://example.com/post/1"}]},
+          {"role":"webarea","name":"Omnibox Popup","children":[{"role":"statictext","value":"[このページについて質問する]"}]},
+          {"role":"webarea","name":"ページ","children":[
+            {"role":"link","name":"ホーム"},
+            {"role":"statictext","value":"来週の勉強会、場所を新宿に変更します。"},
+            {"role":"statictext","value":"2"}]}]}}}
+        """#
+        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: json) == "app: Google Chrome\nホーム\n来週の勉強会、場所を新宿に変更します。\n2")
+    }
+
+    @Test func whenOverTheLimitShortNoiseAndRepeatsAreDroppedFirstSoTheLongTextSurvives() {
+        let post = String(repeating: "本文です。", count: 100)   // 500 文字
+        let noise = (1...300).map { #"{"role":"statictext","value":"\#($0 % 7)"},{"role":"link","name":"ホームへ戻る"}"# }.joined(separator: ",")
+        let json = #"{"ok":true,"data":{"app":"Chrome","tree":{"role":"webarea","children":[\#(noise),{"role":"statictext","value":"\#(post)"}]}}}"#
+        let text = OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: json)
+        #expect(text.contains(post))
+        #expect(!text.contains("文字を省略"))
+        #expect(text.components(separatedBy: "\n").filter { $0 == "ホームへ戻る" }.count == 1)
+    }
+}

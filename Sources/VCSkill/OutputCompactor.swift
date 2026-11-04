@@ -26,21 +26,35 @@ public enum OutputCompactor {
         guard let root = jsonObject(in: output), root["ok"] as? Bool == true, let data = root["data"] as? [String: Any] else { return nil }
         if argv.contains("get") { return (data["value"] as? String) ?? "" }
         guard argv.contains("snapshot"), !argv.contains("-i"), !argv.contains("--interactive-only"), let tree = data["tree"] as? [String: Any] else { return nil }
-        var lines = ["app: \((data["app"] as? String) ?? "?")"]
-        var found = false
+        // 本文の領域：ブラウザなら、ページ（`webarea`）のうち、文字が最も多いもの（メニュー・アドレス欄・ポップアップなど、ブラウザの画面は除く）。ほかのアプリは、ウィンドウ全体
+        var pages: [[String: Any]] = []
+        func findPages(_ node: [String: Any]) {
+            if node["role"] as? String == "webarea" { pages.append(node); return }
+            for child in (node["children"] as? [[String: Any]]) ?? [] { findPages(child) }
+        }
+        findPages(tree)
+        var body = pages.map(texts(in:)).max { $0.reduce(0) { $0 + $1.count } < $1.reduce(0) { $0 + $1.count } } ?? texts(in: tree)
+        // 上限を超えるときは、先に、雑音（3 文字以下の行＝件数・アイコン・重複）を落とす。本文は、長い行
+        if (body.reduce(0) { $0 + $1.count + 1 }) > maxReadChars {
+            var seen = Set<String>()
+            body = body.filter { $0.count > 3 && seen.insert($0).inserted }
+        }
+        return (["app: \((data["app"] as? String) ?? "?")"] + (body.isEmpty ? ["(no readable text)"] : body)).joined(separator: "\n")
+    }
+
+    /// ノードの下の、画面の文字（上から順。連続する同じ行は、1 つ）。
+    static func texts(in node: [String: Any]) -> [String] {
+        var lines: [String] = []
         func walk(_ node: [String: Any]) {
             if let role = node["role"] as? String, readableRoles.contains(role) {
                 // 入力欄は、値（入れた文字・本文）だけ（空の欄の名前＝見出しは、ここでは要らない）。ほかは、値、なければ名前
                 let value = (node["value"] as? String) ?? (role == "textfield" ? nil : node["name"] as? String)
-                if let text = value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty, text != lines.last {
-                    lines.append(text); found = true
-                }
+                if let text = value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty, text != lines.last { lines.append(text) }
             }
             for child in (node["children"] as? [[String: Any]]) ?? [] { walk(child) }
         }
-        walk(tree)
-        if !found { lines.append("(no readable text)") }
-        return lines.joined(separator: "\n")
+        walk(node)
+        return lines
     }
 
     /// agent-desktop の出力の JSON。結果は 1 行の JSON で、前に、警告（stderr。標準出力と混ざる）の行が付くことがある：全体が JSON でなければ、`{` で始まる最後の行を読む。
