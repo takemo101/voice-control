@@ -35,11 +35,11 @@ README.md              概要・使い方
 SPEC.md                製品要件・受け入れ条件（実装の状態つき）・対象外・未決事項
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
-install.sh             コマンド 1 つで、最新の Release の vc を入れる（`curl … | bash`。SHA-256 を照合し、`vc model download` まで）
+install.sh             コマンド 1 つで、最新の Release の vc を入れる（`curl … | bash`。SHA-256 を照合し、`vc model download` と `vc doctor` まで）
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・package・install・uninstall・eval・fixture・vc）
 Sources/
-  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
+  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`doctor`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
   Fixture/             検証用の自作ウィンドウ
   VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図、ProcessRunner：外部コマンドの実行）
   VCDecision/          選択と判断の土台

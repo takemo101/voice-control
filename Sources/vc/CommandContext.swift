@@ -34,10 +34,18 @@ struct CommandContext {
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
     /// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
     func resolveModelDir() -> URL {
-        let candidates = [options.model, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], ModelStore.defaultDirectory().path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
-        let found = candidates.first { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }
-        guard let found else { fail("モデルが見つかりません（探した場所: \(candidates.joined(separator: ", "))）。vc model download で取得") }
-        return URL(fileURLWithPath: found)
+        guard let found = findModelDirectory() else { fail("モデルが見つかりません（探した場所: \(modelCandidates.joined(separator: ", "))）。vc model download で取得") }
+        return found
+    }
+
+    /// モデルを探す場所（resolveModelDir の順）。
+    var modelCandidates: [String] {
+        [options.model, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], ModelStore.defaultDirectory().path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
+    }
+
+    /// 見つかったモデルの場所。なければ `nil`（`fail` しない：`vc doctor` が、状態を調べるのに使う）。
+    func findModelDirectory() -> URL? {
+        modelCandidates.first { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }.map { URL(fileURLWithPath: $0) }
     }
 
     func loadJev() -> TinyJev {

@@ -8,7 +8,7 @@
 #
 # やること：Release の tar.gz と .sha256 を取得（https だけ）→ SHA-256 を照合 → 取り出した vc を実行して、版を確かめる
 # → vc だけを BIN_DIR へ置く（確かめに通らなければ、置かない。いまの vc は、そのまま）→ `vc model download`
-# （Tiny-Jev。約 1.2 GB。すでにあれば省略される）。
+# （Tiny-Jev。約 1.2 GB。すでにあれば省略される）→ `vc doctor`（入れた vc にあれば。Apple Intelligence などが使えないとき、手順を見せる）。
 # 照合の意味：.sha256 は、同じ出どころ（GitHub）から取るので、転送の途中の破損・欠けを見つける。本物であること（真正性）は、
 # GitHub への https に頼る。
 # やらないこと：設定・スキル・許可（アクセシビリティ・マイク）には触れない。agent-desktop は入れない（なければ、知らせるだけ）。
@@ -107,6 +107,10 @@ main() {
             || { echo "install.sh: モデルの取得に失敗しました。vc は入っています。あとで：$bin/vc model download" >&2; exit 1; }
     else
         echo "モデルは取得していません。あとで：vc model download"
+    fi
+    # この vc に doctor があれば、環境（Apple Intelligence・Tiny-Jev・agent-desktop・許可）を確かめて、使えないものの手順を見せる（古い Release には、ない）
+    if "$bin/vc" --help 2>/dev/null | grep -q "^  doctor "; then
+        "$bin/vc" doctor </dev/null || true
     fi
     echo "使い方：vc --help / vc skills / vc run \"…\" --dry-run"
 }

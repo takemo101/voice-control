@@ -53,3 +53,20 @@ import Testing
         #expect(ModelStore.verify(spec.files[0], in: dest))
     }
 }
+
+/// Hugging Face のキャッシュのように、ファイルが、シンボリックリンクでできている置き場所でも、指す先の大きさで、判定する。
+@Suite struct ModelStoreSymlinkTests {
+    @Test func aSymlinkedFileIsJudgedByTheSizeOfItsTarget() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("vc-symlink-\(UUID().uuidString)")
+        let real = root.appendingPathComponent("real"), links = root.appendingPathComponent("links")
+        try fm.createDirectory(at: real, withIntermediateDirectories: true)
+        try fm.createDirectory(at: links, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("hello".utf8).write(to: real.appendingPathComponent("f.bin"))
+        try fm.createSymbolicLink(at: links.appendingPathComponent("f.bin"), withDestinationURL: real.appendingPathComponent("f.bin"))
+        let file = ModelFile(name: "f.bin", bytes: 5, sha256: "")
+        #expect(ModelStore.state(of: file, in: links) == .present)
+        #expect(ModelStore.state(of: ModelFile(name: "f.bin", bytes: 6, sha256: ""), in: links) == .wrongSize(5))
+    }
+}

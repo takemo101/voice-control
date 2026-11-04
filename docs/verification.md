@@ -137,6 +137,16 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 | 文書 | リンク・見出しのアンカーの切れは 0（一時の script。リポジトリには置いていない）。廃止の前も、切れは 0（ファイルのパスの照合で残るのは、構成説明が「なくした」と書いた古い検査の名前と、この記録の、削除済みのコーパス名だけ） |
 | 配布物 | `just build`・`just package`（検査を含む）が通った |
 
+### 動かす前の環境の確認（`vc doctor`・Apple Intelligence。2026-11-04）
+
+`vc doctor` と、`vc run`・`vc listen` の Apple Intelligence の確認（SPEC F14）を足した。
+
+| 項目 | 結果 |
+|---|---|
+| `vc doctor`（この Mac） | Apple Intelligence・Tiny-Jev・agent-desktop・アクセシビリティ・マイク・設定ファイルが、すべて使える状態で、終了コード 0。モデルなし（Tiny-Jev が見つからない）で終了コード 1 と手順、PATH に agent-desktop なし・壊れた設定ファイルで警告（終了コード 0 のまま）。 |
+| Apple Intelligence が使えない状態 | **作業用のコピー**（`AppleIntelligence.current()` を `.unavailable(.notEnabled)` に固定してビルド）で、`vc run`・`vc listen --hotkey`・`vc doctor` が、理由と手順（システム設定 > Apple Intelligence と Siri）を示し、終了コード 1 で終わることを確認した。マイクの許可は、聞かれる前に終わる。**実際にオフにした Mac では、未確認** |
+| 単体テスト | 状態の写し方（非対応・オフ・準備中・使える）・理由ごとの手順・`DoctorReport`（必須だけが失敗・手順の表示・まとめ）・マイクの許可が失敗にならないこと |
+
 ## 人間の確認が要るもの（AI は合格にしない）
 
 - マイクの実録音（許可ダイアログ・実際の声での認識・遅延）。`vc listen`・`--hotkey` は、実装したが、実行していない。声 → スキル（既定スキルを含む）→ 画面の上の表示の通し。**認識中・実行中・確認の待ちの Esc**（実際の声の流れで。スピーカーから流した音声は、マイクに拾われなかった）。言語モデルの応答中の取りやめ。
@@ -144,6 +154,7 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 - 実アプリ（Safari・Chrome・Slack・Spotify など）での動き。
 - Shift の長押しの使い心地・誤作動（日常のタイピング中）。
 - アクセシビリティ・オートメーション・マイクの許可の流れ。
+- Apple Intelligence をオフにした Mac で、`vc run`・`vc listen`・`vc doctor` が、理由と手順を示して終わるか（SPEC A18。オンにしたあとの動きも）。
 
 ## 未実施・未確認
 
