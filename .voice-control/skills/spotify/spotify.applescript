@@ -9,7 +9,7 @@ on run argv
 	set theArg to ""
 	if (count of argv) ≥ 2 then set theArg to item 2 of argv
 	-- アプリを要する action は、起動していなければ、起動して、受け付けるまで待つ（「起動して再生して」が、1 回の命令で通るように）
-	if {"play", "pause", "playpause", "next", "previous", "volume-up", "volume-down", "volume", "shuffle", "repeat", "search"} contains theAction then my ensureRunning()
+	if {"play", "pause", "playpause", "next", "previous", "volume-up", "volume-down", "volume", "mute", "shuffle", "repeat", "search"} contains theAction then my ensureRunning()
 
 	if theAction is "open" then
 		if application "Spotify" is running then
@@ -45,6 +45,8 @@ on run argv
 		tell application "Spotify" to previous track
 		return "ok"
 	else if theAction is "volume-up" or theAction is "volume-down" then
+		-- 10 ずつ動かすだけ。数を渡されたら、黙って 10 だけ動かさず（「最大まで」が、10 だけ上がって、成功に見える）、正しい使い方を返す
+		if theArg is not "" then return "error: " & theAction & " takes no argument (it changes the volume by 10). To set a level use: volume <0-100> (volume max = 100, volume min = 0)"
 		tell application "Spotify"
 			set v to sound volume
 			if theAction is "volume-up" then set v to v + 10
@@ -54,8 +56,14 @@ on run argv
 			set sound volume to v
 			return "ok: volume " & v
 		end tell
+	else if theAction is "mute" then
+		-- 音量を 0 にする（Spotify だけ。システムの消音ではない）
+		tell application "Spotify" to set sound volume to 0
+		return "ok: volume 0"
 	else if theAction is "volume" then
-		-- 0〜100 の整数だけ
+		-- 0〜100 の整数。max は 100、min は 0
+		if theArg is "max" then set theArg to "100"
+		if theArg is "min" then set theArg to "0"
 		try
 			set v to theArg as integer
 		on error
