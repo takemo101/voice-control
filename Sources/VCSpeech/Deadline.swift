@@ -14,11 +14,9 @@ func withDeadline<T: Sendable>(seconds: TimeInterval, _ operation: @escaping @Se
             let work = Task {
                 do { race.finish(.success(try await operation())) } catch { race.finish(.failure(error)) }
             }
-            let timer = Task {
-                // 取りやめられたら（結果が先に決まったとき）、何もしない
-                guard (try? await Task.sleep(nanoseconds: UInt64(min(max(0, seconds), 1e9) * 1_000_000_000))) != nil else { return }   // 上限（約 31 年）を置く：極端に大きい値で、変換が落ちないように
-                race.finish(.failure(DeadlineExceeded()))
-            }
+            // 時間切れは、GCD のタイマーで測る：Swift の並行処理のスレッド（`Task.sleep`）は、ほかの処理（止まった認識・外部コマンドの待ち）で塞がると、タイマーが遅れる。ここは、遅れてはいけない
+            let timer = DispatchWorkItem { race.finish(.failure(DeadlineExceeded())) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + min(max(0, seconds), 1e9), execute: timer)   // 上限（約 31 年）を置く：極端に大きい値で、変換が落ちないように
             race.onSettled { work.cancel(); timer.cancel() }
         }
     } onCancel: {
