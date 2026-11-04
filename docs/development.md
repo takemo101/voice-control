@@ -111,7 +111,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 配布物：`vc-<版>-macos-arm64.tar.gz`（中身：`vc`・`LICENSE`・`README.md`・`skills/voice-control-skill-author/`）と、`.sha256`。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が `vc model download` で取得する）。署名は ad-hoc（Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから）。
 
-**利用者向けの入れ方**：リポジトリ直下の [install.sh](../install.sh)（`curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash`）。最新の Release（`/releases/latest` の転送先のタグ）の tar.gz と `.sha256` を取得して照合し、`vc` だけを `~/.local/bin` へ置き、`vc --version` で確かめて、`vc model download` を実行する。`--no-model`・`--version <版>`・`--bin-dir <場所>`。変更したら、**Release を作ったあとの版で**、一時の `--bin-dir` に入れて確かめる（`VC_RELEASE_BASE_URL` で取得元を差し替えて、SHA-256 の不一致も試せる）。`main` の install.sh が、最新の Release を入れるので、Release の tar.gz の構成（`vc-<版>-macos-arm64/vc`）を変えるときは、一緒に直す。
+**利用者向けの入れ方**：リポジトリ直下の [install.sh](../install.sh)（`curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash`）。最新の Release（`/releases/latest` の転送先のタグ）の tar.gz と `.sha256` を取得して照合し、取り出した `vc` を実行して版を確かめ（通らなければ、いまの `vc` を置き換えない）、`~/.local/bin` へ置き、`vc model download` を実行する。https だけで取得する。`--no-model`・`--version <版>`・`--bin-dir <場所>`。変更したら、**Release を作ったあとの版で**、一時の `--bin-dir` に入れて確かめる（`VC_RELEASE_BASE_URL` で取得元を差し替えて、SHA-256 の不一致も試せる）。`main` の install.sh が、最新の Release を入れるので、Release の tar.gz の構成（`vc-<版>-macos-arm64/vc`）を変えるときは、一緒に直す。
 
 **手順**
 
