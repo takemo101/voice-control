@@ -110,7 +110,7 @@ main() {
     fi
     # この vc に doctor があれば、環境（Apple Intelligence・Tiny-Jev・agent-desktop・許可）を確かめて、使えないものの手順を見せる（古い Release には、ない）
     if "$bin/vc" --help 2>/dev/null | grep -q "^  doctor "; then
-        echo; "$bin/vc" doctor </dev/null || true
+        "$bin/vc" doctor </dev/null || true
     fi
     echo "使い方：vc --help / vc skills / vc run \"…\" --dry-run"
 }

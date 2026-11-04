@@ -154,6 +154,7 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 - 実アプリ（Safari・Chrome・Slack・Spotify など）での動き。
 - Shift の長押しの使い心地・誤作動（日常のタイピング中）。
 - アクセシビリティ・オートメーション・マイクの許可の流れ。
+- Apple Intelligence をオフにした Mac で、`vc run`・`vc listen`・`vc doctor` が、理由と手順を示して終わるか（SPEC A18。オンにしたあとの動きも）。
 
 ## 未実施・未確認
 

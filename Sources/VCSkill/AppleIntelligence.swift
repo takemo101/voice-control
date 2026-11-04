@@ -21,7 +21,7 @@ public enum AppleIntelligence {
         /// 何が使えないか（1 文）。
         public var summary: String {
             switch self {
-            case .deviceNotEligible: return "この Mac は、Apple Intelligence に対応していません"
+            case .deviceNotEligible: return "この Mac（または環境）は、Apple Intelligence に対応していません"
             case .notEnabled: return "Apple Intelligence が、オフです"
             case .modelNotReady: return "Apple の言語モデルが、まだ使えません（ダウンロード中など）"
             case .unknown: return "Apple の言語モデルが、使えません"
@@ -32,7 +32,7 @@ public enum AppleIntelligence {
         public var remedy: String {
             switch self {
             case .deviceNotEligible:
-                return "スキルの実行には、Apple Intelligence が使える Mac（Apple silicon の M1 以降・macOS 26 以降）が要ります"
+                return "Apple Intelligence は、対応する Mac・macOS・言語と地域でだけ使えます（仮想マシンなどでは、使えないことがあります）。スキルの実行には、これが要ります"
             case .notEnabled:
                 return "システム設定 > Apple Intelligence と Siri で、Apple Intelligence をオンにしてください（オンにすると、言語モデルのダウンロードが始まります）"
             case .modelNotReady:

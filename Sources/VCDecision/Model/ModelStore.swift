@@ -55,7 +55,8 @@ public enum ModelStore {
 
     /// ファイルの有無と大きさ（SHA-256 は計算しない。速い確認）。
     public static func state(of file: ModelFile, in directory: URL) -> FileState {
-        let path = directory.appendingPathComponent(file.name).path
+        // シンボリックリンクは、たどる（リンク自身の大きさではなく、指す先の大きさを見る。Hugging Face のキャッシュは、ファイルのリンクでできている）
+        let path = directory.appendingPathComponent(file.name).resolvingSymlinksInPath().path
         // try?: ファイルがなければ、『ない』（.missing）として扱う
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: path), let size = attrs[.size] as? Int64 else { return .missing }
         return size == file.bytes ? .present : .wrongSize(size)

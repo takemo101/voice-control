@@ -45,7 +45,7 @@ struct ModelCommand: Command {
                 }
                 kv(file.name, label, width: 18)
             }
-            let candidates = [context.options.model, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], dir.path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
+            let candidates = context.modelCandidates
             if let used = candidates.first(where: { FileManager.default.fileExists(atPath: $0 + "/tokenizer.json") }) {
                 kv("使う場所", used, width: 18)
             } else {

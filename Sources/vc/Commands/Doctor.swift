@@ -30,7 +30,9 @@ struct DoctorCommand: Command {
                     fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
         checks.append(Self.microphoneCheck(MicRecorder.permission))
         let (_, problem) = Settings.loadOrDefault()
-        checks.append(problem.map { .warn("設定ファイル", "読めません", fix: "\($0)") } ?? .ok("設定ファイル", "読めます（\(VoiceControlHome.settingsFile.path)）"))
+        let settingsFile = VoiceControlHome.settingsFile
+        let settingsDetail = FileManager.default.fileExists(atPath: settingsFile.path) ? "読めます（\(settingsFile.path)）" : "まだありません（既定の設定で動きます）"
+        checks.append(problem.map { .warn("設定ファイル", "読めません", fix: "\($0)") } ?? .ok("設定ファイル", settingsDetail))
 
         let report = DoctorReport(checks: checks)
         heading("vc doctor" + Style.dim("（vc \(AppInfo.version)・macOS \(Self.osVersion)）"))
@@ -54,9 +56,14 @@ struct DoctorCommand: Command {
     }
 
     static func tinyJevCheck(_ context: CommandContext) -> DoctorCheck {
-        let fix = "vc model download（約 1.2 GB。SHA-256 を検証して ~/.voice-control/models に置く）"
+        let fix = "vc model download（約 1.2 GB。SHA-256 を検証して \(ModelStore.defaultDirectory().path) に置く）"
         guard let dir = context.findModelDirectory() else { return .fail("Tiny-Jev", "モデルが見つかりません", fix: fix) }
-        guard ModelStore.isInstalled(in: dir) else { return .fail("Tiny-Jev", "モデルのファイルが、そろっていません（\(dir.path)）", fix: fix) }
+        guard ModelStore.isInstalled(in: dir) else {
+            // 使う場所が、既定の置き場所ではない（--model・VC_MODEL_DIR・./models）と、vc model download では、直らない
+            let custom = dir.standardizedFileURL.path != ModelStore.defaultDirectory().standardizedFileURL.path
+            return .fail("Tiny-Jev", "モデルのファイルが、そろっていません（\(dir.path)）",
+                         fix: custom ? "\(dir.path) を直すか、--model・VC_MODEL_DIR を外して、\(fix)" : fix)
+        }
         return .ok("Tiny-Jev", "あります（\(dir.path)）")
     }
 

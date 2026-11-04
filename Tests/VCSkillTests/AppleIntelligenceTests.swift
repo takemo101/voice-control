@@ -14,7 +14,7 @@ import Testing
     @Test func eachReasonTellsTheUserWhatToDoNext() {
         #expect(AppleIntelligence.Reason.notEnabled.remedy.contains("オンにして"))
         #expect(AppleIntelligence.Reason.modelNotReady.remedy.contains("待って"))
-        #expect(AppleIntelligence.Reason.deviceNotEligible.remedy.contains("使える Mac"))
+        #expect(AppleIntelligence.Reason.deviceNotEligible.remedy.contains("対応する"))
         let reasons: [AppleIntelligence.Reason] = [.deviceNotEligible, .notEnabled, .modelNotReady, .unknown]
         #expect(Set(reasons.map(\.summary)).count == reasons.count)
         #expect(Set(reasons.map(\.remedy)).count == reasons.count)
