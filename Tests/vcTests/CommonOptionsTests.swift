@@ -54,6 +54,17 @@ import Testing
     }
 }
 
+/// 音声入力のトリガー（`--dictate-trigger`）：どの位置でも取り除く。
+@Suite struct DictateTriggerOptionTests {
+    @Test func theDictateTriggerIsTakenFromAnyPositionAndTheDefaultIsNone() {
+        var a = Arguments(["listen", "--dictate-trigger", "ctrl", "--hotkey"])
+        #expect(CommonOptions(consuming: &a).dictateTrigger == "ctrl")
+        #expect(a.remaining == ["listen"])
+        var b = Arguments(["listen"])
+        #expect(CommonOptions(consuming: &b).dictateTrigger == nil)
+    }
+}
+
 /// 使う音声認識（`--stt`）：どの位置でも取り除く。名前の検査は `SpeechChoice.parse`（`VCSpeechTests`）。
 @Suite struct SttOptionTests {
     @Test func theSttOptionIsTakenFromAnyPositionAndTheDefaultIsNone() {

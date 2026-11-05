@@ -18,7 +18,8 @@ struct HudPreviewCommand: Command {
         let chip = context.resolveHotKey().spec.displayName
         func sample(_ stage: String) -> HUDContent? {
             switch stage {
-            case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します", chip: chip)
+            case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
+            case "thinking": return HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip)
             case "working":
                 var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "音量を50にして", skill: "spotify")
                 c.steps = [.init(command: "osascript …/spotify.applescript volume 50")]
@@ -51,7 +52,7 @@ struct HudPreviewCommand: Command {
             default: return nil
             }
         }
-        let stages = ["recording", "working", "confirm", "success", "failure", "denied", "long"]
+        let stages = ["recording", "thinking", "working", "confirm", "success", "failure", "denied", "long"]
         if let only { guard sample(only) != nil else { usageError("hud-preview", "知らない --stage: \(only)（\(stages.joined(separator: "・"))）") } }
         for (i, stage) in (only.map { [$0] } ?? stages).enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * seconds) {
@@ -60,6 +61,15 @@ struct HudPreviewCommand: Command {
                 if stage == "confirm" { HUD.shared.answers.set { print("答え: " + ($0 ? "実行する" : "やめる")); fflush(stdout) } }
             }
         }
+        // 録音中の波形の見本：話しているような音量（うねりと、間）を流す
+        let levelStart = Date()
+        let levelTimer = Timer(timeInterval: 1.0 / 40, repeats: true) { _ in
+            let t = Date().timeIntervalSince(levelStart)
+            let burst = max(0, sin(t * 1.7)) * (0.55 + 0.45 * sin(t * 0.63))
+            let syllable = 0.5 + 0.5 * sin(t * 13.0 + sin(t * 3.1) * 2)
+            HUD.shared.pushLevel(Float(min(1, burst * syllable * 1.1)))
+        }
+        RunLoop.main.add(levelTimer, forMode: .common)
         let total = Double(only == nil ? stages.count : 1) * seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + total) { HUD.shared.hide(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) } }
         NSApplication.shared.setActivationPolicy(.accessory)

@@ -3,6 +3,7 @@ import Foundation
 /// 設定（`~/.voice-control/settings.json`）。
 /// - `disabledSkills`：スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
 /// - `hotkey`：押している間だけ聞くトリガーの書き方（文字列。解釈は Speech 層）。なければ、`shift` の長押し。
+/// - `dictateHotkey`：音声入力（`vc dictate`）のトリガー。なければ、声で頼むトリガー（`hotkey`）と同じ。**設定すると、`vc listen --hotkey` も、このトリガーで音声入力になる**（トリガーで切り替わる）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`。解釈は Skill 層）。なければ、Apple。
@@ -10,6 +11,7 @@ import Foundation
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
     public var hotkey: String?
+    public var dictateHotkey: String?
     public var stt: String?
     public var mute: Bool?
     public var engine: String?
@@ -22,6 +24,7 @@ public struct Settings: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
         hotkey = try c.decodeIfPresent(String.self, forKey: .hotkey)
+        dictateHotkey = try c.decodeIfPresent(String.self, forKey: .dictateHotkey)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         engine = try c.decodeIfPresent(String.self, forKey: .engine)

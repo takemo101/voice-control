@@ -13,6 +13,10 @@ import AppKit
     private static let width: CGFloat = 468
     private static let inset = NSEdgeInsets(top: 14, left: 18, bottom: 15, right: 18)
     private static var rowWidth: CGFloat { width - inset.left - inset.right }
+    /// 録音中・認識中の、小さなカプセル（波形・考え中のドットだけ。本文はない）。
+    private static let compactWidth: CGFloat = 376
+    private static let compactInset = NSEdgeInsets(top: 13, left: 18, bottom: 13, right: 18)
+    private static var compactRowWidth: CGFloat { compactWidth - compactInset.left - compactInset.right }
     /// 本文の高さの上限。超えたら、スクロールする（最新の行が見える位置で、出す）。
     private static let maxBodyHeight: CGFloat = 300
 
@@ -33,6 +37,10 @@ import AppKit
     /// 出している間、マウスのある画面を見張る（別のディスプレイへ移ったら、パネルも、そこへ移る）。
     private var followTimer: Timer?
     private var panelHeight: CGFloat = 0
+    private var panelWidth: CGFloat = 468
+    private var widthConstraint: NSLayoutConstraint?
+    private var glow: GlowBorderView?
+    private weak var waveform: WaveformView?
     private var visible = false
     private var generation = 0
 
@@ -44,6 +52,11 @@ import AppKit
     /// 出す（すでに出ていれば、中身を差し替える）。`hideAfter` 秒後に消す（なければ、`hide()` まで出したまま）。
     nonisolated func show(_ content: HUDContent, hideAfter: TimeInterval? = nil) {
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { render(content, hideAfter: hideAfter) } }
+    }
+
+    /// 録音中の音量（0〜1）。波形に出す（録音中のカプセルが出ていなければ、何もしない）。どのスレッドから呼んでもよい。
+    nonisolated func pushLevel(_ level: Float) {
+        DispatchQueue.main.async { [self] in MainActor.assumeIsolated { waveform?.push(level) } }
     }
 
     nonisolated func hide() {
@@ -64,22 +77,34 @@ import AppKit
         for view in stack.arrangedSubviews where view !== scroll { stack.removeArrangedSubview(view); view.removeFromSuperview() }
         for view in body.arrangedSubviews { body.removeArrangedSubview(view); view.removeFromSuperview() }
         let accent = Self.accent(content.phase)
+        let isCompact = content.isCompact
+        waveform = nil
+        stack.edgeInsets = isCompact ? Self.compactInset : Self.inset
+        widthConstraint?.constant = isCompact ? Self.compactWidth : Self.width
+        let radius: CGFloat = isCompact ? 24 : HUDStyle.cornerRadius
+        background?.layer?.cornerRadius = radius
+        glow?.cornerRadius = radius
+        glow?.show(colors: Self.glowColors(content))
 
-        stack.insertArrangedSubview(fixed(header(content, accent: accent)), at: 0)
-        if let hint = content.hint { body.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
-        if let heard = content.heard, !heard.isEmpty {
-            body.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
+        if isCompact {
+            stack.insertArrangedSubview(fixed(compactView(content), width: Self.compactRowWidth), at: 0)
+        } else {
+            stack.insertArrangedSubview(fixed(header(content, accent: accent)), at: 0)
+            if let hint = content.hint { body.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
+            if let heard = content.heard, !heard.isEmpty {
+                body.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
+            }
+            if !content.steps.isEmpty || content.reply != nil {
+                let divider = NSBox()
+                divider.boxType = .separator
+                body.addArrangedSubview(fixed(divider))
+            }
+            for step in content.steps { body.addArrangedSubview(fixed(stepRow(step))) }
+            if let reply = content.reply, !reply.isEmpty {
+                body.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
+            }
+            if content.choices { body.addArrangedSubview(fixed(choiceRow())) }
         }
-        if !content.steps.isEmpty || content.reply != nil {
-            let divider = NSBox()
-            divider.boxType = .separator
-            body.addArrangedSubview(fixed(divider))
-        }
-        for step in content.steps { body.addArrangedSubview(fixed(stepRow(step))) }
-        if let reply = content.reply, !reply.isEmpty {
-            body.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
-        }
-        if content.choices { body.addArrangedSubview(fixed(choiceRow())) }
 
         // 本文が、上限を超えたら、スクロールにして、最新の行（下）を見せる
         scroll.isHidden = body.arrangedSubviews.isEmpty
@@ -99,19 +124,22 @@ import AppKit
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
         // いま使っている画面（マウスのある画面）の、上の中央
-        let final = ScreenPlacement.hudFrame(in: ScreenPlacement.currentVisibleFrame(), width: Self.width, height: height)
+        let width = isCompact ? Self.compactWidth : Self.width
+        let final = ScreenPlacement.hudFrame(in: ScreenPlacement.currentVisibleFrame(), width: width, height: height)
         panelHeight = height
+        panelWidth = width
 
         if !visible {
-            panel.setFrame(final.offsetBy(dx: 0, dy: 10), display: false)
+            panel.setFrame(final.offsetBy(dx: 0, dy: 16), display: false)
             panel.alphaValue = 0
             panel.orderFrontRegardless()
             visible = true
             startFollowing()
         }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = 0.32
+            // 少し行き過ぎて、戻る（ばねのような出方）
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1.25, 0.36, 1.0)
             panel.animator().alphaValue = 1
             panel.animator().setFrame(final, display: true)
         }
@@ -145,7 +173,7 @@ import AppKit
     private func followScreen() {
         guard visible, let panel, let screen = ScreenPlacement.current() else { return }
         if screen.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) { return }   // すでに、その画面
-        let target = ScreenPlacement.hudFrame(in: screen.visibleFrame, width: Self.width, height: panelHeight)
+        let target = ScreenPlacement.hudFrame(in: screen.visibleFrame, width: panelWidth, height: panelHeight)
         panel.setFrame(target, display: true)
     }
 
@@ -235,8 +263,21 @@ import AppKit
             stack.topAnchor.constraint(equalTo: background.topAnchor),
             stack.leadingAnchor.constraint(equalTo: background.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            stack.widthAnchor.constraint(equalToConstant: Self.width),
         ])
+        let widthConstraint = stack.widthAnchor.constraint(equalToConstant: Self.width)
+        widthConstraint.isActive = true
+        // 光る縁（録音中・考え中・確認）。クリックは通す
+        let glow = GlowBorderView(frame: .zero)
+        glow.translatesAutoresizingMaskIntoConstraints = false
+        background.addSubview(glow, positioned: .above, relativeTo: stack)
+        NSLayoutConstraint.activate([
+            glow.topAnchor.constraint(equalTo: background.topAnchor),
+            glow.bottomAnchor.constraint(equalTo: background.bottomAnchor),
+            glow.leadingAnchor.constraint(equalTo: background.leadingAnchor),
+            glow.trailingAnchor.constraint(equalTo: background.trailingAnchor),
+        ])
+        self.widthConstraint = widthConstraint
+        self.glow = glow
 
         // 本文（スクロールできる）。見出しは、`render` が、この上に入れる
         let body = NSStackView()
@@ -323,6 +364,7 @@ import AppKit
             b.widthAnchor.constraint(equalToConstant: 140).isActive = true
             return b
         }
+        row.edgeInsets = NSEdgeInsets(top: 3, left: 4, bottom: 5, right: 4)   // フォーカスの枠が、切れないように
         choiceButtons = [button("実行する", tint: .systemGreen, yes: true), button("やめる", tint: nil, yes: false)]
         choiceButtons.forEach(row.addArrangedSubview)
         return row
@@ -335,15 +377,7 @@ import AppKit
         row.spacing = 9
 
         if content.phase == .working {
-            let spinner = NSProgressIndicator()
-            spinner.style = .spinning
-            spinner.controlSize = .small
-            spinner.isIndeterminate = true
-            spinner.startAnimation(nil)
-            spinner.translatesAutoresizingMaskIntoConstraints = false
-            spinner.widthAnchor.constraint(equalToConstant: 18).isActive = true
-            spinner.heightAnchor.constraint(equalToConstant: 18).isActive = true
-            row.addArrangedSubview(spinner)
+            row.addArrangedSubview(ThinkingDotsView(tint: NSColor.systemTeal))
         } else {
             let symbol: String
             switch content.phase {
@@ -367,6 +401,17 @@ import AppKit
                 pulse.autoreverses = true
                 pulse.repeatCount = .infinity
                 icon.layer?.add(pulse, forKey: "pulse")
+            }
+            if content.phase == .success || content.phase == .failure {
+                // 出るとき、ぽんと弾む
+                icon.wantsLayer = true
+                let pop = CASpringAnimation(keyPath: "transform.scale")
+                pop.fromValue = 0.4
+                pop.toValue = 1.0
+                pop.damping = 9
+                pop.initialVelocity = 6
+                pop.duration = pop.settlingDuration
+                icon.layer?.add(pop, forKey: "pop")
             }
             row.addArrangedSubview(icon)
         }
@@ -431,6 +476,56 @@ import AppKit
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = 2
+        return column
+    }
+
+    /// 光る縁の色（回る）。録音中は赤〜橙、考え中は青〜紫、確認は黄。ほかは、なし。
+    private static func glowColors(_ content: HUDContent) -> [NSColor]? {
+        if content.choices { return [NSColor(srgbRed: 1, green: 0.84, blue: 0.04, alpha: 1), NSColor(srgbRed: 1, green: 0.62, blue: 0.04, alpha: 1)] }
+        switch content.phase {
+        case .recording: return [NSColor(srgbRed: 1, green: 0.27, blue: 0.23, alpha: 1), NSColor(srgbRed: 1, green: 0.62, blue: 0.04, alpha: 1), NSColor(srgbRed: 1, green: 0.22, blue: 0.37, alpha: 1)]
+        case .working: return [NSColor(srgbRed: 0.39, green: 0.82, blue: 1, alpha: 1), NSColor(srgbRed: 0.75, green: 0.35, blue: 0.95, alpha: 1), NSColor(srgbRed: 0.37, green: 0.36, blue: 0.9, alpha: 1)]
+        default: return nil
+        }
+    }
+
+    /// 録音中・認識中の、小さなカプセルの中身。録音中：脈打つ点・波形・経過時間。認識中：考え中のドット・光る題。
+    private func compactView(_ content: HUDContent) -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        let red = NSColor(srgbRed: 1, green: 0.27, blue: 0.23, alpha: 1)
+        if content.phase == .recording {
+            row.addArrangedSubview(PulseDotView(tint: red))
+            let wave = WaveformView(tint: red)
+            wave.translatesAutoresizingMaskIntoConstraints = false
+            wave.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            wave.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+            waveform = wave
+            row.addArrangedSubview(wave)
+            row.addArrangedSubview(ElapsedLabel())
+        } else {
+            row.addArrangedSubview(ThinkingDotsView(tint: NSColor(srgbRed: 0.39, green: 0.82, blue: 1, alpha: 1)))
+            let title = ShimmerLabel(content.title, font: .systemFont(ofSize: 15, weight: .semibold), color: .white)
+            title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            row.addArrangedSubview(title)
+            let spacer = NSView()
+            spacer.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+            row.addArrangedSubview(spacer)
+        }
+        if let chip = content.chip { row.addArrangedSubview(HUDStyle.pill(chip, fg: HUDStyle.secondary, bg: NSColor(white: 1, alpha: 0.12))) }
+
+        guard let hint = content.hint else { return row }
+        let column = NSStackView(views: [fixed(row, width: Self.compactRowWidth)])
+        column.orientation = .vertical
+        column.alignment = .leading
+        column.spacing = 6
+        let hintLabel = NSTextField(labelWithString: hint)
+        hintLabel.font = .systemFont(ofSize: 11)
+        hintLabel.textColor = HUDStyle.secondary
+        hintLabel.lineBreakMode = .byTruncatingTail
+        column.addArrangedSubview(fixed(hintLabel, width: Self.compactRowWidth))
         return column
     }
 

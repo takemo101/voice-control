@@ -30,6 +30,7 @@
 | 「Safari を開いて」 | アプリを開く | 自分で書く（[例](#自分のスキルを書く)） |
 | 上のどれでもない依頼 | 組み込みの `default` スキルが、基本のコマンドで実行する | `default` |
 
+- **音声入力だけ**：Shift を押している間だけ録音し、離すと、文字にして、**いま使っているアプリへ、そのまま入力**します（`vc dictate`。スキルは使いません）。
 - **声で頼む**：Shift を押している間だけ録音し、離すと実行します（`vc listen --hotkey`）。Esc で取りやめられます。
 - **文で頼む**：`vc run "次の曲にして"`。何をするかだけ見たいときは `--dry-run`。
 - **音声認識を替えられる**：既定は Apple のオンデバイスの認識。雑音が軽いとき・英字の語に強い Whisper を、ダウンロードして使えます（`vc model download whisper-large-v3-turbo`、`vc stt set …`）。どちらも、音声は Mac の外へ出ません。
@@ -41,18 +42,18 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。離すと認識して実行</td>
-    <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>2. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル（波形が動く）"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。波形が、声に合わせて動く</td>
+    <td width="50%" align="center"><img src="docs/images/hud-thinking.png" alt="認識中のパネル（考え中のドットと光る縁）"><br><b>2. 認識中</b><br>離すと、文字にする。考え中のドットが動く</td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>3. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
-    <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>4. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>3. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>4. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>5. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンドを、実行しなかったときのパネル"><br><b>許可されていないコマンドは、実行しない</b><br>スキルが許したコマンドだけが動く</td>
   </tr>
 </table>
-
-**許可されていないコマンドは、実行されません。** スキルが許したコマンドだけが動きます。
-
-<p align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンド（ls）を、実行しなかったときのパネル" width="560"></p>
 
 **コピーした文章の加工**（`clipboard-note`）の結果は、整形したウィンドウに出ます。選んで ⌘C、または「コピー」ボタンでコピーできます。Esc で閉じます。
 
@@ -146,10 +147,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.0](https://github.com/takemo101/voice-control/releases/tag/v0.3.0) の例）：
+**手で入れる**（[v0.3.1](https://github.com/takemo101/voice-control/releases/tag/v0.3.1) の例）：
 
 ```sh
-V=0.3.0
+V=0.3.1
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -176,6 +177,39 @@ just test             # 単体テスト
 </details>
 
 ## 使い方
+
+### 音声入力だけ（`vc dictate`）
+
+しゃべった言葉を、**そのまま文字にして、いま使っているアプリへ入力**します（メモ・メール・ブラウザの入力欄など）。スキルも言語モデルも使わないので、起動が速く、すぐ使えます。
+
+```sh
+vc dictate                                    # Shift を押している間だけ録音 → 離すと入力
+vc dictate --stt whisper-large-v3-turbo       # 認識を Whisper にする
+vc dictate --dry-run                          # 入力せずに、認識した文字を、パネルに出すだけ（確認用）
+```
+
+- 入力は、**クリップボードに書いて ⌘V を送り、少しあとに、元のクリップボードへ戻す**方式です。戻す前に、あなたが別のものをコピーしていたら、戻しません（上書きしません）。クリップボードの履歴アプリには、記録されない印をつけます。
+- 録音中は波形が動き、離すと「認識中…」、入力したら「入力しました」と出ます。Esc で取りやめます。
+- アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
+- 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。
+
+### キーで、声で頼む／音声入力を切り替える
+
+別のキーを決めると、**1 つの `vc listen --hotkey` で、キーによって切り替わります**。
+
+```sh
+vc hotkey set-dictate ctrl      # Ctrl の長押し＝音声入力（Shift の長押し＝声で頼む、は、そのまま）
+vc listen --hotkey              # 起動したまま、キーで使い分ける
+```
+
+| 押すキー | 起きること |
+|---|---|
+| Shift の長押し（既定。`vc hotkey set` で変更） | 声で頼む：スキルを選んで実行する |
+| Ctrl の長押し（`vc hotkey set-dictate` で決める） | 音声入力：文字にして、前面のアプリへ入力する（スキルは使わない） |
+
+- 押しているキーで、パネルの表示も変わります（音声入力は「離すと、文字にして入力します」）。
+- 録音中は、もう一方のキーは無視します。確認の返事（「はい」）は、どちらのキーで話しても、返事になります。
+- 音声入力のキーを外す：`vc hotkey reset-dictate`。そのときだけ：`vc listen --hotkey --dictate-trigger ctrl`。
 
 ### 声で頼む
 
@@ -298,6 +332,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | コマンド | 内容 |
 |---|---|
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
+| `vc dictate [--trigger <キー>] [--stt …] [--dry-run]` | **音声入力だけ**：押している間だけ録音し、文字にして、前面のアプリへ入力する（⌘V。クリップボードは、あとで戻す）。スキル・言語モデルは使わない |
 | `vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes]` | マイクから聞いて、スキルで実行する（既定：Enter で録音。`--hotkey`：押している間だけ録音。[声の入力](docs/skills.md#声の入力vc-listen)） |
 | `vc show [--file <パス>] [--text <Markdown>] [--title <題名>] [--wait]` | Markdown を整形して、一時的なウィンドウに表示する（`pbpaste \| vc show`）。選択して ⌘C・コピーのボタン・Esc で閉じる |
 

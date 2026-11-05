@@ -4,15 +4,16 @@ import VCSpeech
 struct HotkeyCommand: Command {
     static let info = CommandInfo(
         name: "hotkey", group: .settings, summary: "押している間だけ聞くトリガー（ホットキー）の確認・変更",
-        usage: ["vc hotkey [show]", "vc hotkey set <キー>", "vc hotkey reset"],
+        usage: ["vc hotkey [show]", "vc hotkey set <キー>", "vc hotkey reset", "vc hotkey set-dictate <キー>", "vc hotkey reset-dictate"],
         details: [
             "設定は ~/.voice-control/settings.json の hotkey。既定は shift の長押し。",
             "書き方：修飾キー（ctrl・opt・shift・cmd）を + でつなぐ。修飾キーだけ（shift・ctrl+opt）は長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）。修飾キー + キー（ctrl+opt+space・cmd+shift+r）は、キーの組み合わせ（許可は要らない）。f1〜f12 だけは、単独でもよい。",
             "キーは、英字・数字・space・return・tab・escape・矢印（left・right・up・down）・f1〜f12。普通の入力を奪う、修飾キーなしの文字は使えない。macOS が先に使う組み合わせ（cmd+space など）は、届かないことがある。",
+            "**音声入力のキーを別に決める**（set-dictate）と、vc listen --hotkey が、2 つのキーで切り替わる：声で頼むキー（既定 Shift の長押し）＝スキルで実行、音声入力のキー（例：ctrl の長押し）＝文字にして前面のアプリへ入力（vc dictate と同じ）。別のキーを押している間は、録音中のほうが優先。vc dictate は、音声入力のキーがあれば、それを使う。",
             "変えたら、vc hotkey-check で確かめる。vc listen --hotkey の次の起動から有効。",
         ],
         options: [],
-        examples: ["vc hotkey", "vc hotkey set ctrl+opt+space", "vc hotkey set f5", "vc hotkey reset"])
+        examples: ["vc hotkey", "vc hotkey set ctrl+opt+space", "vc hotkey set f5", "vc hotkey reset", "vc hotkey set-dictate ctrl", "vc hotkey reset-dictate"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         // vc hotkey [show]／set <キー>／reset：押している間だけ聞くトリガーの設定（~/.voice-control/settings.json）。
@@ -25,6 +26,11 @@ struct HotkeyCommand: Command {
             heading("ホットキー")
             kv("いまの設定", Style.bold(spec.description) + Style.dim("（\(spec.displayName)・\(source)）"))
             kv("種類", spec.isHold ? "長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）" : "キーの組み合わせ（許可は要らない）")
+            if let dictate = context.resolveDictateHotKey() {
+                kv("音声入力", Style.bold(dictate.spec.description) + Style.dim("（\(dictate.spec.displayName)・\(dictate.source)。vc listen --hotkey でも、このキーは、音声入力になる）"))
+            } else {
+                kv("音声入力", Style.dim("別のキーはなし（vc dictate は、上のキーを使う）。別のキーにする：vc hotkey set-dictate <キー>"))
+            }
             if spec.isHold { kv("許可", ModifierHold.isTrusted ? Style.green("アクセシビリティ：許可済み") : Style.red("アクセシビリティ：未許可") + Style.dim("（システム設定 > プライバシーとセキュリティ > アクセシビリティで、このターミナルを許可し、開き直す）")) }
             print("")
             notice("変える：vc hotkey set <キー>（例：shift・ctrl+opt・ctrl+opt+space・cmd+shift+r・f5）。戻す：vc hotkey reset")
@@ -42,12 +48,31 @@ struct HotkeyCommand: Command {
                 if spec.isHold && !ModifierHold.isTrusted { notice("長押しの検出には、アクセシビリティの許可が要ります（この端末アプリに。agent-desktop permissions）") }
                 notice("次の vc listen --hotkey から有効（確かめる：vc hotkey-check）")
             }
+        case "set-dictate":
+            guard positionals.count >= 2 else { usageError("hotkey", "キーを渡してください（例: vc hotkey set-dictate ctrl）") }
+            let text = positionals.dropFirst().joined(separator: "+")
+            switch HotKeySpec.parse(text) {
+            case let .failure(f): fail("\(text): \(f.reason)")
+            case let .success(spec):
+                if case let .success(listen) = settings.hotkeySpec, listen.description == spec.description {
+                    fail("声で頼むキーと同じです（\(spec.description)）。別のキーにしてください")
+                }
+                settings.dictateHotkey = spec.description
+                do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+                heading("音声入力のキー")
+                kv("設定した", Style.bold(spec.description) + Style.dim("（\(spec.displayName)）"))
+                notice("次の vc listen --hotkey から、声で頼む／音声入力が、キーで切り替わる。vc dictate も、このキーを使う")
+            }
+        case "reset-dictate":
+            settings.dictateHotkey = nil
+            do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+            print(Style.green("✓") + " 音声入力のキーを外しました（vc dictate は、声で頼むキーを使う）")
         case "reset":
             settings.hotkey = nil
             do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
             print(Style.green("✓") + " 既定（shift の長押し）に戻しました")
         default:
-            usageError("hotkey", "知らないサブコマンド: \(sub)（show・set・reset）")
+            usageError("hotkey", "知らないサブコマンド: \(sub)（show・set・reset・set-dictate・reset-dictate）")
         }
     }
 }

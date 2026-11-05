@@ -19,6 +19,23 @@ extension CommandContext {
     }
 }
 
+extension CommandContext {
+    /// 音声入力のトリガー：`--dictate-trigger` → 設定（`vc hotkey set-dictate`）。なければ `nil`。書き方が違えば、理由を示して終わる。
+    func resolveDictateHotKey() -> (spec: HotKeySpec, source: String)? {
+        if let text = options.dictateTrigger {
+            switch HotKeySpec.parse(text) {
+            case let .success(spec): return (spec, "--dictate-trigger")
+            case let .failure(f): fail("--dictate-trigger \(text): \(f.reason)")
+            }
+        }
+        guard let text = currentSettings().dictateHotkey else { return nil }
+        switch HotKeySpec.parse(text) {
+        case let .success(spec): return (spec, "設定")
+        case let .failure(f): fail("settings.json の dictateHotkey「\(text)」: \(f.reason)（vc hotkey set-dictate で直す）")
+        }
+    }
+}
+
 /// 押している間だけ聞く入り口。長押し（修飾キーだけ）には、アクセシビリティの許可が要る。
 @MainActor func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
     if spec.isHold && !ModifierHold.isTrusted {

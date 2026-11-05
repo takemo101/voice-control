@@ -12,7 +12,7 @@ import VCCore
         let fileGone = Mailbox<Bool>()
         let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-loop-\(UUID().uuidString).caf")
         try Data("x".utf8).write(to: file)
-        let h = Harness { utterance, token, _ in
+        let h = Harness { utterance, token, _, _ in
             handled.put(utterance + (token.isCancelled ? "(cancelled)" : ""))
             fileGone.put(!FileManager.default.fileExists(atPath: file.path))
         }
@@ -28,7 +28,7 @@ import VCCore
     @Test func escWhileRecognizingCancelsAndTheNextUtteranceIsHandledNormally() async {
         let handled = Mailbox<String>()
         let calls = Counter()
-        let h = Harness { utterance, token, _ in
+        let h = Harness { utterance, token, _, _ in
             _ = calls.next()
             handled.put(utterance + (token.isCancelled ? "(cancelled)" : ""))
         }
@@ -52,7 +52,7 @@ import VCCore
         let started = Mailbox<Void>()
         let finished = Mailbox<[Bool]>()
         let gate = Gate()
-        let h = Harness { _, token, _ in
+        let h = Harness { _, token, _, _ in
             started.put(())
             await gate.wait()
             finished.put([token.isCancelled, Task.isCancelled])
@@ -67,7 +67,7 @@ import VCCore
 
     @Test func escWhileRecordingDiscardsTheRecordingAndTheReleaseDoesNothing() async {
         let handled = Mailbox<String>()
-        let h = Harness { utterance, _, _ in handled.put(utterance) }
+        let h = Harness { utterance, _, _, _ in handled.put(utterance) }
         h.trigger.onPress?()
         h.escapeKey()
         #expect(h.recorder.discards == 1)
@@ -84,7 +84,7 @@ import VCCore
         let waiting = Mailbox<Void>()
         let answer = Mailbox<String?>()
         let cancelled = Mailbox<Bool>()
-        let h = Harness { _, token, next in
+        let h = Harness { _, token, next, _ in
             waiting.put(())
             let reply = try? await next()
             answer.put(reply ?? nil)
@@ -100,7 +100,7 @@ import VCCore
     @Test func aConfirmationAnswerIsRecognizedAndReturned() async {
         let answer = Mailbox<String?>()
         let waiting = Mailbox<Void>()
-        let h = Harness { _, _, next in
+        let h = Harness { _, _, next, _ in
             waiting.put(())
             answer.put((try? await next()) ?? nil)
         }
@@ -117,7 +117,7 @@ import VCCore
         let answer = Mailbox<String?>()
         let gate1 = Gate()
         let count = Counter()
-        let h = Harness { _, token, next in
+        let h = Harness { _, token, next, _ in
             switch count.next() {
             case 1:
                 started1.put(())
@@ -142,7 +142,7 @@ import VCCore
         let order = Mailbox<String>()
         let gate = Gate()
         let state = Concurrency()
-        let h = Harness { utterance, _, _ in
+        let h = Harness { utterance, _, _, _ in
             state.enter()
             if utterance == "text-a1" { await gate.wait() }   // 1 つ目の処理中に、2・3 が列にたまる
             order.put(utterance)
@@ -161,7 +161,7 @@ import VCCore
 
     @Test func recognitionFailureIsReportedAndTheHandlerIsNotCalled() async {
         let handled = Mailbox<String>()
-        let h = Harness { utterance, _, _ in handled.put(utterance) }
+        let h = Harness { utterance, _, _, _ in handled.put(utterance) }
         h.transcriber.fail("bad")
         h.speak("bad")
         await h.log.wait(for: "recognitionFailed")
@@ -170,7 +170,7 @@ import VCCore
     }
 
     @Test func recordingFailureAndAnEmptyRecordingAreReported() {
-        let h = Harness { _, _, _ in }
+        let h = Harness { _, _, _, _ in }
         h.recorder.enqueue(.failure(RecorderFailure()))
         h.trigger.onPress?()
         h.trigger.onRelease?()
@@ -183,7 +183,7 @@ import VCCore
     }
 
     @Test func escWhileIdleDoesNothing() {
-        let h = Harness { _, _, _ in }
+        let h = Harness { _, _, _, _ in }
         h.escapeKey()
         #expect(h.log.labels.isEmpty && h.recorder.discards == 0)
     }
@@ -192,7 +192,7 @@ import VCCore
 
     /// 不変条件 1：`run(onReady:)` は、同期（`async` にすると、この型が合わず、コンパイルが通らない）。
     @Test func runIsSynchronousSoNothingIsAwaitedBeforeTheEventLoop() {
-        let h = Harness { _, _, _ in }
+        let h = Harness { _, _, _, _ in }
         let run: @MainActor (() -> Void) -> Void = h.loop.run(onReady:)
         _ = run
     }
@@ -205,7 +205,7 @@ import VCCore
             let trigger = FakeTrigger(), escape = FakeEscape()
             weakTrigger = trigger
             weakEscape = escape
-            return VoiceLoop(trigger: trigger, escape: escape, recorder: FakeRecorder(), transcriber: FakeTranscriber(), handler: { _, _, _ in }, onEvent: { _ in })
+            return VoiceLoop(trigger: trigger, escape: escape, recorder: FakeRecorder(), transcriber: FakeTranscriber(), handler: { _, _, _, _ in }, onEvent: { _, _ in })
         }()
         #expect(weakTrigger != nil && weakEscape != nil)
         withExtendedLifetime(loop) {}
@@ -217,7 +217,7 @@ import VCCore
         let started = Mailbox<Void>()
         let gate = Gate()
         let done = Mailbox<Void>()
-        let h = Harness(rearmDelays: [0.05, 0.3]) { _, _, _ in
+        let h = Harness(rearmDelays: [0.05, 0.3]) { _, _, _, _ in
             started.put(())
             await gate.wait()
             done.put(())
@@ -245,4 +245,67 @@ import VCCore
         h.main.runDelayed()   // 遅れて届いたタイマー：もう活動中ではないので、登録し直さない
         #expect(h.escape.setActiveCalls == before)
     }
+}
+
+/// トリガーで、録音ごとの印（声で頼む／音声入力）が、出来事と発話の処理に、正しく届く。
+@MainActor @Suite struct ModeTriggerTests {
+    private func fixture() -> (a: FakeTrigger, b: FakeTrigger, mode: ModeTrigger) {
+        let a = FakeTrigger(), b = FakeTrigger()
+        return (a, b, ModeTrigger([(tag: "listen", trigger: a), (tag: "dictate", trigger: b)]))
+    }
+
+    @Test func theTagIsTheTriggerThatStartedTheRecordingAndOthersAreIgnoredMeanwhile() {
+        let (a, b, mode) = fixture()
+        var presses = 0, releases = 0
+        mode.onPress = { presses += 1 }
+        mode.onRelease = { releases += 1 }
+        b.onPress?()
+        #expect(mode.tag == "dictate" && presses == 1)
+        a.onPress?()      // 録音中の、別のトリガーの「押した」は、無視する
+        a.onRelease?()    // 押していないトリガーの「離した」も、無視する
+        #expect(mode.tag == "dictate" && presses == 1 && releases == 0)
+        b.onRelease?()
+        #expect(releases == 1)
+        a.onPress?()      // 離したあとは、別のトリガーでも、始められる
+        #expect(mode.tag == "listen" && presses == 2)
+    }
+
+    /// 録音の印が、その録音の発話の処理と、出来事へ、順どおりに届く（声で頼む → 音声入力 → 声で頼む）。
+    @Test func eachUtteranceIsHandledWithTheTagOfItsOwnTrigger() async {
+        let a = FakeTrigger(), b = FakeTrigger()
+        let mode = ModeTrigger([(tag: "listen", trigger: a), (tag: "dictate", trigger: b)])
+        let handled = Mailbox<String>()
+        let events = EventTags()
+        let recorder = FakeRecorder()
+        let loop = VoiceLoop(trigger: mode, escape: FakeEscape(), recorder: recorder, transcriber: FakeTranscriber(),
+                             handler: { utterance, _, _, tag in handled.put("\(tag):\(utterance)") },
+                             onEvent: { event, tag in events.add(event, tag) })
+        loop.start()
+        for (trigger, name) in [(a, "x1"), (b, "x2"), (a, "x3")] {
+            recorder.enqueue(.success(URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)))
+            trigger.onPress?()
+            trigger.onRelease?()
+        }
+        var got: [String] = []
+        for _ in 0..<3 { got.append(await handled.take()) }
+        #expect(got == ["listen:text-x1", "dictate:text-x2", "listen:text-x3"])
+        #expect(events.tags(of: "recordingStarted") == ["listen", "dictate", "listen"])
+        #expect(events.tags(of: "recognized") == ["listen", "dictate", "listen"])
+    }
+}
+
+/// 出来事の印を、出来事の種類ごとに集める。
+final class EventTags: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [(String, String)] = []
+    func add(_ event: VoiceLoopEvent, _ tag: String) {
+        let kind: String
+        switch event {
+        case .recordingStarted: kind = "recordingStarted"
+        case .recognized: kind = "recognized"
+        default: kind = "other"
+        }
+        lock.lock(); items.append((kind, tag)); lock.unlock()
+    }
+    func tags(of kind: String) -> [String] { lock.lock(); defer { lock.unlock() }; return items.filter { $0.0 == kind }.map(\.1) }
 }
