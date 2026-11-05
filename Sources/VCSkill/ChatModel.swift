@@ -51,14 +51,15 @@ enum ChatError: Error, Equatable, CustomStringConvertible {
 
 /// `run_command` という道具 1 つ（どのアダプターにも共通）。**説明に、特定のコマンドの例を入れない**：例（`agent-desktop snapshot -i`・`open -a Spotify`）があると、qwen3.5:4b が、スキルの手順より例に引きずられた（クリップボードの英訳が 0/4 → 例を除くと 4/4。測定）。
 enum ChatTools {
-    static let runCommand: [String: Any] = [
+    /// 呼ぶたびに作る（`[String: Any]` は Sendable でない：グローバルに持たない）。
+    static var runCommand: [String: Any] { [
         "type": "function",
         "function": [
             "name": "run_command",
             "description": "Run one shell-free command line and get its exit code and output.",
             "parameters": ["type": "object", "properties": ["command": ["type": "string", "description": "the full command line"]], "required": ["command"]],
         ],
-    ]
+    ] }
 }
 
 /// この Mac の `127.0.0.1:<ポート>` の HTTP サーバー。**通信先は、ここに固定**（ホスト名を、設定・環境変数・引数で、替えられない：音声・画面の内容が、外へ出ない）。

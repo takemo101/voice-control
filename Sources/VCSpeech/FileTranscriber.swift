@@ -63,16 +63,16 @@ public struct FileTranscriber: Sendable {
             Self.prepared.insert(wanted)
         }
         // 認識が止まったときは、1 回だけ、やり直す（新しい認識器で。2 回目も止まれば、止まったことを伝える）
-        for attempt in 1...2 {
+        func attempt(_ file: AVAudioFile) async throws -> String {
             let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
-            let file = attempt == 1 ? first : try open()   // やり直しは、読み直す（止まった 1 回目が、まだ、前のファイルを読んでいるかもしれない）
-            do {
-                return try await withDeadline(seconds: seconds) { try await Self.analyze(file, with: transcriber) }
-            } catch is DeadlineExceeded {
-                if attempt == 2 { throw TranscriptionError.timedOut(stage: "音声の認識", seconds: Int(seconds)) }
-            }
+            return try await withDeadline(seconds: seconds) { try await Self.analyze(file, with: transcriber) }
         }
-        throw TranscriptionError.timedOut(stage: "音声の認識", seconds: Int(seconds))   // 到達しない（上のループが、返すか投げる）
+        do {
+            return try await attempt(first)
+        } catch is DeadlineExceeded {
+            // やり直しは、読み直す（止まった 1 回目が、まだ、前のファイルを読んでいるかもしれない）
+            do { return try await attempt(try open()) } catch is DeadlineExceeded { throw TranscriptionError.timedOut(stage: "音声の認識", seconds: Int(seconds)) }
+        }
     }
 
     /// 対応言語の確認と、言語モデルの用意（未取得なら取得。初回だけ長い）。
