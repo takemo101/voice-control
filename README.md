@@ -68,10 +68,10 @@ Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin
 <details>
 <summary>手で入れる／ソースから入れる／取り除く</summary>
 
-**手で入れる**（[v0.2.0](https://github.com/takemo101/voice-control/releases/tag/v0.2.0) の例）：
+**手で入れる**（[v0.2.1](https://github.com/takemo101/voice-control/releases/tag/v0.2.1) の例）：
 
 ```sh
-V=0.2.0
+V=0.2.1
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
