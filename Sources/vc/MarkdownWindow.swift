@@ -22,7 +22,8 @@ import AppKit
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
-        window.level = .floating
+        // 画面の上のパネル（`HUD`。`.statusBar`）より上に出す（裏に隠れない）
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 380, height: 280)
         window.collectionBehavior = [.fullScreenAuxiliary]

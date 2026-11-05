@@ -13,6 +13,8 @@ import AppKit
     private static let width: CGFloat = 468
     private static let inset = NSEdgeInsets(top: 14, left: 18, bottom: 15, right: 18)
     private static var rowWidth: CGFloat { width - inset.left - inset.right }
+    /// 本文の高さの上限。超えたら、スクロールする（最新の行が見える位置で、出す）。
+    private static let maxBodyHeight: CGFloat = 300
 
     /// 「実行する」「やめる」のボタンの答えの届け先（確認を待っている処理が、つなぐ）。
     nonisolated let answers = AnswerRoute()
@@ -21,6 +23,10 @@ import AppKit
     private var buttonActions: [ButtonAction] = []
     private var background: NSVisualEffectView?
     private var stack: NSStackView?
+    /// 見出しの下の本文（補足・聞こえた文・コマンド・返事・ボタン）。長いときは、ここだけが、スクロールする（見出しは、動かない）。
+    private var body: NSStackView?
+    private var scroll: NSScrollView?
+    private var bodyHeight: NSLayoutConstraint?
     private var pendingHide: DispatchWorkItem?
     private var visible = false
     private var generation = 0
@@ -43,32 +49,44 @@ import AppKit
 
     private func render(_ content: HUDContent, hideAfter: TimeInterval?) {
         ensurePanel()
-        guard let panel, let stack else { return }
+        guard let panel, let stack, let body, let scroll, let bodyHeight else { return }
         pendingHide?.cancel()
         generation += 1
-        // ボタンを出している間（確認）だけ、クリックを受ける。ほかは、クリックを通す（パネルの下のアプリを、邪魔しない）。フォーカスは、奪わない（`nonactivatingPanel`）
-        panel.ignoresMouseEvents = !content.choices
         buttonActions = []
 
-        for view in stack.arrangedSubviews { stack.removeArrangedSubview(view); view.removeFromSuperview() }
+        // 見出しは、いつも、いちばん上（動かない）。そのほかは、本文（長ければ、スクロール）
+        for view in stack.arrangedSubviews where view !== scroll { stack.removeArrangedSubview(view); view.removeFromSuperview() }
+        for view in body.arrangedSubviews { body.removeArrangedSubview(view); view.removeFromSuperview() }
         let accent = Self.accent(content.phase)
 
-        stack.addArrangedSubview(fixed(header(content, accent: accent)))
-        if let hint = content.hint { stack.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
+        stack.insertArrangedSubview(fixed(header(content, accent: accent)), at: 0)
+        if let hint = content.hint { body.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
         if let heard = content.heard, !heard.isEmpty {
-            stack.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
+            body.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
         }
         if !content.steps.isEmpty || content.reply != nil {
             let divider = NSBox()
             divider.boxType = .separator
-            stack.addArrangedSubview(fixed(divider))
+            body.addArrangedSubview(fixed(divider))
         }
-        for step in content.steps { stack.addArrangedSubview(fixed(stepRow(step))) }
+        for step in content.steps { body.addArrangedSubview(fixed(stepRow(step))) }
         if let reply = content.reply, !reply.isEmpty {
-            stack.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
+            body.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
         }
+        if content.choices { body.addArrangedSubview(fixed(choiceRow())) }
 
-        if content.choices { stack.addArrangedSubview(fixed(choiceRow())) }
+        // 本文が、上限を超えたら、スクロールにして、最新の行（下）を見せる
+        scroll.isHidden = body.arrangedSubviews.isEmpty
+        // 幅が決まってから、高さを測る（折り返す文は、幅が決まるまで、1 行の高さになる）
+        stack.layoutSubtreeIfNeeded()
+        body.layoutSubtreeIfNeeded()
+        let natural = ceil(body.fittingSize.height)
+        let overflow = natural > Self.maxBodyHeight
+        bodyHeight.constant = min(natural, Self.maxBodyHeight)
+        stack.layoutSubtreeIfNeeded()
+        if overflow { scroll.contentView.scroll(to: NSPoint(x: 0, y: natural - Self.maxBodyHeight)); scroll.reflectScrolledClipView(scroll.contentView) }
+        // クリックを受けるのは、ボタン（確認）を出している間と、スクロールできる間だけ。ほかは、クリックを通す（パネルの下のアプリを、邪魔しない）。フォーカスは、奪わない（`nonactivatingPanel`）
+        panel.ignoresMouseEvents = !(content.choices || overflow)
 
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
@@ -146,10 +164,42 @@ import AppKit
             stack.trailingAnchor.constraint(equalTo: background.trailingAnchor),
             stack.widthAnchor.constraint(equalToConstant: Self.width),
         ])
+
+        // 本文（スクロールできる）。見出しは、`render` が、この上に入れる
+        let body = NSStackView()
+        body.orientation = .vertical
+        body.alignment = .leading
+        body.spacing = 8
+        body.translatesAutoresizingMaskIntoConstraints = false
+        let container = FlippedView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(body)
+        NSLayoutConstraint.activate([
+            body.topAnchor.constraint(equalTo: container.topAnchor),
+            body.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            body.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            body.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            container.widthAnchor.constraint(equalToConstant: Self.rowWidth),
+        ])
+        let scroll = NSScrollView()
+        scroll.documentView = container
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.scrollerStyle = .overlay
+        scroll.scrollerKnobStyle = .light
+        scroll.verticalScrollElasticity = .none
+        let height = scroll.heightAnchor.constraint(equalToConstant: 0)
+        height.isActive = true
+        stack.addArrangedSubview(fixed(scroll))
         panel.contentView = background
         self.panel = panel
         self.background = background
         self.stack = stack
+        self.body = body
+        self.scroll = scroll
+        self.bodyHeight = height
     }
 
     // MARK: 部品
@@ -175,7 +225,9 @@ import AppKit
         field.font = mono ? .monospacedSystemFont(ofSize: size, weight: weight) : .systemFont(ofSize: size, weight: weight)
         field.textColor = color
         field.maximumNumberOfLines = lines
-        field.lineBreakMode = .byTruncatingTail
+        // 折り返して、`lines` 行を超えたら、最後の行を「…」で切る（`byTruncatingTail` だけだと、1 行に切られる）
+        field.lineBreakMode = lines > 1 ? .byWordWrapping : .byTruncatingTail
+        field.cell?.truncatesLastVisibleLine = lines > 1
         field.preferredMaxLayoutWidth = Self.rowWidth
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
@@ -321,4 +373,9 @@ private final class ButtonAction: NSObject {
     private let run: () -> Void
     init(_ run: @escaping () -> Void) { self.run = run }
     @objc func fire() { run() }
+}
+
+/// 上から下へ並べる（スクロールする本文の入れ物：短いときも、上に詰める）。
+private final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
 }
