@@ -1,10 +1,10 @@
 import Foundation
 
-/// プロジェクトのスキルを、グローバル（`~/.voice-control/skills`）へコピーする（`vc skills install`）。
+/// 取得したスキル（`RemoteSkills` が置いた一時のディレクトリ）を、グローバル（`~/.voice-control/skills`）へ置く（`vc skills install`）。
 /// スキルのディレクトリごと（SKILL.md と同梱のスクリプト）。読めないスキル・シンボリックリンクを含むスキルは、コピーしない。
 public enum SkillInstaller {
     public enum Failure: Error, Equatable {
-        /// 元の置き場所に、その名前の読めるスキルがない。
+        /// 取得したものの中に、その名前の読めるスキルがない。
         case notFound(String)
         /// SKILL.md が不正で、読めない（理由）。
         case unreadable(name: String, reason: String)

@@ -52,10 +52,10 @@ curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/instal
 
 Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデル（約 1.2 GB）を `~/.voice-control/models` に取得し、`vc doctor` で環境（Apple Intelligence など）を確かめる（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。オプション：`--no-model`（モデルを取得しない）・`--version 0.1.0`（版を指定）・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`。`~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.1.3](https://github.com/takemo101/voice-control/releases/tag/v0.1.3) の例）：
+**手で入れる**（[v0.2.0](https://github.com/takemo101/voice-control/releases/tag/v0.2.0) の例）：
 
 ```sh
-V=0.1.3
+V=0.2.0
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -102,7 +102,9 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
-| `vc skills install [<name>…] [--force]` | プロジェクトのスキルを、グローバル（`~/.voice-control/skills`）へコピーする（名前なしは一覧） |
+| `vc run … --engine <エンジン>` | スキルを実行するモデルを、この Mac のローカルのサーバーのモデルに替える（任意。`vc listen` も同じ）。`ollama:qwen3.5:4b`（Ollama）・`openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。確認：`vc doctor --engine …` |
+| `vc show [--file <パス>] [--text <Markdown>]` | Markdown を整形して、一時的なウィンドウに表示する（コピーもできる。`pbpaste \| vc show`）。スキルの `result: markdown-window` も、同じウィンドウ |
+| `vc skills install [<name>…] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へインストールする（名前なしは一覧）。リポジトリは、手元になくてよい |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
 | `vc doctor` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめ、使えないものは直す手順を示す（必須が使えなければ、終了コード 1） |

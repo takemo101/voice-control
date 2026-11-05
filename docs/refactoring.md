@@ -38,13 +38,13 @@ grep -rn "@unchecked Sendable" Sources   # ロックで守っているか
 grep -rn "TODO\|FIXME" Sources           # 保留
 grep -rln "import FoundationModels\|import AppKit" Sources   # 外部依存が入る場所
 grep -rn "^import VC" Sources            # ターゲットの依存の実態（Package.swift の dependencies と合っているか）
-grep -rn "Process()" Sources             # ProcessRunner に載せていない子プロセス（`ProcessRunner.swift` の 1 か所と、構成説明の負債の 4 か所だけのはず）
+grep -rn "Process()" Sources             # ProcessRunner に載せていない子プロセス（`ProcessRunner.swift` の 1 か所と、構成説明の負債の 2 か所〔`SaySpeaker`・`DocumentWindow`〕だけのはず）
 wc -l Sources/vc/*.swift Sources/vc/Commands/*.swift | sort -rn | head -5   # vc に、判断が溜まっていないか（長いファイルから読む）
 ```
 
 ## このリポジトリの見直し候補
 
-残っている構造上の負債は、[構成説明の負債](architecture.md#既知の構造上の負債)を参照（載せていない `Process`・複製した `Decision/`・Swift 6 モードの診断）。ファイルの分割・設定の失敗の扱い・ターゲットの分割・`vc` の薄型化・`SkillRunner`・`VoiceLoop`・`ProcessRunner`・名前の整理・並行性の監査・テストの置き場所は、済んでいる。PC 操作は、廃止した（2026-11-04）。着手するときは、1 つずつ、動作を変えない小さな変更にする。
+残っている構造上の負債は、[構成説明の負債](architecture.md#既知の構造上の負債)を参照（載せていない `Process`・複製した `Decision/`・Swift 6 モードの診断）。ファイルの分割・設定の失敗の扱い・ターゲットの分割・`vc` の薄型化・`SkillRunner`・`VoiceLoop`・`ProcessRunner`・名前の整理・並行性の監査・テストの置き場所は、済んでいる。PC 操作は、廃止した（2026-11-04）。**2026-11-05 の見直し（MIK-016。v0.1.3 のあとに足したコード）**：スキルを実行するモデルを、アダプター（`ChatModel`）と共通の流れ（`ToolLoopAgent`・`CommandSession`）に分けた（`SkillAgent` と `ToolLoopAgent` は、不変の持ち物だけなので `@unchecked Sendable` を外した）／`vc skills` の `run`（1 つの switch で 150 行）を、サブコマンドごとの関数にし、インストールの流れ（版の決め方・取得・検査）を `RemoteInstall`（`VCSkill`）へ移した（`vc` は、表示と終了コードだけ）／`FileTranscriber` の到達しない `throw` を、平らな 2 回の試行にした／置き場所の違うテストを移した／文言を固定していたテストをやめた。着手するときは、1 つずつ、動作を変えない小さな変更にする。
 
 ## やらないこと
 

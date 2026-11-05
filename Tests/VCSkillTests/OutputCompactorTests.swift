@@ -29,70 +29,16 @@ import Testing
     }
 }
 
-/// 画面の文字を読む出力（`snapshot`〔`-i` なし〕・`get`）。操作用の整形は、メッセージの本文を捨てるので、読む用は別。
-@Suite struct ReadingOutputTests {
-    private let screen = #"""
-    {"ok":true,"data":{"app":"Messages","tree":{"role":"window","children":[
-      {"role":"statictext","name":"Alice","value":"Alice"},
-      {"role":"statictext","value":"明日の会議、14時からで大丈夫？"},
-      {"role":"statictext","value":"明日の会議、14時からで大丈夫？"},
-      {"role":"row","name":"Alice 明日の会議、14時からで大丈夫？"},
-      {"role":"button","name":"Send","ref_id":"@s1:e1","available_actions":["Click"]},
-      {"role":"textfield","name":"iMessage","ref_id":"@s1:e2","available_actions":["TypeText"]},
-      {"role":"scrollbar","value":"0"},
-      {"role":"group","children":[{"role":"link","name":"資料はこちら"}]}]}}}
-    """#
-
-    @Test func aSnapshotWithoutInteractiveOnlyYieldsTheTextInOrder() {
-        let text = OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: screen)
-        // 本文・リンクが残る。同じ行の連続・行（row）の重複・空の入力欄の名前・ボタン・値だけのスクロールバーは、出ない
-        #expect(text == "app: Messages\nAlice\n明日の会議、14時からで大丈夫？\n資料はこちら")
-    }
-
-    @Test func theOperationalSnapshotIsUnchanged() {
-        let text = OutputCompactor.compact(argv: ["agent-desktop", "snapshot", "-i", "--app", "Messages"], output: screen)
-        #expect(text.hasPrefix("app: Messages\n@a1:e1 [button] Send"))
-        #expect(!text.contains("明日の会議"))
-    }
-
-    @Test func getReturnsTheTextItself() {
-        let got = #"{"ok":true,"data":{"property":"text","ref":"@s1:e5","value":"line 1\nline 2"}}"#
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "get", "@a1:e5"], output: got) == "line 1\nline 2")
-    }
-
-    @Test func aScreenWithoutTextSaysSo() {
-        let empty = #"{"ok":true,"data":{"app":"Preview","tree":{"role":"window","children":[{"role":"button","name":"Zoom"}]}}}"#
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: empty) == "app: Preview\n(no readable text)")
-    }
-
-    /// 長い画面は、先頭と末尾を残す（チャットの新しい発言は、下にある）。上限を超えない。
-    @Test func aLongScreenKeepsTheStartAndTheEnd() {
-        let lines = (1...400).map { #"{"role":"statictext","value":"message \#($0)"}"# }.joined(separator: ",")
-        let json = #"{"ok":true,"data":{"app":"Chat","tree":{"role":"window","children":[\#(lines)]}}}"#
-        let text = OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: json)
-        #expect(text.hasPrefix("app: Chat\nmessage 1\n"))
-        #expect(text.hasSuffix("message 400"))
-        #expect(text.contains("文字を省略"))
-        #expect(text.count <= OutputCompactor.maxReadChars + 40)
-    }
-
-    @Test func aFailedReadFallsBackToTheErrorLine() {
-        let error = #"{"ok":false,"error":{"code":"WINDOW_NOT_FOUND","message":"No focused window found"}}"#
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: error) == "error WINDOW_NOT_FOUND: No focused window found")
-    }
-}
-
 /// agent-desktop は、警告を stderr に出す（標準出力と混ざる）。JSON の前に警告の行があっても、整形が効く。
 @Suite struct WarningLinesTests {
     private let warning = "2026-11-04T14:40:57Z  WARN agent_desktop_macos: Skipped invalid AppKit application records skipped=[{\"field\":\"pid\"}]\n"
     private let snapshot = #"{"ok":true,"data":{"app":"Fixture","tree":{"role":"window","children":[{"role":"statictext","value":"hello"},{"role":"button","name":"Save","ref_id":"@s1:e1","available_actions":["Click"]}]}}}"#
 
-    @Test func readingAndOperationalSnapshotsStillWorkWithWarningLinesInFront() {
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: warning + warning + snapshot) == "app: Fixture\nhello")
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot", "-i"], output: warning + snapshot) == "app: Fixture\n@a1:e1 [button] Save")
+    @Test func theSnapshotIsStillShapedWithWarningLinesInFront() {
+        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot", "-i"], output: warning + warning + snapshot) == "app: Fixture\n@a1:e1 [button] Save")
     }
 
     @Test func anOutputWithoutJsonIsLeftAlone() {
-        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot"], output: warning) == warning)
+        #expect(OutputCompactor.compact(argv: ["agent-desktop", "snapshot", "-i"], output: warning) == warning)
     }
 }

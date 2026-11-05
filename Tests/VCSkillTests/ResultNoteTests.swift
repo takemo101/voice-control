@@ -35,17 +35,18 @@ import Testing
 
     @Test func theResultFieldTurnsTheModeOnAndRejectsUnknownValues() throws {
         let on = try parse("---\nname: demo\ndescription: x\nallowed-commands: agent-desktop snapshot\nresult: markdown-note\n---\nbody").get()
-        #expect(on.opensResultAsNote)
-        #expect(try !parse("---\nname: demo\ndescription: x\nallowed-commands: open\n---\nbody").get().opensResultAsNote)
-        if case .failure(let e) = parse("---\nname: demo\ndescription: x\nallowed-commands: open\nresult: html\n---\nbody") { #expect(e.reason.contains("markdown-note")) } else { Issue.record("不明な result が、通った") }
+        #expect(on.result == .markdownNote)
+        #expect(try parse("---\nname: demo\ndescription: x\nallowed-commands: open\nresult: markdown-window\n---\nbody").get().result == .markdownWindow)
+        #expect(try parse("---\nname: demo\ndescription: x\nallowed-commands: open\n---\nbody").get().result == .text)
+        if case .failure(let e) = parse("---\nname: demo\ndescription: x\nallowed-commands: open\nresult: html\n---\nbody") { #expect(e.reason.contains("markdown-window")) } else { Issue.record("不明な result が、通った") }
     }
 
     /// 失敗の返事・dry-run は、ファイルにしない（`done: …` に置き換えるのは、保存して開けたときだけ）。
     @Test func aFailedReplyAndADryRunAreNotSavedAsNotes() {
-        var skill = skill("demo", "x"); skill.opensResultAsNote = true
+        var skill = skill("demo", "x"); skill.result = .markdownNote
         let display = ExecutionDisplay(onCommand: { _ in }, onResult: { _, _ in }, onDenied: { _, _ in })
-        let live = SkillAgent(skill: skill, dryRun: false, display: display)
+        let live = CommandSession(skill: skill, dryRun: false, display: display, cancel: nil)
         #expect(live.openAsNoteIfRequested("failed: 画面を読めません") == "failed: 画面を読めません")
-        #expect(SkillAgent(skill: skill, dryRun: true, display: display).openAsNoteIfRequested("# メモ") == "# メモ")
+        #expect(CommandSession(skill: skill, dryRun: true, display: display, cancel: nil).openAsNoteIfRequested("# メモ") == "# メモ")
     }
 }

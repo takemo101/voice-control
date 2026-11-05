@@ -26,4 +26,6 @@ struct HUDContent: Sendable {
     var steps: [Step] = []
     /// 言語モデルの返事。
     var reply: String?
+    /// 「実行する」「やめる」のボタンを出す（確認の問いかけ。声の「はい」と、どちらでも答えられる）。出している間だけ、パネルは、クリックを受ける。
+    var choices = false
 }

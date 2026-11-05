@@ -53,3 +53,14 @@ import Testing
         #expect(a.remaining == ["run", "x", "--app", "Fixture", "--execute", "--keys", "dir"])
     }
 }
+
+/// スキルを実行するモデル（`--engine`）：どの位置でも取り除く。書き方の検査は `Engine.parse`（`VCSkillTests`）。
+@Suite struct EngineOptionTests {
+    @Test func theEngineOptionIsTakenFromAnyPositionAndTheDefaultIsNone() {
+        var a = Arguments(["run", "x", "--engine", "ollama:qwen3.5:4b", "--yes"])
+        #expect(CommonOptions(consuming: &a).engine == "ollama:qwen3.5:4b")
+        #expect(a.remaining == ["run", "x"])
+        var b = Arguments(["run", "x"])
+        #expect(CommonOptions(consuming: &b).engine == nil)
+    }
+}

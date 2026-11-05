@@ -7,13 +7,13 @@ import VCSpeech
 struct DoctorCommand: Command {
     static let info = CommandInfo(
         name: "doctor", group: .settings, summary: "動かすのに必要なものが、そろっているかを確かめる",
-        usage: ["vc doctor"],
+        usage: ["vc doctor [--engine <エンジン>]"],
         details: [
             "Apple Intelligence（スキルの実行に使う言語モデル）・Tiny-Jev のモデル（スキルの選択）が使えるかを確かめ、使えないものは、直す手順を示す。",
             "任意の機能に要るもの（agent-desktop・アクセシビリティ・マイクの許可・設定ファイル）も確かめる。許可の確認ダイアログは出さず、設定も変えない。",
             "必須（Apple Intelligence・Tiny-Jev）が使えなければ、終了コード 1。任意のものだけなら、0。",
         ],
-        options: [], examples: ["vc doctor"])
+        options: [], examples: ["vc doctor", "vc doctor --engine ollama:qwen3.5:4b", "vc doctor --engine openai:qwen3-4b@1234"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var checks: [DoctorCheck] = []
@@ -21,6 +21,11 @@ struct DoctorCommand: Command {
         // --- 必須：スキルの実行（vc run・vc listen）に要る ---
         checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current()))
         checks.append(Self.tinyJevCheck(context))
+        // --engine を指定したときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
+        if context.engine != .apple {
+            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.options.engine ?? "") が使えます")) }
+            catch { checks.append(.fail("実行するモデル", "\(error)", fix: "サーバーを起動し、モデルを読み込む（Ollama：ollama pull <モデル>）")) }
+        }
 
         // --- 任意：ホットキー・声の入力・既定スキルに要る ---
         checks.append(Self.agentDesktopCheck())

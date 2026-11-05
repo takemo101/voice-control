@@ -75,3 +75,18 @@ import VCCore
         guard case .audio = await queue.next() else { Issue.record("expected .audio"); return }
     }
 }
+
+/// 入力を待っている処理が取りやめられたら、`.cancel` で戻る（確認で、パネルのボタンが先に押されたとき、声の返事を待つ処理が、次の発話を横取りしない）。
+@Suite struct VoiceInputQueueCancellationTests {
+    @Test func aWaitingTaskThatIsCancelledReturnsCancelAndDoesNotTakeTheNextInput() async {
+        let queue = VoiceInputQueue()
+        let waiting = Task { await queue.next() }
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        waiting.cancel()
+        if case .cancel = await waiting.value {} else { Issue.record("取りやめで、.cancel が返らなかった") }
+        // そのあとに来た発話は、次に待つ処理が受け取る
+        let url = URL(fileURLWithPath: "/tmp/next.caf")
+        queue.push(.audio(url))
+        if case .audio(let got) = await queue.next() { #expect(got == url) } else { Issue.record("次の発話が、横取りされた") }
+    }
+}

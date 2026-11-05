@@ -28,17 +28,29 @@ final class VoiceInputQueue: @unchecked Sendable {
         }
     }
 
+    /// 入力が来るまで待つ。**待っている `Task` が取りやめられたら、`.cancel` で戻る**（確認で、パネルのボタンが先に押されたとき、声の返事を待つ処理が、次の発話を横取りしないように）。
     func next() async -> VoiceInput {
-        await withCheckedContinuation { continuation in
-            lock.lock()
-            if items.isEmpty {
-                waiter = continuation
-                lock.unlock()
-            } else {
-                let first = items.removeFirst()
-                lock.unlock()
-                continuation.resume(returning: first)
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                if !items.isEmpty {
+                    let first = items.removeFirst()
+                    lock.unlock()
+                    continuation.resume(returning: first)
+                } else if Task.isCancelled {
+                    lock.unlock()
+                    continuation.resume(returning: .cancel)
+                } else {
+                    waiter = continuation
+                    lock.unlock()
+                }
             }
+        } onCancel: {
+            lock.lock()
+            let waiting = waiter
+            waiter = nil
+            lock.unlock()
+            waiting?.resume(returning: .cancel)
         }
     }
 }

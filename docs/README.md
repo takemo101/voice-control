@@ -46,7 +46,7 @@ Sources/
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
     Choice/            選択肢の採点・勝ち抜き戦（Chooser）・しきい値（Gate）・声の「はい」の判定（Confirmation）
     Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
-  VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合（CommandPolicy）・実行（CommandRunner・OutputCompactor・RefAliases）・言語モデル（SkillAgent）・スキルの選択（SkillRouter：Tiny-Jev で選ぶ。SkillResolver・DefaultSkill：選ばれなければ既定スキル）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
+  VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合（CommandPolicy）・実行（CommandRunner・OutputCompactor・RefAliases）・スキルを実行するモデル（SkillAgent＝Apple。ToolLoopAgent＋ChatModel のアダプター OllamaChat・OpenAICompatibleChat＝ローカルのサーバー。Engine：`--engine`。許可の照合・実行・整形は CommandSession が共有）・結果の扱い（ResultNote：メモのファイル。`result: markdown-window` は RunEvent.document）・スキルの取得とインストール（RemoteSkills・RemoteInstall・SkillInstaller）・スキルの選択（SkillRouter：Tiny-Jev で選ぶ。SkillResolver・DefaultSkill：選ばれなければ既定スキル）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
 Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
 corpus/                評価用の文（gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`）
@@ -54,6 +54,7 @@ skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 .voice-control/
   skills/spotify/      このプロジェクトのスキルの例（Spotify の操作。AppleScript）
+  skills/clipboard-note/  コピーした文章に、言われたとおりの処理をして、Markdown のウィンドウに表示する（pbpaste だけを許可）
 scripts/
   install.sh           ソースからビルドした vc を ~/.local/bin へ入れる（開発用。`just install`）
   uninstall.sh         入れた vc とモデルのリンクを取り除く

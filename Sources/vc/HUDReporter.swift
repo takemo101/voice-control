@@ -11,6 +11,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let terminal: TerminalReporter
     private let present: @Sendable (HUDContent, TimeInterval?) -> Void
     private let speak: @Sendable (String) -> Void
+    private let document: @Sendable (String) -> String?
     private let lock = NSLock()
     private var session: HUDSession?
 
@@ -18,13 +19,15 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     init(chip: String, utterance: String, dryRun: Bool,
          terminal: TerminalReporter? = nil,
          present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
-         speak: @escaping @Sendable (String) -> Void = { say($0) }) {
+         speak: @escaping @Sendable (String) -> Void = { say($0) },
+         document: @escaping @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) }) {
         self.chip = chip
         self.utterance = utterance
         self.dryRun = dryRun
         self.terminal = terminal ?? TerminalReporter(layout: .voice, dryRun: dryRun)
         self.present = present
         self.speak = speak
+        self.document = document
     }
 
     private var workingTitle: String { dryRun ? "確認のみ（--dry-run）" : "実行中" }
@@ -57,12 +60,12 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .confirmRequired(skill, reason):
             speak("\(skill.name)を実行しますか")
             terminal.report(event)
-            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = reason + "。もう一度トリガーを押して、「はい」と言う" }
+            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.choices = true; $0.hint = reason + "。ボタンを押すか、もう一度トリガーを押して「はい」と言う" }
         case .confirmationDeclined:
             terminal.report(event)
-            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil }
+            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil; $0.choices = false }
         case .confirmed:
-            update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil }
+            update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil; $0.choices = false }
         case .started:
             break
         case let .command(command):
@@ -78,6 +81,9 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .denied(command, reason):
             terminal.report(event)
             update { $0.steps.append(.init(command: command, status: .denied, output: reason)) }
+        case let .document(markdown):
+            // ウィンドウに表示する結果（HUD には、出さない。端末にも、本文は出さない）
+            if let why = document(markdown) { eprint("ウィンドウを出せません: \(why)") }
         case let .reply(reply, _, _):
             terminal.report(event)
             update(hideAfter: HUDSession.readingTime(for: reply)) { [dryRun] in
@@ -94,10 +100,10 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             }
         case let .failed(message):
             terminal.report(event)
-            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = message }
+            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
         case .cancelled:
             terminal.report(event)
-            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil }
+            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil; $0.choices = false }
         }
     }
 }

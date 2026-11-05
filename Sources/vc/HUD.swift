@@ -14,7 +14,11 @@ import AppKit
     private static let inset = NSEdgeInsets(top: 14, left: 18, bottom: 15, right: 18)
     private static var rowWidth: CGFloat { width - inset.left - inset.right }
 
+    /// 「実行する」「やめる」のボタンの答えの届け先（確認を待っている処理が、つなぐ）。
+    nonisolated let answers = AnswerRoute()
+
     private var panel: NSPanel?
+    private var buttonActions: [ButtonAction] = []
     private var background: NSVisualEffectView?
     private var stack: NSStackView?
     private var pendingHide: DispatchWorkItem?
@@ -42,14 +46,17 @@ import AppKit
         guard let panel, let stack else { return }
         pendingHide?.cancel()
         generation += 1
+        // ボタンを出している間（確認）だけ、クリックを受ける。ほかは、クリックを通す（パネルの下のアプリを、邪魔しない）。フォーカスは、奪わない（`nonactivatingPanel`）
+        panel.ignoresMouseEvents = !content.choices
+        buttonActions = []
 
         for view in stack.arrangedSubviews { stack.removeArrangedSubview(view); view.removeFromSuperview() }
         let accent = Self.accent(content.phase)
 
         stack.addArrangedSubview(fixed(header(content, accent: accent)))
-        if let hint = content.hint { stack.addArrangedSubview(fixed(label(hint, size: 12, color: Self.secondary, lines: 3))) }
+        if let hint = content.hint { stack.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
         if let heard = content.heard, !heard.isEmpty {
-            stack.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: Self.secondary, lines: 2)))
+            stack.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
         }
         if !content.steps.isEmpty || content.reply != nil {
             let divider = NSBox()
@@ -60,6 +67,8 @@ import AppKit
         if let reply = content.reply, !reply.isEmpty {
             stack.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
         }
+
+        if content.choices { stack.addArrangedSubview(fixed(choiceRow())) }
 
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
@@ -122,16 +131,7 @@ import AppKit
         panel.appearance = NSAppearance(named: .vibrantDark)  // 背景の明るさに関わらず、同じ見た目
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
-        let background = NSVisualEffectView()
-        background.material = .hudWindow
-        background.blendingMode = .behindWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = 18
-        background.layer?.cornerCurve = .continuous
-        background.layer?.masksToBounds = true
-        background.layer?.borderWidth = 0.5
-        background.layer?.borderColor = NSColor(white: 1, alpha: 0.16).cgColor
+        let background = HUDStyle.glassBackground()
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -153,8 +153,6 @@ import AppKit
     }
 
     // MARK: 部品
-
-    private static let secondary = NSColor(white: 1, alpha: 0.62)
 
     private static func accent(_ phase: Mode) -> NSColor {
         switch phase {
@@ -181,6 +179,28 @@ import AppKit
         field.preferredMaxLayoutWidth = Self.rowWidth
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
+    }
+
+    /// 確認のボタン：「実行する」「やめる」。押すと、答えを `answers` へ届ける（声の「はい」と、先に答えたほうが決まる）。
+    private func choiceRow() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 10
+        func button(_ title: String, tint: NSColor?, yes: Bool) -> NSButton {
+            let action = ButtonAction { [weak self] in self?.answers.deliver(yes) }
+            buttonActions.append(action)
+            let b = NSButton(title: title, target: action, action: #selector(ButtonAction.fire))
+            b.bezelStyle = .rounded
+            b.controlSize = .large
+            b.bezelColor = tint
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.widthAnchor.constraint(equalToConstant: 140).isActive = true
+            return b
+        }
+        row.addArrangedSubview(button("実行する", tint: .systemGreen, yes: true))
+        row.addArrangedSubview(button("やめる", tint: nil, yes: false))
+        return row
     }
 
     private func header(_ content: HUDContent, accent: NSColor) -> NSView {
@@ -233,39 +253,15 @@ import AppKit
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(title)
 
-        if let skill = content.skill { row.addArrangedSubview(pill(skill, fg: .systemTeal, bg: NSColor.systemTeal.withAlphaComponent(0.2))) }
+        if let skill = content.skill { row.addArrangedSubview(HUDStyle.pill(skill, fg: .systemTeal, bg: NSColor.systemTeal.withAlphaComponent(0.2))) }
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         spacer.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         row.addArrangedSubview(spacer)
 
-        if let chip = content.chip { row.addArrangedSubview(pill(chip, fg: Self.secondary, bg: NSColor(white: 1, alpha: 0.12))) }
+        if let chip = content.chip { row.addArrangedSubview(HUDStyle.pill(chip, fg: HUDStyle.secondary, bg: NSColor(white: 1, alpha: 0.12))) }
         return row
-    }
-
-    private func pill(_ text: String, fg: NSColor, bg: NSColor) -> NSView {
-        let field = NSTextField(labelWithString: text)
-        field.font = .systemFont(ofSize: 11, weight: .semibold)
-        field.textColor = fg
-        field.lineBreakMode = .byTruncatingTail
-        field.translatesAutoresizingMaskIntoConstraints = false
-
-        let box = NSView()
-        box.wantsLayer = true
-        box.layer?.backgroundColor = bg.cgColor
-        box.layer?.cornerRadius = 9
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(field)
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 8),
-            field.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-            field.topAnchor.constraint(equalTo: box.topAnchor, constant: 2),
-            field.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
-            box.widthAnchor.constraint(lessThanOrEqualToConstant: 160),
-        ])
-        box.setContentHuggingPriority(.required, for: .horizontal)
-        return box
     }
 
     private func stepRow(_ step: HUDContent.Step) -> NSView {
@@ -296,7 +292,7 @@ import AppKit
         guard let output = step.output, !output.isEmpty else { return line }
         let result = NSTextField(labelWithString: output)
         result.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        result.textColor = Self.secondary
+        result.textColor = HUDStyle.secondary
         result.lineBreakMode = .byTruncatingTail
         result.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
@@ -318,4 +314,11 @@ import AppKit
         view.widthAnchor.constraint(equalToConstant: width).isActive = true
         return view
     }
+}
+
+/// ボタンの動作（`NSButton` の target は、`NSObject` が要る）。
+private final class ButtonAction: NSObject {
+    private let run: () -> Void
+    init(_ run: @escaping () -> Void) { self.run = run }
+    @objc func fire() { run() }
 }

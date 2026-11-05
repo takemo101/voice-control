@@ -31,6 +31,12 @@ struct CommandContext {
         self.gate = gate
     }
 
+    /// スキルを実行するモデル（`--engine`）。書き方が違えば、理由を示して終わる。既定は、Apple のモデル。
+    var engine: Engine {
+        guard let text = options.engine else { return .apple }
+        do { return try Engine.parse(text) } catch { fail("\(error)") }
+    }
+
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
     /// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
     func resolveModelDir() -> URL {

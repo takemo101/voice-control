@@ -11,6 +11,7 @@ public enum CommandPolicy {
     public struct Violation: Error, Equatable { public let reason: String }
 
     /// シェルのような分け方：空白で区切る・`'…'` と `"…"` の中は、1 つ・`\` で、次の文字をそのまま。
+    /// **例外：`"…"` の中の `\n`・`\t` は、改行・タブにする**（言語モデルは、Markdown など、複数行の文字を、`\n` と書いて渡す。そのままだと、`\` が落ちて、`n` になる。シェルは使わないので、安全面は、変わらない）。
     public static func tokenize(_ s: String) -> Result<[String], Violation> {
         var tokens: [String] = []
         var current = ""
@@ -18,7 +19,11 @@ public enum CommandPolicy {
         var quote: Character?
         var escaped = false
         for ch in s {
-            if escaped { current.append(ch); escaped = false; inToken = true; continue }
+            if escaped {
+                // `"…"` の中だけ、`\n`・`\t` を、改行・タブに
+                if quote == "\"" && ch == "n" { current.append("\n") } else if quote == "\"" && ch == "t" { current.append("\t") } else { current.append(ch) }
+                escaped = false; inToken = true; continue
+            }
             if ch == "\\" && quote != "'" { escaped = true; inToken = true; continue }
             if let q = quote {
                 if ch == q { quote = nil } else { current.append(ch) }

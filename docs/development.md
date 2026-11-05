@@ -26,7 +26,7 @@
 
 ## 環境
 
-macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない。実行時の外部ツール：[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
+macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない。実行時の外部ツール：任意で、ローカルのモデルのサーバー（`--engine` を使うとき。Ollama：`ollama pull <モデル>`。LM Studio・llama.cpp など）、[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
 
 ## ビルドと実行
 
