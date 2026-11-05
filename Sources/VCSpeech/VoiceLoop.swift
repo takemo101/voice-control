@@ -152,7 +152,7 @@ public final class VoiceLoop {
         let activity = self.activity, queue = self.queue, recorder = self.recorder, escape = self.escape
         let emit = self.emit, scheduler = self.scheduler, rearmDelays = self.rearmDelays, tags = self.tags
         // 録音を始めたトリガーの印（トリガー → クロージャ → トリガーの循環を作らないよう、弱く持つ）
-        weak var tagged = trigger as? TaggedTrigger
+        weak let tagged = trigger as? TaggedTrigger
         let currentTag: @Sendable () -> String = { MainActor.assumeIsolated { tagged?.tag ?? "" } }
 
         // Esc は、録音中・認識待ち・実行中の間だけ受ける（それ以外は、Esc は、ほかのアプリへそのまま届く）。
