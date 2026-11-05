@@ -1,6 +1,6 @@
 ---
 name: spotify
-description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・検索・シャッフル。「音楽をかけて」「曲を流して」も
+description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・検索・シャッフル・今の曲をお気に入り（いいね）に追加。「音楽をかけて」「曲を流して」も
 allowed-commands:
   - osascript ${SKILL_DIR}/spotify.applescript
 ---
@@ -14,6 +14,7 @@ Use only these actions:
 - shuffle on|off | repeat on|off
 - status   (prints the player state, track, artist, volume)
 - search "<text>"   (opens the Spotify search page; use only the words the user said; does not start playback)
+- like   (adds the CURRENT song to the user's Liked Songs / favorites. It is a TOGGLE: if the song was already liked, it is removed. It briefly brings Spotify to the front)
 - open   (launches Spotify if it is not running, and brings it to the front)
 
 Which action for which request:
@@ -29,6 +30,7 @@ Which action for which request:
   - Examples: 「ミュートして」→ mute / 「音量を半分にして」→ volume 50 / 「音量を最大にして」→ volume 100. The action and the number are two separate words: `volume 50` (never `volume-50`).
 - status: ONLY when the user asks a QUESTION about the current state (what is playing? which song? how loud is it now?). It only READS: never use it for a command such as mute / volume / play / next.
 - search for something → search "<text>".
+- add the current song to favorites / Liked Songs / like it (お気に入りに追加・いいね・ハートを付けて・ライブラリに保存) → like. After it, tell the user in Japanese which song it was, and ALWAYS add that it is a toggle (すでに追加済みなら、解除になります).
 
 The command prints one line. If it starts with "error:", reply: failed: <the message>.
 After status, tell the user the state, track and artist in Japanese.
