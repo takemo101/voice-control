@@ -57,7 +57,7 @@ struct ListenCommand: Command {
                 _ = readLine()
                 try recorder.stop()
                 muter.restore()
-                let utterance = try await FileTranscriber().transcribe(file: file)
+                let utterance = try await GatedTranscriber(FileTranscriber()).transcribe(file: file)
                 kv("聞こえた", utterance)
                 guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
                 let skills = context.loadSkills()
@@ -93,7 +93,7 @@ struct ListenCommand: Command {
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let trigger = try makeTrigger(spec)
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: FileTranscriber(),
+                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: GatedTranscriber(FileTranscriber()),
                 handler: Self.utteranceHandler(context, jev: jev, chip: chip),
                 onEvent: { Self.show($0, chip: chip, muter: muter) })
             loop.run {
