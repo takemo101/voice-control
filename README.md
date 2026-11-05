@@ -169,7 +169,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 - **スキルの置き場所**：グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）。同じ名前なら、プロジェクトが、グローバルを上書きする。外から来るリポジトリのスキルは、許可したコマンドを実行できるので、**`vc skills trust` したプロジェクトだけ**読み込む（既定は未信頼）。[スキル](docs/skills.md#置き場所)
 - **既定スキル**：どのスキルにも当てはまらない依頼は、組み込みの `default` スキルが、`agent-desktop` と基本のコマンド（`open`・`say`・`ls`・`pwd`・`date`）で実行する。会話・独り言は実行せず、取り消しにくい依頼（削除・送信・購入など）は確認する。使わないなら `vc skills disable default`。[スキル](docs/skills.md#既定スキルdefault)
-- **確認**：確認が要るとき、パネルの「実行する」「やめる」を押すか、声で「はい」と言う（先に答えたほうが決まる）。
+- **確認**：確認が要るとき、パネルの「実行する」「やめる」を、ボタンで押すか、キーで選ぶか（← → で移り、Return で決める。y＝実行する、n・Esc＝やめる。最初は「やめる」にフォーカス）、声で「はい」と言う（先に答えたほうが決まる）。
 - **Esc で取りやめ**（`vc listen --hotkey`）：録音中は録音を捨て、認識中・実行中・確認の待ちは処理（実行中のコマンドも）を止める。Esc を受けるのは、その間だけ。録音中（Shift を押している間）の Esc には、アクセシビリティの許可が要る。
 - **結果を Markdown で見せる**：スキルのフロントマターの `result: markdown-window`（整形したウィンドウ）・`result: markdown-note`（ファイル）。[スキル](docs/skills.md#markdown-のウィンドウvc-showresult-markdown-window)
 - **モデルを替える**（任意）：`--engine ollama:qwen3.5:4b`（Ollama）・`--engine openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。通信先は、この Mac の 127.0.0.1 だけで、クラウドのモデルは使えない。許可の照合・上限・確認は、モデルに関わらず同じ。確認：`vc doctor --engine …`。[スキル](docs/skills.md#実行するモデルを替えるローカルのサーバー任意)
