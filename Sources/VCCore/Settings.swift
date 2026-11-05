@@ -4,11 +4,15 @@ import Foundation
 /// - `disabledSkills`：スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
 /// - `hotkey`：押している間だけ聞くトリガーの書き方（文字列。解釈は Speech 層）。なければ、`shift` の長押し。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
+/// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`。解釈は Skill 層）。なければ、Apple。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
     public var hotkey: String?
     public var stt: String?
+    public var mute: Bool?
+    public var engine: String?
     public var trustedProjects: [String] = []
 
     public init() {}
@@ -19,6 +23,8 @@ public struct Settings: Codable, Sendable, Equatable {
         disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
         hotkey = try c.decodeIfPresent(String.self, forKey: .hotkey)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
+        mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
+        engine = try c.decodeIfPresent(String.self, forKey: .engine)
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
     }
 

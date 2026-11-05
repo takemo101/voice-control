@@ -262,6 +262,16 @@
 | 見つけたこと | ①ggml が、プロセスの終了時に、モデルを開いたままだと **abort する**（PoC の終了で、クラッシュレポートが出た）→ `SpeechEngine.close()` を、終了・シグナルの前に呼ぶ。修正後、SIGTERM で終了しても、クラッシュレポートは出ない。②ネイティブのログが、1 回の起動で約 118 行、標準エラーに出る → `transcribe_log_set(nil)` で止めた（失敗は、状態コードで返る） |
 | 未確認 | **実際の声での Apple との比較**（合成音声だけで測った。利用者の声・部屋で、確かめる必要がある）・CI（macOS 26 のランナー）での、transcribe.cpp のビルド（pip の cmake を使うか）・配布物（tar.gz）のサイズ・`vc listen` を長く動かしたときのメモリ・Qwen3-ASR など、ほかのモデル（入れていない） |
 
+### 使うモデルと録音中の音の設定（2026-11-05。利用者の依頼）
+
+| 項目 | 結果 |
+|---|---|
+| 経緯 | 利用者「音声入力をしている時に他の音声を消すのを、設定変更できる？」→「常に特定のモデルを使う設定。音声入力と分析モデルを、どれ使うか設定」 |
+| 作ったもの | `Settings` に `mute`・`engine`（`stt` は、アダプターで追加済み）。`vc mute [show\|on\|off\|reset]`・`vc engine [show\|set\|reset]`。`CommandContext.engine` が、`--engine` → 設定 → Apple。`vc listen` に `--mute`（`--no-mute` は、前からある）。優先順位は、`MutePreference.resolve`（純粋な規則）。`vc listen` の起動時の表示に、実行モデル・ほかの音を追加 |
+| 確認 | 単体テスト（設定の保存・`mute=false` の区別・優先順位）。実行：`vc mute off` → 設定に `"mute":false`、`vc engine set` の不正な書き方（`cloud:gpt`）は拒否、`vc doctor` が、設定のエンジンで、モデルの有無を確かめた。本物の `vc listen --hotkey` が、設定から `実行 ollama:qwen3.5:4b`・`ほかの音 録音中も流したまま` を表示 |
+| 気づいたこと | **`vc run`・`vc listen` は、エンジンが Ollama などでも、Apple Intelligence を必須にしている**（`requireAppleIntelligence()`）。実行に Apple のモデルを使わないときも、要る。設定で Ollama にしても、Apple Intelligence がオフだと、動かない。**変えていない**（依頼の範囲外。必要なら、エンジンが Apple のときだけ要る形に直せる） |
+| 未確認 | 消音を off にしたとき、録音中に、実際に出力の音量が変わらないこと（`--no-mute` と同じ経路）。`openai:` の設定での実行 |
+
 ### 実機の確認
 
 **この表の、PC 操作の経路（計画・チェック・開閉・空にする・ウィンドウ操作・キー操作・アプリを開く）の観測は、廃止した機能の、歴史的な記録。agent-desktop 自体の挙動の記録としては、いまも当てはまる。**

@@ -17,6 +17,19 @@ import VCCore
         #expect(try Settings.load(from: file).stt == nil)
     }
 
+    /// 録音中の消音（`mute`）と、実行するモデル（`engine`）：なければ nil（既定）。`mute` は、false も区別して保存する。
+    @Test func muteAndEngineAreOptionalAndPersistent() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        var settings = try Settings.load(from: file)
+        #expect(settings.mute == nil && settings.engine == nil)
+        settings.mute = false
+        settings.engine = "ollama:qwen3.5:4b"
+        try settings.save(to: file)
+        let reloaded = try Settings.load(from: file)
+        #expect(reloaded.mute == false && reloaded.engine == "ollama:qwen3.5:4b")
+    }
+
     @Test func skillsAreEnabledByDefaultAndTogglePersistently() throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }

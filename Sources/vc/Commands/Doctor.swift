@@ -21,9 +21,9 @@ struct DoctorCommand: Command {
         // --- 必須：スキルの実行（vc run・vc listen）に要る ---
         checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current()))
         checks.append(Self.tinyJevCheck(context))
-        // --engine を指定したときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
+        // --engine か設定で、Apple 以外を選んでいるときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
         if context.engine != .apple {
-            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.options.engine ?? "") が使えます")) }
+            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.engineText ?? "") が使えます")) }
             catch { checks.append(.fail("実行するモデル", "\(error)", fix: "サーバーを起動し、モデルを読み込む（Ollama：ollama pull <モデル>）")) }
         }
 

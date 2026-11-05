@@ -46,11 +46,14 @@ struct CommandContext {
         self.gate = gate
     }
 
-    /// スキルを実行するモデル（`--engine`）。書き方が違えば、理由を示して終わる。既定は、Apple のモデル。
+    /// スキルを実行するモデル（`--engine` → 設定 → 既定の Apple のモデル）。書き方が違えば、理由を示して終わる。
     var engine: Engine {
-        guard let text = options.engine else { return .apple }
-        do { return try Engine.parse(text) } catch { fail("\(error)") }
+        guard let text = engineText else { return .apple }
+        do { return try Engine.parse(text) } catch { fail("\(options.engine == nil ? "settings.json の engine: " : "")\(error)\(options.engine == nil ? "（vc engine set で直す）" : "")") }
     }
+
+    /// 使うエンジンの書き方：`--engine` → 設定（`vc engine set`）→ なし（Apple）。
+    var engineText: String? { options.engine ?? currentSettings().engine }
 
     /// 使う音声認識：`--stt` → 設定（`vc stt set`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
     var speechChoice: SpeechChoice {

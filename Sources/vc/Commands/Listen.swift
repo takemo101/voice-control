@@ -8,7 +8,7 @@ import VCSpeech
 struct ListenCommand: Command {
     static let info = CommandInfo(
         name: "listen", group: .skills, summary: "マイクから聞いて、スキルで実行する",
-        usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes] [--no-mute]"],
+        usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes] [--mute|--no-mute]"],
         details: [
             "既定：Enter で録音を始め、もう一度 Enter で止める（q で終了）。マイクの許可が要る。聞こえた文は、スキルで実行する（vc run と同じ。確認が要るときは、端末で [y/N] を聞く。--yes で省略）。",
             "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。**当てはまるスキルがなければ、既定スキル（default）**が、agent-desktop と基本のコマンド（open・say・ls・pwd・date）で実行する。会話・独り言は、実行しない。取り消しにくい依頼（削除・送信・購入など）は、実行の前に、声の「はい」で確認する。既定スキルを無効にする（vc skills disable default）と、当てはまるスキルがない依頼は、実行しない。",
@@ -22,7 +22,7 @@ struct ListenCommand: Command {
             ("--trigger <キー>", "この回だけのトリガー（例：shift・ctrl+opt+space・f5。書き方は vc hotkey）"),
             ("--dry-run", "スキルのコマンドを実行せず、表示だけにする"),
             ("--yes", "確認を省略する（Enter で録音する通常モードだけ。--hotkey は、声の「はい」で確認する）"),
-            ("--no-mute", "録音中に、ほかの音（出力）を消さない（既定：録音の間だけ、出力を消音にし、終わったら戻す）"),
+            ("--mute / --no-mute", "録音中に、ほかの音（出力）を消す／消さない（その実行だけ。常にそうするなら vc mute on|off。既定：録音の間だけ消音にし、終わったら戻す）"),
         ],
         examples: ["vc listen", "vc listen --hotkey", "vc listen --hotkey --dry-run"])
 
@@ -31,7 +31,14 @@ struct ListenCommand: Command {
         // マイクの許可が要る（初回、macOS が確認を出す）。
         // **ここから `VoiceLoop.run` まで、`await` を挟まない**（`NSApplication.run()` の前の `await` は、画面の表示・長押しの判定を止める。docs/architecture.md「時間と並行」）。
         var arguments = arguments
-        let muter: OutputMuter = arguments.flag("--no-mute") ? .disabled : .system
+        let muteFlag: Bool?
+        switch (arguments.flag("--mute"), arguments.flag("--no-mute")) {
+        case (true, true): usageError("listen", "--mute と --no-mute は、一緒に使えません")
+        case (true, false): muteFlag = true
+        case (false, true): muteFlag = false
+        case (false, false): muteFlag = nil
+        }
+        let muter: OutputMuter = MutePreference.resolve(flag: muteFlag, setting: context.currentSettings().mute) ? .system : .disabled
         requireAppleIntelligence()   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
@@ -101,6 +108,8 @@ struct ListenCommand: Command {
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)
+                kv("実行", context.engineText ?? "apple", width: 8)
+                kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
