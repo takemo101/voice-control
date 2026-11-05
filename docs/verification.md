@@ -313,6 +313,14 @@
 | スキルから `vc show` | 実行して確認：`allowed-commands: - vc show` のスキルで、`vc show --title … --text …` が、exit 0 で、ウィンドウのプロセスが起動した（終了させた） |
 | 未確認 | 差し込みが効く場面（`file-search` 以外のスキル）・日本語の指示文での差し込み |
 
+### 右側の修飾キーのトリガー（2026-11-06。利用者の依頼）
+
+| 項目 | 結果 |
+|---|---|
+| 作ったもの | `rshift`・`rcmd`・`ropt`・`rctrl`（長押し専用）。`HotKeySpec.Side`（`any`・`right`）・`ModifierHold.matches`（デバイス依存のビット：shift 左 0x2・右 0x4、ctrl 左 0x1・右 0x2000、option 左 0x20・右 0x40、command 左 0x8・右 0x10）。`HotKeySpec.overlaps`（`shift` と `rshift` のように取り合う指定を、`vc hotkey set`・`set-dictate`・`vc listen --hotkey` で、断る）。左側だけの指定（`lshift` など）は、普段の入力と重なるので、作っていない |
+| 確認 | 単体テスト。`vc hotkey-check`（`rshift`）に、**デバイス依存のビットつきの合成のキー**（左 Shift のみ・右 Shift のみ・両方）を 3 回送ると、押した・離したの組が **1 つだけ**（右だけが反応）。合成のキーのビットは、IOKit のヘッダの値を使った |
+| 未確認 | **実際のキーボードでの、左右の判定**（合成のキーが、実際と同じビットの並びだという仮定）。右 Command・右 Option・右 Control の実機での動作。キー配列（日本語キーボード）での、右 Shift・右 Command の位置。`vc hotkey-check` で、利用者が確かめる必要がある |
+
 ### 実機の確認
 
 **この表の、PC 操作の経路（計画・チェック・開閉・空にする・ウィンドウ操作・キー操作・アプリを開く）の観測は、廃止した機能の、歴史的な記録。agent-desktop 自体の挙動の記録としては、いまも当てはまる。**

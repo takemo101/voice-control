@@ -6,6 +6,7 @@ import Foundation
 /// - 修飾キーだけ（`shift`・`ctrl+opt`）→ **長押し**（他のキーなしで 0.35 秒以上。`ModifierHold`。アクセシビリティの許可が要る）
 /// - 修飾キー ＋ キー（`ctrl+opt+space`・`cmd+shift+r`）→ **キーの組み合わせ**（`HotKey`。許可は要らない）
 /// - ファンクションキー（`f5`）だけは、修飾キーなしでもよい
+/// - **右側のキーだけ**（`rshift`・`rcmd`・`ropt`・`rctrl`）→ 長押し専用（左のキーでは、反応しない。反対側を押している間も、反応しない）
 /// 区切りは `+`（古い書き方の `ctrl-opt-space` の `-` も読める）。大文字小文字は区別しない。
 public struct HotKeySpec: Equatable, Sendable {
     public enum Modifier: String, CaseIterable, Sendable {
@@ -35,6 +36,16 @@ public struct HotKeySpec: Equatable, Sendable {
     /// 正規化したキーの名前（`space`・`r`・`f5`…）。修飾キーだけなら `nil`（長押し）。
     public let key: String?
 
+    /// 長押しで、どちら側のキーに反応するか。`any`（左右どちらでも）か、`right`（右側だけ）。
+    public enum Side: Sendable { case any, right }
+    public let side: Side
+
+    public init(modifiers: Set<Modifier>, key: String?, side: Side = .any) {
+        self.modifiers = modifiers
+        self.key = key
+        self.side = side
+    }
+
     public static let `default` = HotKeySpec(modifiers: [.shift], key: nil)
 
     /// 長押し（修飾キーだけ）か。
@@ -42,13 +53,14 @@ public struct HotKeySpec: Equatable, Sendable {
 
     /// 正規化した表記（修飾キーは ctrl・opt・shift・cmd の順）。
     public var description: String {
-        (Modifier.allCases.filter(modifiers.contains).map(\.rawValue) + (key.map { [$0] } ?? [])).joined(separator: "+")
+        if side == .right, let m = modifiers.first { return "r" + m.rawValue }
+        return (Modifier.allCases.filter(modifiers.contains).map(\.rawValue) + (key.map { [$0] } ?? [])).joined(separator: "+")
     }
 
     /// 画面に出す名前。
     public var displayName: String {
         let symbols: [Modifier: String] = [.control: "⌃", .option: "⌥", .shift: "⇧", .command: "⌘"]
-        let mods = Modifier.allCases.filter(modifiers.contains).map { symbols[$0]! }.joined()
+        let mods = (side == .right ? "右" : "") + Modifier.allCases.filter(modifiers.contains).map { symbols[$0]! }.joined()
         let keyName = key.map { $0 == "space" ? "Space" : $0.uppercased() } ?? ""
         return isHold ? "\(mods)（長押し）" : mods + keyName
     }
@@ -81,6 +93,17 @@ public struct HotKeySpec: Equatable, Sendable {
     private static let keyAliases = ["enter": "return", "esc": "escape"]
 
     /// 文字列 → 設定。書けない形は、理由を返す。
+    /// 右側のキーだけ（長押し専用）。
+    private static let rightAliases: [String: Modifier] = [
+        "rshift": .shift, "rctrl": .control, "rcontrol": .control, "ropt": .option, "roption": .option, "ralt": .option, "rcmd": .command, "rcommand": .command,
+    ]
+
+    /// 同じキーに、反応しうるか（同じ指定、または、同じ修飾キーの長押しで、左右どちらでも／右側のとき）。**2 つのトリガーを、同時に設定するとき**に、取り合わないかを調べる。
+    public func overlaps(_ other: HotKeySpec) -> Bool {
+        if self == other { return true }
+        return isHold && other.isHold && modifiers == other.modifiers && (side == .any || other.side == .any)
+    }
+
     public static func parse(_ text: String) -> Result<HotKeySpec, Failure> {
         let lowered = text.lowercased().trimmingCharacters(in: .whitespaces)
         guard !lowered.isEmpty else { return .failure(Failure(reason: "空です")) }
@@ -88,6 +111,12 @@ public struct HotKeySpec: Equatable, Sendable {
         let tokens = lowered.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
         if tokens.contains(where: \.isEmpty) { return .failure(Failure(reason: "「\(text)」は読めません（キーを「+」でつなぐ。例：ctrl+opt+space）")) }
 
+        if tokens.contains(where: { rightAliases[$0] != nil }) {
+            guard tokens.count == 1, let m = rightAliases[tokens[0]] else {
+                return .failure(Failure(reason: "右側のキー（rshift・rcmd・ropt・rctrl）は、1 つだけで、長押しにだけ使えます（ほかのキーと、組み合わせられません）"))
+            }
+            return .success(HotKeySpec(modifiers: [m], key: nil, side: .right))
+        }
         var modifiers = Set<Modifier>()
         var keys: [String] = []
         for token in tokens {
@@ -109,6 +138,6 @@ public struct HotKeySpec: Equatable, Sendable {
     /// 押している間だけ聞く入り口を作る。長押しは `ModifierHold`、キーの組み合わせは `HotKey`。
     @MainActor public func makeTrigger() throws -> any PushToTalkTrigger {
         if let code = keyCode { return try HotKey(keyCode: code, modifiers: carbonModifiers) }
-        return ModifierHold(modifier: modifierFlags)
+        return ModifierHold(modifier: modifierFlags, side: side)
     }
 }

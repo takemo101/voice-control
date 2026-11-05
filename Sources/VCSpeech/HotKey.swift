@@ -63,6 +63,7 @@ import os
     public var onPress: (@Sendable () -> Void)?
     public var onRelease: (@Sendable () -> Void)?
     private let modifier: NSEvent.ModifierFlags
+    private let side: HotKeySpec.Side
     private let holdDelay: TimeInterval
     private var monitors: [Any] = []
     private var pending: DispatchWorkItem?
@@ -70,8 +71,9 @@ import os
 
     nonisolated public static var isTrusted: Bool { AXIsProcessTrusted() }
 
-    public init(modifier: NSEvent.ModifierFlags = .shift, holdDelay: TimeInterval = 0.35) {
+    public init(modifier: NSEvent.ModifierFlags = .shift, holdDelay: TimeInterval = 0.35, side: HotKeySpec.Side = .any) {
         self.modifier = modifier
+        self.side = side
         self.holdDelay = holdDelay
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] e in MainActor.assumeIsolated { self?.flagsChanged(e) } }) { monitors.append(m) }
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] _ in MainActor.assumeIsolated { self?.cancelPending() } }) { monitors.append(m) }
@@ -83,8 +85,7 @@ import os
     isolated deinit { monitors.forEach { NSEvent.removeMonitor($0) } }
 
     private func flagsChanged(_ event: NSEvent) {
-        let flags = event.modifierFlags.intersection([.shift, .control, .option, .command])
-        if flags == modifier {
+        if Self.matches(raw: event.modifierFlags.rawValue, modifier: modifier, side: side) {
             guard pending == nil, !active else { return }
             let item = DispatchWorkItem { [weak self] in
                 MainActor.assumeIsolated {
@@ -100,6 +101,23 @@ import os
             cancelPending()
             if active { active = false; onRelease?() }
         }
+    }
+
+    /// いま押している修飾キーが、指定のものだけか。`right` なら、**右側のキーだけ**が押されている（左側を押している間は、違う）。
+    /// 左右の区別は、デバイス依存のビット（NX_DEVICE*KEYMASK）：shift 左 0x2・右 0x4、ctrl 左 0x1・右 0x2000、option 左 0x20・右 0x40、command 左 0x8・右 0x10。
+    nonisolated static func matches(raw: UInt, modifier: NSEvent.ModifierFlags, side: HotKeySpec.Side) -> Bool {
+        let flags = NSEvent.ModifierFlags(rawValue: raw).intersection([.shift, .control, .option, .command])
+        guard flags == modifier else { return false }
+        guard side == .right else { return true }
+        let (left, right): (UInt, UInt)
+        switch modifier {
+        case .shift: (left, right) = (0x2, 0x4)
+        case .control: (left, right) = (0x1, 0x2000)
+        case .option: (left, right) = (0x20, 0x40)
+        case .command: (left, right) = (0x8, 0x10)
+        default: return false
+        }
+        return raw & right != 0 && raw & left == 0
     }
 
     private func cancelPending() {
