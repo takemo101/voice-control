@@ -31,6 +31,9 @@ final class CommandSession: @unchecked Sendable {
     }
 
     /// 利用者の依頼の文（`vc pick` の、何を選ぶかの既定）。実行の前に、呼ぶ。
+    /// いまの依頼（`instructions` の `${USER_REQUEST}` に使う）。
+    private var currentRequest: String { lock.lock(); defer { lock.unlock() }; return request }
+
     func begin(request: String) { lock.lock(); self.request = request; lock.unlock() }
 
     /// 実行したコマンド（拒否したものを除く）。
@@ -90,7 +93,7 @@ final class CommandSession: @unchecked Sendable {
         \(finish)
 
         SKILL (\(skill.name)):
-        \(skill.body)
+        \(SkillPlaceholder.expand(skill.body, request: currentRequest))
         """
     }
 
