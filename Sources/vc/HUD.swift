@@ -199,6 +199,16 @@ import AppKit
         return true
     }
 
+    /// パネルを、先に 1 回、画面に出して、すぐ消す（見えない）。**トリガー（Shift の長押しの、グローバルのキー監視）を入れる前に、呼ぶ**：
+    /// 監視を入れたあとで、パネルを初めて出すと、そのパネルへ、マウスのクリックが届かない（実測：`vc listen --hotkey` の確認のボタン）。
+    func warmUp() {
+        ensurePanel()
+        guard let panel, !visible else { return }
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        panel.orderOut(nil)
+    }
+
     private func ensurePanel() {
         guard panel == nil else { return }
         let panel = HUDPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 60), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
