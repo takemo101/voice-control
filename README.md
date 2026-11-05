@@ -146,10 +146,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.2.4](https://github.com/takemo101/voice-control/releases/tag/v0.2.4) の例）：
+**手で入れる**（[v0.3.0](https://github.com/takemo101/voice-control/releases/tag/v0.3.0) の例）：
 
 ```sh
-V=0.2.4
+V=0.3.0
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -356,7 +356,7 @@ flowchart TB
 | 機能 | 状態 |
 |---|---|
 | スキル（`vc skills`・`vc run`） | 自作ウィンドウで確認。**実アプリ・複数スキルの取り違えは未確認** |
-| 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.2.4）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
+| 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.3.0）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
 | Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
 | 音声認識の切り替え（`vc stt`・Whisper） | 合成音声での測定と、実マイク（スピーカーの音）での 1 回の確認。**実際の声での比較は未確認** |
 | ファイル検索（`vc find`・`vc pick`・`file-search`） | 自作のフォルダで確認（Ollama 9/10・Apple 9/10。同じ場面で調整）。**実際のホームでの検索の質は未確認** |
