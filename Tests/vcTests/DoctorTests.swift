@@ -35,6 +35,8 @@ import VCSpeech
         #expect(check.state == .fail)
         #expect(check.fix == AppleIntelligence.Reason.notEnabled.remedy)
         #expect(DoctorCommand.appleIntelligenceCheck(.available).state == .ok)
+        // 実行するモデルが Apple でなければ（Ollama など）、使えなくても、失敗にしない（必須ではない）
+        #expect(DoctorCommand.appleIntelligenceCheck(.unavailable(.notEnabled), required: false).state == .warn)
     }
 
     /// マイクの許可は、任意の機能（声の入力）に要るだけ：未決・拒否でも、失敗にはしない。

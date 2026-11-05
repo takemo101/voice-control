@@ -104,7 +104,7 @@ flowchart LR
 **1. 必要なものをそろえる**
 
 - macOS 26 以降・Apple silicon の Mac。
-- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。
+- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。スキルの実行に Ollama などのモデルを使う（`vc engine set`）なら、要りません。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。
 - アクセシビリティ・マイクの許可（`vc doctor` が、足りないものを教えます）。
 

@@ -19,7 +19,7 @@ struct DoctorCommand: Command {
         var checks: [DoctorCheck] = []
 
         // --- 必須：スキルの実行（vc run・vc listen）に要る ---
-        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current()))
+        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current(), required: context.engine == .apple))
         checks.append(Self.tinyJevCheck(context))
         // --engine か設定で、Apple 以外を選んでいるときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
         if context.engine != .apple {
@@ -46,10 +46,13 @@ struct DoctorCommand: Command {
         if report.hasFailure { exit(1) }
     }
 
-    static func appleIntelligenceCheck(_ status: AppleIntelligence.Status) -> DoctorCheck {
+    /// `required`：スキルを実行するモデルが Apple のとき。ほかのエンジン（Ollama など）なら、要らないので、使えなくても、警告にとどめる。
+    static func appleIntelligenceCheck(_ status: AppleIntelligence.Status, required: Bool = true) -> DoctorCheck {
         switch status {
-        case .available: return .ok("Apple Intelligence", "使えます（スキルの実行に使う言語モデル）")
-        case .unavailable(let reason): return .fail("Apple Intelligence", reason.summary, fix: reason.remedy)
+        case .available: return .ok("Apple Intelligence", required ? "使えます（スキルの実行に使う言語モデル）" : "使えます（このエンジンでは、使いません）")
+        case .unavailable(let reason):
+            return required ? .fail("Apple Intelligence", reason.summary, fix: reason.remedy)
+                            : .warn("Apple Intelligence", "\(reason.summary)（このエンジンでは、使わないので、そのままで動きます）", fix: reason.remedy)
         }
     }
 

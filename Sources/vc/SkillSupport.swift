@@ -36,7 +36,9 @@ func askOnTerminal(yes: Bool) -> Bool {
 
 /// Apple の言語モデル（スキルの実行に使う）が使えないとき、理由と直す手順を示して終わる（実行の途中で、失敗させない。Tiny-Jev のモデルがないとき、
 /// `vc model download` を案内するのと同じ）。`vc doctor` で、ほかの項目も確かめられる。
-func requireAppleIntelligence() {
+/// スキルを実行するモデルが Apple のときだけ、Apple Intelligence が要る（Ollama などのローカルのサーバーのモデルを使うなら、要らない）。
+func requireAppleIntelligence(for engine: Engine) {
+    guard engine == .apple else { return }
     if case .unavailable(let reason) = AppleIntelligence.current() {
         fail("\(reason.summary)。\(reason.remedy)。確認：vc doctor")
     }

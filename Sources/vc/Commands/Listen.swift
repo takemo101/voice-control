@@ -39,7 +39,7 @@ struct ListenCommand: Command {
         case (false, false): muteFlag = nil
         }
         let muter: OutputMuter = MutePreference.resolve(flag: muteFlag, setting: context.currentSettings().mute) ? .system : .disabled
-        requireAppleIntelligence()   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
+        requireAppleIntelligence(for: context.engine)   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
         let speech = context.makeSpeechEngine()   // 選んだ音声認識（ダウンロードしたモデルは、ここで読み込む）。終わる前に close
