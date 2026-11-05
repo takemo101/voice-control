@@ -90,6 +90,7 @@ struct ListenCommand: Command {
         do {
             let (spec, _) = context.resolveHotKey()
             let chip = spec.displayName
+            HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let trigger = try makeTrigger(spec)
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: FileTranscriber(),

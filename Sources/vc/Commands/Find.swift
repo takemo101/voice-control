@@ -16,6 +16,9 @@ struct FindCommand: Command {
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         let result = ToolCommands.find(Array(arguments.remaining.dropFirst()))
-        if result.exitCode == 0 { print(result.output) } else { fail(result.output.replacingOccurrences(of: "error: ", with: "")) }
+        switch result {
+        case let .success(text): print(text)
+        case let .failure(failure): fail(failure.message)
+        }
     }
 }

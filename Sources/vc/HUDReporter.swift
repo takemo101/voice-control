@@ -60,7 +60,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .confirmRequired(skill, reason):
             speak("\(skill.name)を実行しますか")
             terminal.report(event)
-            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.choices = true; $0.hint = reason + "。ボタン・キー（← → と Return、y / n）で答えるか、もう一度トリガーを押して「はい」と言う" }
+            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.choices = true; $0.hint = reason + "。" + ConfirmGuide.howToAnswer }
         case .confirmationDeclined:
             terminal.report(event)
             update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil; $0.choices = false }
