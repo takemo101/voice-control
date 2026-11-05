@@ -3,10 +3,12 @@ import Foundation
 /// 設定（`~/.voice-control/settings.json`）。
 /// - `disabledSkills`：スキルの有効・無効。**既定は有効**（無効にしたものだけ、記録する）。
 /// - `hotkey`：押している間だけ聞くトリガーの書き方（文字列。解釈は Speech 層）。なければ、`shift` の長押し。
+/// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
     public var hotkey: String?
+    public var stt: String?
     public var trustedProjects: [String] = []
 
     public init() {}
@@ -16,6 +18,7 @@ public struct Settings: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
         hotkey = try c.decodeIfPresent(String.self, forKey: .hotkey)
+        stt = try c.decodeIfPresent(String.self, forKey: .stt)
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
     }
 

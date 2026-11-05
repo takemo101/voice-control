@@ -21,6 +21,9 @@ on:
       - "scripts/package.sh"
       - "scripts/verify-package.sh"
       - "Package.swift"
+      - "scripts/build-native.sh"
+      - "Sources/CTranscribe/**"
+      - "THIRD_PARTY_NOTICES.md"
       - "Sources/vc/Version.swift"
       - "LICENSE"
   workflow_dispatch:
@@ -60,6 +63,15 @@ jobs:
           sw_vers
           xcodebuild -version
           swift --version
+
+      - name: Cache the native build (transcribe.cpp)
+        uses: actions/cache@v4
+        with:
+          path: build/native
+          key: native-${{ runner.os }}-${{ hashFiles('scripts/build-native.sh') }}
+
+      - name: Build the native library (transcribe.cpp)
+        run: ./scripts/build-native.sh
 
       - name: Unit tests
         run: swift test --explicit-target-dependency-import-check=error
@@ -179,6 +191,8 @@ jobs:
           # Tiny-Jev のモデル（約 1.2 GB）を、~/.voice-control/models に取得して、SHA-256 を検証します
           vc model download
           vc --help
+          # 任意：音声認識を Whisper に替える（約 0.9 GB。vc model list・vc stt）
+          # vc model download whisper-large-v3-turbo && vc stt set whisper-large-v3-turbo
           ```
 
           署名が ad-hoc（Developer ID の署名・公証なし）のため、ブラウザでダウンロードして Gatekeeper に止められたら、次のコマンドで検疫属性を外してください。

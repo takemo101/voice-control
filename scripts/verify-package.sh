@@ -12,7 +12,7 @@ trap 'rm -rf "$WORK"' EXIT
 tar -xzf "$ARCHIVE" -C "$WORK"
 DIR="$(echo "$WORK"/vc-*)"
 
-for f in vc LICENSE README.md skills/voice-control-skill-author/SKILL.md; do
+for f in vc LICENSE THIRD_PARTY_NOTICES.md README.md skills/voice-control-skill-author/SKILL.md; do
     [ -e "$DIR/$f" ] || { echo "verify-package: $f がありません" >&2; exit 1; }
 done
 file "$DIR/vc" | grep -q "arm64" || { echo "verify-package: arm64 ではありません" >&2; file "$DIR/vc" >&2; exit 1; }

@@ -29,7 +29,7 @@ protocol Command {
 /// コマンドの一覧。`vc --help` の表示順（グループの中の並び）は、この並び。
 enum Commands {
     static let all: [any Command.Type] = [
-        SkillsCommand.self, RunCommand.self, ListenCommand.self, ShowCommand.self, FindCommand.self, PickCommand.self,
+        SkillsCommand.self, RunCommand.self, ListenCommand.self, ShowCommand.self, FindCommand.self, PickCommand.self, TranscribeCommand.self, SttCommand.self,
         HotkeyCheckCommand.self, HudPreviewCommand.self, EvalGateCommand.self,
         DoctorCommand.self, ModelCommand.self, HotkeyCommand.self,
     ]

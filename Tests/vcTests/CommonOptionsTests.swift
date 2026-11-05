@@ -54,6 +54,17 @@ import Testing
     }
 }
 
+/// 使う音声認識（`--stt`）：どの位置でも取り除く。名前の検査は `SpeechChoice.parse`（`VCSpeechTests`）。
+@Suite struct SttOptionTests {
+    @Test func theSttOptionIsTakenFromAnyPositionAndTheDefaultIsNone() {
+        var a = Arguments(["listen", "--stt", "whisper-large-v3-turbo", "--hotkey"])
+        #expect(CommonOptions(consuming: &a).stt == "whisper-large-v3-turbo")
+        #expect(a.remaining == ["listen"])
+        var b = Arguments(["listen"])
+        #expect(CommonOptions(consuming: &b).stt == nil)
+    }
+}
+
 /// スキルを実行するモデル（`--engine`）：どの位置でも取り除く。書き方の検査は `Engine.parse`（`VCSkillTests`）。
 @Suite struct EngineOptionTests {
     @Test func theEngineOptionIsTakenFromAnyPositionAndTheDefaultIsNone() {

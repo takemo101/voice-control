@@ -35,11 +35,13 @@ struct ListenCommand: Command {
         requireAppleIntelligence()   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
+        let speech = context.makeSpeechEngine()   // 選んだ音声認識（ダウンロードしたモデルは、ここで読み込む）。終わる前に close
+        defer { speech.close() }
         // Ctrl+C などで終わるとき、消したままにしない（録音中に終わっても、音を戻す）。主キューは、readLine や NSApplication で塞がるので、別のキューで受ける
-        let signals = Self.restoreOnSignals(muter)
+        let signals = Self.restoreOnSignals(muter, speech)
         defer { withExtendedLifetime(signals) {} }
         if context.options.hotkey {
-            runVoiceLoop(context, jev: jev, muter: muter)
+            runVoiceLoop(context, jev: jev, muter: muter, speech: speech)
             return
         }
         while true {
@@ -57,7 +59,7 @@ struct ListenCommand: Command {
                 _ = readLine()
                 try recorder.stop()
                 muter.restore()
-                let utterance = try await GatedTranscriber(FileTranscriber()).transcribe(file: file)
+                let utterance = try await speech.transcriber.transcribe(file: file)
                 kv("聞こえた", utterance)
                 guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
                 let skills = context.loadSkills()
@@ -71,11 +73,11 @@ struct ListenCommand: Command {
 
     /// Ctrl+C（SIGINT）・SIGTERM・SIGHUP で終わるとき、消した出力を戻してから終わる（消したままにしない）。
     /// 受ける場所は、主キューではない：`readLine`（Enter モード）・`NSApplication.run()` が、主キューを塞ぐ。強制終了（SIGKILL）・クラッシュは、戻せない。
-    private static func restoreOnSignals(_ muter: OutputMuter) -> [DispatchSourceSignal] {
+    private static func restoreOnSignals(_ muter: OutputMuter, _ speech: SpeechEngine) -> [DispatchSourceSignal] {
         [SIGINT, SIGTERM, SIGHUP].map { sig in
             signal(sig, SIG_IGN)   // 既定の動作（そのまま終わる）を、止める
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            source.setEventHandler { muter.restore(); exit(128 + sig) }
+            source.setEventHandler { muter.restore(); speech.close(); exit(128 + sig) }   // 音声認識のモデルは、開いたまま exit すると abort する
             source.resume()
             return source
         }
@@ -86,18 +88,19 @@ struct ListenCommand: Command {
     /// --dry-run なら、コマンドを実行しない。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
     /// 聞く・録る・Esc・待ち行列の調整は `VoiceLoop`（VCSpeech）。ここは、発話の処理（`UtteranceHandler`）と、出来事の表示だけを渡す。
     /// 同期の関数：`await` を挟まない（`VoiceLoop.run` の不変条件 1）。
-    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, muter: OutputMuter) {
+    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, muter: OutputMuter, speech: SpeechEngine) {
         do {
             let (spec, _) = context.resolveHotKey()
             let chip = spec.displayName
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let trigger = try makeTrigger(spec)
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: GatedTranscriber(FileTranscriber()),
+                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: speech.transcriber,
                 handler: Self.utteranceHandler(context, jev: jev, chip: chip),
                 onEvent: { Self.show($0, chip: chip, muter: muter) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
+                kv("音声認識", speech.choice.title, width: 8)
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。

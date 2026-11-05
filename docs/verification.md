@@ -251,6 +251,17 @@
 | しきい値の確認 | この Mac のマイクの背景を、4 秒、レベルだけ測った（音声は残していない）：約 −75 dBFS（最大 −68）。合成音声 480 件：すべて通る（声のある秒の最小 0.60）。無音・雑音 20 件：すべて止まる（0.00）。短い返事（はい・うん・ええ・いいえ・やめて・お願いします）× 3 つの声：すべて通る（最小 0.22 秒）。**しきい値は、これらの音で決めた（評価と調整が同じ）** |
 | 未確認 | 実際の声・実際の部屋の雑音（話し声に近い雑音は、通る）・小さい声・遠い声。しきい値が厳しすぎて、普通の発話が捨てられていないかは、実際の使用で確かめる必要がある |
 
+### 音声認識のアダプター（Whisper。2026-11-05。利用者の依頼）
+
+| 項目 | 結果 |
+|---|---|
+| 経緯 | 利用者「meeting-analyzer のように、音声モデルをダウンロードして設定できるように。アダプターみたいに」→ 方式 A（transcribe.cpp を組み込む）・先に測る（PoC。上の「音声認識モデルの比較」）→ 無音ゲート → アダプター |
+| 作ったもの | `LocalTranscriber`（transcribe.cpp）・`SpeechModelCatalog`（Whisper large-v3-turbo。版・SHA-256 を固定）・`SpeechChoice`・`SpeechEngine`（選んだものを開き、`GatedTranscriber` で包む）。`ModelStore` を `VCDecision` から `VCCore` へ移した（`VCSpeech` が使うため。Tiny-Jev の定義は `TinyJevModel`）。`vc model list/status/download/path/delete <ID>`・`vc stt`・`--stt`・`vc transcribe`・`vc doctor` の音声認識の行。`scripts/build-native.sh`（固定した commit）を、`just build`・`./scripts/test.sh`・`package.sh`・CI が呼ぶ。`THIRD_PARTY_NOTICES.md`（配布物にも入れる） |
+| 単体テスト | 名前の解釈（知らない名前を断る）・設定の保存・取得していないモデルは開けない（取得の手順を含む失敗）・壊れたモデルのファイルは開くときに失敗・音声の変換（44.1 kHz ステレオ → 16 kHz モノラル）・`--stt` の取り除き |
+| 実モデルでの確認 | **`vc transcribe`**：PoC の 30 件と、同じ結果（30/30）。無音・雑音 20 件は、すべて「声が聞こえませんでした」（Whisper の「ご視聴ありがとうございました」は出ない）。**本物の `vc listen --hotkey --stt whisper-large-v3-turbo`**（実マイクが、スピーカーの `say` の音を拾う・Shift の長押しは合成）：「テスト用のメモを書き出して」を正しく認識 → Tiny-Jev がスキルを選び → 確認 → 実行（dry-run）まで進んだ。**`vc model download` を実際に実行**（約 845 MB・SHA-256 一致・`--verify` も一致） |
+| 見つけたこと | ①ggml が、プロセスの終了時に、モデルを開いたままだと **abort する**（PoC の終了で、クラッシュレポートが出た）→ `SpeechEngine.close()` を、終了・シグナルの前に呼ぶ。修正後、SIGTERM で終了しても、クラッシュレポートは出ない。②ネイティブのログが、1 回の起動で約 118 行、標準エラーに出る → `transcribe_log_set(nil)` で止めた（失敗は、状態コードで返る） |
+| 未確認 | **実際の声での Apple との比較**（合成音声だけで測った。利用者の声・部屋で、確かめる必要がある）・CI（macOS 26 のランナー）での、transcribe.cpp のビルド（pip の cmake を使うか）・配布物（tar.gz）のサイズ・`vc listen` を長く動かしたときのメモリ・Qwen3-ASR など、ほかのモデル（入れていない） |
+
 ### 実機の確認
 
 **この表の、PC 操作の経路（計画・チェック・開閉・空にする・ウィンドウ操作・キー操作・アプリを開く）の観測は、廃止した機能の、歴史的な記録。agent-desktop 自体の挙動の記録としては、いまも当てはまる。**
