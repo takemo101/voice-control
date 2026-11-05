@@ -90,6 +90,8 @@ on run argv
 			return "error: repeat needs on or off"
 		end if
 		return "ok"
+	else if theAction is "like" then
+		return my toggleLike()
 	else if theAction is "search" then
 		-- 検索の画面を開くだけ（再生はしない）。文字は、英数字以外をパーセントエンコードして、spotify:search: に付ける
 		if theArg is "" then return "error: search needs a text"
@@ -101,6 +103,46 @@ on run argv
 		return "error: unknown action " & theAction
 	end if
 end run
+
+-- 今の曲の「いいね」（Liked Songs への追加）を切り替える。Spotify の AppleScript には、いいねの命令がない（`starred` は、読み取り専用）ので、アプリのショートカット ⌥⇧B を送る。
+-- **切り替え（トグル）**：すでに追加済みなら、解除になる（状態は、読めない）。Spotify を、一瞬、前面にして、キーを送り、元のアプリを前面に戻す。
+-- 要る許可：アクセシビリティ（キーを送る）と、System Events の操作（オートメーション）。Spotify が起動していなければ、起動しない（曲がないので、何もしない）。
+on toggleLike()
+	if application "Spotify" is not running then return "error: Spotify is not running"
+	set trackText to ""
+	try
+		tell application "Spotify"
+			if (player state as text) is "stopped" then return "error: no track is loaded"
+			set trackText to (name of current track) & " / " & (artist of current track)
+		end tell
+	on error
+		return "error: no current track"
+	end try
+	set previousApp to ""
+	try
+		tell application "System Events" to set previousApp to name of first application process whose frontmost is true
+	end try
+	try
+		tell application "Spotify" to activate
+		delay 0.5
+		tell application "System Events" to key code 11 using {option down, shift down}
+		delay 0.3
+	on error errMsg
+		my restoreFront(previousApp)
+		return "error: could not send the shortcut (" & errMsg & "). Allow Accessibility and Automation (System Events) for the terminal app."
+	end try
+	my restoreFront(previousApp)
+	return "ok: toggled like for " & trackText & " (if it was already liked, it is now removed)"
+end toggleLike
+
+-- 元のアプリを前面に戻す（Spotify 自身・分からないときは、何もしない）。
+on restoreFront(appName)
+	if appName is not "" and appName is not "Spotify" then
+		try
+			tell application appName to activate
+		end try
+	end if
+end restoreFront
 
 -- Spotify が起動していなければ、起動して（前面には出さない）、命令に答えるまで待つ（最大 約 40 秒）。
 -- AppleScript の launch は、アプリが答えるまで待ち続けることがあるので、`open -g -a`（すぐ戻る）で起動する。

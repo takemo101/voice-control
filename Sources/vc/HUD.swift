@@ -28,6 +28,9 @@ import AppKit
     private var scroll: NSScrollView?
     private var bodyHeight: NSLayoutConstraint?
     private var pendingHide: DispatchWorkItem?
+    /// 出している間、マウスのある画面を見張る（別のディスプレイへ移ったら、パネルも、そこへ移る）。
+    private var followTimer: Timer?
+    private var panelHeight: CGFloat = 0
     private var visible = false
     private var generation = 0
 
@@ -90,14 +93,16 @@ import AppKit
 
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
-        let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let final = NSRect(x: screen.midX - Self.width / 2, y: screen.maxY - height - 16, width: Self.width, height: height)
+        // いま使っている画面（マウスのある画面）の、上の中央
+        let final = ScreenPlacement.hudFrame(in: ScreenPlacement.currentVisibleFrame(), width: Self.width, height: height)
+        panelHeight = height
 
         if !visible {
             panel.setFrame(final.offsetBy(dx: 0, dy: 10), display: false)
             panel.alphaValue = 0
             panel.orderFrontRegardless()
             visible = true
+            startFollowing()
         }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
@@ -119,6 +124,26 @@ import AppKit
         }
     }
 
+    /// 出している間、0.3 秒ごとに、マウスのある画面を調べ、パネルが別の画面にあれば、その画面の上の中央へ移す。
+    private func startFollowing() {
+        followTimer?.invalidate()
+        followTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followScreen() }
+        }
+    }
+
+    private func stopFollowing() {
+        followTimer?.invalidate()
+        followTimer = nil
+    }
+
+    private func followScreen() {
+        guard visible, let panel, let screen = ScreenPlacement.current() else { return }
+        if screen.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) { return }   // すでに、その画面
+        let target = ScreenPlacement.hudFrame(in: screen.visibleFrame, width: Self.width, height: panelHeight)
+        panel.setFrame(target, display: true)
+    }
+
     private func fadeOut() {
         pendingHide?.cancel()
         guard visible, let panel else { return }
@@ -132,6 +157,7 @@ import AppKit
                 guard let self, token == self.generation else { return }  // その間に、新しい表示が来ていれば、消さない
                 panel.orderOut(nil)
                 self.visible = false
+                self.stopFollowing()
             }
         })
     }

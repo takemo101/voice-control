@@ -29,7 +29,8 @@ import AppKit
         window.collectionBehavior = [.fullScreenAuxiliary]
         window.contentView = build()
         window.textView = textView
-        window.center()
+        // いま使っている画面（マウスのある画面）の、真ん中
+        window.setFrame(ScreenPlacement.centeredFrame(size: window.frame.size, in: ScreenPlacement.currentVisibleFrame()), display: false)
     }
 
     /// 表示して、ウィンドウが閉じられるまで、イベントのループを回す（終わらない：閉じると、プロセスを終える）。
