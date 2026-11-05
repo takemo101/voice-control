@@ -11,6 +11,7 @@ struct DictateCommand: Command {
             "押している間だけ録音（既定：Shift の長押し。vc hotkey で変更）→ 離すと文字にして、**いま前面のアプリへ入力**する（クリップボードに書いて ⌘V を送り、少しあとに、元のクリップボードへ戻す。そのあとに、ほかのアプリがコピーしていたら、戻さない）。",
             "スキル・言語モデル・Tiny-Jev は、使わない（音声入力だけ。起動が速い）。認識は、vc stt（Apple か、ダウンロードした Whisper）。声のない録音は、入力しない。",
             "入力した文字は、画面の上のパネルにだけ出す（ファイル・ログ・端末には残さない）。アクセシビリティの許可が要る（トリガーの検出と、⌘V の送信）。マイクの許可も要る。",
+            "トリガーは、--trigger → 音声入力のトリガー（vc hotkey set-dictate）→ 声で頼むトリガー（vc hotkey）。**声で頼むのと、音声入力を、キーで切り替えたいなら、vc hotkey set-dictate <キー> で別のキーを決めて、vc listen --hotkey を使う**（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）。",
             "Esc で取りやめ（録音中・認識中）。Ctrl+C で終了。",
         ],
         options: [
@@ -33,9 +34,30 @@ struct DictateCommand: Command {
         runLoop(context, muter: muter, speech: speech)
     }
 
+    /// 認識した文字を、前面のアプリへ入力する（`vc dictate` と、`vc listen --hotkey` の音声入力のトリガー）。`--dry-run` なら、入力せずに、パネルに出すだけ。
+    @MainActor static func handle(_ utterance: String, _ token: CancelToken, context: CommandContext, chip: String, paste: ClipboardPaste) async {
+        guard !utterance.isEmpty else {
+            notice("聞き取れなかった")
+            HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
+            return
+        }
+        if token.isCancelled { return }
+        if context.options.dryRun {
+            print("  " + Style.yellow("入力しません（--dry-run）") + "（\(utterance.count) 文字）")
+            HUD.shared.show(HUDContent(phase: .info, title: "認識しました（入力しません：--dry-run）", chip: chip, reply: utterance), hideAfter: 2.5)
+            return
+        }
+        do {
+            try await paste.insert(utterance)
+            print("  " + Style.green("✓") + " 入力しました（\(utterance.count) 文字）")
+            HUD.shared.show(HUDContent(phase: .success, title: "入力しました", chip: chip, reply: utterance), hideAfter: 1.8)
+        } catch { VoiceUI.showFailure(error, chip: chip) }
+    }
+
     @MainActor private func runLoop(_ context: CommandContext, muter: OutputMuter, speech: SpeechEngine) {
         do {
-            let (spec, _) = context.resolveHotKey()
+            // トリガー：--trigger → 音声入力のトリガー（--dictate-trigger・vc hotkey set-dictate）→ 声で頼むトリガー（vc hotkey）→ 既定
+            let spec = context.options.trigger == nil ? (context.resolveDictateHotKey()?.spec ?? context.resolveHotKey().spec) : context.resolveHotKey().spec
             let chip = spec.displayName
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す
             let trigger = try makeTrigger(spec)
@@ -44,25 +66,8 @@ struct DictateCommand: Command {
             let paste = ClipboardPaste()
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
-                handler: { utterance, token, _ in
-                    guard !utterance.isEmpty else {
-                        notice("聞き取れなかった")
-                        HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
-                        return
-                    }
-                    if token.isCancelled { return }
-                    if context.options.dryRun {
-                        print("  " + Style.yellow("入力しません（--dry-run）") + "（\(utterance.count) 文字）")
-                        HUD.shared.show(HUDContent(phase: .info, title: "認識しました（入力しません：--dry-run）", chip: chip, reply: utterance), hideAfter: 2.5)
-                        return
-                    }
-                    do {
-                        try await paste.insert(utterance)
-                        print("  " + Style.green("✓") + " 入力しました（\(utterance.count) 文字）")
-                        HUD.shared.show(HUDContent(phase: .success, title: "入力しました", chip: chip, reply: utterance), hideAfter: 1.8)
-                    } catch { VoiceUI.showFailure(error, chip: chip) }
-                },
-                onEvent: { VoiceUI.show($0, chip: chip, muter: muter, dictation: true) })
+                handler: { utterance, token, _, _ in await Self.handle(utterance, token, context: context, chip: chip, paste: paste) },
+                onEvent: { event, _ in VoiceUI.show(event, chip: chip, muter: muter, dictation: true) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・認識中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)

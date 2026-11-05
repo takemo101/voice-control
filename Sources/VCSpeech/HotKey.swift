@@ -75,6 +75,9 @@ import os
         self.holdDelay = holdDelay
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] e in MainActor.assumeIsolated { self?.flagsChanged(e) } }) { monitors.append(m) }
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] _ in MainActor.assumeIsolated { self?.cancelPending() } }) { monitors.append(m) }
+        // 自分のアプリが前面（確認のパネルが、キーを受けている間）のときは、グローバルの監視に、イベントが届かない。同じ処理を、ローカルの監視でも行う（確認の声の返事を、トリガーで始められるように）
+        monitors.append(NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] e in MainActor.assumeIsolated { self?.flagsChanged(e) }; return e } as Any)
+        monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in MainActor.assumeIsolated { self?.cancelPending() }; return e } as Any)
     }
 
     isolated deinit { monitors.forEach { NSEvent.removeMonitor($0) } }

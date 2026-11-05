@@ -3,6 +3,12 @@ import Foundation
 import VCSpeech
 
 /// 声の流れ（`vc listen --hotkey`・`vc dictate`）に共通の、画面の上と端末の表示・終了の後始末・録音の開始の音。
+/// 録音を始めたトリガーの印（`ModeTrigger`）。`vc listen --hotkey` は、トリガーで、声で頼む／音声入力を切り替える。
+enum VoiceMode {
+    static let listen = "listen"
+    static let dictate = "dictate"
+}
+
 enum VoiceUI {
     /// 録音中に、ほかの音を消すか：`--mute`・`--no-mute`（その実行だけ）→ 設定（`vc mute`）→ 既定（消す）。
     static func muter(_ arguments: inout Arguments, _ context: CommandContext, command: String) -> OutputMuter {

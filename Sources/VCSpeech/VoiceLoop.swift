@@ -63,7 +63,22 @@ public typealias NextUtterance = @MainActor @Sendable () async throws -> String?
 /// - `cancel`：Esc で取りやめられる。実行中の処理は、これを見て止まる（処理の `Task` も取りやめられる）。
 /// - `next`：確認の返事など、次の発話を待つ。
 /// 処理の中の失敗・取りやめの表示は、ハンドラの仕事（文字にする段階のものは、`VoiceLoopEvent`）。
-public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _ cancel: CancelToken, _ next: @escaping NextUtterance) async -> Void
+/// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。`vc listen --hotkey` が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
+public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Void
+
+/// 録音を始めたトリガーを、見分けられるトリガー（複数のトリガーを 1 つにまとめた `ModeTrigger`）。録音の間と、離した直後は、その印を返す。
+@MainActor public protocol TaggedTrigger: PushToTalkTrigger {
+    var tag: String { get }
+}
+
+/// 録音ごとの印を、認識の列と同じ順に渡す（音声が列に入るときに足し、取り出すときに引く）。
+/// `@unchecked Sendable` の理由：`items` は、すべて `lock` で守る。
+final class TagQueue: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [String] = []
+    func push(_ tag: String) { lock.lock(); items.append(tag); lock.unlock() }
+    func pop() -> String { lock.lock(); defer { lock.unlock() }; return items.isEmpty ? "" : items.removeFirst() }
+}
 
 // MARK: - VoiceLoop
 
@@ -95,7 +110,8 @@ public final class VoiceLoop {
     private let recorder: Recording
     private let transcriber: Transcribing
     private let handler: UtteranceHandler
-    private let emit: @Sendable (VoiceLoopEvent) -> Void
+    private let emit: @Sendable (VoiceLoopEvent, String) -> Void
+    private let tags = TagQueue()
     private let scheduler: Scheduler
     private let rearmDelays: [TimeInterval]
     private let activity = VoiceActivity()
@@ -103,13 +119,13 @@ public final class VoiceLoop {
 
     /// - `onEvent`：表示のための出来事（`VoiceLoopEvent`）。
     public convenience init(trigger: PushToTalkTrigger, escape: EscapeSource, recorder: Recording, transcriber: Transcribing,
-                            handler: @escaping UtteranceHandler, onEvent: @escaping @Sendable (VoiceLoopEvent) -> Void) {
+                            handler: @escaping UtteranceHandler, onEvent: @escaping @Sendable (VoiceLoopEvent, String) -> Void) {
         self.init(trigger: trigger, escape: escape, recorder: recorder, transcriber: transcriber, handler: handler,
                   scheduler: .mainQueue, rearmDelays: [0.05, 0.3, 0.8, 1.5], onEvent: onEvent)
     }
 
     init(trigger: PushToTalkTrigger, escape: EscapeSource, recorder: Recording, transcriber: Transcribing, handler: @escaping UtteranceHandler,
-         scheduler: Scheduler, rearmDelays: [TimeInterval], onEvent: @escaping @Sendable (VoiceLoopEvent) -> Void) {
+         scheduler: Scheduler, rearmDelays: [TimeInterval], onEvent: @escaping @Sendable (VoiceLoopEvent, String) -> Void) {
         self.trigger = trigger
         self.escape = escape
         self.recorder = recorder
@@ -134,19 +150,23 @@ public final class VoiceLoop {
     @MainActor func start() {
         // 受け口のクロージャは、`self` ではなく、必要な部品だけを持つ（トリガー → クロージャ → `self` → トリガーの循環を作らない）。
         let activity = self.activity, queue = self.queue, recorder = self.recorder, escape = self.escape
-        let emit = self.emit, scheduler = self.scheduler, rearmDelays = self.rearmDelays
+        let emit = self.emit, scheduler = self.scheduler, rearmDelays = self.rearmDelays, tags = self.tags
+        // 録音を始めたトリガーの印（トリガー → クロージャ → トリガーの循環を作らないよう、弱く持つ）
+        weak var tagged = trigger as? TaggedTrigger
+        let currentTag: @Sendable () -> String = { MainActor.assumeIsolated { tagged?.tag ?? "" } }
 
         // Esc は、録音中・認識待ち・実行中の間だけ受ける（それ以外は、Esc は、ほかのアプリへそのまま届く）。
         activity.onChange = { active in scheduler.onMain { escape.setActive(active) } }
 
         trigger.onPress = {
             activity.startRecording()
-            emit(.recordingStarted)
+            emit(.recordingStarted, currentTag())
             recorder.start()
         }
         trigger.onRelease = {
             if activity.consumeCancelledRecording() { return }   // Esc で捨てた録音の「離した」
-            emit(.recognizing)
+            let tag = currentTag()
+            emit(.recognizing, tag)
             // 修飾キーを押している間は、Esc のホットキーを登録できない（実測）。離したあとに、登録し直す（修飾キーが離れるまでの間、数回試す）。
             for delay in rearmDelays {
                 scheduler.afterOnMain(delay) { if activity.isActive { escape.setActive(true) } }
@@ -154,24 +174,25 @@ public final class VoiceLoop {
             do {
                 if let file = try recorder.stop() {
                     activity.stopRecording(queuedAudio: true)
+                    tags.push(tag)
                     queue.push(.audio(file))
                 } else {
                     activity.stopRecording(queuedAudio: false)
-                    emit(.recordingEmpty)
+                    emit(.recordingEmpty, tag)
                 }
             } catch {
                 activity.stopRecording(queuedAudio: false)
-                emit(.recordingFailed(error))
+                emit(.recordingFailed(error), tag)
             }
         }
         escape.onEscape = {
             switch activity.escape() {
             case .recording:
                 recorder.discard()
-                emit(.recordingDiscarded)
+                emit(.recordingDiscarded, currentTag())
             case .work:
                 // 先に知らせる（読み上げを止める）。そのあとで、待っている処理を起こす。
-                emit(.cancelling)
+                emit(.cancelling, "")
                 queue.push(.cancel)   // 発話や確認の返事を待っている処理を起こす
             case .nothing:
                 break
@@ -185,42 +206,44 @@ public final class VoiceLoop {
     @MainActor private func consume() async {
         while true {
             guard case let .audio(file) = await queue.next() else { continue }   // 待っている処理がないときの Esc の合図は、読み捨てる
+            let tag = tags.pop()
             let token = CancelToken()
             activity.beginWork(token)
-            let work = Task { await self.process(file, token) }
+            let work = Task { await self.process(file, token, tag) }
             activity.setTask(work)
             await work.value
             activity.endWork()
         }
     }
 
-    @MainActor private func process(_ file: URL, _ token: CancelToken) async {
+    @MainActor private func process(_ file: URL, _ token: CancelToken, _ tag: String) async {
         do {
-            guard let utterance = try await transcribe(file, token) else { emit(.recognitionCancelled); return }
-            await handler(utterance, token, { [self] in try await nextUtterance(token) })
+            guard let utterance = try await transcribe(file, token, tag) else { emit(.recognitionCancelled, tag); return }
+            await handler(utterance, token, { [self] in try await nextUtterance(token, tag) }, tag)
         } catch {
-            emit(token.isCancelled || error is CancellationError ? .recognitionCancelled : .recognitionFailed(error))
+            emit(token.isCancelled || error is CancellationError ? .recognitionCancelled : .recognitionFailed(error), tag)
         }
     }
 
     /// 列から取り出した音声を、文字にする。取りやめられていれば nil。
-    @MainActor private func transcribe(_ file: URL, _ token: CancelToken) async throws -> String? {
+    @MainActor private func transcribe(_ file: URL, _ token: CancelToken, _ tag: String) async throws -> String? {
         activity.consumedAudio()
         // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
         defer { try? FileManager.default.removeItem(at: file) }
         if token.isCancelled { return nil }
         let text = try await transcriber.transcribe(file: file)
         if token.isCancelled { return nil }
-        emit(.recognized(text))
+        emit(.recognized(text), tag)
         return text
     }
 
     /// 次の発話（確認の返事にも使う）。取りやめられたら nil。
-    @MainActor private func nextUtterance(_ token: CancelToken) async throws -> String? {
+    /// `tag`：この発話（確認の前の依頼）の印。返事の録音の印は、取り出すときに引く（返事も、同じ列から来る）。
+    @MainActor private func nextUtterance(_ token: CancelToken, _ tag: String) async throws -> String? {
         while true {
             switch await queue.next() {
             case .cancel: if token.isCancelled || Task.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる。この待ち自体が取りやめられたら（ボタンが先に答えた）、やめる
-            case let .audio(file): return try await transcribe(file, token)
+            case let .audio(file): return try await transcribe(file, token, tags.pop())
             }
         }
     }

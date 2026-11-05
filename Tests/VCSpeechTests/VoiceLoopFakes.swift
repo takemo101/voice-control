@@ -156,7 +156,7 @@ final class EventLog: @unchecked Sendable {
     init(rearmDelays: [TimeInterval] = [0.05, 0.3], handler: @escaping UtteranceHandler) {
         let log = self.log
         loop = VoiceLoop(trigger: trigger, escape: escape, recorder: recorder, transcriber: transcriber, handler: handler,
-                         scheduler: main.scheduler, rearmDelays: rearmDelays, onEvent: { log.add($0) })
+                         scheduler: main.scheduler, rearmDelays: rearmDelays, onEvent: { event, _ in log.add(event) })
         loop.start()
     }
 

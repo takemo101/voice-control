@@ -19,6 +19,7 @@ struct ListenCommand: Command {
         ],
         options: [
             ("--hotkey", "押している間だけ録音する"),
+            ("--dictate-trigger <キー>", "この回だけの、音声入力のトリガー（例：ctrl）。声で頼むトリガーとは別のキー。押すと、スキルを使わず、文字にして前面のアプリへ入力する（vc dictate と同じ）。常にそうするなら vc hotkey set-dictate"),
             ("--trigger <キー>", "この回だけのトリガー（例：shift・ctrl+opt+space・f5。書き方は vc hotkey）"),
             ("--dry-run", "スキルのコマンドを実行せず、表示だけにする"),
             ("--yes", "確認を省略する（Enter で録音する通常モードだけ。--hotkey は、声の「はい」で確認する）"),
@@ -80,19 +81,39 @@ struct ListenCommand: Command {
         do {
             let (spec, _) = context.resolveHotKey()
             let chip = spec.displayName
+            // 音声入力のトリガーがあれば、トリガーで、声で頼む／音声入力を切り替える（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）
+            let dictateSpec = context.resolveDictateHotKey()?.spec
+            if let dictateSpec, dictateSpec.description == spec.description {
+                fail("声で頼むトリガーと、音声入力のトリガーが、同じです（\(spec.description)）。vc hotkey set-dictate で、別のキーにしてください")
+            }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
-            let trigger = try makeTrigger(spec)
+            let listenTrigger = try makeTrigger(spec)
+            let trigger: PushToTalkTrigger
+            if let dictateSpec {
+                trigger = ModeTrigger([(VoiceMode.listen, listenTrigger), (VoiceMode.dictate, try makeTrigger(dictateSpec))])
+            } else {
+                trigger = listenTrigger
+            }
+            let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip]
+            let paste = ClipboardPaste()
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0) }   // 録音中の波形
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
-                handler: Self.utteranceHandler(context, jev: jev, chip: chip),
-                onEvent: { VoiceUI.show($0, chip: chip, muter: muter) })
+                handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
+                    if tag == VoiceMode.dictate {
+                        await DictateCommand.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
+                    } else {
+                        await listen(utterance, token, next, tag)
+                    }
+                },
+                onEvent: { event, tag in VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)
                 kv("実行", context.engineText ?? "apple", width: 8)
                 kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
+                if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
@@ -108,7 +129,7 @@ struct ListenCommand: Command {
     /// 1 回の発話の処理：スキル（`SkillRunner`＋`HUDReporter`）。当てはまるスキルがなく、既定スキルも使えなければ、実行しない（`HUDReporter` が、そう出す）。確認の返事は、`next` で待つ。
     private static func utteranceHandler(_ context: CommandContext, jev: TinyJev, chip: String) -> UtteranceHandler {
         let confirmation = Confirmation(scorer: jev)
-        return { utterance, token, next in
+        return { utterance, token, next, _ in
             do {
                 guard !utterance.isEmpty else {
                     notice("聞き取れなかった")
