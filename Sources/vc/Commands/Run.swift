@@ -1,5 +1,6 @@
 import Foundation
 import VCCore
+import VCDecision
 import VCSkill
 
 struct RunCommand: Command {
@@ -35,18 +36,21 @@ struct RunCommand: Command {
         // 見出しは、モデルの読み込みや、指定したスキルの検査より前に出す
         heading("スキルの選択")
         let selection: SkillRunner.Selection
+        var loadedJev: TinyJev?
         if let forced {
             guard let skill = skills.loaded.skills.first(where: { $0.name == forced }) else { fail("スキルがありません: \(forced)（一覧：vc skills）") }
             guard skills.settings.isEnabled(skill.name) else { fail("スキル \(forced) は無効です（vc skills enable \(forced)）") }
             selection = .forced(skill)
         } else {
-            selection = .resolve(skills: enabled, scorer: context.loadJev(), gate: context.gate)
+            let jev = context.loadJev()
+            loadedJev = jev
+            selection = .resolve(skills: enabled, scorer: jev, gate: context.gate)
         }
 
         let yes = context.options.yes
         let outcome: RunOutcome
         do {
-            outcome = try await SkillRunner(selection: selection, dryRun: dryRun, engine: context.engine).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
+            outcome = try await SkillRunner(selection: selection, dryRun: dryRun, engine: context.engine, scorer: context.scorerProvider(loaded: loadedJev)).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
         } catch { fail("\(error)") }
         // 失敗は、`TerminalReporter` が、標準エラーへ出している。ここでは、終了コードだけ
         switch outcome {

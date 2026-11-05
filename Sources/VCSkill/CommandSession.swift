@@ -1,5 +1,6 @@
 import Foundation
 import VCCore
+import VCDecision
 
 /// スキルの実行で、モデルが呼ぶ「コマンドを 1 つ実行する」道具の中身（どのモデルでも共通）。
 /// - 実行してよいのは、スキルの `allowed-commands` に一致するものだけ（`CommandPolicy`）。シェルは使わない。
@@ -15,13 +16,22 @@ final class CommandSession: @unchecked Sendable {
     /// 取りやめの合図（Esc）。取りやめられたら、実行中のコマンドを止め、以降のコマンドは実行しない。
     let cancel: CancelToken?
     let aliases = RefAliases()
+    /// この実行の、直前の候補（`vc find`・`vc pick` が使う）。
+    let memory = OptionMemory()
+    /// Tiny-Jev（使うときまで、読み込まない）。`vc pick` が使う。
+    private let scorer: (@Sendable () -> OptionScorer?)?
     private let lock = NSLock()
     private var count = 0
     private var log: [String] = []
+    private var request = ""
+    var spotlight: FileSearch.Spotlight = FileSearch.live
 
-    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?) {
-        self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel
+    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?, scorer: (@Sendable () -> OptionScorer?)? = nil) {
+        self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel; self.scorer = scorer
     }
+
+    /// 利用者の依頼の文（`vc pick` の、何を選ぶかの既定）。実行の前に、呼ぶ。
+    func begin(request: String) { lock.lock(); self.request = request; lock.unlock() }
 
     /// 実行したコマンド（拒否したものを除く）。
     var executedCommands: [String] { lock.lock(); defer { lock.unlock() }; return log }
@@ -52,9 +62,17 @@ final class CommandSession: @unchecked Sendable {
         display.onCommand(command)
         if dryRun { return "(dry-run) not executed. Assume it succeeded and continue; reply done when the SKILL's steps are listed." }
         record(command)
+        // `vc find`・`vc pick` は、`vc` 自身が処理する（外のプロセスを起こさない）
+        if InternalCommands.handles(argv) {
+            lock.lock(); let current = request; lock.unlock()
+            let result = InternalCommands(request: current, scorer: scorer, memory: memory, spotlight: spotlight).run(argv)
+            display.onResult(result.exitCode, result.output)
+            return "exit \(result.exitCode)\n\(result.output)"
+        }
         let result = CommandRunner.run(argv: argv.map(aliases.expand), cancel: cancel)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
         display.onResult(result.exitCode, compact)
+        memory.setLines(from: result.output)   // 直前のコマンドの出力の行を、`vc pick` が選べる
         return "exit \(result.exitCode)\(result.timedOut ? " (timed out)" : "")\n\(compact)"
     }
 

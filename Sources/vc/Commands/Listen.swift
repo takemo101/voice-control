@@ -63,7 +63,7 @@ struct ListenCommand: Command {
                 let skills = context.loadSkills()
                 skills.reportProblems()
                 let dryRun = context.options.dryRun
-                let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: dryRun, engine: context.engine)
+                let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: dryRun, engine: context.engine, scorer: context.scorerProvider(loaded: jev))
                 _ = try await skillRunner.run(utterance, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: context.options.yes) })
             } catch { print(Style.red("失敗:") + " \(error)") }
         }
@@ -164,7 +164,7 @@ struct ListenCommand: Command {
                 }
                 let skills = context.loadSkills()
                 skills.reportProblems()
-                let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine)
+                let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine, scorer: context.scorerProvider(loaded: jev))
                 let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun)
                 _ = try await skillRunner.run(utterance, reporter: reporter, confirm: {
                     // パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）
