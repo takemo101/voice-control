@@ -31,21 +31,14 @@ struct ListenCommand: Command {
         // マイクの許可が要る（初回、macOS が確認を出す）。
         // **ここから `VoiceLoop.run` まで、`await` を挟まない**（`NSApplication.run()` の前の `await` は、画面の表示・長押しの判定を止める。docs/architecture.md「時間と並行」）。
         var arguments = arguments
-        let muteFlag: Bool?
-        switch (arguments.flag("--mute"), arguments.flag("--no-mute")) {
-        case (true, true): usageError("listen", "--mute と --no-mute は、一緒に使えません")
-        case (true, false): muteFlag = true
-        case (false, true): muteFlag = false
-        case (false, false): muteFlag = nil
-        }
-        let muter: OutputMuter = MutePreference.resolve(flag: muteFlag, setting: context.currentSettings().mute) ? .system : .disabled
+        let muter = VoiceUI.muter(&arguments, context, command: "listen")
         requireAppleIntelligence(for: context.engine)   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
         let speech = context.makeSpeechEngine()   // 選んだ音声認識（ダウンロードしたモデルは、ここで読み込む）。終わる前に close
         defer { speech.close() }
         // Ctrl+C などで終わるとき、消したままにしない（録音中に終わっても、音を戻す）。主キューは、readLine や NSApplication で塞がるので、別のキューで受ける
-        let signals = Self.restoreOnSignals(muter, speech)
+        let signals = VoiceUI.restoreOnSignals(muter, speech)
         defer { withExtendedLifetime(signals) {} }
         if context.options.hotkey {
             runVoiceLoop(context, jev: jev, muter: muter, speech: speech)
@@ -78,18 +71,6 @@ struct ListenCommand: Command {
         }
     }
 
-    /// Ctrl+C（SIGINT）・SIGTERM・SIGHUP で終わるとき、消した出力を戻してから終わる（消したままにしない）。
-    /// 受ける場所は、主キューではない：`readLine`（Enter モード）・`NSApplication.run()` が、主キューを塞ぐ。強制終了（SIGKILL）・クラッシュは、戻せない。
-    private static func restoreOnSignals(_ muter: OutputMuter, _ speech: SpeechEngine) -> [DispatchSourceSignal] {
-        [SIGINT, SIGTERM, SIGHUP].map { sig in
-            signal(sig, SIG_IGN)   // 既定の動作（そのまま終わる）を、止める
-            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            source.setEventHandler { muter.restore(); speech.close(); exit(128 + sig) }   // 音声認識のモデルは、開いたまま exit すると abort する
-            source.resume()
-            return source
-        }
-    }
-
     /// トリガーを押している間だけ録音し（その間、画面の上に「録音中」を出す）、離したら、文字にする。
     /// Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（経過と結果を、画面の上に出す）。当てはまるスキルがなく、既定スキルも使えなければ、実行しない。
     /// --dry-run なら、コマンドを実行しない。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
@@ -106,7 +87,7 @@ struct ListenCommand: Command {
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: Self.utteranceHandler(context, jev: jev, chip: chip),
-                onEvent: { Self.show($0, chip: chip, muter: muter) })
+                onEvent: { VoiceUI.show($0, chip: chip, muter: muter) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)
@@ -122,49 +103,6 @@ struct ListenCommand: Command {
                 }
             }
         } catch { fail("ホットキーを登録できません: \(error)") }
-    }
-
-    /// `VoiceLoop` の出来事を、画面の上と端末に出す。
-    private static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter) {
-        switch event {
-        case .recordingStarted:
-            HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip))
-        case .recordingDiscarded:
-            muter.restore()
-            print("  " + Style.yellow("録音を取りやめました（Esc）"))
-            HUD.shared.show(HUDContent(phase: .info, title: "録音を取りやめました", chip: chip), hideAfter: 1.5)
-        case .recognizing:
-            muter.restore()   // 認識の合図（Tink）を、聞こえるように、先に戻す
-            NSSound(named: "Tink")?.play()
-            HUD.shared.show(HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip))
-        case .recordingEmpty:
-            muter.restore()
-            HUD.shared.hide()
-        case let .recordingFailed(error):
-            muter.restore()
-            print("録音に失敗: \(error)")
-            HUD.shared.show(HUDContent(phase: .failure, title: "録音に失敗しました", reply: "\(error)"), hideAfter: 4)
-        case let .recognized(text):
-            kv("聞こえた", text)
-        case .recognitionCancelled:
-            showCancelled(chip: chip)
-        case let .recognitionFailed(error):
-            showFailure(error, chip: chip)
-        case .cancelling:
-            SaySpeaker.shared.stop()
-            HUD.shared.show(HUDContent(phase: .info, title: "取りやめています…", chip: chip))
-        }
-    }
-
-    /// 取りやめた（文字にする段階も、実行の段階も、同じ表示）。
-    private static func showCancelled(chip: String) {
-        print("  " + Style.yellow("取りやめました（Esc）"))
-        HUD.shared.show(HUDContent(phase: .info, title: "取りやめました", chip: chip), hideAfter: 2)
-    }
-
-    private static func showFailure(_ error: Error, chip: String) {
-        print(Style.red("失敗:") + " \(error)")
-        HUD.shared.show(HUDContent(phase: .failure, title: "失敗", chip: chip, reply: "\(error)"), hideAfter: 6)
     }
 
     /// 1 回の発話の処理：スキル（`SkillRunner`＋`HUDReporter`）。当てはまるスキルがなく、既定スキルも使えなければ、実行しない（`HUDReporter` が、そう出す）。確認の返事は、`next` で待つ。
@@ -192,24 +130,8 @@ struct ListenCommand: Command {
                     }
                 })
             } catch {
-                if token.isCancelled || error is CancellationError { showCancelled(chip: chip) } else { showFailure(error, chip: chip) }
+                if token.isCancelled || error is CancellationError { VoiceUI.showCancelled(chip: chip) } else { VoiceUI.showFailure(error, chip: chip) }
             }
         }
     }
-}
-
-/// 録音を始めたあとに、開始の音（Pop）を鳴らし、そのあと、ほかの音を消す。止めたら・捨てたら、戻す（録音の開始 → 音 → 消す、の順を保つ。`VoiceLoop` は、音も、出力の消音も知らない）。
-private final class PopRecorder: Recording {
-    private let base: Recording
-    private let muter: OutputMuter
-    init(_ base: Recording, muter: OutputMuter) { self.base = base; self.muter = muter }
-
-    func start() {
-        base.start()
-        NSSound(named: "Pop")?.play()
-        muter.engage()   // Pop が鳴り終わるころに、消す。離すのが先なら、消さない
-    }
-
-    func discard() { muter.restore(); base.discard() }
-    func stop() throws -> URL? { muter.restore(); return try base.stop() }
 }
