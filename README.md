@@ -147,10 +147,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.1](https://github.com/takemo101/voice-control/releases/tag/v0.3.1) の例）：
+**手で入れる**（[v0.3.2](https://github.com/takemo101/voice-control/releases/tag/v0.3.2) の例）：
 
 ```sh
-V=0.3.1
+V=0.3.2
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -192,6 +192,23 @@ vc dictate --dry-run                          # 入力せずに、認識した�
 - 録音中は波形が動き、離すと「認識中…」、入力したら「入力しました」と出ます。Esc で取りやめます。
 - アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
 - 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。
+
+### キーの決め方（右側のキーだけにもできます）
+
+```sh
+vc hotkey set rcmd              # 右 Command の長押しだけ（左 Command では、反応しない）
+vc hotkey set-dictate rshift    # 右 Shift の長押し＝音声入力
+```
+
+| 書き方 | 反応するキー |
+|---|---|
+| `shift`・`cmd`・`opt`・`ctrl` | 左右どちらでも（長押し） |
+| `rshift`・`rcmd`・`ropt`・`rctrl` | **右側のキーだけ**（長押し専用。左のキーを押している間も、反応しない） |
+| `ctrl+opt+space`・`f5` など | キーの組み合わせ（左右の区別は、できません） |
+
+- 普段の入力で使わない右側のキーにすると、誤作動が減ります。
+- `shift` と `rshift` のように、同じキーに反応しうる 2 つは、声で頼むキーと音声入力のキーに、同時に設定できません（エラーになります）。
+- 確かめる：`vc hotkey-check`（押して、離すと、画面に出ます）。
 
 ### キーで、声で頼む／音声入力を切り替える
 
@@ -314,6 +331,8 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 ```
 
 - 先頭（`---` の間）が、**名前・説明・許可するコマンド**。その下が、言語モデルへの指示です。
+- 本文には、記号を書けます：`${SKILL_DIR}`（そのスキルのディレクトリ）・`${USER_REQUEST}`（利用者の依頼。データの囲みに入って差し込まれる。許可〔`allowed-commands`〕には書けません）。
+- スキルから、`vc` の機能も使えます：`vc find`（ファイルを探す）・`vc pick`（候補から、Tiny-Jev が選ぶ）・`vc show`（Markdown をウィンドウに出す）。`allowed-commands` に書くと、言語モデルが呼べます（例：`file-search`）。
 - 書き方・`allowed-commands` の仕様・表示：[スキル](docs/skills.md)。エージェントに作らせるときは、[スキルを作るスキル](skills/voice-control-skill-author/SKILL.md)。
 
 ### 覚えておくこと

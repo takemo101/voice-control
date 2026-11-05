@@ -83,8 +83,8 @@ struct ListenCommand: Command {
             let chip = spec.displayName
             // 音声入力のトリガーがあれば、トリガーで、声で頼む／音声入力を切り替える（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）
             let dictateSpec = context.resolveDictateHotKey()?.spec
-            if let dictateSpec, dictateSpec.description == spec.description {
-                fail("声で頼むトリガーと、音声入力のトリガーが、同じです（\(spec.description)）。vc hotkey set-dictate で、別のキーにしてください")
+            if let dictateSpec, dictateSpec.overlaps(spec) {
+                fail("声で頼むトリガー（\(spec.description)）と、音声入力のトリガー（\(dictateSpec.description)）が、重なります。vc hotkey set-dictate で、別のキーにしてください")
             }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let listenTrigger = try makeTrigger(spec)

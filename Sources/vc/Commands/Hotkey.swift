@@ -8,6 +8,7 @@ struct HotkeyCommand: Command {
         details: [
             "設定は ~/.voice-control/settings.json の hotkey。既定は shift の長押し。",
             "書き方：修飾キー（ctrl・opt・shift・cmd）を + でつなぐ。修飾キーだけ（shift・ctrl+opt）は長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）。修飾キー + キー（ctrl+opt+space・cmd+shift+r）は、キーの組み合わせ（許可は要らない）。f1〜f12 だけは、単独でもよい。",
+            "**右側のキーだけ**にもできる：rshift・rcmd・ropt・rctrl（長押し専用。左のキーでは反応しない。普段の入力と重ならない）。例：vc hotkey set rcmd。",
             "キーは、英字・数字・space・return・tab・escape・矢印（left・right・up・down）・f1〜f12。普通の入力を奪う、修飾キーなしの文字は使えない。macOS が先に使う組み合わせ（cmd+space など）は、届かないことがある。",
             "**音声入力のキーを別に決める**（set-dictate）と、vc listen --hotkey が、2 つのキーで切り替わる：声で頼むキー（既定 Shift の長押し）＝スキルで実行、音声入力のキー（例：ctrl の長押し）＝文字にして前面のアプリへ入力（vc dictate と同じ）。別のキーを押している間は、録音中のほうが優先。vc dictate は、音声入力のキーがあれば、それを使う。",
             "変えたら、vc hotkey-check で確かめる。vc listen --hotkey の次の起動から有効。",
@@ -41,6 +42,9 @@ struct HotkeyCommand: Command {
             switch HotKeySpec.parse(text) {
             case let .failure(f): fail("\(text): \(f.reason)")
             case let .success(spec):
+                if let dictateText = settings.dictateHotkey, case let .success(dictate) = HotKeySpec.parse(dictateText), dictate.overlaps(spec) {
+                    fail("音声入力のキー（\(dictate.description)）と、重なります（\(spec.description)）。先に vc hotkey reset-dictate するか、別のキーにしてください")
+                }
                 settings.hotkey = spec.description
                 do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
                 heading("ホットキー")
@@ -54,8 +58,8 @@ struct HotkeyCommand: Command {
             switch HotKeySpec.parse(text) {
             case let .failure(f): fail("\(text): \(f.reason)")
             case let .success(spec):
-                if case let .success(listen) = settings.hotkeySpec, listen.description == spec.description {
-                    fail("声で頼むキーと同じです（\(spec.description)）。別のキーにしてください")
+                if case let .success(listen) = settings.hotkeySpec, listen.overlaps(spec) {
+                    fail("声で頼むキー（\(listen.description)）と、重なります（\(spec.description)）。別のキーにしてください（rshift と shift のように、左右の指定が重なる場合も、重なる）")
                 }
                 settings.dictateHotkey = spec.description
                 do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
