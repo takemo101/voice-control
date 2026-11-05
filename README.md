@@ -152,6 +152,8 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
+| `vc find [--name …] [--in …] [--ext …] [--since …]` | ファイルを探す（Spotlight。読み取りだけ）。スキル `file-search` が、`vc pick` と組み合わせて、探して開く |
+| `vc pick --query … --option …` | 短い候補の中から、依頼に合うものを、Tiny-Jev で選ぶ（確信できたときだけ選ぶ。標準入力の行も可） |
 | `vc skills install [<name>…] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へ入れる（名前なしは一覧）。リポジトリは、手元になくてよい |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 
