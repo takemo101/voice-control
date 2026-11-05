@@ -24,7 +24,7 @@ struct HudPreviewCommand: Command {
                 c.steps = [.init(command: "osascript …/spotify.applescript volume 50")]
                 return c
             case "confirm": return {
-                var c = HUDContent(phase: .confirm, title: "実行しますか？", hint: "確信度が高くないので、確認します。ボタンを押すか、もう一度トリガーを押して「はい」と言う", chip: chip, heard: "ファイルを削除して", skill: "cleanup")
+                var c = HUDContent(phase: .confirm, title: "実行しますか？", hint: "確信度が高くないので、確認します。" + ConfirmGuide.howToAnswer, chip: chip, heard: "ファイルを削除して", skill: "cleanup")
                 c.choices = true
                 return c
             }()
