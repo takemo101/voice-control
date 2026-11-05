@@ -32,7 +32,9 @@ import VCSkill
         #expect(shown.map(\.content.title) == ["実行中", "実行しますか？", "実行中", "実行中", "実行中", "完了"])
         #expect(shown.map(\.content.phase) == [.working, .confirm, .working, .working, .working, .success])
         #expect(shown[0].content.skill == "default" && shown[0].content.chip == "shift" && shown[0].content.heard == "テスト")
-        #expect(shown[1].content.hint == "確信度が高くないので、確認します。もう一度トリガーを押して、「はい」と言う")
+        #expect(shown[1].content.hint == "確信度が高くないので、確認します。ボタンを押すか、もう一度トリガーを押して「はい」と言う")
+        // ボタン（実行する・やめる）は、確認を待つ間だけ出る（答えたあとは、消える）
+        #expect(shown.map(\.content.choices) == [false, true, false, false, false, false])
         #expect(shown[2].content.hint == nil)
         #expect(shown[3].content.steps.map(\.command) == ["open -a Spotify"])
         #expect(String(describing: shown[4].content.steps[0].status) == "ok" && shown[4].content.steps[0].output == "最初の行")

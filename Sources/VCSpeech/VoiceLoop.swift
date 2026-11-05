@@ -219,7 +219,7 @@ public final class VoiceLoop {
     @MainActor private func nextUtterance(_ token: CancelToken) async throws -> String? {
         while true {
             switch await queue.next() {
-            case .cancel: if token.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる
+            case .cancel: if token.isCancelled || Task.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる。この待ち自体が取りやめられたら（ボタンが先に答えた）、やめる
             case let .audio(file): return try await transcribe(file, token)
             }
         }

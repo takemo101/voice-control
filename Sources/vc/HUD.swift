@@ -14,7 +14,11 @@ import AppKit
     private static let inset = NSEdgeInsets(top: 14, left: 18, bottom: 15, right: 18)
     private static var rowWidth: CGFloat { width - inset.left - inset.right }
 
+    /// 「実行する」「やめる」のボタンの答えの届け先（確認を待っている処理が、つなぐ）。
+    nonisolated let answers = AnswerRoute()
+
     private var panel: NSPanel?
+    private var buttonActions: [ButtonAction] = []
     private var background: NSVisualEffectView?
     private var stack: NSStackView?
     private var pendingHide: DispatchWorkItem?
@@ -42,6 +46,9 @@ import AppKit
         guard let panel, let stack else { return }
         pendingHide?.cancel()
         generation += 1
+        // ボタンを出している間（確認）だけ、クリックを受ける。ほかは、クリックを通す（パネルの下のアプリを、邪魔しない）。フォーカスは、奪わない（`nonactivatingPanel`）
+        panel.ignoresMouseEvents = !content.choices
+        buttonActions = []
 
         for view in stack.arrangedSubviews { stack.removeArrangedSubview(view); view.removeFromSuperview() }
         let accent = Self.accent(content.phase)
@@ -60,6 +67,8 @@ import AppKit
         if let reply = content.reply, !reply.isEmpty {
             stack.addArrangedSubview(fixed(label(reply, size: 14, color: .white, lines: 5, weight: .medium)))
         }
+
+        if content.choices { stack.addArrangedSubview(fixed(choiceRow())) }
 
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
@@ -181,6 +190,28 @@ import AppKit
         field.preferredMaxLayoutWidth = Self.rowWidth
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
+    }
+
+    /// 確認のボタン：「実行する」「やめる」。押すと、答えを `answers` へ届ける（声の「はい」と、先に答えたほうが決まる）。
+    private func choiceRow() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 10
+        func button(_ title: String, tint: NSColor?, yes: Bool) -> NSButton {
+            let action = ButtonAction { [weak self] in self?.answers.deliver(yes) }
+            buttonActions.append(action)
+            let b = NSButton(title: title, target: action, action: #selector(ButtonAction.fire))
+            b.bezelStyle = .rounded
+            b.controlSize = .large
+            b.bezelColor = tint
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.widthAnchor.constraint(equalToConstant: 140).isActive = true
+            return b
+        }
+        row.addArrangedSubview(button("実行する", tint: .systemGreen, yes: true))
+        row.addArrangedSubview(button("やめる", tint: nil, yes: false))
+        return row
     }
 
     private func header(_ content: HUDContent, accent: NSColor) -> NSView {
@@ -318,4 +349,11 @@ import AppKit
         view.widthAnchor.constraint(equalToConstant: width).isActive = true
         return view
     }
+}
+
+/// ボタンの動作（`NSButton` の target は、`NSObject` が要る）。
+private final class ButtonAction: NSObject {
+    private let run: () -> Void
+    init(_ run: @escaping () -> Void) { self.run = run }
+    @objc func fire() { run() }
 }

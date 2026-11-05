@@ -57,12 +57,12 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .confirmRequired(skill, reason):
             speak("\(skill.name)を実行しますか")
             terminal.report(event)
-            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.hint = reason + "。もう一度トリガーを押して、「はい」と言う" }
+            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.choices = true; $0.hint = reason + "。ボタンを押すか、もう一度トリガーを押して「はい」と言う" }
         case .confirmationDeclined:
             terminal.report(event)
-            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil }
+            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil; $0.choices = false }
         case .confirmed:
-            update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil }
+            update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil; $0.choices = false }
         case .started:
             break
         case let .command(command):
@@ -94,10 +94,10 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             }
         case let .failed(message):
             terminal.report(event)
-            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.reply = message }
+            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
         case .cancelled:
             terminal.report(event)
-            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil }
+            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil; $0.choices = false }
         }
     }
 }

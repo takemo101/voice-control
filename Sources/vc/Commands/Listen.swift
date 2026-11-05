@@ -167,8 +167,14 @@ struct ListenCommand: Command {
                 let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine)
                 let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun)
                 _ = try await skillRunner.run(utterance, reporter: reporter, confirm: {
-                    guard let answer = try await next() else { return false }
-                    return try confirmation.isYes(answer)
+                    // パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）
+                    let panel = PanelAnswer()
+                    HUD.shared.answers.set { panel.resolve($0) }
+                    defer { HUD.shared.answers.set(nil) }
+                    return try await ConfirmationRace.decide(panel: panel) {
+                        guard let answer = try await next() else { return false }
+                        return try confirmation.isYes(answer)
+                    }
                 })
             } catch {
                 if token.isCancelled || error is CancellationError { showCancelled(chip: chip) } else { showFailure(error, chip: chip) }

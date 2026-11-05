@@ -63,10 +63,12 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
             .cancelled,
         ]
         events.forEach(t.reporter.report)
-        #expect(t.out.values == [
+        let lines = t.out.values
+        // 確認待ちの案内の文言は、固定しない（理由が、最後に付くことだけを確かめる）
+        #expect(lines.count == 5 && lines[2].hasPrefix("  ! 確認待ち：") && lines[2].hasSuffix("（理由）"))
+        #expect(lines.filter { !$0.contains("確認待ち") } == [
             "  Tiny-Jev  default   90.0%（0.0 秒）",
             "  許可      agent-desktop、open、say、ls、pwd、date",
-            "  ! 確認待ち：もう一度トリガーを押して「はい」と言う（理由）",
             "失敗: 止まった",
             "  取りやめました（Esc）",
         ])

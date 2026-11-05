@@ -36,7 +36,7 @@ struct TerminalReporter: RunReporter {
         case let .confirmRequired(_, reason):
             switch layout {
             case .command: out(noticeText(reason + "。"))
-            case .voice: out(noticeText("確認待ち：もう一度トリガーを押して「はい」と言う（\(reason)）"))
+            case .voice: out(noticeText("確認待ち：パネルのボタンを押すか、もう一度トリガーを押して「はい」と言う（\(reason)）"))
             }
         case .confirmationDeclined:
             out("  " + Style.dim("やめた"))
