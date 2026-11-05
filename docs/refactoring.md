@@ -38,7 +38,7 @@ grep -rn "@unchecked Sendable" Sources   # ロックで守っているか
 grep -rn "TODO\|FIXME" Sources           # 保留
 grep -rln "import FoundationModels\|import AppKit" Sources   # 外部依存が入る場所
 grep -rn "^import VC" Sources            # ターゲットの依存の実態（Package.swift の dependencies と合っているか）
-grep -rn "Process()" Sources             # ProcessRunner に載せていない子プロセス（`ProcessRunner.swift` の 1 か所と、構成説明の負債の 4 か所だけのはず）
+grep -rn "Process()" Sources             # ProcessRunner に載せていない子プロセス（`ProcessRunner.swift` の 1 か所と、構成説明の負債の 2 か所〔`SaySpeaker`・`DocumentWindow`〕だけのはず）
 wc -l Sources/vc/*.swift Sources/vc/Commands/*.swift | sort -rn | head -5   # vc に、判断が溜まっていないか（長いファイルから読む）
 ```
 

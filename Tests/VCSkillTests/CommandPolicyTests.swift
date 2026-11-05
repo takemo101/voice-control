@@ -30,3 +30,19 @@ import Testing
         #expect(CommandPolicy.validateEntry("agent-desktop click") == nil)
     }
 }
+
+/// `"…"` の中の `\n`・`\t` は、改行・タブ（言語モデルが、複数行の文字を、`\n` と書いて渡す）。それ以外の `\` は、次の文字をそのまま。
+@Suite struct TokenizeEscapeTests {
+    private func tokens(_ s: String) throws -> [String] { try CommandPolicy.tokenize(s).get() }
+
+    @Test func backslashNAndTInsideDoubleQuotesBecomeNewlineAndTab() throws {
+        #expect(try tokens("vc show --text \"# 題\\n\\n- 項目\\tA\"") == ["vc", "show", "--text", "# 題\n\n- 項目\tA"])
+    }
+
+    @Test func otherEscapesAreUnchanged() throws {
+        #expect(try tokens("echo a\\ b") == ["echo", "a b"])                 // 引用符の外の `\ ` は、空白そのまま
+        #expect(try tokens("echo \\n") == ["echo", "n"])                      // 引用符の外の `\n` は、n のまま
+        #expect(try tokens("echo \"say \\\"hi\\\" \\\\ done\"") == ["echo", "say \"hi\" \\ done"])
+        #expect(try tokens("echo '\\n'") == ["echo", "\\n"])                // 単一引用符の中は、そのまま
+    }
+}

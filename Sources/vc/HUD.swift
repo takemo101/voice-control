@@ -54,9 +54,9 @@ import AppKit
         let accent = Self.accent(content.phase)
 
         stack.addArrangedSubview(fixed(header(content, accent: accent)))
-        if let hint = content.hint { stack.addArrangedSubview(fixed(label(hint, size: 12, color: Self.secondary, lines: 3))) }
+        if let hint = content.hint { stack.addArrangedSubview(fixed(label(hint, size: 12, color: HUDStyle.secondary, lines: 3))) }
         if let heard = content.heard, !heard.isEmpty {
-            stack.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: Self.secondary, lines: 2)))
+            stack.addArrangedSubview(fixed(label("“\(heard)”", size: 13, color: HUDStyle.secondary, lines: 2)))
         }
         if !content.steps.isEmpty || content.reply != nil {
             let divider = NSBox()
@@ -131,16 +131,7 @@ import AppKit
         panel.appearance = NSAppearance(named: .vibrantDark)  // 背景の明るさに関わらず、同じ見た目
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
-        let background = NSVisualEffectView()
-        background.material = .hudWindow
-        background.blendingMode = .behindWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = 18
-        background.layer?.cornerCurve = .continuous
-        background.layer?.masksToBounds = true
-        background.layer?.borderWidth = 0.5
-        background.layer?.borderColor = NSColor(white: 1, alpha: 0.16).cgColor
+        let background = HUDStyle.glassBackground()
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -162,8 +153,6 @@ import AppKit
     }
 
     // MARK: 部品
-
-    private static let secondary = NSColor(white: 1, alpha: 0.62)
 
     private static func accent(_ phase: Mode) -> NSColor {
         switch phase {
@@ -264,39 +253,15 @@ import AppKit
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(title)
 
-        if let skill = content.skill { row.addArrangedSubview(pill(skill, fg: .systemTeal, bg: NSColor.systemTeal.withAlphaComponent(0.2))) }
+        if let skill = content.skill { row.addArrangedSubview(HUDStyle.pill(skill, fg: .systemTeal, bg: NSColor.systemTeal.withAlphaComponent(0.2))) }
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         spacer.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         row.addArrangedSubview(spacer)
 
-        if let chip = content.chip { row.addArrangedSubview(pill(chip, fg: Self.secondary, bg: NSColor(white: 1, alpha: 0.12))) }
+        if let chip = content.chip { row.addArrangedSubview(HUDStyle.pill(chip, fg: HUDStyle.secondary, bg: NSColor(white: 1, alpha: 0.12))) }
         return row
-    }
-
-    private func pill(_ text: String, fg: NSColor, bg: NSColor) -> NSView {
-        let field = NSTextField(labelWithString: text)
-        field.font = .systemFont(ofSize: 11, weight: .semibold)
-        field.textColor = fg
-        field.lineBreakMode = .byTruncatingTail
-        field.translatesAutoresizingMaskIntoConstraints = false
-
-        let box = NSView()
-        box.wantsLayer = true
-        box.layer?.backgroundColor = bg.cgColor
-        box.layer?.cornerRadius = 9
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(field)
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 8),
-            field.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-            field.topAnchor.constraint(equalTo: box.topAnchor, constant: 2),
-            field.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
-            box.widthAnchor.constraint(lessThanOrEqualToConstant: 160),
-        ])
-        box.setContentHuggingPriority(.required, for: .horizontal)
-        return box
     }
 
     private func stepRow(_ step: HUDContent.Step) -> NSView {
@@ -327,7 +292,7 @@ import AppKit
         guard let output = step.output, !output.isEmpty else { return line }
         let result = NSTextField(labelWithString: output)
         result.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        result.textColor = Self.secondary
+        result.textColor = HUDStyle.secondary
         result.lineBreakMode = .byTruncatingTail
         result.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 

@@ -103,6 +103,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
 | `vc run … --engine <エンジン>` | スキルを実行するモデルを、この Mac のローカルのサーバーのモデルに替える（任意。`vc listen` も同じ）。`ollama:qwen3.5:4b`（Ollama）・`openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。確認：`vc doctor --engine …` |
+| `vc show [--file <パス>] [--text <Markdown>]` | Markdown を整形して、一時的なウィンドウに表示する（コピーもできる。`pbpaste \| vc show`）。スキルの `result: markdown-window` も、同じウィンドウ |
 | `vc skills install [<name>…] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へインストールする（名前なしは一覧）。リポジトリは、手元になくてよい |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |

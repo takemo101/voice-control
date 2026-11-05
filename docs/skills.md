@@ -87,7 +87,7 @@ Then reply done.
 | `description` | ○ | **Tiny-Jev が選ぶための説明**。日本語・短く（200 文字まで） |
 | `allowed-commands` | ○ | 実行してよいコマンド（下記）。書かなければ、そのスキルは読み込まれない |
 | `confirm` | | `true` なら、実行の前に、必ず確認する |
-| `result` | | `markdown-note` なら、**最後の返事（Markdown）を、`$TMPDIR/voice-control-notes/note-<日時>.md`（ディレクトリ 700・ファイル 600。消さない）に保存して、`open` で開く**。モデルは、本文だけを返す（「done:」を付けない）。保存先と名前は `vc` が決める。ほかの値は、読み込めない。例：`.voice-control/skills/clipboard-note` |
+| `result` | | `markdown-window` なら、**最後の返事（Markdown の本文）を、整形して、一時的なウィンドウに表示する**（画面の上のパネルと同じ見た目。選択して ⌘C でコピー・「Markdown をコピー」「テキストをコピー」のボタン・Esc で閉じる）。`markdown-note` なら、**最後の返事（Markdown）を、`$TMPDIR/voice-control-notes/note-<日時>.md`（ディレクトリ 700・ファイル 600。消さない）に保存して、`open` で開く**。モデルは、本文だけを返す（「done:」を付けない）。保存先と名前は `vc` が決める。ほかの値は、読み込めない。例：`.voice-control/skills/clipboard-note` |
 
 本文は、実行を担当する言語モデルへの指示。**英語**で、番号つきの手順と、実際のコマンドを書く。書き方（測定で分かったこと）は、[スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md)。
 
@@ -163,6 +163,7 @@ allowed-commands: open                 # 1 つだけ
 | `vc skills [list]` | 一覧：有効／無効・name・置き場所（グローバル／プロジェクト）・description。読み込めなかったスキルは、理由つきで下に出る |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・ファイルの場所 |
 | `vc skills install [<name>…] [--force] [--ref <版>]` | **GitHub の公開リポジトリ（`takemo101/voice-control`）のスキルを、スクリプトごとグローバルへインストールする**（名前なしは、一覧）。リポジトリが手元になくてよい。版は、入っている vc と同じタグ（なければ main）。同名は、`--force` で置き換える。取得元と許可するコマンドを表示する。取得するのは、スキルのファイルだけ（音声・画面の内容は、送らない） |
+| `vc show [--file <パス>] [--text <Markdown>] [--title <題名>] [--wait]` | Markdown を整形して、一時的なウィンドウに表示する（標準入力も可：`pbpaste \| vc show`）。既定は、すぐ戻る（ウィンドウは別のプロセスで、閉じるまで残る）。`--wait` は、閉じるまで待つ |
 | `vc skills trust` / `untrust` | 起動した場所のプロジェクトのスキルを、読み込んでよいか（trust は、許可するコマンドを表示してから信頼する） |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか。**既定は有効**。設定は `settings.json` |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | 選んで、実行する |
@@ -246,6 +247,19 @@ model loaded 4.3s (length 1024)
 - **作り**：モデルとの通信は、アダプター（`ChatModel`：`OllamaChat`・`OpenAICompatibleChat`）。道具（`run_command`）を呼ぶ流れは、`ToolLoopAgent` が、どのアダプターでも同じに動かす。エンジンを足すときは、アダプター 1 つと、`Engine` の書き方を足す。
 - **モデルに合わせた書き方**：道具の説明に、特定のコマンドの例を入れない（`qwen3.5:4b` が、例に引きずられた。測定）。道具を使わずに答えたら、1 回だけ、使うよう促す。OpenAI 互換には `reasoning_effort: none` を付ける（考えるモデルの、短い依頼が 88.7 秒 → 5.1 秒。Ollama の `/v1`）。
 - **測定（`qwen3.5:4b`。検証記録）**：クリップボードの整理・編集・校正 24/24（Apple は 19/32）、英訳 6/6（Apple は 2/6）、Spotify の最初のコマンドの一致 16/16（Apple は 13/16）。初回は、モデルの読み込みで 5〜10 秒かかる。
+
+## Markdown のウィンドウ（`vc show`・`result: markdown-window`）
+
+スキルの結果を、きれいに整形して見せ、コピーできる、一時的なウィンドウ。画面の上のパネル（HUD）と、**同じ見た目**（暗いガラス・角丸・細い縁・同じ色と文字。`HUDStyle` が共有）。枠のない、角丸のウィンドウで、背景をつかんで動かせ、縁で大きさを変えられる。
+
+- **整形**：見出しの階層・太字・斜体・取り消し線・インラインのコード・リンク・箇条書き（入れ子）・番号つきリスト・タスク（☐・☑）・引用（左の線）・コードブロック（面）・表（罫線・見出しの面）・区切り線。外部のライブラリは使わず、Foundation の Markdown 解析と、`NSTextView` で描く。
+- **コピー**：文字を選択して ⌘C。「Markdown をコピー」（元の記号つき）・「テキストをコピー」（整形した文字だけ。表は、タブ区切りの行）。閉じるのは、Esc・⌘W・「閉じる」・右上の ×。
+- **スキルから**：2 通り。
+  - `result: markdown-window`（**おすすめ**）：最後の返事（Markdown の本文だけ。`done:` を付けない）が、ウィンドウに出る。モデルは、本文だけを返すので、コマンドの引数に、長い文を入れなくてよい。
+  - `allowed-commands` に `vc show` を書いて、モデルが `vc show --text "…"` を呼ぶ。本文を、コマンドの引数で渡すので、Apple のモデルでは、引用符が崩れやすい（Ollama・OpenAI 互換のモデルは、引数が JSON なので、比較的安定）。`"…"` の中の `\n`・`\t` は、改行・タブとして読む。
+- **別のプロセスで開く**：`vc show` は、ウィンドウを出す別のプロセス（`vc show --wait`）を起こして、標準入力で本文を渡し、すぐ戻る。`vc run`（画面のループがない）でも、`vc listen` でも、同じに使え、呼び出し元が終わっても、閉じるまで残る。
+- **残らない**：本文は、画面にだけ出す（ファイル・ログに残さない）。1 MB まで。
+- 例：`pbpaste | vc show`・`vc show --file README.md`・フロントマターに `result: markdown-window`（`.voice-control/skills/clipboard-note`）。
 
 ## コピーした文章を加工して、メモを開くスキル（clipboard-note）
 

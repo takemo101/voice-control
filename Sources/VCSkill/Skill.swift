@@ -24,8 +24,20 @@ public struct Skill: Sendable, Equatable {
     public let file: URL
     /// どこに置かれているか。
     public var scope: Scope = .global
-    /// 言語モデルの最後の返事（Markdown）を、一時ディレクトリのファイルに保存して、開く（フロントマター `result: markdown-note`）。
-    public var opensResultAsNote = false
+    /// 最後の返事の扱い（フロントマター `result`）。
+    public var result: ResultMode = .text
+
+    public enum ResultMode: String, Sendable {
+        /// 画面に出すだけ（既定）。
+        case text
+        /// 最後の返事（Markdown）を、一時ディレクトリのファイルに保存して、開く（`markdown-note`）。
+        case markdownNote = "markdown-note"
+        /// 最後の返事（Markdown）を、整形して、一時的なウィンドウに表示する（`markdown-window`。コピーもできる）。
+        case markdownWindow = "markdown-window"
+
+        /// 返事が、Markdown の本文だけ（`done:` を付けない）になる。
+        var repliesWithDocument: Bool { self != .text }
+    }
 
     public enum Scope: String, Sendable { case global, project, builtin }
 }

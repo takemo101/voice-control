@@ -14,6 +14,8 @@ struct TerminalReporter: RunReporter {
     /// 出力先（既定は、標準出力・標準エラー。テストで差し替える）。
     var out: @Sendable (String) -> Void = { print($0) }
     var err: @Sendable (String) -> Void = { eprint($0) }
+    /// `result: markdown-window` のスキルの結果（Markdown の本文）の見せ先（既定は、別のプロセスのウィンドウ）。起こせなければ、理由を返す。
+    var document: @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) }
 
     func report(_ event: RunEvent) {
         switch event {
@@ -53,6 +55,8 @@ struct TerminalReporter: RunReporter {
             if lines.count > 8 { out("    " + Style.dim("… 他 \(lines.count - 8) 行")) }
         case let .denied(command, reason):
             out("  " + Style.red("✗ 拒否: ") + command + Style.dim("  — " + reason))
+        case let .document(markdown):
+            if let why = document(markdown) { err(Style.red("ウィンドウを出せません: ") + why) }
         case let .reply(reply, commandCount, elapsed):
             if layout == .command { out(headingText("結果")) }
             out(kvText("返事", reply))

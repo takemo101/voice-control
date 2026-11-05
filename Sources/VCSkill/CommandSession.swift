@@ -60,7 +60,7 @@ final class CommandSession: @unchecked Sendable {
 
     /// モデルへの指示（どのモデルでも共通）。
     var instructions: String {
-        let finish = skill.opensResultAsNote
+        let finish = skill.result.repliesWithDocument
             ? "When finished, reply with the finished Markdown note ONLY: its whole text, nothing before or after it (it is saved as a file and opened for the user). If you cannot, reply: failed: <reason in Japanese>."
             : "When finished, reply with: done: <one short sentence in Japanese>. If you cannot, reply: failed: <reason in Japanese>."
         return """
@@ -77,9 +77,10 @@ final class CommandSession: @unchecked Sendable {
     }
 
     /// `result: markdown-note` のスキル：返事を、Markdown のファイルにして開き、`done: …` に置き換える（dry-run・失敗の返事は、そのまま）。
+    /// `markdown-window` は、ここでは何もしない（返事は、Markdown の本文のまま。ウィンドウに出すのは、`SkillRunner` の `RunEvent.document`）。
     /// 保存先と名前は、ここ（`ResultNote`）が決める：言語モデルは、本文だけを渡す（任意の場所へは書けない）。
     func openAsNoteIfRequested(_ reply: String) -> String {
-        guard skill.opensResultAsNote, !dryRun, !reply.lowercased().hasPrefix("failed") else { return reply }
+        guard skill.result == .markdownNote, !dryRun, !reply.lowercased().hasPrefix("failed") else { return reply }
         let url: URL
         do { url = try ResultNote.write(reply) } catch { return "failed: メモを保存できません（\(error.localizedDescription)）" }
         let opened = CommandRunner.run(argv: ["open", url.path], timeout: 10, cancel: cancel)

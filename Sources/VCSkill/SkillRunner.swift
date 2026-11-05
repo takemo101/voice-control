@@ -26,6 +26,8 @@ public enum RunEvent: Sendable, Equatable {
     case result(exitCode: Int32, output: String)
     /// 許可されていないコマンド（実行していない）。
     case denied(command: String, reason: String)
+    /// `result: markdown-window` のスキルの結果（Markdown の本文）。受け手が、ウィンドウに表示する。このあとに、`reply`（`done: …`）が来る。
+    case document(String)
     /// 実行者の返事。`commandCount`：実行したコマンドの数（dry-run なら 0）。
     case reply(String, commandCount: Int, elapsed: TimeInterval)
     /// 実行者が失敗した。
@@ -128,7 +130,12 @@ public struct SkillRunner: Sendable {
         do {
             // 確認の待ちの間に取りやめられていたら、実行者を呼ばない
             if cancel?.isCancelled == true { throw CancellationError() }
-            let reply = try await executor.run(request: request)
+            var reply = try await executor.run(request: request)
+            // ウィンドウに表示するスキル：返事（Markdown の本文）を、結果として渡し、返事は `done: …` にする（dry-run・失敗の返事は、そのまま）
+            if skill.result == .markdownWindow, !dryRun, !reply.lowercased().hasPrefix("failed") {
+                reporter.report(.document(reply))
+                reply = "done: 結果をウィンドウに表示しました"
+            }
             reporter.report(.reply(reply, commandCount: executor.executedCommands.count, elapsed: Date().timeIntervalSince(t1)))
             return .completed
         } catch {

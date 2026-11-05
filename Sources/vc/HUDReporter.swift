@@ -11,6 +11,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let terminal: TerminalReporter
     private let present: @Sendable (HUDContent, TimeInterval?) -> Void
     private let speak: @Sendable (String) -> Void
+    private let document: @Sendable (String) -> String?
     private let lock = NSLock()
     private var session: HUDSession?
 
@@ -18,13 +19,15 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     init(chip: String, utterance: String, dryRun: Bool,
          terminal: TerminalReporter? = nil,
          present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
-         speak: @escaping @Sendable (String) -> Void = { say($0) }) {
+         speak: @escaping @Sendable (String) -> Void = { say($0) },
+         document: @escaping @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) }) {
         self.chip = chip
         self.utterance = utterance
         self.dryRun = dryRun
         self.terminal = terminal ?? TerminalReporter(layout: .voice, dryRun: dryRun)
         self.present = present
         self.speak = speak
+        self.document = document
     }
 
     private var workingTitle: String { dryRun ? "確認のみ（--dry-run）" : "実行中" }
@@ -78,6 +81,9 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .denied(command, reason):
             terminal.report(event)
             update { $0.steps.append(.init(command: command, status: .denied, output: reason)) }
+        case let .document(markdown):
+            // ウィンドウに表示する結果（HUD には、出さない。端末にも、本文は出さない）
+            if let why = document(markdown) { eprint("ウィンドウを出せません: \(why)") }
         case let .reply(reply, _, _):
             terminal.report(event)
             update(hideAfter: HUDSession.readingTime(for: reply)) { [dryRun] in
