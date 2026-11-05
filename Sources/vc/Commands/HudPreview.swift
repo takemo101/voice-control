@@ -38,6 +38,12 @@ struct HudPreviewCommand: Command {
                 c.steps = [.init(command: "osascript …/spotify.applescript next", status: .failed(1), output: "error: Spotify が応答しません")]
                 c.reply = "failed: Spotify が応答しません"
                 return c
+            case "long":
+                // 長い実行（コマンドが多い）：本文が上限を超えると、スクロールになる
+                var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "ファイルを整理して", skill: "default")
+                c.steps = (1...14).map { .init(command: "ls -la /Applications/Example\($0).app", status: .ok, output: "total \($0 * 8)") }
+                c.reply = "done: 14 件のコマンドを実行して、すべて終わりました。長い返事は、5 行まで出して、それより長ければ、切ります。長い返事は、5 行まで出して、それより長ければ、切ります。"
+                return c
             case "denied":
                 var c = HUDContent(phase: .info, title: "実行しませんでした", chip: chip, heard: "ターミナルで ls を実行して", skill: "open-app")
                 c.steps = [.init(command: "ls", status: .denied, output: "許可されていないコマンドです（open だけ許可）")]
@@ -45,7 +51,7 @@ struct HudPreviewCommand: Command {
             default: return nil
             }
         }
-        let stages = ["recording", "working", "confirm", "success", "failure", "denied"]
+        let stages = ["recording", "working", "confirm", "success", "failure", "denied", "long"]
         if let only { guard sample(only) != nil else { usageError("hud-preview", "知らない --stage: \(only)（\(stages.joined(separator: "・"))）") } }
         for (i, stage) in (only.map { [$0] } ?? stages).enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * seconds) {
