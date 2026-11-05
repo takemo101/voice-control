@@ -19,8 +19,10 @@ import AppKit
     /// 「実行する」「やめる」のボタンの答えの届け先（確認を待っている処理が、つなぐ）。
     nonisolated let answers = AnswerRoute()
 
-    private var panel: NSPanel?
+    private var panel: HUDPanel?
     private var buttonActions: [ButtonAction] = []
+    /// 確認のボタン（実行する・やめる）。キーで選ぶときの、フォーカスの移動先。
+    private var choiceButtons: [NSButton] = []
     private var background: NSVisualEffectView?
     private var stack: NSStackView?
     /// 見出しの下の本文（補足・聞こえた文・コマンド・返事・ボタン）。長いときは、ここだけが、スクロールする（見出しは、動かない）。
@@ -56,6 +58,7 @@ import AppKit
         pendingHide?.cancel()
         generation += 1
         buttonActions = []
+        choiceButtons = []
 
         // 見出しは、いつも、いちばん上（動かない）。そのほかは、本文（長ければ、スクロール）
         for view in stack.arrangedSubviews where view !== scroll { stack.removeArrangedSubview(view); view.removeFromSuperview() }
@@ -90,6 +93,8 @@ import AppKit
         if overflow { scroll.contentView.scroll(to: NSPoint(x: 0, y: natural - Self.maxBodyHeight)); scroll.reflectScrolledClipView(scroll.contentView) }
         // クリックを受けるのは、ボタン（確認）を出している間と、スクロールできる間だけ。ほかは、クリックを通す（パネルの下のアプリを、邪魔しない）。フォーカスは、奪わない（`nonactivatingPanel`）
         panel.ignoresMouseEvents = !(content.choices || overflow)
+
+        updateKeyboard(panel, choices: content.choices)
 
         stack.layoutSubtreeIfNeeded()
         let height = ceil(stack.fittingSize.height)
@@ -162,9 +167,41 @@ import AppKit
         })
     }
 
+    /// 確認を出している間だけ、キーを受ける（アプリは、前面にしない）。最初のフォーカスは「やめる」：ほかのアプリで打っている最中の Return が、実行にならないように。
+    private func updateKeyboard(_ panel: HUDPanel, choices: Bool) {
+        panel.onKey = { [weak self] event in MainActor.assumeIsolated { self?.handleKey(event) ?? false } }
+        if choices, choiceButtons.count == 2 {
+            panel.acceptsKeys = true
+            panel.makeKeyAndOrderFront(nil)
+            panel.makeFirstResponder(choiceButtons[1])
+        } else if panel.acceptsKeys {
+            panel.acceptsKeys = false
+            if panel.isKeyWindow { panel.orderOut(nil); panel.orderFrontRegardless() }   // キーを、元のアプリへ返す
+        }
+    }
+
+    /// ← → Tab：ボタンの間を移る。Return・Space：フォーカスのあるボタン。y：実行する。n・Esc：やめる。ほかのキーは、受けない。
+    private func handleKey(_ event: NSEvent) -> Bool {
+        guard let panel, panel.acceptsKeys, choiceButtons.count == 2,
+              event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
+        let focused = choiceButtons.firstIndex { $0 === panel.firstResponder } ?? 1
+        switch event.keyCode {
+        case 123, 124, 48: panel.makeFirstResponder(choiceButtons[1 - focused])   // ← → Tab
+        case 36, 76, 49: choiceButtons[focused].performClick(nil)                  // Return・Enter・Space
+        case 53: answers.deliver(false)                                            // Esc
+        default:
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "y": answers.deliver(true)
+            case "n": answers.deliver(false)
+            default: return false
+            }
+        }
+        return true
+    }
+
     private func ensurePanel() {
         guard panel == nil else { return }
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 60), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let panel = HUDPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 60), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.isOpaque = false
@@ -276,8 +313,8 @@ import AppKit
             b.widthAnchor.constraint(equalToConstant: 140).isActive = true
             return b
         }
-        row.addArrangedSubview(button("実行する", tint: .systemGreen, yes: true))
-        row.addArrangedSubview(button("やめる", tint: nil, yes: false))
+        choiceButtons = [button("実行する", tint: .systemGreen, yes: true), button("やめる", tint: nil, yes: false)]
+        choiceButtons.forEach(row.addArrangedSubview)
         return row
     }
 
@@ -392,6 +429,14 @@ import AppKit
         view.widthAnchor.constraint(equalToConstant: width).isActive = true
         return view
     }
+}
+
+/// パネル。確認を出している間だけ、キーを受ける（`nonactivatingPanel`：アプリを前面にせずに、キー入力を受けられる）。
+private final class HUDPanel: NSPanel {
+    var acceptsKeys = false
+    var onKey: ((NSEvent) -> Bool)?
+    override var canBecomeKey: Bool { acceptsKeys }
+    override func keyDown(with event: NSEvent) { if onKey?(event) != true { super.keyDown(with: event) } }
 }
 
 /// ボタンの動作（`NSButton` の target は、`NSObject` が要る）。

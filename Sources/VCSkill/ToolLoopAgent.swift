@@ -1,5 +1,6 @@
 import Foundation
 import VCCore
+import VCDecision
 
 /// `ChatModel`（Ollama・OpenAI 互換のアダプター）のモデルで、スキルを実行する。Apple のモデル（`SkillAgent`）と同じ：**`run_command` という道具 1 つだけ**で、コマンドを実行させる。
 /// 許可の照合・出力の整形・コマンド数の上限・取りやめは、`CommandSession` が持つ（どのモデルでも同じ）。
@@ -8,8 +9,8 @@ final class ToolLoopAgent: SkillExecuting {
     private let session: CommandSession
     private let chat: ChatModel
 
-    init(skill: Skill, chat: ChatModel, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil) {
-        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
+    init(skill: Skill, chat: ChatModel, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil) {
+        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
         self.chat = chat
     }
 
@@ -17,6 +18,7 @@ final class ToolLoopAgent: SkillExecuting {
 
     func run(request: String) async throws -> String {
         try session.checkCancelled()
+        session.begin(request: request)
         var messages = [ChatMessage(role: .system, content: session.instructions), ChatMessage(role: .user, content: "User request: \(request)")]
         var toolCallCount = 0
         var nudged = false

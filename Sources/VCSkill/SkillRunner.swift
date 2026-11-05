@@ -72,10 +72,11 @@ public struct SkillRunner: Sendable {
     private let makeExecutor: ExecutorFactory
 
     /// 実行者は、`engine` のモデル：`SkillAgent`（Apple の言語モデル。既定）か、`ToolLoopAgent`（ローカルのサーバーのモデル）。
-    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, engine: Engine = .apple) {
+    /// `scorer`：Tiny-Jev（`vc pick`・`vc find` を使うスキルが、選ぶのに使う。使うときまで、読み込まない）。
+    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, engine: Engine = .apple, scorer: (@Sendable () -> OptionScorer?)? = nil) {
         self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { skill, dryRun, display, cancel in
-            if let chat = engine.makeChat() { return ToolLoopAgent(skill: skill, chat: chat, dryRun: dryRun, display: display, cancel: cancel) }
-            return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
+            if let chat = engine.makeChat() { return ToolLoopAgent(skill: skill, chat: chat, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer) }
+            return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
         })
     }
 

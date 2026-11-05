@@ -5,6 +5,20 @@ import VCSkill
 
 /// 設定の読み取りで、壊れていることを、1 回だけ知らせる。
 /// `@unchecked Sendable` の理由：可変な状態（`shown`）は、すべて `lock` で守る。
+/// Tiny-Jev を、最初に使うときに 1 回だけ読み込んで、持つ。
+/// `@unchecked Sendable` の理由：可変な状態（`jev`）は、すべて `lock` で守る。
+final class LazyJev: @unchecked Sendable {
+    private let lock = NSLock()
+    private var jev: TinyJev?
+    init(_ jev: TinyJev?) { self.jev = jev }
+
+    func get(load: () -> TinyJev) -> OptionScorer? {
+        lock.lock(); defer { lock.unlock() }
+        if jev == nil { jev = load() }
+        return jev
+    }
+}
+
 final class SettingsWarning: @unchecked Sendable {
     private let lock = NSLock()
     private var shown = false
@@ -64,6 +78,12 @@ struct CommandContext {
         } catch {
             fail("モデルを読めません: \(error)（vc model download で取得）")
         }
+    }
+
+    /// Tiny-Jev を、使うときまで読み込まない形で渡す（`vc pick`・`vc find` を使うスキルが、選ぶのに使う）。`loaded` があれば、それを使う（読み込み済みを、読み直さない）。
+    func scorerProvider(loaded: TinyJev? = nil) -> @Sendable () -> OptionScorer? {
+        let holder = LazyJev(loaded)
+        return { holder.get { loadJev() } }
     }
 
     /// 設定の読み取り：読めなければ（壊れている）、警告を 1 回だけ出して、空の設定（信頼したプロジェクトは、なし）で続ける。書き込みは、`Settings.save` が、壊れたファイルを上書きせずに失敗する。

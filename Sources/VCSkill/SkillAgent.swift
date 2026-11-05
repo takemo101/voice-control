@@ -1,14 +1,15 @@
 import FoundationModels
 import Foundation
 import VCCore
+import VCDecision
 
 /// Apple の言語モデル（FoundationModels）で、スキルを実行する。**`run_command` という道具 1 つだけ**で、コマンドを実行させる。
 /// 持つのは、不変の `session` だけ（可変な状態は、`CommandSession` が、ロックで守る）。
 final class SkillAgent: SkillExecuting {
     private let session: CommandSession
 
-    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil) {
-        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
+    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil) {
+        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
     }
 
     var executedCommands: [String] { session.executedCommands }
@@ -16,6 +17,7 @@ final class SkillAgent: SkillExecuting {
     /// 返事（`done: …` / `failed: …`。`result: markdown-note` のスキルは、メモを開いたあとの `done: …`）。
     func run(request: String) async throws -> String {
         try session.checkCancelled()
+        session.begin(request: request)
         let model = LanguageModelSession(tools: [RunCommandTool(session)], instructions: session.instructions)
         let reply = try await model.respond(to: "User request: \(request)").content
         try session.checkCancelled()
