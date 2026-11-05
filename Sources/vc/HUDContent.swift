@@ -29,3 +29,8 @@ struct HUDContent: Sendable {
     /// 「実行する」「やめる」のボタンを出す（確認の問いかけ。声の「はい」と、どちらでも答えられる）。出している間だけ、パネルは、クリックを受ける。
     var choices = false
 }
+
+/// 確認（声の流れ）の答え方の案内。画面の上のパネルと、端末で、同じ文を使う。
+enum ConfirmGuide {
+    static let howToAnswer = "ボタン・キー（← → と Return、y / n）で答えるか、もう一度トリガーを押して「はい」と言う"
+}

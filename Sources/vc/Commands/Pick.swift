@@ -18,6 +18,9 @@ struct PickCommand: Command {
         var stdin: String?
         if isatty(STDIN_FILENO) == 0 { stdin = String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self) }
         let result = ToolCommands.pick(Array(arguments.remaining.dropFirst()), stdinText: stdin, scorer: context.scorerProvider())
-        if result.exitCode == 0 { print(result.output) } else { fail(result.output.replacingOccurrences(of: "error: ", with: "")) }
+        switch result {
+        case let .success(text): print(text)
+        case let .failure(failure): fail(failure.message)
+        }
     }
 }
