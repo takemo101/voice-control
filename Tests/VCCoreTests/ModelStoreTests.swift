@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import VCDecision
+@testable import VCCore
 
 @Suite struct ModelStoreTests {
     private func makeSource(_ contents: [String: String]) throws -> (dir: URL, spec: ModelSpec) {

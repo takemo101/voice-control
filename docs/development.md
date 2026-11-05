@@ -26,7 +26,7 @@
 
 ## 環境
 
-macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない。実行時の外部ツール：任意で、ローカルのモデルのサーバー（`--engine` を使うとき。Ollama：`ollama pull <モデル>`。LM Studio・llama.cpp など）、[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
+macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない（音声認識の transcribe.cpp〔C++〕は、`scripts/build-native.sh` が、固定した commit を静的ライブラリにビルドする。`just build`・`just test`・`./scripts/test.sh`・`./scripts/package.sh` が、先に呼ぶ。ビルド済みなら何もしない。初回は、git・Command Line Tools・cmake が要る〔cmake が無ければ、`build/native/venv` に pip で入れる〕。数分かかる。`swift build` を直接呼ぶなら、先に `./scripts/build-native.sh`）。実行時の外部ツール：任意で、ローカルのモデルのサーバー（`--engine` を使うとき。Ollama：`ollama pull <モデル>`。LM Studio・llama.cpp など）、[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
 
 ## ビルドと実行
 

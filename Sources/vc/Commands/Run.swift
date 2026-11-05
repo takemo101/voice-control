@@ -27,7 +27,7 @@ struct RunCommand: Command {
         let dryRun = arguments.flag("--dry-run")
         let forced = arguments.option("--skill")
         guard let request = arguments.positionals.first else { usageError("run", "依頼を渡してください（例: vc run \"Safariを開いて\"）") }
-        requireAppleIntelligence()
+        requireAppleIntelligence(for: context.engine)
         let skills = context.loadSkills()
         skills.reportProblems()
         let enabled = skills.enabled

@@ -2,6 +2,7 @@ import Foundation
 import VCCore
 import VCDecision
 import VCSkill
+import VCSpeech
 
 /// 設定の読み取りで、壊れていることを、1 回だけ知らせる。
 /// `@unchecked Sendable` の理由：可変な状態（`shown`）は、すべて `lock` で守る。
@@ -45,10 +46,32 @@ struct CommandContext {
         self.gate = gate
     }
 
-    /// スキルを実行するモデル（`--engine`）。書き方が違えば、理由を示して終わる。既定は、Apple のモデル。
+    /// スキルを実行するモデル（`--engine` → 設定 → 既定の Apple のモデル）。書き方が違えば、理由を示して終わる。
     var engine: Engine {
-        guard let text = options.engine else { return .apple }
-        do { return try Engine.parse(text) } catch { fail("\(error)") }
+        guard let text = engineText else { return .apple }
+        do { return try Engine.parse(text) } catch { fail("\(options.engine == nil ? "settings.json の engine: " : "")\(error)\(options.engine == nil ? "（vc engine set で直す）" : "")") }
+    }
+
+    /// 使うエンジンの書き方：`--engine` → 設定（`vc engine set`）→ なし（Apple）。
+    var engineText: String? { options.engine ?? currentSettings().engine }
+
+    /// 使う音声認識：`--stt` → 設定（`vc stt set`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
+    var speechChoice: SpeechChoice {
+        if let text = options.stt {
+            switch SpeechChoice.parse(text) {
+            case let .success(choice): return choice
+            case let .failure(error): fail("--stt \(text): \(error)")
+            }
+        }
+        switch currentSettings().speechChoice {
+        case let .success(choice): return choice
+        case let .failure(error): fail("settings.json の stt: \(error)（vc stt set で直す）")
+        }
+    }
+
+    /// 使う音声認識を開く（ダウンロードしたモデルは、ここで読み込む）。開けなければ、理由を示して終わる。
+    func makeSpeechEngine() -> SpeechEngine {
+        do { return try SpeechEngine.make(speechChoice) } catch { fail("\(error)") }
     }
 
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
@@ -60,7 +83,7 @@ struct CommandContext {
 
     /// モデルを探す場所（resolveModelDir の順）。
     var modelCandidates: [String] {
-        [options.model, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], ModelStore.defaultDirectory().path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
+        [options.model, ProcessInfo.processInfo.environment["VC_MODEL_DIR"], TinyJevModel.defaultDirectory.path, "models/tiny-jev-0.6b"].compactMap { $0 }.filter { !$0.isEmpty }
     }
 
     /// 見つかったモデルの場所。なければ `nil`（`fail` しない：`vc doctor` が、状態を調べるのに使う）。

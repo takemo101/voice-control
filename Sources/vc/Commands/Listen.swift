@@ -8,7 +8,7 @@ import VCSpeech
 struct ListenCommand: Command {
     static let info = CommandInfo(
         name: "listen", group: .skills, summary: "マイクから聞いて、スキルで実行する",
-        usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes] [--no-mute]"],
+        usage: ["vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes] [--mute|--no-mute]"],
         details: [
             "既定：Enter で録音を始め、もう一度 Enter で止める（q で終了）。マイクの許可が要る。聞こえた文は、スキルで実行する（vc run と同じ。確認が要るときは、端末で [y/N] を聞く。--yes で省略）。",
             "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。**当てはまるスキルがなければ、既定スキル（default）**が、agent-desktop と基本のコマンド（open・say・ls・pwd・date）で実行する。会話・独り言は、実行しない。取り消しにくい依頼（削除・送信・購入など）は、実行の前に、声の「はい」で確認する。既定スキルを無効にする（vc skills disable default）と、当てはまるスキルがない依頼は、実行しない。",
@@ -22,7 +22,7 @@ struct ListenCommand: Command {
             ("--trigger <キー>", "この回だけのトリガー（例：shift・ctrl+opt+space・f5。書き方は vc hotkey）"),
             ("--dry-run", "スキルのコマンドを実行せず、表示だけにする"),
             ("--yes", "確認を省略する（Enter で録音する通常モードだけ。--hotkey は、声の「はい」で確認する）"),
-            ("--no-mute", "録音中に、ほかの音（出力）を消さない（既定：録音の間だけ、出力を消音にし、終わったら戻す）"),
+            ("--mute / --no-mute", "録音中に、ほかの音（出力）を消す／消さない（その実行だけ。常にそうするなら vc mute on|off。既定：録音の間だけ消音にし、終わったら戻す）"),
         ],
         examples: ["vc listen", "vc listen --hotkey", "vc listen --hotkey --dry-run"])
 
@@ -31,15 +31,24 @@ struct ListenCommand: Command {
         // マイクの許可が要る（初回、macOS が確認を出す）。
         // **ここから `VoiceLoop.run` まで、`await` を挟まない**（`NSApplication.run()` の前の `await` は、画面の表示・長押しの判定を止める。docs/architecture.md「時間と並行」）。
         var arguments = arguments
-        let muter: OutputMuter = arguments.flag("--no-mute") ? .disabled : .system
-        requireAppleIntelligence()   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
+        let muteFlag: Bool?
+        switch (arguments.flag("--mute"), arguments.flag("--no-mute")) {
+        case (true, true): usageError("listen", "--mute と --no-mute は、一緒に使えません")
+        case (true, false): muteFlag = true
+        case (false, true): muteFlag = false
+        case (false, false): muteFlag = nil
+        }
+        let muter: OutputMuter = MutePreference.resolve(flag: muteFlag, setting: context.currentSettings().mute) ? .system : .disabled
+        requireAppleIntelligence(for: context.engine)   // 使えなければ、マイクの許可を聞く前に、理由と手順を示して終わる
         guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
         let jev = context.loadJev()
+        let speech = context.makeSpeechEngine()   // 選んだ音声認識（ダウンロードしたモデルは、ここで読み込む）。終わる前に close
+        defer { speech.close() }
         // Ctrl+C などで終わるとき、消したままにしない（録音中に終わっても、音を戻す）。主キューは、readLine や NSApplication で塞がるので、別のキューで受ける
-        let signals = Self.restoreOnSignals(muter)
+        let signals = Self.restoreOnSignals(muter, speech)
         defer { withExtendedLifetime(signals) {} }
         if context.options.hotkey {
-            runVoiceLoop(context, jev: jev, muter: muter)
+            runVoiceLoop(context, jev: jev, muter: muter, speech: speech)
             return
         }
         while true {
@@ -57,7 +66,7 @@ struct ListenCommand: Command {
                 _ = readLine()
                 try recorder.stop()
                 muter.restore()
-                let utterance = try await FileTranscriber().transcribe(file: file)
+                let utterance = try await speech.transcriber.transcribe(file: file)
                 kv("聞こえた", utterance)
                 guard !utterance.isEmpty else { notice("聞き取れなかった"); continue }
                 let skills = context.loadSkills()
@@ -71,11 +80,11 @@ struct ListenCommand: Command {
 
     /// Ctrl+C（SIGINT）・SIGTERM・SIGHUP で終わるとき、消した出力を戻してから終わる（消したままにしない）。
     /// 受ける場所は、主キューではない：`readLine`（Enter モード）・`NSApplication.run()` が、主キューを塞ぐ。強制終了（SIGKILL）・クラッシュは、戻せない。
-    private static func restoreOnSignals(_ muter: OutputMuter) -> [DispatchSourceSignal] {
+    private static func restoreOnSignals(_ muter: OutputMuter, _ speech: SpeechEngine) -> [DispatchSourceSignal] {
         [SIGINT, SIGTERM, SIGHUP].map { sig in
             signal(sig, SIG_IGN)   // 既定の動作（そのまま終わる）を、止める
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            source.setEventHandler { muter.restore(); exit(128 + sig) }
+            source.setEventHandler { muter.restore(); speech.close(); exit(128 + sig) }   // 音声認識のモデルは、開いたまま exit すると abort する
             source.resume()
             return source
         }
@@ -86,18 +95,21 @@ struct ListenCommand: Command {
     /// --dry-run なら、コマンドを実行しない。確認が要る判定は、問いかけを読み上げ、次の発話の「はい」で実行する。
     /// 聞く・録る・Esc・待ち行列の調整は `VoiceLoop`（VCSpeech）。ここは、発話の処理（`UtteranceHandler`）と、出来事の表示だけを渡す。
     /// 同期の関数：`await` を挟まない（`VoiceLoop.run` の不変条件 1）。
-    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, muter: OutputMuter) {
+    @MainActor private func runVoiceLoop(_ context: CommandContext, jev: TinyJev, muter: OutputMuter, speech: SpeechEngine) {
         do {
             let (spec, _) = context.resolveHotKey()
             let chip = spec.displayName
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let trigger = try makeTrigger(spec)
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: FileTranscriber(),
+                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: speech.transcriber,
                 handler: Self.utteranceHandler(context, jev: jev, chip: chip),
                 onEvent: { Self.show($0, chip: chip, muter: muter) })
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
+                kv("音声認識", speech.choice.title, width: 8)
+                kv("実行", context.engineText ?? "apple", width: 8)
+                kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。

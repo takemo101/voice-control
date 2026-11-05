@@ -13,7 +13,8 @@ enum Help {
         ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：vc model download）"),
         ("--length <トークン数>", "Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）"),
         ("--floor <0〜1>", "確信度の下限（既定 0.40。未満は実行しない）"),
-        ("--engine <エンジン>", "スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …）"),
+        ("--engine <エンジン>", "スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら vc engine set）"),
+        ("--stt <音声認識>", "使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：vc model download <ID>。常にそうするなら vc stt set）"),
         ("-h, --help", "このヘルプを表示"),
         ("-V, --version", "版を表示"),
     ]

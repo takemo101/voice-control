@@ -19,11 +19,11 @@ struct DoctorCommand: Command {
         var checks: [DoctorCheck] = []
 
         // --- 必須：スキルの実行（vc run・vc listen）に要る ---
-        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current()))
+        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current(), required: context.engine == .apple))
         checks.append(Self.tinyJevCheck(context))
-        // --engine を指定したときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
+        // --engine か設定で、Apple 以外を選んでいるときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
         if context.engine != .apple {
-            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.options.engine ?? "") が使えます")) }
+            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.engineText ?? "") が使えます")) }
             catch { checks.append(.fail("実行するモデル", "\(error)", fix: "サーバーを起動し、モデルを読み込む（Ollama：ollama pull <モデル>）")) }
         }
 
@@ -34,6 +34,7 @@ struct DoctorCommand: Command {
             : .warn("アクセシビリティ", "許可されていません",
                     fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
         checks.append(Self.microphoneCheck(MicRecorder.permission))
+        checks.append(Self.speechCheck(context))
         let (_, problem) = Settings.loadOrDefault()
         let settingsFile = VoiceControlHome.settingsFile
         let settingsDetail = FileManager.default.fileExists(atPath: settingsFile.path) ? "読めます（\(settingsFile.path)）" : "まだありません（既定の設定で動きます）"
@@ -45,10 +46,13 @@ struct DoctorCommand: Command {
         if report.hasFailure { exit(1) }
     }
 
-    static func appleIntelligenceCheck(_ status: AppleIntelligence.Status) -> DoctorCheck {
+    /// `required`：スキルを実行するモデルが Apple のとき。ほかのエンジン（Ollama など）なら、要らないので、使えなくても、警告にとどめる。
+    static func appleIntelligenceCheck(_ status: AppleIntelligence.Status, required: Bool = true) -> DoctorCheck {
         switch status {
-        case .available: return .ok("Apple Intelligence", "使えます（スキルの実行に使う言語モデル）")
-        case .unavailable(let reason): return .fail("Apple Intelligence", reason.summary, fix: reason.remedy)
+        case .available: return .ok("Apple Intelligence", required ? "使えます（スキルの実行に使う言語モデル）" : "使えます（このエンジンでは、使いません）")
+        case .unavailable(let reason):
+            return required ? .fail("Apple Intelligence", reason.summary, fix: reason.remedy)
+                            : .warn("Apple Intelligence", "\(reason.summary)（このエンジンでは、使わないので、そのままで動きます）", fix: reason.remedy)
         }
     }
 
@@ -61,15 +65,38 @@ struct DoctorCommand: Command {
     }
 
     static func tinyJevCheck(_ context: CommandContext) -> DoctorCheck {
-        let fix = "vc model download（約 1.2 GB。SHA-256 を検証して \(ModelStore.defaultDirectory().path) に置く）"
+        let fix = "vc model download（約 1.2 GB。SHA-256 を検証して \(TinyJevModel.defaultDirectory.path) に置く）"
         guard let dir = context.findModelDirectory() else { return .fail("Tiny-Jev", "モデルが見つかりません", fix: fix) }
-        guard ModelStore.isInstalled(in: dir) else {
+        guard TinyJevModel.isInstalled(in: dir) else {
             // 使う場所が、既定の置き場所ではない（--model・VC_MODEL_DIR・./models）と、vc model download では、直らない
-            let custom = dir.standardizedFileURL.path != ModelStore.defaultDirectory().standardizedFileURL.path
+            let custom = dir.standardizedFileURL.path != TinyJevModel.defaultDirectory.standardizedFileURL.path
             return .fail("Tiny-Jev", "モデルのファイルが、そろっていません（\(dir.path)）",
                          fix: custom ? "\(dir.path) を直すか、--model・VC_MODEL_DIR を外して、\(fix)" : fix)
         }
         return .ok("Tiny-Jev", "あります（\(dir.path)）")
+    }
+
+    /// 使う音声認識（`--stt`・`vc stt set`）。ダウンロードしたモデルを選んでいるのに、取得していなければ、失敗（`vc listen` は、黙って Apple に切り替えずに、止まる）。
+    static func speechCheck(_ context: CommandContext) -> DoctorCheck {
+        let choice: SpeechChoice
+        if let text = context.options.stt {
+            switch SpeechChoice.parse(text) {
+            case let .success(c): choice = c
+            case let .failure(error): return .fail("音声認識", "\(error)", fix: "vc stt set <apple|ID>")
+            }
+        } else {
+            switch context.currentSettings().speechChoice {
+            case let .success(c): choice = c
+            case let .failure(error): return .fail("音声認識", "settings.json の stt: \(error)", fix: "vc stt set <apple|ID>（既定に戻す：vc stt reset）")
+            }
+        }
+        switch choice {
+        case .apple: return .ok("音声認識", "Apple の SpeechTranscriber（オンデバイス）")
+        case let .local(model):
+            return model.isInstalled
+                ? .ok("音声認識", "\(model.name)（\(model.fileURL.path)）")
+                : .fail("音声認識", "\(model.name) を選んでいますが、取得していません", fix: "vc model download \(model.id)（Apple に戻す：vc stt reset）")
+        }
     }
 
     /// 既定スキルが使う `agent-desktop` が、PATH にあるか（任意：なければ、既定スキルが画面を読めない）。

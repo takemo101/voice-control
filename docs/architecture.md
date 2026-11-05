@@ -11,9 +11,9 @@ flowchart TB
     end
     subgraph Targets[SwiftPM ターゲット]
         Skill[VCSkill<br/>SKILL.md・ポリシー・実行]
-        Speech[VCSpeech<br/>文字起こし・録音・トリガー]
-        Decision[VCDecision<br/>選択肢の採点・勝ち抜き戦・しきい値・<br/>Tiny-Jev の実行・モデルの取得]
-        Core[VCCore<br/>場所・設定・取りやめの合図・<br/>外部コマンドの実行]
+        Speech[VCSpeech<br/>文字起こし・録音・トリガー・無音の判定]
+        Decision[VCDecision<br/>選択肢の採点・勝ち抜き戦・しきい値・<br/>Tiny-Jev の実行]
+        Core[VCCore<br/>場所・設定・取りやめの合図・<br/>外部コマンドの実行・<br/>モデルの取得]
     end
     main --> Skill & Speech & Decision & Core
     Skill --> Decision
@@ -39,7 +39,7 @@ flowchart TB
 | `VCDecision`（`Choice/`） | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度のしきい値：選ぶ下限・確認なしで実行してよい下限・取り消しにくさの下限。`SkillResolver` が使う）、`Confirmation`（声の返事が「はい」か。確信度 0.8 以上の「はい」だけ true。スキルの声の流れが使う） | 選択肢の中身 |
 | `VCDecision`（`Model/`） | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
 | `VCSkill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`Engine`・`ChatModel`（モデルとの通信のアダプター：`OllamaChat`・`OpenAICompatibleChat`。`LocalServer` が、127.0.0.1 に固定）・`ToolLoopAgent`（道具を呼ぶ流れ。どのアダプターでも同じ）・`SkillAgent`（Apple のモデル。`FoundationModels` が流れを持つ）。許可の照合・実行・整形は、`CommandSession` が共有、`FileSearch`（`vc find`：Spotlight とフォルダをたどる探し方）・`Picker`（`vc pick`：Tiny-Jev で候補から選ぶ）・`InternalCommands`（スキルの中の `vc find`・`vc pick`：`vc` 自身が処理する。直前の候補の記憶）・`RemoteSkills`（GitHub からスキルを取得）、`SkillInstaller`（取得したスキルを、グローバルへ置く）、`ResultNote`（`result: markdown-note` の保存）、`CommandPolicy`（許可の照合）、`CommandRunner`（許可済みのコマンドの実行。`ProcessRunner` の上）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`AppleIntelligence`（言語モデルが使えるかと、使えない理由・直す手順）、`SkillRunner`（選ぶ → 確認 → 実行 → 結果の流れと、その判断。経過を `RunEvent` にして `RunReporter` へ送る）、`SkillExecuting`（実行者の口）・`SkillAgent`（その実装：言語モデルと `run_command`） | 表示・終了コード・声の読み上げ |
-| `VCSpeech` | `FileTranscriber`（Apple の文字起こし）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`（Esc の受け付け）、`VoiceLoop`（声の流れの**調整**：トリガー・録音・Esc・認識の待ち行列・発話ごとの `Task`。`VoiceActivity`・`VoiceInputQueue` は、その内部の状態と列）、差し替え口（`Transcribing`・`Recording`・`EscapeSource`）と出来事（`VoiceLoopEvent`）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断・スキル・画面の表示（`VoiceLoop` は、発話の処理を `UtteranceHandler` として外から受ける） |
+| `VCSpeech` | **音声認識のアダプター**：差し込み口 `Transcribing` の実装 `FileTranscriber`（Apple の文字起こし）と `LocalTranscriber`（ダウンロードしたモデル。transcribe.cpp）、選ぶ口 `SpeechChoice`・`SpeechModelCatalog`（モデルの一覧。版・SHA-256 を固定）・`SpeechEngine`（選んだものを開き、**`GatedTranscriber` で包む**）、`SpeechPresence`（声があるか。無音・一定の雑音を認識に渡さない）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`（Esc の受け付け）、`VoiceLoop`（声の流れの**調整**：トリガー・録音・Esc・認識の待ち行列・発話ごとの `Task`。`VoiceActivity`・`VoiceInputQueue` は、その内部の状態と列）、差し替え口（`Transcribing`・`Recording`・`EscapeSource`）と出来事（`VoiceLoopEvent`）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断・スキル・画面の表示（`VoiceLoop` は、発話の処理を `UtteranceHandler` として外から受ける） |
 | `vc` | 引数の解釈（`Arguments`・`CommonOptions`）、コマンド（`Command`・`Commands.all`・`Commands/`）と、その共有物（`CommandContext`）、流れの組み立て（`Commands/Listen.swift` の `listen`：`--hotkey` では、`VoiceLoop` に、`SkillRunner`＋`HUDReporter` による発話の処理（`UtteranceHandler`）と、出来事の表示を渡す。Enter で録音する通常モードは、録音 → 文字起こし → `SkillRunner`＋`TerminalReporter`。`Commands/Run.swift` の `run`：引数の解釈と表示だけ）、スキルの実行の表示（`TerminalReporter`・`HUDReporter`。`SkillSupport.swift` の `LoadedSkills`：スキルを読み、問題を標準エラーへ出す）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く）。Markdown のウィンドウ（`MarkdownRenderer`・`MarkdownWindow`・`DocumentWindow`＝別のプロセスで開く・`vc show`）と、パネルと共有する見た目（`HUDStyle`）、確認のボタンと声の競合（`ConfirmationRace`） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 | `TestSupport`（`Tests/TestSupport/`。テスト専用） | 複数のテストターゲットが使う偽物：`OptionScorer` の偽物（`TargetScorer`・`OptionSpy`・`SkillScorer`）、集める道具（`Collected`・`plain`）。`VCDecision` に依存し、公開 API だけで作る。`@testable` が要る偽物は、そのテストターゲットに置く | 本番のターゲット・成果物（`vc`）には入らない。テストターゲットだけが依存する |
@@ -134,6 +134,7 @@ flowchart LR
 | agent-desktop | 子プロセス。Swift のコードからは呼ばない。スキルの `allowed-commands`（既定スキルは `agent-desktop`・`open`・`say`・`ls`・`pwd`・`date`）で許可されたコマンドとして、言語モデルが `run_command` で呼ぶ（`snapshot`・`click`・`type` など） | アプリ一覧に壊れた記録があると、`snapshot`・`launch` などが TIMEOUT する（実測）。`launch` は使わない |
 | Apple FoundationModels | `LanguageModelSession`＋動的スキーマ（`DynamicGenerationSchema`）。`@Generable` は、マクロのプラグインが Command Line Tools に無く、使えない | 道具の呼び出しは、**英語の指示**のほうが確実（測定） |
 | Apple Speech | `SpeechTranscriber`（オンデバイス）。言語のモデルが未取得なら OS が取得（初回、Apple のサーバーから） | |
+| transcribe.cpp（`CTranscribe`） | ダウンロードした音声認識のモデル（Whisper）の推論。C++（ggml・Metal）の静的ライブラリ。固定した commit を `scripts/build-native.sh` でビルド。モデルの取得は、`VCCore` の `ModelStore`（SHA-256 検証・再開）。**開いたまま `exit` すると、ggml の後始末が abort する**ので、`SpeechEngine.close()` を、終わる前に呼ぶ（`vc listen` の終了・シグナル） | モデルのファイルが壊れていれば、開くときに失敗（使うときではなく）。取得していなければ、黙って Apple に切り替えず、止まる |
 | AppKit / Carbon | `RegisterEventHotKey`（修飾キー＋キー）、`NSEvent` のグローバルモニタ（修飾キーだけの長押し。アクセシビリティの許可が要る）、`NSPanel`（画面の上の表示） | 画面の表示には、許可が要らない |
 | Tiny-Jev のモデル | Hugging Face（`lostargon/Tiny-Jev`・版を固定）。`vc model download`（`URLSession`）が、SHA-256 を検証して取得する。**これが、取得時の唯一の外部通信** | ライセンスの条件は未確認 |
 

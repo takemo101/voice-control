@@ -58,7 +58,7 @@
 3. **独立して検証できる規則**：許可の照合・SKILL.md の解析・スキルの選び方（`SkillResolver`）・声の「はい」の判定（`Confirmation`）・勝ち抜き戦は、画面・音声・モデルから分けて確かめられる形に保つ（`just test`）。
 4. **明示的な失敗**：失敗・取消・古い操作を区別し、何を継続・停止するかを明確にする。回復できる失敗は `throws`・`Result` と小さな `enum` で返し、見せ方（メッセージ・終了コード）を決めるのは境界（`vc`）だけ。握り潰さない。成功に見える代用品に置き換えない。
 
-- 外部の Swift パッケージを足さない。外部ツールは agent-desktop だけ（子プロセスとして呼ぶ）。任意で、この Mac のローカルのモデルのサーバー（Ollama・OpenAI 互換。`127.0.0.1` の HTTP。スキルを実行するモデルを替える `--engine`。クラウドのモデルは拒否する）。`Decision/` の複製したファイルは変えない（元は meeting-analyzer）。
+- 外部の Swift パッケージを足さない。外部ツールは agent-desktop だけ（子プロセスとして呼ぶ）。**例外は、音声認識の推論の実行環境 transcribe.cpp**（C++・ggml・MIT。固定した commit を `scripts/build-native.sh` で静的ライブラリにビルドして取り込む。`vc stt`・`--stt`。ライセンス表示は `THIRD_PARTY_NOTICES.md`）。ダウンロードするモデルは、リポジトリ・版・SHA-256 を固定し、利用者が `vc model download` を実行したときだけ取得する。任意で、この Mac のローカルのモデルのサーバー（Ollama・OpenAI 互換。`127.0.0.1` の HTTP。スキルを実行するモデルを替える `--engine`。クラウドのモデルは拒否する）。`Decision/` の複製したファイルは変えない（元は meeting-analyzer）。
 - 不要な確保・コピー・計算を避ける。
 - 一律の層構成・DDD・不要なリポジトリ・全操作の protocol 化を、先回りで導入しない。
 - コマンド：ビルドは `just build`、単体テストは `just test`（`./scripts/test.sh`。1 ターゲットだけなら `--filter <ターゲット>Tests`）、測定は `just eval`（「操作の依頼か」の判定の当たり率）、配布物は `just package`。ビルド・テストの入口は、`--explicit-target-dependency-import-check=error` を付けている（素の `swift build`・`swift test` を直接呼ぶときは、自分で付ける）。一覧と手順は [開発手順](docs/development.md#ビルドと実行)。

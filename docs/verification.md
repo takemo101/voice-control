@@ -228,6 +228,50 @@
 | 注意 | 見本の文・見本の Markdown は、作った例（実際の会議・個人の内容ではない）。画像は、実際の操作の記録ではない（README にも、そう書いた） |
 | 図 | README の図は、Mermaid（GitHub が描く）。**GitHub 上での描画は、未確認** |
 
+### 音声認識モデルの比較（PoC。2026-11-05。利用者の依頼）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | ダウンロードして使える音声認識モデル（参考：meeting-analyzer §3.12。transcribe.cpp）を、voice-control に入れる価値があるか、先に測る（利用者の選択：方式 A・先に測る） |
+| 対象 | Apple の `SpeechTranscriber`（いまの実装）／Whisper large-v3-turbo（Q8_0・886 MB・MIT）／Qwen3-ASR 0.6B（Q8_0・850 MB・Apache-2.0）。モデルは、固定した版（`handy-computer/*-gguf`）で、SHA-256 が一致することを確認。transcribe.cpp は、meeting-analyzer の `build-native.sh` と同じ commit（`5700f12`）。**使い捨ての測定用パッケージ（`/tmp/stt-poc`）で測り、リポジトリには入れていない** |
+| 音声 | `say` の日本語の声 4 つ（Kyoko・Eddy・Reed・Shelley）× 依頼 30 文（この製品の使い方：「次の曲にして」「ドキュメントの請求書の PDF を開いて」…）× 4 条件（既定の速さ・速い〔`-r 250`〕・白色雑音 SNR 15 dB・SNR 5 dB）＝ 480 件。前後に 0.4 秒の無音（押している間の録音と同じ）。**合成音声と白色雑音だけ。実際の声・実際の部屋の雑音は、測っていない** |
+| 指標 | 文字誤り率（CER。NFKC・空白と句読点を除く。「PDF」「ピーディーエフ」など、読みの違いは、許す書き方の複数から、いちばん近いもの） |
+| 結果（CER の平均） | Apple：既定 4.9%・速い 4.8%・SNR15 9.4%・SNR5 15.2%・全体 **8.6%**。Whisper：4.1%・3.7%・5.0%・14.8%・全体 **6.9%**。Qwen3-ASR 0.6B：10.5%・11.6%・16.4%・25.1%・全体 15.9%（Apple より悪い） |
+| 差の見方 | Whisper と Apple の、件ごとの比較（CER が小さいほうが勝ち）：既定＋速い 47 勝・22 敗・171 同じ／SNR15 33 勝・12 敗・75 同じ／SNR5 38 勝・26 敗・56 同じ。**差が目立つのは SNR15（雑音が軽いとき）**。SNR5 は、どちらも崩れる（Whisper の最悪例：「次の曲にして」→「首もちょっとにして」）。英字の語を含む依頼（Safari・PDF・ls）は、Whisper が 9 勝・4 敗 |
+| 速さ・資源 | 1 件の認識（2〜4 秒の録音）：Apple 0.06 秒・Whisper 0.54 秒・Qwen 0.09 秒。モデルを開く＋最初の 1 回：Apple 0.1 秒・Whisper 0.5 秒・Qwen 0.3 秒。RSS：Apple 20 MB・Whisper 160 MB・Qwen 371 MB（**GPU 側のメモリは、含まれない可能性がある**。未確認） |
+| **無音・雑音だけの録音（重要）** | 20 件（無音・雑音。声なし）。**Whisper：20 件すべてが「ご視聴ありがとうございました」**。Qwen：20 件すべてが「はい。」「ええ。」。**Apple も 6 件が「はい」**（3 秒の無音 4 件・中くらいの雑音 2 件）。**いまの `vc listen` には、無音・短すぎる録音を捨てる処理がない**（`RecordingSession.stop` は、始まっていなければ nil を返すだけ）ので、確認の最中に、無音の録音を送ると、「はい」と聞こえて、**実行になる可能性がある**（合成の無音での結果。実際のマイクの雑音では、未確認）。どの認識でも、前に、音声の有無の判定（VAD・音量・長さ）が要る |
+| 判断 | Whisper large-v3-turbo は、雑音が軽いとき・英字の語で、Apple より誤りが少ない（合成音声）。一方、遅く（0.5 秒）、無音の入力に作文する。**入れるなら、Whisper large-v3-turbo だけ（Qwen は、入れない）。音声の有無の判定を前に置くこと（認識の方式に依らず）が、先**。実際の声での比較は、未実施（利用者の声で、`vc listen` に入れて確かめる必要がある） |
+
+### 声のない録音を、認識へ渡さない（2026-11-05。音声認識の比較で見つかった問題の修正）
+
+| 項目 | 結果 |
+|---|---|
+| 問題 | 声のない録音（無音・一定の雑音）を認識へ渡すと、文が作られる（Apple：20 件中 6 件が「はい」）。`vc listen` に、これを捨てる処理がなかった。確認の最中なら、「はい」と聞こえて、実行になりうる |
+| 修正 | `SpeechPresence`（純粋な規則）＋ `GatedTranscriber`（認識の前に判定し、声がなければ、空を返す）。`vc listen` の 2 つの経路（Enter・ホットキー）へ |
+| しきい値の確認 | この Mac のマイクの背景を、4 秒、レベルだけ測った（音声は残していない）：約 −75 dBFS（最大 −68）。合成音声 480 件：すべて通る（声のある秒の最小 0.60）。無音・雑音 20 件：すべて止まる（0.00）。短い返事（はい・うん・ええ・いいえ・やめて・お願いします）× 3 つの声：すべて通る（最小 0.22 秒）。**しきい値は、これらの音で決めた（評価と調整が同じ）** |
+| 未確認 | 実際の声・実際の部屋の雑音（話し声に近い雑音は、通る）・小さい声・遠い声。しきい値が厳しすぎて、普通の発話が捨てられていないかは、実際の使用で確かめる必要がある |
+
+### 音声認識のアダプター（Whisper。2026-11-05。利用者の依頼）
+
+| 項目 | 結果 |
+|---|---|
+| 経緯 | 利用者「meeting-analyzer のように、音声モデルをダウンロードして設定できるように。アダプターみたいに」→ 方式 A（transcribe.cpp を組み込む）・先に測る（PoC。上の「音声認識モデルの比較」）→ 無音ゲート → アダプター |
+| 作ったもの | `LocalTranscriber`（transcribe.cpp）・`SpeechModelCatalog`（Whisper large-v3-turbo。版・SHA-256 を固定）・`SpeechChoice`・`SpeechEngine`（選んだものを開き、`GatedTranscriber` で包む）。`ModelStore` を `VCDecision` から `VCCore` へ移した（`VCSpeech` が使うため。Tiny-Jev の定義は `TinyJevModel`）。`vc model list/status/download/path/delete <ID>`・`vc stt`・`--stt`・`vc transcribe`・`vc doctor` の音声認識の行。`scripts/build-native.sh`（固定した commit）を、`just build`・`./scripts/test.sh`・`package.sh`・CI が呼ぶ。`THIRD_PARTY_NOTICES.md`（配布物にも入れる） |
+| 単体テスト | 名前の解釈（知らない名前を断る）・設定の保存・取得していないモデルは開けない（取得の手順を含む失敗）・壊れたモデルのファイルは開くときに失敗・音声の変換（44.1 kHz ステレオ → 16 kHz モノラル）・`--stt` の取り除き |
+| 実モデルでの確認 | **`vc transcribe`**：PoC の 30 件と、同じ結果（30/30）。無音・雑音 20 件は、すべて「声が聞こえませんでした」（Whisper の「ご視聴ありがとうございました」は出ない）。**本物の `vc listen --hotkey --stt whisper-large-v3-turbo`**（実マイクが、スピーカーの `say` の音を拾う・Shift の長押しは合成）：「テスト用のメモを書き出して」を正しく認識 → Tiny-Jev がスキルを選び → 確認 → 実行（dry-run）まで進んだ。**`vc model download` を実際に実行**（約 845 MB・SHA-256 一致・`--verify` も一致） |
+| 見つけたこと | ①ggml が、プロセスの終了時に、モデルを開いたままだと **abort する**（PoC の終了で、クラッシュレポートが出た）→ `SpeechEngine.close()` を、終了・シグナルの前に呼ぶ。修正後、SIGTERM で終了しても、クラッシュレポートは出ない。②ネイティブのログが、1 回の起動で約 118 行、標準エラーに出る → `transcribe_log_set(nil)` で止めた（失敗は、状態コードで返る） |
+| 未確認 | **実際の声での Apple との比較**（合成音声だけで測った。利用者の声・部屋で、確かめる必要がある）・CI（macOS 26 のランナー）での、transcribe.cpp のビルド（pip の cmake を使うか）・配布物（tar.gz）のサイズ・`vc listen` を長く動かしたときのメモリ・Qwen3-ASR など、ほかのモデル（入れていない） |
+
+### 使うモデルと録音中の音の設定（2026-11-05。利用者の依頼）
+
+| 項目 | 結果 |
+|---|---|
+| 経緯 | 利用者「音声入力をしている時に他の音声を消すのを、設定変更できる？」→「常に特定のモデルを使う設定。音声入力と分析モデルを、どれ使うか設定」 |
+| 作ったもの | `Settings` に `mute`・`engine`（`stt` は、アダプターで追加済み）。`vc mute [show\|on\|off\|reset]`・`vc engine [show\|set\|reset]`。`CommandContext.engine` が、`--engine` → 設定 → Apple。`vc listen` に `--mute`（`--no-mute` は、前からある）。優先順位は、`MutePreference.resolve`（純粋な規則）。`vc listen` の起動時の表示に、実行モデル・ほかの音を追加 |
+| 確認 | 単体テスト（設定の保存・`mute=false` の区別・優先順位）。実行：`vc mute off` → 設定に `"mute":false`、`vc engine set` の不正な書き方（`cloud:gpt`）は拒否、`vc doctor` が、設定のエンジンで、モデルの有無を確かめた。本物の `vc listen --hotkey` が、設定から `実行 ollama:qwen3.5:4b`・`ほかの音 録音中も流したまま` を表示 |
+| 気づいたこと | **`vc run`・`vc listen` は、エンジンが Ollama などでも、Apple Intelligence を必須にしている**（`requireAppleIntelligence()`）。実行に Apple のモデルを使わないときも、要る。設定で Ollama にしても、Apple Intelligence がオフだと、動かなかった。**直した**：エンジンが Apple のときだけ要る（`requireAppleIntelligence(for:)`）。`vc doctor` も、Apple 以外のエンジンなら、使えなくても警告にとどめる（単体テスト）。**Apple Intelligence をオフにした実機で、Ollama で動くことは、未確認** |
+| 未確認 | 消音を off にしたとき、録音中に、実際に出力の音量が変わらないこと（`--no-mute` と同じ経路）。`openai:` の設定での実行 |
+
 ### 実機の確認
 
 **この表の、PC 操作の経路（計画・チェック・開閉・空にする・ウィンドウ操作・キー操作・アプリを開く）の観測は、廃止した機能の、歴史的な記録。agent-desktop 自体の挙動の記録としては、いまも当てはまる。**

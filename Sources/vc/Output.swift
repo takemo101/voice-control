@@ -1,5 +1,5 @@
 import Foundation
-import VCDecision
+import VCCore
 
 /// 端末への出力の整形。色は、標準出力が端末のときだけ（`NO_COLOR` があれば、使わない。`TERM=dumb` も使わない）。
 enum Style {

@@ -32,6 +32,7 @@
 
 - **声で頼む**：Shift を押している間だけ録音し、離すと実行します（`vc listen --hotkey`）。Esc で取りやめられます。
 - **文で頼む**：`vc run "次の曲にして"`。何をするかだけ見たいときは `--dry-run`。
+- **音声認識を替えられる**：既定は Apple のオンデバイスの認識。雑音が軽いとき・英字の語に強い Whisper を、ダウンロードして使えます（`vc model download whisper-large-v3-turbo`、`vc stt set …`）。どちらも、音声は Mac の外へ出ません。
 - **モデルを替えられる**：既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などに替えられます（`--engine`。任意）。
 
 ## 画面のイメージ
@@ -65,7 +66,7 @@
 
 ```mermaid
 flowchart LR
-    A["声（Shift 長押し）<br/>または 文（vc run）"] --> B["文字にする<br/>（この Mac の中で処理）"]
+    A["声（Shift 長押し）<br/>または 文（vc run）"] --> B["文字にする<br/>（この Mac の中で処理。<br/>声がなければ捨てる）"]
     B --> C{"Tiny-Jev が<br/>スキルを選ぶ"}
     C -->|"確信できた"| E["言語モデルが<br/>スキルの指示に従う"]
     C -->|"自信がない・<br/>取り消しにくい"| D["確認<br/>ボタン・キー・声"]
@@ -103,7 +104,7 @@ flowchart LR
 **1. 必要なものをそろえる**
 
 - macOS 26 以降・Apple silicon の Mac。
-- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。
+- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。スキルの実行に Ollama などのモデルを使う（`vc engine set`）なら、要りません。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。
 - アクセシビリティ・マイクの許可（`vc doctor` が、足りないものを教えます）。
 
@@ -145,10 +146,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.2.4](https://github.com/takemo101/voice-control/releases/tag/v0.2.4) の例）：
+**手で入れる**（[v0.3.0](https://github.com/takemo101/voice-control/releases/tag/v0.3.0) の例）：
 
 ```sh
-V=0.2.4
+V=0.3.0
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -163,7 +164,7 @@ vc --help
 **ソースから入れる**（リポジトリを clone して。Swift 6.2 以降が要る）：
 
 ```sh
-just install          # vc を ~/.local/bin へ入れる
+just install          # vc を ~/.local/bin へ入れる（初回は、音声認識の実行環境 transcribe.cpp のビルドで、数分かかる。git・cmake が要る〔cmake がなければ、自動で入れる〕）
 vc model download
 just test             # 単体テスト
 ```
@@ -219,6 +220,33 @@ $ vc run テスト
 ### コピーした文章を加工する
 
 文章を **⌘C でコピー**してから、「コピーした文章を整理して」「要約して」「英語に翻訳して」と頼みます。結果は、整形した Markdown のウィンドウに出ます（`clipboard-note`、`vc show`）。
+
+### 音声認識を替える（Whisper）
+
+既定は Apple のオンデバイスの認識です。**Whisper large-v3-turbo**（約 0.9 GB・MIT）をダウンロードして、替えられます。
+
+```sh
+vc model list                                  # 取得できるモデル
+vc model download whisper-large-v3-turbo       # 取得（SHA-256 を検証。途中から再開できる）
+vc stt set whisper-large-v3-turbo              # 常にこれを使う（戻す：vc stt reset）
+vc listen --hotkey --stt whisper-large-v3-turbo   # その実行だけ替える
+```
+
+- 自作の合成音声 480 件での測定では、Whisper は、**雑音が軽いとき・英字の語**（Safari・PDF）で、Apple より誤りが少なく（全体の文字誤り率 6.9% 対 8.6%）、1 件の認識に 0.5 秒ほどかかります（Apple は 0.06 秒）。**実際の声での比較は、していません**。[検証記録](docs/verification.md)
+- どちらの認識でも、**声のない録音（無音・一定の雑音）は、認識に渡しません**（認識が「はい」などの文を作るため）。
+- 取得していないモデルを選ぶと、黙って Apple に切り替えず、理由と手順を出して止まります。
+
+### 使うモデルと、録音中の音を、設定する
+
+起動のたびに指定しなくても、**設定に保存して、常にそうする**ことができます（`~/.voice-control/settings.json`）。
+
+| 決めること | 設定 | その実行だけ替える |
+|---|---|---|
+| 音声入力（音声認識） | `vc stt set whisper-large-v3-turbo`（既定：`apple`） | `--stt` |
+| 分析・実行のモデル（言語モデル） | `vc engine set ollama:qwen3.5:4b`（既定：`apple`） | `--engine` |
+| 録音中に、ほかの音を消すか | `vc mute on`（消す。既定）／`vc mute off`（流したまま） | `--mute`・`--no-mute` |
+
+`vc stt`・`vc engine`・`vc mute` だけを実行すると、いまの設定が分かります。`vc listen` の起動時にも、使っているものが表示されます。
 
 ### ファイルを探して開く
 
@@ -292,7 +320,11 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | コマンド | 内容 |
 |---|---|
 | `vc doctor [--engine …]` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめ、使えないものは直す手順を示す（必須が使えなければ、終了コード 1） |
-| `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
+| `vc model [list\|status\|download\|path\|delete] [<ID>]` | モデルの一覧・確認・取得・削除（`~/.voice-control/models`）。Tiny-Jev（ID を省くと、これ）と、音声認識のモデル（`whisper-large-v3-turbo`） |
+| `vc stt [show\|set <apple\|ID>\|reset]` | 使う音声認識の確認・変更（既定：Apple。取得していないモデルは、選べない） |
+| `vc engine [show\|set <エンジン>\|reset]` | スキルを実行するモデル（分析・実行の言語モデル）を、常にこれにする（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`） |
+| `vc mute [show\|on\|off\|reset]` | 録音中に、ほかの音を消す（on。既定）か、流したままにする（off）か |
+| `vc transcribe <音声ファイル> [--stt …]` | 音声ファイルを文字にする（音声認識の確認用） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`） |
 
 ## 安全のしくみ
@@ -326,6 +358,7 @@ flowchart TB
 | スキル（`vc skills`・`vc run`） | 自作ウィンドウで確認。**実アプリ・複数スキルの取り違えは未確認** |
 | 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.2.4）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
 | Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
+| 音声認識の切り替え（`vc stt`・Whisper） | 合成音声での測定と、実マイク（スピーカーの音）での 1 回の確認。**実際の声での比較は未確認** |
 | ファイル検索（`vc find`・`vc pick`・`file-search`） | 自作のフォルダで確認（Ollama 9/10・Apple 9/10。同じ場面で調整）。**実際のホームでの検索の質は未確認** |
 | `--engine`（Ollama・OpenAI 互換） | Ollama（`qwen3.5:4b`）で確認。**LM Studio・llama.cpp など、ほかのサーバーは未確認** |
 
