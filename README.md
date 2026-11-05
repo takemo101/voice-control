@@ -1,50 +1,133 @@
-# voice-control（試作）
+# voice-control
 
-Mac を、依頼文や声で操作する試作。**依頼に合うスキルを Tiny-Jev（オンデバイスの小さな選択モデル）が選び、言語モデルが、スキルの指示に従って、コマンドを実行する。** 実行するコマンドは、スキルが許可したものだけで、すべて画面に表示される。音声・画面の内容・依頼文は、この Mac の外へ出さない。
+**声や文で頼むだけで、Mac の操作を実行する。** 使うモデルも、音声も、この Mac の中だけで動きます（試作）。
 
-いまは CLI（`vc`）。どの使い道が成り立つかを、測定で確かめる段階で、完成した製品ではない。
+<p align="center">
+  <img src="docs/images/hud-success.png" alt="「音量を50にして」と頼んだあと、画面の上に、実行したコマンドと結果が出る" width="640">
+</p>
 
-## できること
+> **「音量を50にして」** と話す → 合うスキルが選ばれる → 許可されたコマンドだけが実行される → 画面の上に、何をしたかが出る。
 
-- **スキルで動く**：`~/.voice-control/skills/<name>/SKILL.md` に、説明・許可するコマンド・指示を書く。声や文で頼むと、合うスキルが選ばれて実行される（`vc run`・`vc listen`）。
-- **声で頼む**：Shift の長押し（変更できる）の間だけ録音し、離すと、文字にして実行する（`vc listen --hotkey`）。確認が要るときは、声の「はい」か、パネルの「実行する」「やめる」ボタンで答える。Esc で取りやめ。
-- **コピーした文章を加工する**：文章を ⌘C でコピーして、「コピーした文章を整理して」「要約して」「英語に翻訳して」。結果は、きれいに整形した Markdown のウィンドウに出て、そのままコピーできる（`clipboard-note`・`vc show`）。
-- **モデルを替えられる**：既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などのモデルに替えられる（`--engine`。任意）。
+いまは CLI（`vc`）です。どんな使い道が成り立つかを、測定で確かめている段階で、完成した製品ではありません。
 
-`echo` だけを許可した使い捨てのスキルでの、実際の出力（返事の文言・秒数は、実行のたびに変わる。表示の詳細は [スキル](docs/skills.md#画面の表示)）：
+---
 
-```text
-$ vc run テスト
-model loaded 4.3s (length 1024)
+## 目次
 
-▶ スキルの選択
-  Tiny-Jev  echo-test   98.6%（0.1 秒）
-  説明      テストを実行する
-  許可      echo
+[何ができる？](#何ができる) ・ [画面のイメージ](#画面のイメージ) ・ [仕組み](#仕組み) ・ [はじめる](#はじめる) ・ [使い方](#使い方) ・ [コマンド一覧](#コマンド一覧) ・ [安全のしくみ](#安全のしくみ) ・ [いまの状況](#いまの状況) ・ [詳しい文書](#詳しい文書)
 
-▶ 実行
-  $ echo test
-    ✓ exit 0
-    │ test
-    │ 
+---
 
-▶ 結果
-  返事      done: テストされました。
-  所要      1.1 秒・実行したコマンド 1 件
+## 何ができる？
+
+「やりたいこと」を話すか書くと、合う**スキル**が選ばれて、実行されます。スキルは、`SKILL.md` というテキストファイルです（何をするか・どのコマンドを許すか・どう動くか）。
+
+| こう頼む | 起きること | スキル |
+|---|---|---|
+| 「次の曲にして」「音量を50にして」 | Spotify を操作する | `spotify` |
+| 「コピーした文章を要約して」 | ⌘C でコピーした文章を、整えて、きれいなウィンドウに出す | `clipboard-note` |
+| 「ドキュメントの請求書の PDF を開いて」 | ファイルを探し、似た候補があれば選んで、開く | `file-search` |
+| 「Safari を開いて」 | アプリを開く | 自分で書く（[例](#自分のスキルを書く)） |
+| 上のどれでもない依頼 | 組み込みの `default` スキルが、基本のコマンドで実行する | `default` |
+
+- **声で頼む**：Shift を押している間だけ録音し、離すと実行します（`vc listen --hotkey`）。Esc で取りやめられます。
+- **文で頼む**：`vc run "次の曲にして"`。何をするかだけ見たいときは `--dry-run`。
+- **モデルを替えられる**：既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などに替えられます（`--engine`。任意）。
+
+## 画面のイメージ
+
+声で頼むと、画面の上に小さなパネルが出ます。**録音 → 実行中 → 結果**の順に変わります。取り消しにくい操作や、自信がないときは、**実行する前に確認**します。
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。離すと認識して実行</td>
+    <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>2. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>3. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
+    <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>4. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
+  </tr>
+</table>
+
+**許可されていないコマンドは、実行されません。** スキルが許したコマンドだけが動きます。
+
+<p align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンド（ls）を、実行しなかったときのパネル" width="560"></p>
+
+**コピーした文章の加工**（`clipboard-note`）の結果は、整形したウィンドウに出ます。選んで ⌘C、または「コピー」ボタンでコピーできます。Esc で閉じます。
+
+<p align="center"><img src="docs/images/markdown-window.png" alt="Markdown を整形して出したウィンドウ（コピーのボタンつき）" width="520"></p>
+
+> 上の画像は、`vc hud-preview`・`vc show` が出す**本物の表示**を、見本の文で撮ったものです（背景は、自作の模擬のデスクトップ）。実際の操作の画面ではありません。
+
+## 仕組み
+
+**選ぶのは小さなモデル（Tiny-Jev）、実行するのは言語モデル、許可を決めるのはコード**、という分担です。
+
+```mermaid
+flowchart LR
+    A["声（Shift 長押し）<br/>または 文（vc run）"] --> B["文字にする<br/>（この Mac の中で処理）"]
+    B --> C{"Tiny-Jev が<br/>スキルを選ぶ"}
+    C -->|"確信できた"| E["言語モデルが<br/>スキルの指示に従う"]
+    C -->|"自信がない・<br/>取り消しにくい"| D["確認<br/>ボタン・キー・声"]
+    D -->|"実行する"| E
+    D -->|"やめる"| X["何もしない"]
+    E --> F{"コードが照合<br/>allowed-commands に<br/>あるか？"}
+    F -->|"ある"| G["コマンドを実行<br/>（シェルなし）"]
+    F -->|"ない"| H["拒否して<br/>画面に出す"]
+    G --> I["画面に結果<br/>パネル／ウィンドウ"]
 ```
 
-## 状況
+1. **スキルを選ぶ**：依頼の文と、各スキルの説明（`description`）を、Tiny-Jev（オンデバイスの小さな選択モデル、約 0.6B）が比べます。確信できなければ、実行せずに確認します。
+2. **言語モデルが実行する**：選ばれたスキルの指示に従い、`run_command` という 1 つの道具で、コマンドを実行します。
+3. **コードが守る**：実行できるのは、スキルの `allowed-commands` に一致したコマンドだけです。この判断は、プロンプトではなく**コード**が行います。
 
-| 機能 | 状態 |
-|---|---|
-| スキル（`vc skills`・`vc run`） | 自作ウィンドウで確認。**実アプリ・複数スキルの取り違えは未確認** |
-| 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタン）。**マイクの実録音・ボタンでの確認は未確認** |
-| Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
-| `--engine`（Ollama・OpenAI 互換） | Ollama（`qwen3.5:4b`）で確認。**LM Studio・llama.cpp など、ほかのサーバーは未確認** |
+### ファイルを探して開く（`file-search`）の流れ
 
-PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した。詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。
+Tiny-Jev は、「候補の中から選ぶ」ことにも使えます（`vc pick`）。
 
-## 必要なもの
+```mermaid
+flowchart LR
+    A["「先月の請求書の<br/>PDF を開いて」"] --> B["言語モデルが条件を決める<br/>名前・フォルダ・種類・期間"]
+    B --> C["vc find<br/>Spotlight で候補を集める"]
+    C --> D{"候補は？"}
+    D -->|"1 件"| F["open で開く"]
+    D -->|"複数"| E["vc pick<br/>Tiny-Jev が、依頼に合うものを選ぶ"]
+    E -->|"確信できた"| F
+    E -->|"迷った"| G["開かずに、候補を出して聞き返す"]
+```
+
+## はじめる
+
+3 ステップです。
+
+**1. 必要なものをそろえる**
+
+- macOS 26 以降・Apple silicon の Mac。
+- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。
+- [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。
+- アクセシビリティ・マイクの許可（`vc doctor` が、足りないものを教えます）。
+
+**2. インストールする**（ビルドは要りません）
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash
+```
+
+最新の [Release](https://github.com/takemo101/voice-control/releases) を取得して SHA-256 を照合し、`vc` を `~/.local/bin` に置き、Tiny-Jev のモデル（約 1.2 GB）を取得して、環境を確かめます。
+
+**3. 試す**
+
+```sh
+vc doctor                                        # 必要なものが、そろっているか
+vc skills install spotify clipboard-note file-search   # スキルを入れる（名前なしで、一覧）
+vc run "次の曲にして" --dry-run                  # 何を実行しようとするか、だけ見る
+vc listen --hotkey                               # 声で頼む（Shift を押している間だけ録音）
+```
+
+詳しい必要なもの・インストールの別の方法は、下の折りたたみにあります。
+
+<details>
+<summary>必要なもの（詳しく）</summary>
 
 - macOS 26 以降・Apple silicon。ソースからビルドするときは、Swift 6.2 以降（Xcode または Command Line Tools）。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（`agent-desktop permissions`）。
@@ -52,21 +135,15 @@ PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した。詳
 - Tiny-Jev 0.6B のモデル（約 1.2 GB。`vc model download` で `~/.voice-control/models/` に取得）。
 - 任意：[just](https://github.com/casey/just)（開発用）・Ollama などのローカルのモデルのサーバー（`--engine` を使うとき）。
 
-## インストール
+</details>
 
-**コマンド 1 つで入れる**（最新の [Release](https://github.com/takemo101/voice-control/releases)。ビルドは要りません）：
+<details>
+<summary>インストールの詳細（オプション・手で入れる・ソースから・取り除く）</summary>
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash
-```
-
-Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデルを取得し、`vc doctor` で環境を確かめる（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。
+**インストールスクリプトがすること**：Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデルを取得し、`vc doctor` で環境を確かめる（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。
 
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
-
-<details>
-<summary>手で入れる／ソースから入れる／取り除く</summary>
 
 **手で入れる**（[v0.2.4](https://github.com/takemo101/voice-control/releases/tag/v0.2.4) の例）：
 
@@ -97,20 +174,65 @@ just test             # 単体テスト
 
 </details>
 
-## 使いはじめ
+## 使い方
+
+### 声で頼む
 
 ```sh
-vc doctor                                   # 動かすのに必要なものが、そろっているか
-vc skills install spotify clipboard-note    # GitHub から、スキルを入れる（名前なしで、一覧）
-vc skills                                   # 入っているスキル
-vc run "次の曲にして" --dry-run              # 何を実行しようとするかだけ見る
-vc run "次の曲にして"                        # 実行
-vc listen --hotkey                          # 声で頼む（Shift を押している間だけ録音）
+vc listen --hotkey
 ```
 
-**コピーした文章を加工する**：文章を ⌘C でコピーしてから、`vc listen --hotkey` で「コピーした文章を整理して」（`vc run "コピーした文章を要約して"` でも）。「整理して」「書き直して」「要約して」「箇条書きにして」「解説して」「英語に翻訳して」が、安定している。
+- **Shift を押している間だけ**録音します（0.35 秒以上、Shift だけを押し続けたとき。変更：`vc hotkey set ctrl+opt+space`）。離すと、文字にして、実行します。
+- **Esc で取りやめ**：録音中は録音を捨て、認識中・実行中・確認の待ちは、処理を止めます。録音中（Shift を押している間）の Esc には、アクセシビリティの許可が要ります。
+- **確認が出たら**、次のどれかで答えます（先に答えたほうが決まります）。
+  - ボタンを押す（「実行する」「やめる」）。
+  - キー：← → で移り、Return で決める。y＝実行する、n・Esc＝やめる。**最初のフォーカスは「やめる」**です（ほかのアプリで打っている最中の Return で、実行されないように）。
+  - 声：もう一度 Shift を押して「はい」と言う。
 
-**自分でスキルを書く**：
+### 文で頼む
+
+```sh
+vc run "Safariを開いて" --dry-run     # 何を実行しようとするかだけ見る
+vc run "Safariを開いて"               # 実行
+```
+
+実行すると、選ばれたスキル・実行したコマンド・結果が、順に表示されます。
+
+```text
+$ vc run テスト
+▶ スキルの選択
+  Tiny-Jev  echo-test   98.6%（0.1 秒）
+  許可      echo
+
+▶ 実行
+  $ echo test
+    ✓ exit 0
+    │ test
+
+▶ 結果
+  返事      done: テストされました。
+  所要      1.1 秒・実行したコマンド 1 件
+```
+
+（`echo` だけを許可した使い捨てのスキルでの、実際の出力。返事の文言・秒数は、実行のたびに変わります。）
+
+### コピーした文章を加工する
+
+文章を **⌘C でコピー**してから、「コピーした文章を整理して」「要約して」「英語に翻訳して」と頼みます。結果は、整形した Markdown のウィンドウに出ます（`clipboard-note`、`vc show`）。
+
+### ファイルを探して開く
+
+「ドキュメントの請求書の PDF を開いて」「デスクトップの家計簿のエクセル」。`file-search` スキルが、`vc find` で探し、複数なら `vc pick` で選び、`open` で開きます。迷ったときは、開かずに候補を出して、聞き返します（読み取りだけ。削除・移動はしません）。`vc skills install file-search` で入れます。
+
+`vc pick` は汎用です。ファイルに限らず、短い候補の中から、依頼に合うものを選べます。
+
+```sh
+ls ~/Documents | vc pick --query 家計簿
+```
+
+### 自分のスキルを書く
+
+`~/.voice-control/skills/<名前>/SKILL.md` を作ります。
 
 ```sh
 mkdir -p ~/.voice-control/skills/open-app
@@ -129,9 +251,17 @@ vc run "Safariを開いて" --dry-run
 vc skills disable open-app                   # 選択肢から外す（enable で戻す）
 ```
 
-書き方・`allowed-commands` の仕様・表示は [スキル](docs/skills.md)。スキルをエージェントに作らせるときは、[スキルを作るスキル](skills/voice-control-skill-author/SKILL.md)。
+- 先頭（`---` の間）が、**名前・説明・許可するコマンド**。その下が、言語モデルへの指示です。
+- 書き方・`allowed-commands` の仕様・表示：[スキル](docs/skills.md)。エージェントに作らせるときは、[スキルを作るスキル](skills/voice-control-skill-author/SKILL.md)。
 
-## コマンド
+### 覚えておくこと
+
+- **スキルの置き場所**：グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）。同じ名前なら、プロジェクトが上書きします。外から来るリポジトリのスキルは、許可したコマンドを実行できるので、**`vc skills trust` したプロジェクトだけ**読み込みます（既定は未信頼）。[詳細](docs/skills.md#置き場所)
+- **既定スキル**：どのスキルにも当てはまらない依頼は、組み込みの `default` スキルが、`agent-desktop` と基本のコマンド（`open`・`say`・`ls`・`pwd`・`date`）で実行します。会話・独り言は実行せず、取り消しにくい依頼（削除・送信・購入など）は確認します。使わないなら `vc skills disable default`。[詳細](docs/skills.md#既定スキルdefault)
+- **結果を Markdown で見せる**：スキルのフロントマターに `result: markdown-window`（整形したウィンドウ）・`result: markdown-note`（ファイル）。[詳細](docs/skills.md#markdown-のウィンドウvc-showresult-markdown-window)
+- **モデルを替える**（任意）：`--engine ollama:qwen3.5:4b`（Ollama）・`--engine openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。通信先は、この Mac の 127.0.0.1 だけで、クラウドのモデルは使えません。許可の照合・上限・確認は、モデルに関わらず同じです。確認：`vc doctor --engine …`。[詳細](docs/skills.md#実行するモデルを替えるローカルのサーバー任意)
+
+## コマンド一覧
 
 ヘルプ：`vc --help`（一覧・共通のオプション・環境変数）、`vc <コマンド> --help`（使い方・オプション・例）。出力は、端末なら色つき（`NO_COLOR=1` で無効）。
 
@@ -165,24 +295,43 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc model [status\|download\|path]` | Tiny-Jev のモデルの確認・取得（`~/.voice-control/models`） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`） |
 
-## 仕組みのメモ
+## 安全のしくみ
 
-- **スキルの置き場所**：グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）。同じ名前なら、プロジェクトが、グローバルを上書きする。外から来るリポジトリのスキルは、許可したコマンドを実行できるので、**`vc skills trust` したプロジェクトだけ**読み込む（既定は未信頼）。[スキル](docs/skills.md#置き場所)
-- **既定スキル**：どのスキルにも当てはまらない依頼は、組み込みの `default` スキルが、`agent-desktop` と基本のコマンド（`open`・`say`・`ls`・`pwd`・`date`）で実行する。会話・独り言は実行せず、取り消しにくい依頼（削除・送信・購入など）は確認する。使わないなら `vc skills disable default`。[スキル](docs/skills.md#既定スキルdefault)
-- **確認**：確認が要るとき、パネルの「実行する」「やめる」を、ボタンで押すか、キーで選ぶか（← → で移り、Return で決める。y＝実行する、n・Esc＝やめる。最初は「やめる」にフォーカス）、声で「はい」と言う（先に答えたほうが決まる）。
-- **Esc で取りやめ**（`vc listen --hotkey`）：録音中は録音を捨て、認識中・実行中・確認の待ちは処理（実行中のコマンドも）を止める。Esc を受けるのは、その間だけ。録音中（Shift を押している間）の Esc には、アクセシビリティの許可が要る。
-- **結果を Markdown で見せる**：スキルのフロントマターの `result: markdown-window`（整形したウィンドウ）・`result: markdown-note`（ファイル）。[スキル](docs/skills.md#markdown-のウィンドウvc-showresult-markdown-window)
-- **モデルを替える**（任意）：`--engine ollama:qwen3.5:4b`（Ollama）・`--engine openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。通信先は、この Mac の 127.0.0.1 だけで、クラウドのモデルは使えない。許可の照合・上限・確認は、モデルに関わらず同じ。確認：`vc doctor --engine …`。[スキル](docs/skills.md#実行するモデルを替えるローカルのサーバー任意)
+```mermaid
+flowchart TB
+    subgraph untrusted["信頼しないもの（データとして扱う）"]
+        U1["発話・依頼文"]
+        U2["言語モデルの出力"]
+        U3["画面の内容・コピーした文章"]
+    end
+    untrusted --> G{"コードの判断<br/>allowed-commands に一致？<br/>シェル・sudo などではない？"}
+    G -->|"はい"| K{"取り消しにくい操作？<br/>（削除・送信・購入・終了…）"}
+    G -->|"いいえ"| N["拒否（画面に出す）"]
+    K -->|"はい"| C["確認してから実行"]
+    K -->|"いいえ"| R["実行"]
+```
 
-## 安全
+- 実行は**シェルなし**。コマンドは、スキルの `allowed-commands` に一致したものだけ。シェル・`sudo`・`env` などは、許可できません。
+- 言語モデルの出力・画面の内容・依頼文・コピーした文章は、**非信頼のデータ**として扱います。取り消しにくい操作は、確認を挟みます。
+- `allowed-commands` は、言語モデルの暴走への歯止めです。許可したコマンドの中身（`rm` を許可すれば `rm` が動く）までは、守りません。
+- 発話・画面の内容・入れた文字を、ファイルやログに**残しません**（画面にだけ表示）。`result: markdown-note` のスキルだけは、結果を一時ディレクトリのファイルに残します（利用者だけが読める。消しません）。
+- 通信は、スキルの取得（`vc skills install`）・モデルの取得（`vc model download`）と、この Mac の 127.0.0.1 への通信（`--engine`）**だけ**です。音声・画面の内容を、ネットワークへ出しません。
 
-- 実行は**シェルなし**。コマンドは、スキルの `allowed-commands` に一致したものだけ。シェル・`sudo`・`env` などは、許可できない。
-- 言語モデルの出力・画面の内容・依頼文・コピーした文章は、非信頼のデータとして扱う。取り消しにくい操作は、確認を挟む。
-- `allowed-commands` は、言語モデルの暴走への歯止め。許可したコマンドの中身（`rm` を許可すれば `rm` が動く）までは、守らない。
-- 発話・画面の内容・入れた文字を、ファイルやログに残さない（画面にだけ表示する）。`result: markdown-note` のスキルだけは、結果を一時ディレクトリのファイルに残す（利用者だけが読める。消さない）。
-- 通信は、スキルの取得（`vc skills install`）・モデルの取得（`vc model download`）と、この Mac の 127.0.0.1 への通信（`--engine`）だけ。
+## いまの状況
 
-## ドキュメント
+試作です。**確認した範囲と、していない範囲**を、そのまま書きます。
+
+| 機能 | 状態 |
+|---|---|
+| スキル（`vc skills`・`vc run`） | 自作ウィンドウで確認。**実アプリ・複数スキルの取り違えは未確認** |
+| 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.2.4）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
+| Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
+| ファイル検索（`vc find`・`vc pick`・`file-search`） | 自作のフォルダで確認（Ollama 9/10・Apple 9/10。同じ場面で調整）。**実際のホームでの検索の質は未確認** |
+| `--engine`（Ollama・OpenAI 互換） | Ollama（`qwen3.5:4b`）で確認。**LM Studio・llama.cpp など、ほかのサーバーは未確認** |
+
+PC 操作は、2026-11-04 に廃止し、既定スキルに一本化しました。詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。
+
+## 詳しい文書
 
 [docs/README.md](docs/README.md) が索引。
 
