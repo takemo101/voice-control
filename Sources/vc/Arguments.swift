@@ -48,6 +48,8 @@ struct CommonOptions {
     /// 取り除かない（`vc run` は、自分の `--dry-run` を、あとで取り除く）。
     var dryRun: Bool
     var floor: Double?
+    /// スキルを実行するモデル（`apple` か `ollama:<モデル>`）。解釈は `CommandContext.engine`。
+    var engine: String?
 
     /// 数にならない `--length`・`--floor` の値も、取り除く（既定の値を使う）。
     init(consuming arguments: inout Arguments) {
@@ -58,5 +60,6 @@ struct CommonOptions {
         trigger = arguments.option("--trigger")
         dryRun = arguments.contains("--dry-run")
         floor = arguments.option("--floor").flatMap(Double.init)
+        engine = arguments.option("--engine")
     }
 }

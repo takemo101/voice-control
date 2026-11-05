@@ -46,7 +46,7 @@ struct RunCommand: Command {
         let yes = context.options.yes
         let outcome: RunOutcome
         do {
-            outcome = try await SkillRunner(selection: selection, dryRun: dryRun).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
+            outcome = try await SkillRunner(selection: selection, dryRun: dryRun, engine: context.engine).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
         } catch { fail("\(error)") }
         // 失敗は、`TerminalReporter` が、標準エラーへ出している。ここでは、終了コードだけ
         switch outcome {

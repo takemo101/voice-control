@@ -44,8 +44,8 @@ import Testing
     @Test func aFailedReplyAndADryRunAreNotSavedAsNotes() {
         var skill = skill("demo", "x"); skill.opensResultAsNote = true
         let display = ExecutionDisplay(onCommand: { _ in }, onResult: { _, _ in }, onDenied: { _, _ in })
-        let live = SkillAgent(skill: skill, dryRun: false, display: display)
+        let live = CommandSession(skill: skill, dryRun: false, display: display, cancel: nil)
         #expect(live.openAsNoteIfRequested("failed: 画面を読めません") == "failed: 画面を読めません")
-        #expect(SkillAgent(skill: skill, dryRun: true, display: display).openAsNoteIfRequested("# メモ") == "# メモ")
+        #expect(CommandSession(skill: skill, dryRun: true, display: display, cancel: nil).openAsNoteIfRequested("# メモ") == "# メモ")
     }
 }

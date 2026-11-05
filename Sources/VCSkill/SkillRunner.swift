@@ -69,9 +69,14 @@ public struct SkillRunner: Sendable {
     private let cancel: CancelToken?
     private let makeExecutor: ExecutorFactory
 
-    /// 実行者は、`SkillAgent`（Apple の言語モデル）。
-    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil) {
-        self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { SkillAgent(skill: $0, dryRun: $1, display: $2, cancel: $3) })
+    /// 実行者は、`engine` のモデル：`SkillAgent`（Apple の言語モデル。既定）か、`OllamaSkillAgent`（この Mac の Ollama）。
+    public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, engine: Engine = .apple) {
+        self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { skill, dryRun, display, cancel in
+            switch engine {
+            case .apple: return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
+            case .ollama(let model): return OllamaSkillAgent(skill: skill, model: model, dryRun: dryRun, display: display, cancel: cancel)
+            }
+        })
     }
 
     /// テストで、偽の実行者を渡す。

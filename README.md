@@ -102,6 +102,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
 | `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
+| `vc run … --engine ollama:<モデル>` | スキルを実行するモデルを、この Mac の Ollama のモデルに替える（任意。`vc listen` も同じ。例：`--engine ollama:qwen3.5:4b`。確認：`vc doctor --engine …`） |
 | `vc skills install [<name>…] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へインストールする（名前なしは一覧）。リポジトリは、手元になくてよい |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
