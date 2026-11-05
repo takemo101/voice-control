@@ -2,48 +2,19 @@ import Foundation
 import Testing
 @testable import VCSkill
 
-/// `--engine ollama:<モデル>`：エンジンの書き方と、Ollama のモデルで、スキルを実行する流れ（偽の Ollama）。許可の照合は、Apple のモデルと同じ `CommandSession`。
-@Suite struct EngineTests {
-    @Test func theEngineIsAppleOrOllamaWithTheModelNameKeepingItsOwnColon() throws {
-        #expect(try Engine.parse("apple") == .apple)
-        #expect(try Engine.parse("ollama:qwen3.5:4b") == .ollama(model: "qwen3.5:4b"))
-        #expect(try Engine.parse("ollama:qwen2.5") == .ollama(model: "qwen2.5"))
-    }
-
-    @Test func unknownEnginesBadNamesAndCloudModelsAreRefused() {
-        #expect(throws: Engine.ParseError.unknown("openai:gpt")) { try Engine.parse("openai:gpt") }
-        #expect(throws: Engine.ParseError.invalidModel("")) { try Engine.parse("ollama:") }
-        #expect(throws: Engine.ParseError.invalidModel("a b")) { try Engine.parse("ollama:a b") }
-        // クラウドで動くモデルは、入力を外へ出す：使えない
-        #expect(throws: Engine.ParseError.cloudModel("gpt-oss:120b-cloud")) { try Engine.parse("ollama:gpt-oss:120b-cloud") }
-        #expect(throws: Engine.ParseError.cloudModel("Qwen3-Coder:480B-Cloud")) { try Engine.parse("ollama:Qwen3-Coder:480B-Cloud") }
-    }
-}
-
-@Suite struct OllamaSkillAgentTests {
-    /// 決まった返事を、順に返す偽の Ollama。受け取ったやりとりを、記録する。
-    private final class Script: OllamaChatting, @unchecked Sendable {
+/// ローカルのサーバーのモデル（`ChatModel`）で、スキルを実行する流れ（偽のモデル）。許可の照合は、Apple のモデルと同じ `CommandSession`。
+@Suite struct ToolLoopAgentTests {
+    /// 決まった返事を、順に返す偽のモデル。受け取ったやりとりを、記録する。
+    private final class Script: ChatModel, @unchecked Sendable {   // 偽物：テストの数行。`lock` で守る
         private let lock = NSLock()
-        private var replies: [OllamaMessage]
-        private(set) var received: [[OllamaMessage]] = []
-        init(_ replies: [OllamaMessage]) { self.replies = replies }
-        func chat(model: String, messages: [OllamaMessage]) async throws -> OllamaMessage {
+        private var replies: [ChatMessage]
+        private(set) var received: [[ChatMessage]] = []
+        init(_ replies: [ChatMessage]) { self.replies = replies }
+        func chat(_ messages: [ChatMessage]) async throws -> ChatMessage {
             lock.lock(); defer { lock.unlock() }
             received.append(messages)
-            return replies.isEmpty ? OllamaMessage(role: "assistant", content: "done: 終わり") : replies.removeFirst()
+            return replies.isEmpty ? ChatMessage(role: .assistant, content: "done: 終わり") : replies.removeFirst()
         }
-    }
-
-    private func call(_ command: String) -> OllamaMessage {
-        OllamaMessage(role: "assistant", tool_calls: [.init(function: .init(name: "run_command", arguments: ["command": command]))])
-    }
-    private func said(_ text: String) -> OllamaMessage { OllamaMessage(role: "assistant", content: text) }
-
-    private func agent(_ script: Script, allowed: [String] = ["echo"], dryRun: Bool = false) -> (OllamaSkillAgent, Events) {
-        let events = Events()
-        let display = ExecutionDisplay(onCommand: { events.add("command \($0)") }, onResult: { code, out in events.add("result \(code) \(out)") }, onDenied: { cmd, _ in events.add("denied \(cmd)") })
-        let skill = Skill(name: "demo", description: "x", allowedCommands: allowed, confirm: false, body: "Run echo hello.", file: URL(fileURLWithPath: "/tmp/demo/SKILL.md"))
-        return (OllamaSkillAgent(skill: skill, model: "m", dryRun: dryRun, display: display, client: script), events)
     }
 
     private final class Events: @unchecked Sendable {
@@ -52,15 +23,27 @@ import Testing
         var all: [String] { lock.lock(); defer { lock.unlock() }; return items }
     }
 
-    @Test func anAllowedCommandIsRunAndItsOutputGoesBackToTheModel() async throws {
+    private func call(_ command: String, id: String? = "c1") -> ChatMessage {
+        ChatMessage(role: .assistant, toolCalls: [.init(id: id, name: "run_command", arguments: ["command": command])])
+    }
+    private func said(_ text: String) -> ChatMessage { ChatMessage(role: .assistant, content: text) }
+
+    private func agent(_ script: Script, allowed: [String] = ["echo"], dryRun: Bool = false) -> (ToolLoopAgent, Events) {
+        let events = Events()
+        let display = ExecutionDisplay(onCommand: { events.add("command \($0)") }, onResult: { code, out in events.add("result \(code) \(out)") }, onDenied: { cmd, _ in events.add("denied \(cmd)") })
+        let skill = Skill(name: "demo", description: "x", allowedCommands: allowed, confirm: false, body: "Run echo hello.", file: URL(fileURLWithPath: "/tmp/demo/SKILL.md"))
+        return (ToolLoopAgent(skill: skill, chat: script, dryRun: dryRun, display: display), events)
+    }
+
+    @Test func anAllowedCommandIsRunAndItsOutputGoesBackToTheModelWithTheCallId() async throws {
         let script = Script([call("echo hello"), said("done: 挨拶しました")])
         let (agent, events) = agent(script)
         #expect(try await agent.run(request: "挨拶して") == "done: 挨拶しました")
         #expect(agent.executedCommands == ["echo hello"])
         #expect(events.all == ["command echo hello", "result 0 hello\n"])
         let tool = script.received.last?.last
-        #expect(tool?.role == "tool" && tool?.content == "exit 0\nhello\n" && tool?.tool_name == "run_command")
-        #expect(script.received.first?.first?.role == "system")
+        #expect(tool?.role == .tool && tool?.content == "exit 0\nhello\n" && tool?.toolName == "run_command" && tool?.toolCallID == "c1")
+        #expect(script.received.first?.first?.role == .system)
     }
 
     /// 許可にないコマンドは、実行せず、エラーをモデルへ返す（モデルが何を言っても、許可はコードが決める）。
@@ -74,7 +57,7 @@ import Testing
     }
 
     @Test func aToolCallWithoutTheCommandArgumentGetsAnErrorBack() async throws {
-        let script = Script([OllamaMessage(role: "assistant", tool_calls: [.init(function: .init(name: "run_command", arguments: [:]))]), said("failed: x")])
+        let script = Script([ChatMessage(role: .assistant, toolCalls: [.init(id: "c1", name: "run_command", arguments: [:])]), said("failed: x")])
         let (agent, _) = agent(script)
         _ = try await agent.run(request: "x")
         #expect(agent.executedCommands.isEmpty)
@@ -87,7 +70,7 @@ import Testing
         let (agent, _) = agent(script)
         #expect(try await agent.run(request: "x") == "まだ答えます")
         #expect(script.received.count == 2)
-        #expect(script.received[1].last?.role == "user" && script.received[1].last?.content.contains("Call the tool run_command") == true)
+        #expect(script.received[1].last?.role == .user && script.received[1].last?.content.contains("Call the tool run_command") == true)
     }
 
     @Test func thinkingPartsAreRemovedFromTheReply() async throws {

@@ -69,13 +69,11 @@ public struct SkillRunner: Sendable {
     private let cancel: CancelToken?
     private let makeExecutor: ExecutorFactory
 
-    /// 実行者は、`engine` のモデル：`SkillAgent`（Apple の言語モデル。既定）か、`OllamaSkillAgent`（この Mac の Ollama）。
+    /// 実行者は、`engine` のモデル：`SkillAgent`（Apple の言語モデル。既定）か、`ToolLoopAgent`（ローカルのサーバーのモデル）。
     public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, engine: Engine = .apple) {
         self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { skill, dryRun, display, cancel in
-            switch engine {
-            case .apple: return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
-            case .ollama(let model): return OllamaSkillAgent(skill: skill, model: model, dryRun: dryRun, display: display, cancel: cancel)
-            }
+            if let chat = engine.makeChat() { return ToolLoopAgent(skill: skill, chat: chat, dryRun: dryRun, display: display, cancel: cancel) }
+            return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel)
         })
     }
 

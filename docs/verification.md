@@ -126,6 +126,7 @@
 | 実際の Ollama（`qwen3.5:4b`。偽の `pbpaste`・`open`。架空の文） | `clipboard-note`：整理・編集・校正・書き直し 24/24（Apple 19/32）、英訳 6/6（Apple 2/6。スキルの言語の指示を、先頭に足したあと）。要約は使える。返信案は、相手の質問に答える形になった（Apple は、文を繰り返した）。Spotify（`--dry-run`。8 の依頼 × 2 回）：最初のコマンドの一致 16/16（Apple 13/16：「次の曲」→ play、「一時停止」→ playpause） |
 | 失敗と原因 | 最初、英訳が 0/6 だった。同じやりとりを Python で再現すると 4/4。**差は、道具の説明にあった**：vc は、説明に、コマンドの例（`agent-desktop snapshot -i`・`open -a Spotify`）を入れていて、モデルが、スキルの手順（英訳）より、例に引きずられた。例を除くと 4/4、vc でも 6/6。道具を使わずに「貼り付けてください」と答える場合は、1 回促す。測定に使った文を、調整にも使った |
 | `vc doctor --engine` | 動いていてモデルがある → ✓。ないモデル（`nope`）→ ✗（`ollama pull nope`）。クラウドのモデル（`gpt-oss:120b-cloud`）→ 拒否して終了 |
+| アダプター化（MIK-016） | 道具を呼ぶ流れを `ToolLoopAgent` に、通信を `ChatModel` のアダプター（`OllamaChat`・`OpenAICompatibleChat`）に分けた（動作は同じ：単体テスト 87 件）。実際の Ollama で、ネイティブ API（`ollama:`）と、その OpenAI 互換の口（`openai:qwen3.5:4b@11434`）の両方で、`clipboard-note`（英訳・整理）が動いた。`vc doctor`：動いている → ✓、ないモデル → ✗、接続できないポート → ✗（「接続できません（127.0.0.1:59999）」）。**OpenAI 互換の口は、最初、12 秒かかった**（考えるモデルが、考えていた）。`reasoning_effort: none` で、短い依頼が 88.7 秒 → 5.1 秒（`/v1` に直接）。LM Studio・llama.cpp など、Ollama 以外の実サーバーは、未確認（`reasoning_effort` を受け付けるか） |
 | 未確認 | 声の流れ（`vc listen --hotkey`）での使用・Ollama が止まっているときの実機の挙動（接続できない場合のメッセージは、コードのみ）・実アプリでの実行・`qwen2.5`・ほかのモデル・モデルの読み込みの待ち（初回 5〜10 秒）が、声の使い勝手に与える影響 |
 
 ### 実機の確認
