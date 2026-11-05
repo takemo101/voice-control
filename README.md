@@ -41,18 +41,18 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。離すと認識して実行</td>
-    <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>2. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル（波形が動く）"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。波形が、声に合わせて動く</td>
+    <td width="50%" align="center"><img src="docs/images/hud-thinking.png" alt="認識中のパネル（考え中のドットと光る縁）"><br><b>2. 認識中</b><br>離すと、文字にする。考え中のドットが動く</td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>3. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
-    <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>4. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>3. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>4. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>5. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
+    <td width="50%" align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンドを、実行しなかったときのパネル"><br><b>許可されていないコマンドは、実行しない</b><br>スキルが許したコマンドだけが動く</td>
   </tr>
 </table>
-
-**許可されていないコマンドは、実行されません。** スキルが許したコマンドだけが動きます。
-
-<p align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンド（ls）を、実行しなかったときのパネル" width="560"></p>
 
 **コピーした文章の加工**（`clipboard-note`）の結果は、整形したウィンドウに出ます。選んで ⌘C、または「コピー」ボタンでコピーできます。Esc で閉じます。
 

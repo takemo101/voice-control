@@ -28,6 +28,12 @@ struct HUDContent: Sendable {
     var reply: String?
     /// 「実行する」「やめる」のボタンを出す（確認の問いかけ。声の「はい」と、どちらでも答えられる）。出している間だけ、パネルは、クリックを受ける。
     var choices = false
+
+    /// 小さなカプセルで出すか：録音中と、認識中（実行する前の、題だけの考え中）。本文（聞こえた文・コマンド・返事・ボタン）があれば、カード。
+    var isCompact: Bool {
+        if phase == .recording { return true }
+        return phase == .working && heard == nil && skill == nil && steps.isEmpty && reply == nil && !choices
+    }
 }
 
 /// 確認（声の流れ）の答え方の案内。画面の上のパネルと、端末で、同じ文を使う。

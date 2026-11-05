@@ -101,8 +101,10 @@ struct ListenCommand: Command {
             let chip = spec.displayName
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let trigger = try makeTrigger(spec)
+            let session = RecordingSession()
+            session.setLevelHandler { HUD.shared.pushLevel($0) }   // 録音中の波形
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(RecordingSession(), muter: muter), transcriber: speech.transcriber,
+                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: Self.utteranceHandler(context, jev: jev, chip: chip),
                 onEvent: { Self.show($0, chip: chip, muter: muter) })
             loop.run {
