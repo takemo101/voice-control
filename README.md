@@ -147,10 +147,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.8](https://github.com/takemo101/voice-control/releases/tag/v0.3.8) の例）：
+**手で入れる**（[v0.3.9](https://github.com/takemo101/voice-control/releases/tag/v0.3.9) の例）：
 
 ```sh
-V=0.3.8
+V=0.3.9
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -402,7 +402,7 @@ flowchart TB
 - 言語モデルの出力・画面の内容・依頼文・コピーした文章は、**非信頼のデータ**として扱います。取り消しにくい操作は、確認を挟みます。
 - `allowed-commands` は、言語モデルの暴走への歯止めです。許可したコマンドの中身（`rm` を許可すれば `rm` が動く）までは、守りません。
 - 発話・画面の内容・入れた文字を、ファイルやログに**残しません**（画面にだけ表示）。`result: markdown-note` のスキルだけは、結果を一時ディレクトリのファイルに残します（利用者だけが読める。消しません）。
-- 通信は、スキルの取得（`vc skills install`）・モデルの取得（`vc model download`）と、この Mac の 127.0.0.1 への通信（`--engine`）**だけ**です。音声・画面の内容を、ネットワークへ出しません。**例外は、あなたが入れたときだけの `ask-agy`**（「〇〇について調べて」を Antigravity CLI〔`agy`〕に頼む。調べることの文が、Google へ送られます。[詳しく](docs/skills.md#調べものを-agy-に頼むask-agy任意)）。
+- 通信は、スキルの取得（`vc skills install`）・モデルの取得（`vc model download`）と、この Mac の 127.0.0.1 への通信（`--engine`）**だけ**です。音声・画面の内容を、ネットワークへ出しません。**例外は、あなたが入れたときだけの `ask-agy`・`web-search`**（`web-search` は、検索する言葉が、選んだサイトへ、ブラウザから送られます。「〇〇について調べて」を Antigravity CLI〔`agy`〕に頼む。調べることの文が、Google へ送られます。[詳しく](docs/skills.md#調べものを-agy-に頼むask-agy任意)）。
 
 ## いまの状況
 

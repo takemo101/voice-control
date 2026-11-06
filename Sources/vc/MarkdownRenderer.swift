@@ -498,9 +498,11 @@ enum MarkdownRenderer {
                     t.setWidth(4, type: .absoluteValueType, for: .margin, edge: .minY); t.setWidth(14, type: .absoluteValueType, for: .margin, edge: .maxY)   // 前後の段落との間
                     context.tables[id] = t; return t }()
                 let cell = NSTextTableBlock(table: table, startingRow: block.row ?? 0, rowSpan: 1, startingColumn: block.column, columnSpan: 1)
-                cell.setBorderColor(HUDStyle.hairline(0.2))
-                cell.setWidth(0.5, type: .absoluteValueType, for: .border)
-                cell.setWidth(7, type: .absoluteValueType, for: .padding)
+                // 横線だけ（縦線は、ない）：すっきり見せる。見出しの行は、面と、少し濃い下線
+                cell.setBorderColor(HUDStyle.hairline(block.isHeaderRow ? 0.30 : 0.13), for: .maxY)
+                cell.setWidth(block.isHeaderRow ? 1 : 0.5, type: .absoluteValueType, for: .border, edge: .maxY)
+                for edge in [NSRectEdge.minX, .maxX] { cell.setWidth(10, type: .absoluteValueType, for: .padding, edge: edge) }
+                for edge in [NSRectEdge.minY, .maxY] { cell.setWidth(8, type: .absoluteValueType, for: .padding, edge: edge) }
                 if let widths = context.tableWidths[id], block.column < widths.count { cell.setContentWidth(widths[block.column], type: .percentageValueType) }
                 if block.isHeaderRow { cell.backgroundColor = HUDStyle.hairline(0.12) }
                 blocks.append(cell)
