@@ -19,6 +19,11 @@ const showWindow = (markdown) => {
   if (show.error || show.status !== 0) fail(`結果のウィンドウを開けません（${show.error?.message ?? show.stderr.trim().slice(0, 200)}）`);
 };
 
+// 使うモデル（`agy models` の名前）。既定は Gemini 3.8 Flash（Medium）。環境変数 ASK_AGY_MODEL で替えられる。オプションの注入を防ぐため、英小文字・数字・`.`・`-` だけ（先頭は、英数字）
+const DEFAULT_MODEL = "gemini-3.8-flash-medium";
+const model = (process.env.ASK_AGY_MODEL ?? "").trim() || DEFAULT_MODEL;
+if (!/^[a-z0-9][a-z0-9.-]*$/.test(model)) fail(`ASK_AGY_MODEL「${model.slice(0, 40)}」は使えません（agy models の名前：英小文字・数字・. と - だけ）`, 2);
+
 const INSTALL = "curl -fsSL https://antigravity.google/cli/install.sh | bash";
 
 // agy が入っているか。入っていなければ、この Mac の Apple のモデル（`fm`）で答える（Web は見ない）。入れ方は、案内する（インストールは、しない）
@@ -46,7 +51,7 @@ const prompt = `次の事柄について、ウェブで調べて、日本語で�
 // ファイルのない、空の作業フォルダで動かす（agy が、手元のファイルを読まない・書かない）。計画モード・サンドボックス（端末の操作を制限）で、1 回だけ答えさせる
 const work = mkdtempSync(join(tmpdir(), "ask-agy-"));
 try {
-  const run = spawnSync("agy", ["-p", prompt, "--mode", "plan", "--sandbox", "--print-timeout", "100s"], { cwd: work, encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: 115_000 });
+  const run = spawnSync("agy", ["-p", prompt, "--model", model, "--mode", "plan", "--sandbox", "--print-timeout", "100s"], { cwd: work, encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: 115_000 });
   if (run.error) fail(run.error.code === "ETIMEDOUT" ? "agy の答えが、時間内に返りませんでした（約 2 分）" : `agy を起動できません（${run.error.message}）`);
   const text = `${run.stdout ?? ""}`.trim();
   const errors = `${run.stderr ?? ""}`.trim();
