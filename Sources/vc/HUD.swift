@@ -43,6 +43,8 @@ import AppKit
     private weak var waveform: WaveformView?
     private var visible = false
     private var generation = 0
+    /// 仮想デスクトップ（Space）を移ったとき、出している間は、パネルを、移動先で出し直す。
+    private var spaceObserver: NSObjectProtocol?
 
     /// 1 行だけの簡単な表示。
     nonisolated func show(_ text: String, mode: Mode, hideAfter: TimeInterval? = nil) {
@@ -135,6 +137,9 @@ import AppKit
             panel.orderFrontRegardless()
             visible = true
             startFollowing()
+        } else {
+            // 出している「つもり」でも、Space の移動などで、いまの画面に出ていないことがある：毎回、前面へ出し直す（出ていれば、何も変わらない）
+            panel.orderFrontRegardless()
         }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.32
@@ -170,9 +175,21 @@ import AppKit
         followTimer = nil
     }
 
-    private func followScreen() {
+    /// Space を移ったとき：出している間は、移動先の画面の、上の中央へ、前面で出し直す。移動の動きが終わるころに、もう一度する（動きの途中に、順序が、無視されることがある）。
+    private func reassertAfterSpaceChange() {
+        reassertFront()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in MainActor.assumeIsolated { self?.reassertFront() } }
+    }
+
+    private func reassertFront() {
+        guard visible, let panel else { return }
+        panel.orderFrontRegardless()
+        followScreen(force: true)
+    }
+
+    private func followScreen(force: Bool = false) {
         guard visible, let panel, let screen = ScreenPlacement.current() else { return }
-        if screen.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) { return }   // すでに、その画面
+        if !force && screen.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) { return }   // すでに、その画面
         let target = ScreenPlacement.hudFrame(in: screen.visibleFrame, width: panelWidth, height: panelHeight)
         panel.setFrame(target, display: true)
     }
@@ -186,13 +203,17 @@ import AppKit
             ctx.duration = 0.2
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, token == self.generation else { return }  // その間に、新しい表示が来ていれば、消さない
-                panel.orderOut(nil)
-                self.visible = false
-                self.stopFollowing()
-            }
+            MainActor.assumeIsolated { self?.finishHide(token) }
         })
+        // 完了の合図が来ないことがある（パネルが、いまの Space に出ていないとき）：来なくても、消す。消えないと、「出している」状態が残り、次の表示が、前面へ出ない
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in MainActor.assumeIsolated { self?.finishHide(token) } }
+    }
+
+    private func finishHide(_ token: Int) {
+        guard token == generation, visible, let panel else { return }   // その間に、新しい表示が来ていれば、消さない
+        panel.orderOut(nil)
+        visible = false
+        stopFollowing()
     }
 
     /// 確認を出している間だけ、キーを受ける（アプリは、前面にしない）。最初のフォーカスは「やめる」：ほかのアプリで打っている最中の Return が、実行にならないように。
@@ -249,6 +270,9 @@ import AppKit
         panel.hidesOnDeactivate = false
         panel.appearance = NSAppearance(named: .vibrantDark)  // 背景の明るさに関わらず、同じ見た目
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reassertAfterSpaceChange() }
+        }
 
         let background = HUDStyle.glassBackground()
 
