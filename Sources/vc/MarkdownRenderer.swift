@@ -486,7 +486,7 @@ enum MarkdownRenderer {
                 if let id = block.identity, let cached = context.codeIndents[id] { blocks.append(cached) }
                 else { let block2 = indentBlock(indent); if let id = block.identity { context.codeIndents[id] = block2 }; blocks.append(block2) }
             }
-            blocks.append(codePanel(block.identity, context: context))
+            blocks.append(codePanel(block.identity, labeled: block.language != nil, context: context))
         case .rule:
             style.lineSpacing = 0
             style.paragraphSpacing = 4
@@ -544,7 +544,7 @@ enum MarkdownRenderer {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = 0
         style.paragraphSpacing = 0
-        return NSAttributedString(string: "\u{200B}\n", attributes: [.font: NSFont.systemFont(ofSize: 5), .paragraphStyle: style])
+        return NSAttributedString(string: "\u{200B}\n", attributes: [.font: NSFont.systemFont(ofSize: 11), .paragraphStyle: style])
     }
 
     /// 左を空けるだけの、見えない面（箇条書きの中の、コード）。
@@ -556,14 +556,17 @@ enum MarkdownRenderer {
     }
 
     /// コードブロックの面。同じブロックの行（言語名の行を含む）は、同じ面にして、1 枚につなぐ。角丸・細い縁（`RoundedPanelBlock`）。
-    @MainActor private static func codePanel(_ id: Int?, context: Context) -> NSTextBlock {
+    @MainActor private static func codePanel(_ id: Int?, labeled: Bool, context: Context) -> NSTextBlock {
         if let id, let existing = context.codePanels[id] { return existing }
         let block = RoundedPanelBlock()
         block.setContentWidth(100, type: .percentageValueType)
-        block.setWidth(4, type: .absoluteValueType, for: .margin, edge: .minY)   // 前後の段落との間
-        block.setWidth(14, type: .absoluteValueType, for: .margin, edge: .maxY)
+        block.setWidth(0, type: .absoluteValueType, for: .margin, edge: .minY)   // 前の段落との間は、段落の間隔（10pt）。後ろは、`spacer`
+        block.setWidth(0, type: .absoluteValueType, for: .margin, edge: .maxY)
+        // 上下の見た目の余白（文字の上端・下端から、面の縁まで）を、揃える。実測（外側の余白 0 のとき）：下は、内側の余白 + 約 6pt、上は、内側の余白 + 約 3pt。
+        // 言語名の行がある面は、その行が上の空きを使うので、上を狭める
         block.setWidth(12, type: .absoluteValueType, for: .padding)
-        block.setWidth(6, type: .absoluteValueType, for: .padding, edge: .maxY)   // 最後の行の下には、行間の余白が、すでにある
+        block.setWidth(labeled ? 11.5 : 15, type: .absoluteValueType, for: .padding, edge: .minY)
+        block.setWidth(12, type: .absoluteValueType, for: .padding, edge: .maxY)
         if let id { context.codePanels[id] = block }
         return block
     }
