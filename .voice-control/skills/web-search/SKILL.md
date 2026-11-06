@@ -3,6 +3,7 @@ name: web-search
 description: ブラウザでサイトを指定して検索する：「Amazonで〇〇を検索」「Googleで〇〇」「YouTubeで〇〇の動画」「楽天で〇〇」「Wikipediaで〇〇を調べて」「ヤフーで〇〇」「地図で〇〇」
 allowed-commands:
   - node ${SKILL_DIR}/web-search.mjs
+external: 選んだサイト（Amazon・Google など。ブラウザが送る）
 ---
 Open a site's search page in the user's browser with the search words.
 
