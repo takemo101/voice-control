@@ -269,7 +269,10 @@ import AppKit
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
         panel.appearance = NSAppearance(named: .vibrantDark)  // 背景の明るさに関わらず、同じ見た目
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        // `.moveToActiveSpace`：前面へ出すたびに、いまの Space へ移る。`.canJoinAllSpaces` だと、長く動かしたあと、パネルのウィンドウだけが「いまの Space に属していない」状態で固まり、
+        // 前面へ出しても、画面に出なくなることがあった（実測：動いている vc listen の中で、同じ設定の新しいパネルは出るのに、元のパネルだけが出なかった。`.moveToActiveSpace` に替えると、出た）。
+        // Space を移ったときは、`reassertAfterSpaceChange` が、出している間のパネルを、移動先へ出し直す。
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reassertAfterSpaceChange() }
         }
