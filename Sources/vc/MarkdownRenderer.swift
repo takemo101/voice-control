@@ -32,10 +32,22 @@ enum MarkdownRenderer {
                     out.append(NSAttributedString(string: prefix, attributes: Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: true, continuation: false)))
                 }
                 lastItem = piece.block.listDepth > 0 ? piece.block.itemIdentity : nil
+                // コードブロックの言語名：面の右上に、小さく（コピーする文字には、入れない）
+                if piece.block.kind == .codeBlock, let language = piece.block.language {
+                    let label = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: false, codeLabel: true)
+                    out.append(NSAttributedString(string: language.lowercased() + "\n", attributes: label))
+                }
             }
             let text = Self.cleaned(piece)
             let attrs = Self.attributes(for: piece.block, inline: piece.inline, link: piece.link, text: text, context: context, marker: false, continuation: continuation)
+            let start = out.length
             out.append(NSAttributedString(string: text, attributes: attrs))
+            if piece.block.kind == .codeBlock, let language = CodeHighlighter.language(named: piece.block.language) {
+                for token in CodeHighlighter.tokens(in: text, language: language) {
+                    out.addAttribute(.foregroundColor, value: CodeHighlighter.color(for: token.kind), range: NSRange(location: start + token.range.location, length: token.range.length))
+                    if token.kind == .comment { out.addAttribute(.obliqueness, value: 0.15, range: NSRange(location: start + token.range.location, length: token.range.length)) }
+                }
+            }
             lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
         }
         out.append(NSAttributedString(string: "\n", attributes: lastAttributes))   // 表・面を、閉じる
@@ -46,6 +58,8 @@ enum MarkdownRenderer {
     @MainActor final class Context {
         var tables: [Int: NSTextTable] = [:]
         var quotes: [Int: NSTextBlock] = [:]
+        var codePanels: [Int: NSTextBlock] = [:]
+        var codeIndents: [Int: NSTextBlock] = [:]
         let tableWidths: [Int: [CGFloat]]
         init(tableWidths: [Int: [CGFloat]]) { self.tableWidths = tableWidths }
     }
@@ -99,6 +113,8 @@ enum MarkdownRenderer {
         var tableID: Int?
         var tableColumns = 1
         var alignments: [PresentationIntent.TableColumn.Alignment] = []
+        /// コードブロックの言語（` ```swift ` の `swift`）。
+        var language: String?
 
         /// 面（表・コードブロック）のまとまり：同じ表の中は、同じ値。面でなければ nil。
         var panelKey: Int? {
@@ -115,7 +131,7 @@ enum MarkdownRenderer {
                 switch component.kind {
                 case .header(let level): kind = .header(level)
                 case .paragraph: kind = .paragraph
-                case .codeBlock: kind = .codeBlock
+                case .codeBlock(let hint): kind = .codeBlock; language = hint?.isEmpty == false ? hint : nil
                 case .thematicBreak: kind = .rule
                 case .tableCell(let column): kind = .tableCell; self.column = column
                 case .table(let columns): tableID = component.identity; tableColumns = max(1, columns.count); alignments = columns.map(\.alignment)
@@ -398,7 +414,7 @@ enum MarkdownRenderer {
     /// 日本語などの文字を含むか（斜体の字形が、ない）。
     private static func hasWideText(_ text: String) -> Bool { text.contains { isWide($0) } }
 
-    @MainActor private static func attributes(for block: Block, inline: InlinePresentationIntent?, link: URL?, text: String, context: Context, marker: Bool, continuation: Bool) -> [NSAttributedString.Key: Any] {
+    @MainActor private static func attributes(for block: Block, inline: InlinePresentationIntent?, link: URL?, text: String, context: Context, marker: Bool, continuation: Bool, codeLabel: Bool = false) -> [NSAttributedString.Key: Any] {
         var font: NSFont
         var color = HUDStyle.primary
         switch block.kind {
@@ -439,6 +455,16 @@ enum MarkdownRenderer {
         attrs[.font] = font
         attrs[.foregroundColor] = color
         attrs[.paragraphStyle] = paragraphStyle(for: block, context: context, continuation: continuation)
+        if codeLabel {
+            // 言語名：小さく、控えめに、右寄せ（同じ面の 1 行目）
+            attrs[.font] = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+            attrs[.foregroundColor] = NSColor(white: 1, alpha: 0.4)
+            let style = (attrs[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            style.alignment = .right
+            style.lineSpacing = 0
+            style.paragraphSpacing = 0
+            attrs[.paragraphStyle] = style
+        }
         return attrs
     }
 
@@ -456,8 +482,11 @@ enum MarkdownRenderer {
             style.lineSpacing = 3
             style.paragraphSpacing = 0   // コードの行の間は、空けない
             // 箇条書きの中のコードは、項目の字下げに合わせる（見えない面で、左を空ける）
-            if block.listDepth > 0 { blocks.append(indentBlock(indent)) }
-            blocks.append(panel(background: HUDStyle.hairline(0.09), padding: 10))
+            if block.listDepth > 0 {
+                if let id = block.identity, let cached = context.codeIndents[id] { blocks.append(cached) }
+                else { let block2 = indentBlock(indent); if let id = block.identity { context.codeIndents[id] = block2 }; blocks.append(block2) }
+            }
+            blocks.append(codePanel(block.identity, context: context))
         case .rule:
             style.lineSpacing = 0
             style.paragraphSpacing = 4
@@ -526,15 +555,16 @@ enum MarkdownRenderer {
         return block
     }
 
-    /// 面（コードブロック）。
-    @MainActor private static func panel(background: NSColor, padding: CGFloat) -> NSTextBlock {
-        let block = NSTextBlock()
+    /// コードブロックの面。同じブロックの行（言語名の行を含む）は、同じ面にして、1 枚につなぐ。角丸・細い縁（`RoundedPanelBlock`）。
+    @MainActor private static func codePanel(_ id: Int?, context: Context) -> NSTextBlock {
+        if let id, let existing = context.codePanels[id] { return existing }
+        let block = RoundedPanelBlock()
         block.setContentWidth(100, type: .percentageValueType)
         block.setWidth(4, type: .absoluteValueType, for: .margin, edge: .minY)   // 前後の段落との間
         block.setWidth(14, type: .absoluteValueType, for: .margin, edge: .maxY)
-        block.backgroundColor = background
-        block.setWidth(padding, type: .absoluteValueType, for: .padding)
-        block.setWidth(0, type: .absoluteValueType, for: .padding, edge: .maxY)
+        block.setWidth(12, type: .absoluteValueType, for: .padding)
+        block.setWidth(6, type: .absoluteValueType, for: .padding, edge: .maxY)   // 最後の行の下には、行間の余白が、すでにある
+        if let id { context.codePanels[id] = block }
         return block
     }
 
@@ -545,5 +575,17 @@ enum MarkdownRenderer {
         block.setWidth(1, type: .absoluteValueType, for: .border, edge: .minY)
         block.setBorderColor(HUDStyle.hairline(0.22), for: .minY)
         return block
+    }
+}
+
+/// 角丸・細い縁の面（コードブロック）。`NSTextBlock` の背景を、角丸の矩形で描く。
+final class RoundedPanelBlock: NSTextBlock {
+    override func drawBackground(withFrame frameRect: NSRect, in controlView: NSView?, characterRange charRange: NSRange, layoutManager: NSLayoutManager) {
+        let path = NSBezierPath(roundedRect: frameRect.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8)
+        NSColor(white: 1, alpha: 0.085).setFill()
+        path.fill()
+        NSColor(white: 1, alpha: 0.16).setStroke()
+        path.lineWidth = 1
+        path.stroke()
     }
 }

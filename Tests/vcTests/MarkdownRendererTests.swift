@@ -58,7 +58,7 @@ import Testing
         let text = MarkdownRenderer.render(sample)
         #expect(try #require(font("let x = 1", text)).isFixedPitch)
         func blocks(_ needle: String) -> [NSTextBlock] { (attributes(of: needle, in: text)?[.paragraphStyle] as? NSParagraphStyle)?.textBlocks ?? [] }
-        #expect(blocks("let x = 1").first?.backgroundColor != nil)        // コードブロックは、面
+        #expect(blocks("let x = 1").last is RoundedPanelBlock)        // コードブロックは、面
         #expect(blocks("列1").first is NSTextTableBlock && blocks("b").first is NSTextTableBlock)   // 表は、セル
         // コピー用の文字では、表は、タブ区切りの行
         #expect(MarkdownRenderer.plainText(sample).contains("列1\t列2\na\tb"))
@@ -161,6 +161,59 @@ import Testing
         let text = MarkdownRenderer.render("> 一\n>\n> 二\n\n> 別")
         func bar(_ needle: String) throws -> NSTextBlock { try #require((attributes(of: needle, in: text)?[.paragraphStyle] as? NSParagraphStyle)?.textBlocks.first) }
         #expect(try bar("一") === bar("二") && bar("一") !== bar("別"))
+    }
+
+    // MARK: コードブロック：色づけ・言語名・面
+
+    private func kinds(_ code: String, _ language: String) -> [(String, CodeHighlighter.Kind)] {
+        guard let table = CodeHighlighter.language(named: language) else { return [] }
+        return CodeHighlighter.tokens(in: code, language: table).map { ((code as NSString).substring(with: $0.range), $0.kind) }
+    }
+
+    /// コメント・文字列・数・キーワード・型を見分ける。文字列の中のキーワード・コメントの中の文字列は、色分けしない（外側の 1 つ）。
+    @Test func swiftTokensAreCommentsStringsNumbersKeywordsAndTypes() {
+        let found = kinds("let n: Int = 42 // 数 \"x\"\nlet s = \"if \\(n) // 文字列\"", "swift")
+        #expect(found.contains { $0 == ("let", .keyword) } && found.contains { $0 == ("Int", .type) } && found.contains { $0 == ("42", .number) })
+        #expect(found.contains { $0 == ("// 数 \"x\"", .comment) })                  // コメントの中の文字列は、コメントのまま
+        #expect(found.contains { $0 == ("\"if \\(n) // 文字列\"", .string) })       // 文字列の中の if・// は、文字列のまま
+        #expect(!found.contains { $0.0 == "if" } && !found.contains { $0.0 == "x\"" })
+    }
+
+    @Test func jsonKeysDifferFromStringValuesAndShellOptionsAndVariablesAreFound() {
+        let json = kinds("{ \"a\": \"b\", \"n\": [1, true] }", "json")
+        #expect(json.contains { $0 == ("\"a\"", .key) } && json.contains { $0 == ("\"b\"", .string) } && json.contains { $0 == ("true", .keyword) })
+        let sh = kinds("curl -fsSL --no-model $HOME/x # 注 $#", "sh")
+        #expect(sh.contains { $0 == ("-fsSL", .option) } && sh.contains { $0 == ("--no-model", .option) } && sh.contains { $0 == ("$HOME", .keyword) } && sh.contains { $0 == ("# 注 $#", .comment) })
+    }
+
+    /// 知らない言語・言語なしは、色をつけない。言語名は、大文字小文字・付記を無視。SQL は、小文字のキーワードも。
+    @Test func unknownLanguagesGetNoColourAndNamesAreMatchedLoosely() {
+        #expect(CodeHighlighter.language(named: nil) == nil && CodeHighlighter.language(named: "mermaid") == nil)
+        #expect(CodeHighlighter.language(named: "Swift") != nil && CodeHighlighter.language(named: "js {1,3}") != nil)
+        #expect(kinds("select a from t", "sql").contains { $0 == ("select", .keyword) })
+    }
+
+    /// 色づけは、文字の色だけ（文字そのものは、変わらない）。言語名の行は、画面にだけ（コピーする文字には、入らない）。
+    @Test func highlightingOnlyColoursAndTheLanguageLabelIsNotCopied() throws {
+        let md = "```swift\nlet x = 1\n```"
+        let text = MarkdownRenderer.render(md)
+        #expect(text.string == "swift\nlet x = 1\n")
+        #expect(MarkdownRenderer.plainText(md) == "let x = 1")
+        let keyword = try #require(attributes(of: "let", in: text)?[.foregroundColor] as? NSColor)
+        let plain = try #require(attributes(of: "x", in: text)?[.foregroundColor] as? NSColor)
+        #expect(keyword != plain)
+        #expect(MarkdownRenderer.render("```\nlet x\n```").string == "let x\n")   // 言語なし：ラベルなし
+    }
+
+    /// 言語名の行と、コードの行は、同じ面（1 枚につながる）。箇条書きの中でも。
+    @Test func theLabelAndTheCodeShareOnePanelEvenInsideAList() throws {
+        for md in ["```js\nx\n```", "- a\n\n  ```js\n  x\n  ```"] {
+            let text = MarkdownRenderer.render(md)
+            func blocks(_ needle: String) -> [NSTextBlock] { (attributes(of: needle, in: text)?[.paragraphStyle] as? NSParagraphStyle)?.textBlocks ?? [] }
+            let label = blocks("js"), code = blocks("x")
+            #expect(!label.isEmpty && label.count == code.count && zip(label, code).allSatisfy { $0 === $1 })
+            #expect(label.last is RoundedPanelBlock)
+        }
     }
 
     @Test func emptyAndPlainTextAreHandled() {
