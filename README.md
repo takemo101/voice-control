@@ -147,10 +147,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.3](https://github.com/takemo101/voice-control/releases/tag/v0.3.3) の例）：
+**手で入れる**（[v0.3.4](https://github.com/takemo101/voice-control/releases/tag/v0.3.4) の例）：
 
 ```sh
-V=0.3.3
+V=0.3.4
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
@@ -188,7 +188,8 @@ vc dictate --stt whisper-large-v3-turbo       # 認識を Whisper にする
 vc dictate --dry-run                          # 入力せずに、認識した文字を、パネルに出すだけ（確認用）
 ```
 
-- 入力は、**クリップボードに書いて ⌘V を送り、少しあとに、元のクリップボードへ戻す**方式です。戻す前に、あなたが別のものをコピーしていたら、戻しません（上書きしません）。クリップボードの履歴アプリには、記録されない印をつけます。
+- 入力は、**クリップボードに書いて ⌘V を送り、貼り付け先が文字を読んだのを確かめてから、元のクリップボードへ戻す**方式です。戻す前に、あなたが別のものをコピーしていたら、戻しません（上書きしません）。クリップボードの履歴アプリには、記録されない印をつけます。
+- **読まれなかったとき**（入力欄がない・セキュア入力・アプリの不調）は、⌘V を一度だけ送り直し、それでもだめなら、「入力できませんでした」と出して、**文字をクリップボードに残します**（⌘V で、手で貼れます）。成功に見せかけません。
 - 録音中は波形が動き、離すと「認識中…」、入力したら「入力しました」と出ます。Esc で取りやめます。
 - アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
 - 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。

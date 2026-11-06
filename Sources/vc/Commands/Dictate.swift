@@ -8,7 +8,7 @@ struct DictateCommand: Command {
         name: "dictate", group: .skills, summary: "音声入力だけ：押している間だけ録音し、文字にして、前面のアプリへ入力する",
         usage: ["vc dictate [--trigger <キー>] [--stt <apple|ID>] [--mute|--no-mute] [--dry-run]"],
         details: [
-            "押している間だけ録音（既定：Shift の長押し。vc hotkey で変更）→ 離すと文字にして、**いま前面のアプリへ入力**する（クリップボードに書いて ⌘V を送り、少しあとに、元のクリップボードへ戻す。そのあとに、ほかのアプリがコピーしていたら、戻さない）。",
+            "押している間だけ録音（既定：Shift の長押し。vc hotkey で変更）→ 離すと文字にして、**いま前面のアプリへ入力**する（クリップボードに書いて ⌘V を送り、貼り付け先が読んだら、元のクリップボードへ戻す。読まれなければ、「入力できませんでした」と出して、文字をクリップボードに残す。そのあとに、ほかのアプリがコピーしていたら、戻さない）。",
             "スキル・言語モデル・Tiny-Jev は、使わない（音声入力だけ。起動が速い）。認識は、vc stt（Apple か、ダウンロードした Whisper）。声のない録音は、入力しない。",
             "入力した文字は、画面の上のパネルにだけ出す（ファイル・ログ・端末には残さない）。アクセシビリティの許可が要る（トリガーの検出と、⌘V の送信）。マイクの許可も要る。",
             "トリガーは、--trigger → 音声入力のトリガー（vc hotkey set-dictate）→ 声で頼むトリガー（vc hotkey）。**声で頼むのと、音声入力を、キーで切り替えたいなら、vc hotkey set-dictate <キー> で別のキーを決めて、vc listen --hotkey を使う**（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）。",
@@ -48,9 +48,17 @@ struct DictateCommand: Command {
             return
         }
         do {
-            try await paste.insert(utterance)
-            print("  " + Style.green("✓") + " 入力しました（\(utterance.count) 文字）")
-            HUD.shared.show(HUDContent(phase: .success, title: "入力しました", chip: chip, reply: utterance), hideAfter: 1.8)
+            switch try await paste.insert(utterance) {
+            case .inserted:
+                print("  " + Style.green("✓") + " 入力しました（\(utterance.count) 文字）")
+                HUD.shared.show(HUDContent(phase: .success, title: "入力しました", chip: chip, reply: utterance), hideAfter: 1.8)
+            case .notReceived(let kept):
+                // 成功に見せない：前面のアプリが、⌘V を受け取らなかった（入力欄でない・セキュア入力・アプリの不調）
+                print("  " + Style.yellow("入力できませんでした") + (kept ? "（文字は、クリップボードにあります）" : ""))
+                HUD.shared.show(HUDContent(phase: .failure, title: "入力できませんでした",
+                                           hint: kept ? "文字は、クリップボードに入れました（⌘V で貼り付け）" : "前面のアプリが、貼り付けを受け取りませんでした",
+                                           chip: chip, reply: utterance), hideAfter: 6)
+            }
         } catch { VoiceUI.showFailure(error, chip: chip) }
     }
 
