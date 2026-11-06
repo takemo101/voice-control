@@ -72,11 +72,11 @@ final class CommandSession: @unchecked Sendable {
             display.onResult(result.exitCode, result.output)
             return "exit \(result.exitCode)\n\(result.output)"
         }
-        let result = CommandRunner.run(argv: argv.map(aliases.expand), cancel: cancel)
+        let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
-        display.onResult(result.exitCode, compact)
+        display.onResult(result.exitCode, result.timedOut ? "（\(Int(skill.commandTimeout)) 秒の上限で止めました。スキルの timeout で変えられます）\n\(compact)" : compact)
         memory.setLines(from: result.output)   // 直前のコマンドの出力の行を、`vc pick` が選べる
-        return "exit \(result.exitCode)\(result.timedOut ? " (timed out)" : "")\n\(compact)"
+        return "exit \(result.exitCode)\(result.timedOut ? " (timed out after \(Int(skill.commandTimeout)) s)" : "")\n\(compact)"
     }
 
     /// モデルへの指示（どのモデルでも共通）。

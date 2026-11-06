@@ -30,6 +30,15 @@ extension SkillStore {
             guard let mode = Skill.ResultMode(rawValue: text) else { return .failure(ParseError(reason: "result「\(text)」は使えない（markdown-note・markdown-window）")) }
             resultMode = mode
         }
+        // コマンド 1 つの実行時間の上限（秒）。書かなければ、既定（30 秒）。範囲外・数でないものは、書き間違いなので、読み込みの失敗にする
+        var commandTimeout = CommandRunner.defaultTimeout
+        if let text = fields["timeout"]?.scalar {
+            let range = Skill.commandTimeoutRange
+            guard let seconds = Int(text), range.contains(seconds) else {
+                return .failure(ParseError(reason: "timeout「\(text)」は使えない（\(range.lowerBound)〜\(range.upperBound) の整数。秒）"))
+            }
+            commandTimeout = TimeInterval(seconds)
+        }
         let trimmed = expandSkillDir(body, file: file).trimmingCharacters(in: .whitespacesAndNewlines)
         if let unknown = SkillPlaceholder.unknownNames(in: trimmed).first {
             return .failure(ParseError(reason: "本文に、知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}・${USER_REQUEST}。書き間違いでなければ、$ と { の間に、スペースなどを入れる）"))
@@ -37,6 +46,7 @@ extension SkillStore {
         guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
+        skill.commandTimeout = commandTimeout
         return .success(skill)
     }
 
