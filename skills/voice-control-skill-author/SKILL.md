@@ -74,6 +74,7 @@ Then reply done.
 | `result` | | `markdown-note` なら、最後の返事（Markdown）を、ファイルにして開く。本文では「Markdown の本文だけを返す（done: を付けない）」と書く。例：`.voice-control/skills/clipboard-note` |
 | `allowed-commands` | ○ | 実行してよいコマンド（**許可リスト**）。リスト（`- open`）か `[open, say]`。**先頭のトークン列**が一致したものだけ実行する（前方一致）：`agent-desktop` ならどの引数でも、`agent-desktop click` なら click だけ |
 | `confirm` | | `true` なら、実行の前に、必ず確認する |
+| `timeout` | | **コマンド 1 つの実行時間の上限（秒）**。書かなければ **30 秒**。1〜600 の整数（範囲外・数でないものは、読み込めない）。上限を超えたコマンドは止められ（SIGTERM）、モデルには「timed out after N s」と返る。時間のかかるコマンド（ビルド・変換・大きなファイルの処理）を、使うスキルで、伸ばす。**1 つのコマンドごと**の上限で、スキル全体の上限ではない。Esc の取りやめは、いつでも効く。例：`timeout: 120` |
 
 `allowed-commands` の規則：
 - コマンド名だけ（パス不可。`/bin/rm` は不可。`*` も不可）。引数の一部（`agent-desktop snapshot`）で、さらに絞れる。**できるだけ絞る**（`agent-desktop` 全体より `agent-desktop click`）。
