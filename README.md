@@ -24,7 +24,7 @@
 
 | こう頼む | 起きること | スキル |
 |---|---|---|
-| 「次の曲にして」「音量を50にして」 | Spotify を操作する | `spotify` |
+| 「次の曲にして」「音量を50にして」「今の曲を読み上げて」 | Spotify を操作する（今の曲を、声で読み上げることもできる） | `spotify` |
 | 「コピーした文章を要約して」 | ⌘C でコピーした文章を、整えて、きれいなウィンドウに出す | `clipboard-note` |
 | 「ドキュメントの請求書の PDF を開いて」 | ファイルを探し、似た候補があれば選んで、開く | `file-search` |
 | 「Safari を開いて」 | アプリを開く | 自分で書く（[例](#自分のスキルを書く)） |
@@ -147,10 +147,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.2](https://github.com/takemo101/voice-control/releases/tag/v0.3.2) の例）：
+**手で入れる**（[v0.3.3](https://github.com/takemo101/voice-control/releases/tag/v0.3.3) の例）：
 
 ```sh
-V=0.3.2
+V=0.3.3
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合

@@ -29,6 +29,16 @@ on run argv
 			if playerStateText is "stopped" then return "state: stopped | volume: " & vol & " | shuffle: " & shuf
 			return "state: " & playerStateText & " | track: " & (name of current track) & " | artist: " & (artist of current track) & " | volume: " & vol & " | shuffle: " & shuf
 		end tell
+	else if theAction is "announce" then
+		-- 今の曲を、日本語で読み上げる（`say`）。起動していなければ、起動しない。話す文は、ここで組み立てる（言語モデルは、文を作らない）
+		if application "Spotify" is not running then return my speak(my buildAnnouncement("not running", "", ""))
+		tell application "Spotify"
+			set playerStateText to player state as text
+			if playerStateText is "stopped" then return my speak(my buildAnnouncement("stopped", "", ""))
+			set trackName to name of current track
+			set artistName to artist of current track
+		end tell
+		return my speak(my buildAnnouncement(playerStateText, trackName, artistName))
 	else if theAction is "play" then
 		tell application "Spotify" to play
 		return "ok"
@@ -103,6 +113,22 @@ on run argv
 		return "error: unknown action " & theAction
 	end if
 end run
+
+-- 読み上げる文。state：`playing`・`paused`・`stopped`・`not running`。曲名・アーティスト名は、Spotify の文字をそのまま使う（空なら、触れない）。
+on buildAnnouncement(stateText, trackName, artistName)
+	if stateText is "not running" then return "Spotify は、起動していません"
+	if stateText is "stopped" then return "いまは、再生していません"
+	set subject to trackName
+	if artistName is not "" then set subject to artistName & " の " & trackName
+	if stateText is "playing" then return "今流れているのは、" & subject & " です"
+	return "一時停止中の曲は、" & subject & " です"
+end buildAnnouncement
+
+-- 話す（`say`。日本語の声 Kyoko。なければ、既定の声）。文は、`quoted form of` で、1 つの引数にする（シェルを通しても、曲名の文字が、コマンドにならない）。終わるまで待たない。
+on speak(sentence)
+	do shell script "(/usr/bin/say -v Kyoko " & quoted form of sentence & " || /usr/bin/say " & quoted form of sentence & ") >/dev/null 2>&1 &"
+	return "ok: spoke: " & sentence
+end speak
 
 -- 今の曲の「いいね」（Liked Songs への追加）を切り替える。Spotify の AppleScript には、いいねの命令がない（`starred` は、読み取り専用）ので、アプリのショートカット ⌥⇧B を送る。
 -- **切り替え（トグル）**：すでに追加済みなら、解除になる（状態は、読めない）。Spotify を、一瞬、前面にして、キーを送り、元のアプリを前面に戻す。

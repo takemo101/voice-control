@@ -1,6 +1,6 @@
 ---
 name: spotify
-description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・検索・シャッフル・今の曲をお気に入り（いいね）に追加。「音楽をかけて」「曲を流して」も
+description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・今の曲を声で読み上げる（読み上げて・しゃべって・声で教えて）・検索・シャッフル・今の曲をお気に入り（いいね）に追加。「音楽をかけて」「曲を流して」も
 allowed-commands:
   - osascript ${SKILL_DIR}/spotify.applescript
 ---
@@ -13,6 +13,7 @@ Use only these actions:
 - volume-up | volume-down   (change the volume by 10 only; they take NO argument) | volume <1-100> (e.g. volume 100, volume 30) | mute (sets the volume to 0)
 - shuffle on|off | repeat on|off
 - status   (prints the player state, track, artist, volume)
+- announce   (SPEAKS the current track and artist aloud in Japanese. It does not print the track; it never launches Spotify)
 - search "<text>"   (opens the Spotify search page; use only the words the user said; does not start playback)
 - like   (adds the CURRENT song to the user's Liked Songs / favorites. It is a TOGGLE: if the song was already liked, it is removed. It briefly brings Spotify to the front)
 - open   (launches Spotify if it is not running, and brings it to the front)
@@ -28,6 +29,8 @@ Which action for which request:
   - minimum / lowest / zero / mute / 最小・最小まで・ゼロ・0にして・ミュート → mute
   - half / 半分 → volume 50.  "volume 50" / 50にして / 50まで → volume 50
   - Examples: 「ミュートして」→ mute / 「音量を半分にして」→ volume 50 / 「音量を最大にして」→ volume 100. The action and the number are two separate words: `volume 50` (never `volume-50`).
+- read the song aloud / say it out loud / tell me by voice (曲名を読み上げて・読み上げて・しゃべって・声で教えて・口で言って・曲名を声で) → announce. NEVER status for these: status prints text and speaks nothing.
+- announce: ONLY when the user asks to have the song READ ALOUD or told BY VOICE (読み上げて・声で教えて・しゃべって・口で言って). For a plain question about the song (何が流れてる？・曲名は？) use status instead. After announce, reply: done: 曲名を読み上げました.
 - status: ONLY when the user asks a QUESTION about the current state (what is playing? which song? how loud is it now?). It only READS: never use it for a command such as mute / volume / play / next.
 - search for something → search "<text>".
 - add the current song to favorites / Liked Songs / like it (お気に入りに追加・いいね・ハートを付けて・ライブラリに保存) → like. After it, tell the user in Japanese which song it was, and ALWAYS add that it is a toggle (すでに追加済みなら、解除になります).
