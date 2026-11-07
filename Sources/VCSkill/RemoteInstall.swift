@@ -52,6 +52,17 @@ public enum RemoteInstall {
         return Report(source: source, outcomes: outcomes)
     }
 
+    /// リポジトリの、**すべてのスキル**を置く（`vc skills install --all`）。一覧を取って（読めないスキルは、除く）、その版で、1 つずつ置く：一覧と置くものが、同じ版になる。
+    /// 置いた結果の `outcomes` と、読めなかったスキル（`problems`）を返す。
+    public static func installAll(explicitRef: String?, defaultRef: String, overwrite: Bool,
+                                  to destination: URL = VoiceControlHome.skillsDirectory, fetch: RemoteSkills.Fetch = RemoteSkills.live) async throws -> (report: Report, problems: [SkillProblem]) {
+        let listing = try await list(explicitRef: explicitRef, defaultRef: defaultRef, fetch: fetch)
+        let names = listing.skills.map(\.name).sorted()
+        // 一覧と同じ版（タグがなくて、main に切り替えた場合も、同じ）で取る
+        let report = try await install(names: names, explicitRef: listing.source.ref, defaultRef: defaultRef, overwrite: overwrite, to: destination, fetch: fetch)
+        return (Report(source: listing.source, outcomes: report.outcomes), listing.problems)
+    }
+
     /// 取得する。既定の版が、リポジトリになければ、main から取る（`--ref` を指定したときは、切り替えない）。
     private static func download(names: [String]?, explicitRef: String?, defaultRef: String, into staging: URL, fetch: RemoteSkills.Fetch) async throws -> Source {
         if let explicitRef {

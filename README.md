@@ -122,6 +122,7 @@ curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/instal
 ```sh
 vc doctor                                        # 必要なものが、そろっているか
 vc skills install spotify clipboard-note file-search   # スキルを入れる（名前なしで、一覧）
+vc skills install --all                                  # リポジトリの、すべてのスキルを入れる
 vc run "次の曲にして" --dry-run                  # 何を実行しようとするか、だけ見る
 vc listen --hotkey                               # 声で頼む（Shift を押している間だけ録音）
 ```
@@ -367,7 +368,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
 | `vc find [--name …] [--in …] [--ext …] [--since …]` | ファイルを探す（Spotlight。読み取りだけ）。スキル `file-search` が、`vc pick` と組み合わせて、探して開く |
 | `vc pick --query … --option …` | 短い候補の中から、依頼に合うものを、Tiny-Jev で選ぶ（確信できたときだけ選ぶ。標準入力の行も可） |
-| `vc skills install [<name>…] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へ入れる（名前なしは一覧）。リポジトリは、手元になくてよい |
+| `vc skills install [<name>…\|--all] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へ入れる（名前なしは一覧。`--all` は、すべて：発話を外へ送るスキルを入れたら、注意が出る）。リポジトリは、手元になくてよい |
 | `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
 
 **設定・診断**

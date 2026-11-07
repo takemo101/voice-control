@@ -5,7 +5,7 @@ import VCSkill
 struct SkillsCommand: Command {
     static let info = CommandInfo(
         name: "skills", group: .skills, summary: "スキルの一覧・詳細・有効／無効・プロジェクトの信頼・GitHub からのインストール",
-        usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>", "vc skills trust", "vc skills untrust", "vc skills install [<name>…] [--force] [--ref <tag|branch>]"],
+        usage: ["vc skills [list]", "vc skills show <name>", "vc skills enable <name>", "vc skills disable <name>", "vc skills trust", "vc skills untrust", "vc skills install [<name>…|--all] [--force] [--ref <tag|branch>]"],
         details: [
             "置き場所は 2 つ。グローバル：~/.voice-control/skills/<name>/SKILL.md（環境変数 VC_HOME で ~/.voice-control を変えられる）。プロジェクト：<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md（起動した場所が、プロジェクトのルート）。",
             "同じ名前なら、プロジェクトのスキルが、グローバルを上書きする。",
@@ -17,8 +17,8 @@ struct SkillsCommand: Command {
             "trust / untrust：起動した場所のプロジェクトのスキルを、読み込んでよいか。trust は、許可するコマンドを表示してから、信頼する。",
             "install：GitHub の公開リポジトリ（takemo101/voice-control）の `.voice-control/skills/<name>` を、グローバルへ、スクリプトごと置く。名前を渡さなければ、インストールできるスキルの一覧。版は、入っている vc と同じタグ（見つからなければ main。--ref で、タグ・ブランチを指定）。置いたスキルは、信頼の手続きなしで、どこでも、いつも読み込まれる：取得元と許可するコマンドを表示するので、確かめる。同名があれば、--force で置き換える。シンボリックリンクを含むスキル・読めないスキルは、置かない。",
         ],
-        options: [("--force", "install：同名のスキルがあっても、置き換える"), ("--ref <tag|branch>", "install：取得する版（既定は、入っている vc と同じタグ）")],
-        examples: ["vc skills", "vc skills show open-app", "vc skills disable open-app", "vc skills trust", "vc skills install", "vc skills install spotify clipboard-note"])
+        options: [("--all", "install：リポジトリの、すべてのスキルを置く（名前は、渡さない）"), ("--force", "install：同名のスキルがあっても、置き換える"), ("--ref <tag|branch>", "install：取得する版（既定は、入っている vc と同じタグ）")],
+        examples: ["vc skills", "vc skills show open-app", "vc skills disable open-app", "vc skills trust", "vc skills install", "vc skills install spotify clipboard-note", "vc skills install --all"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         // vc skills [list]               スキルの一覧（name・description・有効／無効）
@@ -28,6 +28,7 @@ struct SkillsCommand: Command {
         // vc skills install [<name>…] [--force] [--ref <tag|branch>]  GitHub のスキルを、グローバルへ置く
         var arguments = arguments
         let force = arguments.flag("--force")
+        let all = arguments.flag("--all")
         let explicitRef = arguments.option("--ref")
         let positionals = arguments.positionals
         let sub = positionals.first ?? "list"
@@ -39,7 +40,9 @@ struct SkillsCommand: Command {
         case "enable", "disable": setEnabled(names.first, sub == "enable", catalog)
         case "trust": trust(catalog)
         case "untrust": untrust(catalog)
-        case "install": await install(names: names, explicitRef: explicitRef, overwrite: force)
+        case "install":
+            if all && !names.isEmpty { usageError("skills", "--all には、名前を渡せません（すべてを置きます）") }
+            await install(names: names, all: all, explicitRef: explicitRef, overwrite: force)
         default: usageError("skills", "知らないサブコマンド: \(sub)（list・show・enable・disable・trust・untrust・install）")
         }
     }
@@ -86,6 +89,7 @@ struct SkillsCommand: Command {
         kv("説明", s.description, width: 6)
         kv("許可", s.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", s.confirm ? "必須" : "なし", width: 6)
+        if let external = s.external { kv("外へ送る", Style.yellow("発話を、\(external) へ送ります"), width: 6) }
         if s.commandTimeout != CommandRunner.defaultTimeout { kv("時間", "コマンド 1 つあたり \(Int(s.commandTimeout)) 秒まで", width: 6) }
         kv("置き場所", Self.scopeName(s.scope) + (s.scope == .project && catalog.loaded.overridden.contains(s.name) ? Style.dim("（同名のグローバルを上書き）") : ""), width: 6)
         if s.scope != .builtin { kv("場所", s.file.path, width: 6) }
@@ -141,23 +145,38 @@ struct SkillsCommand: Command {
 
     /// GitHub の公開リポジトリのスキルを、グローバルへ置く（スクリプトごと）。置いたスキルは、信頼の手続きなしで、いつも読み込まれる：取得元・許可するコマンドを、表示する。
     /// 流れ（版の決め方・取得・検査・置く）は `RemoteInstall`。ここは、表示と、終了コードだけ。
-    private func install(names: [String], explicitRef: String?, overwrite: Bool) async {
+    private func install(names: [String], all: Bool, explicitRef: String?, overwrite: Bool) async {
         let defaultRef = "v\(AppInfo.version)"
-        if names.isEmpty {
+        if names.isEmpty && !all {
             do { showListing(try await RemoteInstall.list(explicitRef: explicitRef, defaultRef: defaultRef)) }
             catch { failInstall(error) }
             return
         }
         let report: RemoteInstall.Report
-        do { report = try await RemoteInstall.install(names: names, explicitRef: explicitRef, defaultRef: defaultRef, overwrite: overwrite) }
-        catch { failInstall(error) }
+        var problems: [SkillProblem] = []
+        do {
+            if all {
+                let result = try await RemoteInstall.installAll(explicitRef: explicitRef, defaultRef: defaultRef, overwrite: overwrite)
+                report = result.report
+                problems = result.problems
+            } else {
+                report = try await RemoteInstall.install(names: names, explicitRef: explicitRef, defaultRef: defaultRef, overwrite: overwrite)
+            }
+        } catch { failInstall(error) }
         announce(report.source)
         var failures = 0
+        var external: [SkillInstaller.Installed] = []
         for outcome in report.outcomes {
             switch outcome.result {
-            case .success(let installed): showInstalled(installed)
+            case .success(let installed): showInstalled(installed); if installed.external != nil { external.append(installed) }
             case .failure(let failure): failures += 1; showFailure(failure, name: outcome.name, ref: report.source.ref)
             }
+        }
+        problems.forEach { print("  " + Style.yellow("読めない: \($0.location)：\($0.reason)")) }
+        // 発話を、この Mac の外へ送るスキルを、入れたときは、見えるように（`vc` の基本は、外へ出さない：入れた人だけの例外）
+        if !external.isEmpty {
+            print("")
+            notice("次のスキルは、**使うと、発話を、この Mac の外へ送ります**：" + external.map { "\($0.name)（\($0.external ?? "")）" }.joined(separator: "、") + "。要らなければ、`vc skills disable <name>`（選ばれなくなる）か、ディレクトリを消してください")
         }
         if failures > 0 { fail("\(failures) 件、インストールできませんでした") }
         print("\n  グローバルのスキルは、どこで起動しても、いつも読み込まれます。一覧：vc skills")
@@ -176,16 +195,17 @@ struct SkillsCommand: Command {
         let width = max(4, listing.skills.map { displayWidth($0.name) }.max() ?? 0)
         for s in listing.skills {
             let installed = FileManager.default.fileExists(atPath: VoiceControlHome.skillsDirectory.appendingPathComponent(s.name).path)
-            print("  " + pad(s.name, to: width + 2) + s.description + (installed ? Style.dim("（インストール済み）") : ""))
+            print("  " + pad(s.name, to: width + 2) + s.description + (installed ? Style.dim("（インストール済み）") : "") + (s.external.map { Style.yellow("（外へ送る：\($0)）") } ?? ""))
         }
         listing.problems.forEach { print("  " + Style.yellow("読めない: \($0.location)：\($0.reason)")) }
-        print("\n  インストールする：vc skills install <name>…（すでにあれば、--force で置き換える）")
+        print("\n  インストールする：vc skills install <name>…（すでにあれば、--force で置き換える）。すべて：vc skills install --all")
     }
 
     private func showInstalled(_ installed: SkillInstaller.Installed) {
         print(Style.green("✓") + " " + Style.bold(installed.name) + (installed.overwritten ? " を置き換えました" : " をインストールしました") + Style.dim("  → \(installed.destination.path)"))
         kv("許可", installed.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", installed.confirm ? "必須" : "なし", width: 6)
+        if let external = installed.external { kv("外へ送る", Style.yellow("発話を、\(external) へ送ります"), width: 6) }
         if installed.usesProjectRelativePath { notice("SKILL.md が、プロジェクトからの相対パス（.voice-control/skills/…）を使っています。グローバルでは、起動した場所によって見つからないので、${SKILL_DIR} に直してください（docs/skills.md）") }
     }
 

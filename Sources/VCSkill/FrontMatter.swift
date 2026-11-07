@@ -46,6 +46,7 @@ extension SkillStore {
         guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
+        skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
         skill.commandTimeout = commandTimeout
         return .success(skill)
     }

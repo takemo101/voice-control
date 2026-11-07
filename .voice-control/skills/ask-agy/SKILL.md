@@ -3,6 +3,7 @@ name: ask-agy
 description: 調べものを Antigravity（agy）に頼んで、要点を教える：「〇〇について調べて」「〇〇とは何か教えて」「〇〇の最新情報をまとめて」
 allowed-commands:
   - node ${SKILL_DIR}/ask-agy.mjs
+external: Google（agy コマンド経由）
 timeout: 150
 ---
 The user wants something researched ("調べて", "教えて", "まとめて"). Ask Antigravity through the bundled script (never run `agy` yourself). The script shows the answer in a window by itself.
