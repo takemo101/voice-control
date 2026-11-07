@@ -57,6 +57,6 @@ public struct LLMPlanner: RequestPlanning {
             return ToolLoopAgent.withoutThinking(reply.content)
         }
         let session = LanguageModelSession(instructions: system)
-        return try await session.respond(to: user, options: GenerationOptions(samplingMode: .greedy)).content
+        return try await session.respond(to: user, options: GenerationOptions(temperature: 0)).content
     }
 }
