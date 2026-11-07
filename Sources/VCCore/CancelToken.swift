@@ -5,11 +5,21 @@ import Foundation
 public final class CancelToken: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
+    private var superseded = false
     private var handlers: [() -> Void] = []
 
     public init() {}
 
     public var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+
+    /// 新しい依頼に、取って代わられた（Esc ではなく）。そのとき、表示は、「取りやめました」を出さない（新しい依頼の表示を、上書きしないため）。
+    public var isSuperseded: Bool { lock.lock(); defer { lock.unlock() }; return superseded }
+
+    /// 新しい依頼が来たので、取りやめる（`cancel()` と同じ。表示のために、理由を残す）。
+    public func supersede() {
+        lock.lock(); superseded = true; lock.unlock()
+        cancel()
+    }
 
     /// 取りやめる。登録された手続き（実行中のコマンドを止める、など）を、1 度だけ呼ぶ。
     public func cancel() {

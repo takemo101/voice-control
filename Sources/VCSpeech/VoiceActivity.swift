@@ -66,6 +66,7 @@ final class VoiceActivity: @unchecked Sendable {
     private var cancelledRecording = false
     private var queued = 0
     private var running = false
+    private var awaitingReply = 0
     private var token: CancelToken?
     private var task: Task<Void, Never>?
     private var lastActive = false
@@ -108,6 +109,22 @@ final class VoiceActivity: @unchecked Sendable {
 
     /// 列の音声を、取り出した（認識に回す）。
     func consumedAudio() { commit { queued = max(0, queued - 1) } }
+
+    /// 確認の返事（次の発話）を待っている間。この間に来た発話は、新しい依頼ではなく、返事。
+    func beginAwaitingReply() { lock.lock(); awaitingReply += 1; lock.unlock() }
+    func endAwaitingReply() { lock.lock(); awaitingReply = max(0, awaitingReply - 1); lock.unlock() }
+
+    /// 新しい発話が来た：**実行中（認識中を含む）の処理を、取りやめる**（新しい依頼を、先に進めるため）。
+    /// 確認の返事を待っている間は、取りやめない（来た発話は、返事）。取りやめたら true。
+    func interruptForNewUtterance() -> Bool {
+        lock.lock()
+        guard running, awaitingReply == 0 else { lock.unlock(); return false }
+        let (token, task) = (self.token, self.task)
+        lock.unlock()
+        token?.supersede()
+        task?.cancel()
+        return true
+    }
 
     func beginWork(_ token: CancelToken) { commit { self.token = token; running = true } }
     func setTask(_ task: Task<Void, Never>) { lock.lock(); self.task = task; lock.unlock() }

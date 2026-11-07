@@ -13,6 +13,7 @@ struct ListenCommand: Command {
             "既定：Enter で録音を始め、もう一度 Enter で止める（q で終了）。マイクの許可が要る。聞こえた文は、スキルで実行する（vc run と同じ。確認が要るときは、端末で [y/N] を聞く。--yes で省略）。",
             "--hotkey：トリガーを押している間だけ録音する。離すと、文字にして、Tiny-Jev がスキルを選び、Apple の言語モデルが実行する（vc run と同じ）。**当てはまるスキルがなければ、既定スキル（default）**が、agent-desktop と基本のコマンド（open・say・ls・pwd・date）で実行する。会話・独り言は、実行しない。取り消しにくい依頼（削除・送信・購入など）は、実行の前に、声の「はい」で確認する。既定スキルを無効にする（vc skills disable default）と、当てはまるスキルがない依頼は、実行しない。",
             "--hotkey のときは、画面の上に、録音中・認識中・選んだスキル・実行したコマンドと結果・言語モデルの返事を出す（クリックを通し、フォーカスを奪わない）。",
+            "**実行中に、新しく話すと、前の処理を中断して、新しい依頼を実行する**（--hotkey。確認の返事を待っている間は、中断せず、返事として扱う）。",
             "**Esc で取りやめ**（--hotkey）：録音中は、録音を捨てる（認識しない）。認識中・実行中・確認の待ちは、処理を止める（実行中のコマンドも止める）。Esc を受けるのは、これらの間だけで、ふだんの Esc には触れない。録音中（Shift などを押している間）の Esc は、アクセシビリティの許可が要る。",
             "実行の既定：スキルは、vc run と同じく、**実行する**（--dry-run を付けたときだけ、表示だけ）。",
             "トリガーは、既定が Shift の長押し。変えるには vc hotkey set <キー>（~/.voice-control/settings.json に保存）か、その回だけ --trigger <キー>。長押し（修飾キーだけ）の検出には、アクセシビリティの許可が要る（vc を動かす端末アプリに）。",
@@ -139,7 +140,7 @@ struct ListenCommand: Command {
                 let skills = context.loadSkills()
                 skills.reportProblems()
                 let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine, scorer: context.scorerProvider(loaded: jev))
-                let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun)
+                let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun, isSuperseded: { token.isSuperseded })
                 _ = try await skillRunner.run(utterance, reporter: reporter, confirm: {
                     // パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）
                     let panel = PanelAnswer()
@@ -151,6 +152,7 @@ struct ListenCommand: Command {
                     }
                 })
             } catch {
+                if token.isSuperseded { return }   // 新しい発話に、取って代わられた：何も出さない
                 if token.isCancelled || error is CancellationError { VoiceUI.showCancelled(chip: chip) } else { VoiceUI.showFailure(error, chip: chip) }
             }
         }

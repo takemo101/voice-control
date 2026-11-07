@@ -138,25 +138,86 @@ import VCCore
         #expect(await answer.take() == "text-a3")   // 取りやめられず、次の音声の認識結果が返る
     }
 
-    @Test func queuedAudioIsHandledOneAtATimeInOrder() async {
-        let order = Mailbox<String>()
+    /// 実行中に、新しく話すと、前の処理（トークン・`Task`）が取りやめられ、新しい発話が、そのあとに、1 つずつ処理される（同時には、動かない）。
+    /// Esc の取りやめとは違い、「取りやめ」の出来事は出ない（新しい発話の表示を、上書きしない）。
+    @Test func aNewUtteranceWhileExecutingCancelsTheCurrentWorkThenRunsTheNewOne() async {
+        let started = Mailbox<String>()
+        let finished = Mailbox<String>()
         let gate = Gate()
         let state = Concurrency()
-        let h = Harness { utterance, _, _, _ in
+        let tokens = Mailbox<[Bool]>()
+        let h = Harness { utterance, token, _, _ in
             state.enter()
-            if utterance == "text-a1" { await gate.wait() }   // 1 つ目の処理中に、2・3 が列にたまる
-            order.put(utterance)
+            started.put(utterance)
+            if utterance == "text-a1" {
+                await gate.wait()
+                tokens.put([token.isCancelled, token.isSuperseded, Task.isCancelled])
+            }
+            finished.put(utterance)
             state.leave()
         }
         h.speak("a1")
+        #expect(await started.take() == "text-a1")
+        h.speak("a2")   // a1 の実行中
+        gate.open()
+        #expect(await tokens.take() == [true, true, true])
+        #expect(await finished.take() == "text-a1")
+        #expect(await started.take() == "text-a2")
+        #expect(await finished.take() == "text-a2")
+        #expect(state.maxInFlight == 1)
+        #expect(h.log.labels.contains("interrupted"))
+        #expect(!h.log.labels.contains("cancelling") && !h.log.labels.contains("recognitionCancelled"))
+    }
+
+    /// 認識の途中でも、新しく話すと、前の発話は、ハンドラに届かず（何も出さず）、新しい発話が処理される。
+    @Test func aNewUtteranceWhileRecognizingDropsThePreviousOneSilently() async {
+        let handled = Mailbox<String>()
+        let gate = Gate()
+        let h = Harness { utterance, _, _, _ in handled.put(utterance) }
+        h.transcriber.hold("a1", gate)
+        h.speak("a1")
         #expect(await h.transcriber.entered.take() == "a1")
         h.speak("a2")
-        h.speak("a3")
         gate.open()
-        #expect(await order.take() == "text-a1")
-        #expect(await order.take() == "text-a2")
-        #expect(await order.take() == "text-a3")
-        #expect(state.maxInFlight == 1)
+        #expect(await handled.take() == "text-a2")
+        #expect(h.log.labels.contains("interrupted") && !h.log.labels.contains("recognitionCancelled"))
+        #expect(!h.log.labels.contains("recognized:text-a1"))
+    }
+
+    /// 確認の返事を待っている間に来た発話は、新しい依頼ではなく、返事（中断しない）。
+    @Test func anUtteranceWhileWaitingForAConfirmationAnswerIsTheAnswerNotAnInterruption() async {
+        let result = Mailbox<[String]>()
+        let waiting = Mailbox<Void>()
+        let h = Harness { _, token, next, _ in
+            waiting.put(())
+            let answer = (try? await next()) ?? nil
+            result.put([answer ?? "nil", String(token.isCancelled)])
+        }
+        h.speak("a1")
+        await waiting.take()
+        h.speak("yes")
+        #expect(await result.take() == ["text-yes", "false"])
+        #expect(!h.log.labels.contains("interrupted"))
+    }
+
+    /// 何も録音できなかった（空）・録音の失敗では、実行中の処理を、中断しない。
+    @Test func anEmptyRecordingDoesNotInterruptTheCurrentWork() async {
+        let started = Mailbox<Void>()
+        let finished = Mailbox<Bool>()
+        let gate = Gate()
+        let h = Harness { _, token, _, _ in
+            started.put(())
+            await gate.wait()
+            finished.put(token.isCancelled)
+        }
+        h.speak("a1")
+        await started.take()
+        h.recorder.enqueue(.success(nil))
+        h.trigger.onPress?()
+        h.trigger.onRelease?()   // 何も録音できなかった
+        gate.open()
+        #expect(await finished.take() == false)
+        #expect(!h.log.labels.contains("interrupted"))
     }
 
     @Test func recognitionFailureIsReportedAndTheHandlerIsNotCalled() async {
