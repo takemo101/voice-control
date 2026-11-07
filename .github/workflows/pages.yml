@@ -1,0 +1,39 @@
+# 製品ページ（site/）を、GitHub Pages に公開する。site/ か、このワークフローを変えて main に入ったときと、手動実行。
+# 公開の URL：https://takemo101.github.io/voice-control/
+# 初めに 1 回だけ、リポジトリの設定が要る：Settings > Pages > Build and deployment > Source を「GitHub Actions」にする（利用者の操作）。
+# 権限は最小：読み取り + Pages への公開（pages: write・id-token: write）。秘密情報（secrets）は、使わない。
+# ビルドは、ない（素の HTML・CSS・JavaScript。外部の通信・解析は、含まない）。
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy site/
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5
