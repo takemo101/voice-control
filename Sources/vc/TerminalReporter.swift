@@ -68,6 +68,18 @@ struct TerminalReporter: RunReporter {
             }
         case .cancelled:
             out("  " + Style.yellow("取りやめました（Esc）"))
+        case let .planned(steps):
+            out(kvText("手順", "\(steps.count) つに分けました"))
+            for (offset, step) in steps.enumerated() { out("    \(offset + 1). \(step)") }
+        case let .stepStarted(index, total, text):
+            switch layout {
+            case .command: out(headingText("ステップ \(index)/\(total)：\(text)"))
+            case .voice: out("\n  " + Style.bold("▶ ステップ \(index)/\(total)") + "：" + text)
+            }
+        case let .carriedResult(characters):
+            out("  " + Style.dim("前のステップの結果を渡しました（\(characters) 文字）"))
+        case let .planStopped(completed, total):
+            out("  " + Style.yellow("ステップ \(completed + 1)/\(total) で止まりました（済み：\(completed)。残りは実行しません）"))
         }
     }
 

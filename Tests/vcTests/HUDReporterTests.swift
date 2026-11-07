@@ -31,6 +31,34 @@ import VCSkill
         #expect(escaped.shown.values.last?.content.title == "取りやめました")
     }
 
+    /// 複数ステップの依頼：実行中・完了の表示に「（i/n）」が付く。途中のステップの完了は、すぐ次に替わる（短く出す）。止まったら、どこで止まったかを、ヒントに出す。
+    @Test func stepsShowTheirProgressAndAStoppedPlanSaysWhere() {
+        let r = reporter()
+        let events: [RunEvent] = [
+            .planned(steps: ["一つ目", "二つ目"]),
+            .stepStarted(index: 1, total: 2, text: "一つ目"),
+            .matched(sample, probability: 0.9, elapsed: 0), .started, .command("echo 1"), .result(exitCode: 0, output: "ok"),
+            .reply("done: 一つ目", commandCount: 1, elapsed: 0.1),
+            .stepStarted(index: 2, total: 2, text: "二つ目"),
+            .matched(sample, probability: 0.9, elapsed: 0), .started,
+            .reply("failed: だめ", commandCount: 0, elapsed: 0.1),
+            .planStopped(completed: 1, total: 2),
+        ]
+        events.forEach(r.reporter.report)
+        let shown = r.shown.values
+        #expect(shown.contains { $0.content.title == "実行中（1/2）" } && shown.contains { $0.content.title == "実行中（2/2）" })
+        let firstDone = shown.first { $0.content.title == "完了（1/2）" }
+        #expect(firstDone?.hideAfter == 1.5)   // 途中：すぐ次の表示に替わる
+        #expect(shown.last?.content.hint == "ステップ 2/2 で止まりました（済み：1）")
+    }
+
+    /// ステップに分けていない依頼は、いままでの表示のまま（「（i/n）」を付けない）。
+    @Test func aSingleRequestShowsNoProgress() {
+        let r = reporter()
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .started, .reply("done: ok", commandCount: 1, elapsed: 0.1)].forEach(r.reporter.report)
+        #expect(r.shown.values.map(\.content.title).allSatisfy { !$0.contains("/") })
+    }
+
     @Test func aConfirmedRunWalksThroughConfirmWorkingAndSuccess() {
         let r = reporter()
         let events: [RunEvent] = [

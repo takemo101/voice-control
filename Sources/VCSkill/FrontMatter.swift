@@ -48,6 +48,7 @@ extension SkillStore {
         skill.result = resultMode
         skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
         skill.commandTimeout = commandTimeout
+        skill.acceptsPrevious = (fields["accepts-previous"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         return .success(skill)
     }
 

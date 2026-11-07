@@ -32,6 +32,10 @@ final class Recorder: RunReporter, @unchecked Sendable {
             case .reply: "reply"
             case .failed: "failed"
             case .cancelled: "cancelled"
+            case .planned: "planned"
+            case .stepStarted: "stepStarted"
+            case .carriedResult: "carriedResult"
+            case .planStopped: "planStopped"
             }
         }
     }

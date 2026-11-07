@@ -55,6 +55,12 @@ struct CommandContext {
     /// 使うエンジンの書き方：`--engine` → 設定（`vc engine set`）→ なし（Apple）。
     var engineText: String? { options.engine ?? currentSettings().engine }
 
+    /// 依頼を、複数のステップに分けるもの（設定 `multiStep` が off なら nil：1 依頼 = 1 スキル）。分け方を決めるのは、言語モデル（`engine`）。
+    func makePlanner(skills: [Skill]) -> RequestPlanning? {
+        guard PlanPreference.isEnabled(setting: currentSettings().multiStep) else { return nil }
+        return LLMPlanner(engine: engine, skills: skills)
+    }
+
     /// 使う音声認識：`--stt` → 設定（`vc stt set`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
     var speechChoice: SpeechChoice {
         if let text = options.stt {

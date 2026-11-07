@@ -15,6 +15,8 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let document: @Sendable (String) -> String?
     private let lock = NSLock()
     private var session: HUDSession?
+    /// 複数ステップの依頼で、いま何番目か（なければ、ステップに分けていない）。
+    private var step: (index: Int, total: Int)?
 
     /// `chip`：右上のチップ（トリガーの名前）。`utterance`：聞こえた文。`terminal`・`present`・`speak`：出力先（既定は、端末・画面の上の表示・`say`。テストで差し替える）。
     init(chip: String, utterance: String, dryRun: Bool,
@@ -33,7 +35,12 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         self.document = document
     }
 
-    private var workingTitle: String { dryRun ? "確認のみ（--dry-run）" : "実行中" }
+    private var progress: String {
+        lock.lock(); defer { lock.unlock() }
+        return step.map { "（\($0.index)/\($0.total)）" } ?? ""
+    }
+
+    private var workingTitle: String { (dryRun ? "確認のみ（--dry-run）" : "実行中") + progress }
 
     private func update(hideAfter: TimeInterval? = nil, _ change: (inout HUDContent) -> Void = { _ in }) {
         lock.lock(); let current = session; lock.unlock()
@@ -89,7 +96,9 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             if let why = document(markdown) { eprint("ウィンドウを出せません: \(why)") }
         case let .reply(reply, _, _):
             terminal.report(event)
-            update(hideAfter: HUDSession.readingTime(for: reply)) { [dryRun] in
+            lock.lock(); let current = step; lock.unlock()
+            let intermediate = current.map { $0.index < $0.total } ?? false   // 途中のステップ：すぐ、次の表示に替わる
+            update(hideAfter: intermediate ? 1.5 : HUDSession.readingTime(for: reply)) { [dryRun, progress] in
                 if dryRun {
                     // 実行していないので、成功（緑）にしない。言語モデルの返事は、実行したかのように書くことがある。
                     $0.phase = .info
@@ -97,13 +106,23 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
                     $0.reply = "コマンドは実行していません。\n" + reply
                 } else {
                     $0.phase = .success
-                    $0.title = "完了"
+                    $0.title = "完了" + progress
                     $0.reply = reply
                 }
             }
         case let .failed(message):
             terminal.report(event)
             update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
+        case let .planned(steps):
+            terminal.report(.planned(steps: steps))
+        case let .stepStarted(index, total, _):
+            lock.lock(); step = (index, total); lock.unlock()
+            terminal.report(event)
+        case .carriedResult:
+            terminal.report(event)
+        case let .planStopped(completed, total):
+            terminal.report(event)
+            update(hideAfter: 7) { $0.hint = "ステップ \(completed + 1)/\(total) で止まりました（済み：\(completed)）" }
         case .cancelled:
             // 新しい発話に、取って代わられた：「取りやめました」を出さない（新しい発話の表示を、上書きしない）
             if isSuperseded() { return }

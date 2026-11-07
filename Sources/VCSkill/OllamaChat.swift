@@ -6,8 +6,8 @@ struct OllamaChat: ChatModel {
     let model: String
     let server = LocalServer(name: "Ollama", port: Self.port)
 
-    func chat(_ messages: [ChatMessage]) async throws -> ChatMessage {
-        let (data, status) = try await server.send(path: "/api/chat", body: Self.request(model: model, messages: messages))
+    func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
+        let (data, status) = try await server.send(path: "/api/chat", body: Self.request(model: model, messages: messages, tools: tools))
         if status == 404 { throw ChatError.modelNotFound(model: model, hint: "ollama pull \(model) で取得してください") }
         guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
         return try Self.reply(from: data)
@@ -24,12 +24,14 @@ struct OllamaChat: ChatModel {
     // MARK: 通信の形（Ollama）
 
     /// `think: false`：考える部分を出させない（遅くなる）。
-    static func request(model: String, messages: [ChatMessage]) -> [String: Any] {
-        [
-            "model": model, "stream": false, "think": false, "tools": [ChatTools.runCommand],
-            "options": ["temperature": 0.2, "num_ctx": 8192],
+    static func request(model: String, messages: [ChatMessage], tools: Bool = true) -> [String: Any] {
+        var body: [String: Any] = [
+            "model": model, "stream": false, "think": false,
+            "options": ["temperature": tools ? 0.2 : 0.0, "num_ctx": 8192],
             "messages": messages.map(wire),
         ]
+        if tools { body["tools"] = [ChatTools.runCommand] }
+        return body
     }
 
     private static func wire(_ m: ChatMessage) -> [String: Any] {

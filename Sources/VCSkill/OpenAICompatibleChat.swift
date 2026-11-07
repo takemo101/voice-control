@@ -10,8 +10,8 @@ struct OpenAICompatibleChat: ChatModel {
         server = LocalServer(name: "OpenAI 互換サーバー", port: port)
     }
 
-    func chat(_ messages: [ChatMessage]) async throws -> ChatMessage {
-        let (data, status) = try await server.send(path: "/v1/chat/completions", body: Self.request(model: model, messages: messages))
+    func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
+        let (data, status) = try await server.send(path: "/v1/chat/completions", body: Self.request(model: model, messages: messages, tools: tools))
         if status == 404 { throw ChatError.modelNotFound(model: model, hint: "サーバーに、このモデルを読み込んでください") }
         guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
         return try Self.reply(from: data)
@@ -26,8 +26,10 @@ struct OpenAICompatibleChat: ChatModel {
     // MARK: 通信の形（OpenAI 互換）
 
     /// `reasoning_effort: none`：考える部分を出させない（測定：Ollama の `/v1` で、qwen3.5:4b の短い依頼が 88.7 秒 → 5.1 秒）。考えないモデルは、無視する。
-    static func request(model: String, messages: [ChatMessage]) -> [String: Any] {
-        ["model": model, "stream": false, "temperature": 0.2, "reasoning_effort": "none", "tools": [ChatTools.runCommand], "messages": messages.map(wire)]
+    static func request(model: String, messages: [ChatMessage], tools: Bool = true) -> [String: Any] {
+        var body: [String: Any] = ["model": model, "stream": false, "temperature": tools ? 0.2 : 0.0, "reasoning_effort": "none", "messages": messages.map(wire)]
+        if tools { body["tools"] = [ChatTools.runCommand] }
+        return body
     }
 
     private static func wire(_ m: ChatMessage) -> [String: Any] {

@@ -8,6 +8,7 @@ import Foundation
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
 /// - `fillers`：消すつなぎ言葉の辞書（利用者が足し引きする）。なければ、既定の辞書（解釈は Speech 層）。
+/// - `multiStep`：1 つの依頼を、複数のステップに分けて実行するか。なければ、分ける（`vc plan off` で、1 依頼 = 1 スキル）。
 /// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`。解釈は Skill 層）。なければ、Apple。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
@@ -17,6 +18,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var stt: String?
     public var mute: Bool?
     public var removeFillers: Bool?
+    public var multiStep: Bool?
     public var fillers: [String]?
     public var engine: String?
     public var trustedProjects: [String] = []
@@ -32,6 +34,7 @@ public struct Settings: Codable, Sendable, Equatable {
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)
+        multiStep = try c.decodeIfPresent(Bool.self, forKey: .multiStep)
         fillers = try c.decodeIfPresent([String].self, forKey: .fillers)
         engine = try c.decodeIfPresent(String.self, forKey: .engine)
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
