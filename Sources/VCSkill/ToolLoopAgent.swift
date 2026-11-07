@@ -41,7 +41,7 @@ final class ToolLoopAgent: SkillExecuting {
             if toolCallCount == 0 && !nudged {
                 nudged = true
                 messages.append(ChatMessage(role: .assistant, content: reply.content))
-                messages.append(ChatMessage(role: .user, content: "Do not answer yet. Call the tool run_command now and run the command that the SKILL tells you to run first."))
+                messages.append(ChatMessage(role: .user, content: CommandSession.nudgeText))
                 continue
             }
             return session.openAsNoteIfRequested(Self.withoutThinking(reply.content))

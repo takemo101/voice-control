@@ -7,7 +7,6 @@ import VCDecision
 /// 持つのは、不変の `session` だけ（可変な状態は、`CommandSession` が、ロックで守る）。
 final class SkillAgent: SkillExecuting {
     private let session: CommandSession
-
     init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil) {
         session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
     }
@@ -19,8 +18,13 @@ final class SkillAgent: SkillExecuting {
         try session.checkCancelled()
         session.begin(request: request)
         let model = LanguageModelSession(tools: [RunCommandTool(session)], instructions: session.instructions)
-        let reply = try await model.respond(to: "User request: \(request)").content
+        var reply = try await model.respond(to: "User request: \(request)").content
         try session.checkCancelled()
+        // 道具を呼ばずに、道具の呼び出しの文字などを返したら、1 回だけ、道具を呼ぶよう促す
+        if CommandSession.shouldNudge(callCount: session.callCount, reply: reply) {
+            reply = try await model.respond(to: CommandSession.nudgeText).content
+            try session.checkCancelled()
+        }
         return session.openAsNoteIfRequested(reply)
     }
 }
