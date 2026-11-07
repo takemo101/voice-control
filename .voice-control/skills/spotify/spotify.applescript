@@ -9,15 +9,11 @@ on run argv
 	set theArg to ""
 	if (count of argv) ≥ 2 then set theArg to item 2 of argv
 	-- アプリを要する action は、起動していなければ、起動して、受け付けるまで待つ（「起動して再生して」が、1 回の命令で通るように）
-	if {"play", "pause", "playpause", "next", "previous", "volume-up", "volume-down", "volume", "mute", "shuffle", "repeat", "search"} contains theAction then my ensureRunning()
+	if {"play", "pause", "playpause", "next", "previous", "volume-up", "volume-down", "volume", "mute", "shuffle", "repeat", "search", "play-liked"} contains theAction then my ensureRunning()
 
 	if theAction is "open" then
-		if application "Spotify" is running then
-			tell application "Spotify" to activate
-		else
-			-- 起動していないとき、AppleScript の activate は、アプリが答えるまで待ち続けて、vc の 30 秒の上限に掛かることがある。`open -a` は、すぐ戻る
-			do shell script "/usr/bin/open -a Spotify"
-		end if
+		-- `open -a`：起動していなければ起動し、起動していて、ウィンドウがなければ、ウィンドウを開く（AppleScript の `activate` は、ウィンドウのない状態では、ウィンドウを開かない。起動していないときは、アプリが答えるまで待ち続けて、vc の 30 秒の上限に掛かることがある）
+		do shell script "/usr/bin/open -a Spotify"
 		return "ok"
 	else if theAction is "status" then
 		-- 起動していなければ、起動しない
@@ -100,6 +96,8 @@ on run argv
 			return "error: repeat needs on or off"
 		end if
 		return "ok"
+	else if theAction is "play-liked" then
+		return my playLiked(theArg)
 	else if theAction is "like" then
 		return my toggleLike()
 	else if theAction is "search" then
@@ -113,6 +111,21 @@ on run argv
 		return "error: unknown action " & theAction
 	end if
 end run
+
+-- お気に入り（Liked Songs）を再生する。`spotify:user:<アカウントの ID>:collection` を再生する（検索は、要らない）。アカウントの ID は、Spotify の設定ファイル（prefs）の `autologin.canonical_username` の 1 項目だけを読む（ほかの項目〔ログイン情報など〕は、読まない）。`shuffle` を付けたら、シャッフルして。
+on playLiked(mode)
+	set accountId to ""
+	try
+		set accountId to do shell script "/usr/bin/grep -m1 -o 'canonical_username=\"[^\"]*\"' \"$HOME/Library/Application Support/Spotify/prefs\" | /usr/bin/sed 's/.*=\"\\(.*\\)\"/\\1/'"
+	end try
+	-- ID は、英数字・`_`・`.`・`-` だけ（AppleScript の文字列に入れるので、確かめる）
+	if accountId is "" or (do shell script "printf %s " & quoted form of accountId & " | /usr/bin/grep -Ec '^[A-Za-z0-9_.-]+$' || true") is not "1" then return "error: Spotify のアカウントを、設定ファイルから読めません（Spotify にログインしていますか）"
+	tell application "Spotify"
+		if mode is "shuffle" then set shuffling to true
+		play track ("spotify:user:" & accountId & ":collection")
+	end tell
+	return "ok"
+end playLiked
 
 -- 読み上げる文。state：`playing`・`paused`・`stopped`・`not running`。曲名・アーティスト名は、Spotify の文字をそのまま使う（空なら、触れない）。
 on buildAnnouncement(stateText, trackName, artistName)

@@ -1,6 +1,6 @@
 ---
 name: spotify
-description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・今の曲を声で読み上げる（読み上げて・しゃべって・声で教えて）・検索・シャッフル・今の曲をお気に入り（いいね）に追加。「音楽をかけて」「曲を流して」も
+description: Spotify の操作：起動する・開く・再生・一時停止・次の曲・前の曲・音量（上げる・下げる・最大・最小・ミュート・数値）・今流れている曲は何か（曲名を教える）・今の曲を声で読み上げる（読み上げて・しゃべって・声で教えて）・検索・シャッフル・今の曲をお気に入りに追加・お気に入りの曲を再生。「音楽をかけて」「曲を流して」も
 allowed-commands:
   - osascript ${SKILL_DIR}/spotify.applescript
 ---
@@ -15,6 +15,7 @@ Use only these actions:
 - status   (prints the player state, track, artist, volume)
 - announce   (SPEAKS the current track and artist aloud in Japanese. It does not print the track; it never launches Spotify)
 - search "<text>"   (opens the Spotify search page; use only the words the user said; does not start playback)
+- play-liked [shuffle]   (PLAYS the user's Liked Songs / favorites. Add the word `shuffle` to shuffle them. It needs no search)
 - like   (adds the CURRENT song to the user's Liked Songs / favorites. It is a TOGGLE: if the song was already liked, it is removed. It briefly brings Spotify to the front)
 - open   (launches Spotify if it is not running, and brings it to the front)
 
@@ -33,6 +34,8 @@ Which action for which request:
 - announce: ONLY when the user asks to have the song READ ALOUD or told BY VOICE (読み上げて・声で教えて・しゃべって・口で言って). For a plain question about the song (何が流れてる？・曲名は？) use status instead. After announce, reply: done: 曲名を読み上げました.
 - status: ONLY when the user asks a QUESTION about the current state (what is playing? which song? how loud is it now?). It only READS: never use it for a command such as mute / volume / play / next.
 - search for something → search "<text>".
+- play my favorites / Liked Songs (お気に入りの曲をかけて・お気に入りを再生・いいねした曲を流して・お気に入りをシャッフルして) → play-liked  Run EXACTLY `play-liked` with NO other word, unless the request contains シャッフル or ランダム: only then `play-liked shuffle`. Examples: 「お気に入りの曲をかけて」 → play-liked / 「お気に入りをシャッフルして」 → play-liked shuffle. This PLAYS them. It is NOT `like`.
+- play a NAMED artist / song / album (the request contains a name that is not "お気に入り": 「<アーティスト名>の曲をかけて」「<曲名>を再生して」) → search "<the name only>". Use search ONLY when the request names an artist, a song or an album. Spotify cannot start it by name: the search page opens and the user presses play. After it, reply in Japanese that the search page was opened and that playing by name is not possible automatically (自動では、再生できません).
 - add the current song to favorites / Liked Songs / like it (お気に入りに追加・いいね・ハートを付けて・ライブラリに保存) → like. After it, tell the user in Japanese which song it was, and ALWAYS add that it is a toggle (すでに追加済みなら、解除になります).
 
 The command prints one line. If it starts with "error:", reply: failed: <the message>.
