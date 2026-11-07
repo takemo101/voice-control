@@ -10,6 +10,7 @@ struct DictateCommand: Command {
         details: [
             "押している間だけ録音（既定：Shift の長押し。vc hotkey で変更）→ 離すと文字にして、**いま前面のアプリへ入力**する（クリップボードに書いて ⌘V を送り、貼り付け先が読んだら、元のクリップボードへ戻す。読まれなければ、「入力できませんでした」と出して、文字をクリップボードに残す。そのあとに、ほかのアプリがコピーしていたら、戻さない）。",
             "スキル・言語モデル・Tiny-Jev は、使わない（音声入力だけ。起動が速い）。認識は、vc stt（Apple か、ダウンロードした Whisper）。声のない録音は、入力しない。",
+            "つなぎ言葉（えーと・um など）を消すには、vc fillers on（辞書は vc fillers で足し引き）。",
             "入力した文字は、画面の上のパネルにだけ出す（ファイル・ログ・端末には残さない）。アクセシビリティの許可が要る（トリガーの検出と、⌘V の送信）。マイクの許可も要る。",
             "トリガーは、--trigger → 音声入力のトリガー（vc hotkey set-dictate）→ 声で頼むトリガー（vc hotkey）。**声で頼むのと、音声入力を、キーで切り替えたいなら、vc hotkey set-dictate <キー> で別のキーを決めて、vc listen --hotkey を使う**（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）。",
             "Esc で取りやめ（録音中・認識中）。Ctrl+C で終了。",
@@ -42,6 +43,17 @@ struct DictateCommand: Command {
             return
         }
         if token.isCancelled { return }
+        // つなぎ言葉を消す（設定が on のとき。設定は、入力のたびに読む：`vc fillers add` が、すぐ効く）
+        let settings = context.currentSettings()
+        var utterance = utterance
+        if FillerWords.isEnabled(setting: settings.removeFillers) {
+            utterance = FillerWords.remove(from: utterance, fillers: FillerWords.list(setting: settings.fillers))
+            if utterance.isEmpty {
+                notice("つなぎ言葉だけでした（入力しません）")
+                HUD.shared.show(HUDContent(phase: .info, title: "つなぎ言葉だけでした", hint: "入力しません", chip: chip), hideAfter: 2)
+                return
+            }
+        }
         if context.options.dryRun {
             print("  " + Style.yellow("入力しません（--dry-run）") + "（\(utterance.count) 文字）")
             HUD.shared.show(HUDContent(phase: .info, title: "認識しました（入力しません：--dry-run）", chip: chip, reply: utterance), hideAfter: 2.5)

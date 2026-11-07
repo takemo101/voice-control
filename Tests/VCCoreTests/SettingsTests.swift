@@ -30,6 +30,22 @@ import VCCore
         #expect(reloaded.mute == false && reloaded.engine == "ollama:qwen3.5:4b")
     }
 
+    /// つなぎ言葉の除去：なければ nil（既定：消さない・既定の辞書）。**空の辞書（`[]`）は、nil（既定の辞書）と区別して**保存する。
+    @Test func fillerSettingsAreOptionalAndAnEmptyListIsNotTheDefault() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        var settings = try Settings.load(from: file)
+        #expect(settings.removeFillers == nil && settings.fillers == nil)
+        settings.removeFillers = true
+        settings.fillers = []
+        try settings.save(to: file)
+        let reloaded = try Settings.load(from: file)
+        #expect(reloaded.removeFillers == true && reloaded.fillers == [])
+        try Data(#"{"hotkey":"shift"}"#.utf8).write(to: file)
+        let old = try Settings.load(from: file)
+        #expect(old.removeFillers == nil && old.fillers == nil)
+    }
+
     @Test func skillsAreEnabledByDefaultAndTogglePersistently() throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }

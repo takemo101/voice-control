@@ -6,6 +6,8 @@ import Foundation
 /// - `dictateHotkey`：音声入力（`vc dictate`）のトリガー。なければ、声で頼むトリガー（`hotkey`）と同じ。**設定すると、`vc listen --hotkey` も、このトリガーで音声入力になる**（トリガーで切り替わる）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
+/// - `fillers`：消すつなぎ言葉の辞書（利用者が足し引きする）。なければ、既定の辞書（解釈は Speech 層）。
 /// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`。解釈は Skill 層）。なければ、Apple。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
@@ -14,6 +16,8 @@ public struct Settings: Codable, Sendable, Equatable {
     public var dictateHotkey: String?
     public var stt: String?
     public var mute: Bool?
+    public var removeFillers: Bool?
+    public var fillers: [String]?
     public var engine: String?
     public var trustedProjects: [String] = []
 
@@ -27,6 +31,8 @@ public struct Settings: Codable, Sendable, Equatable {
         dictateHotkey = try c.decodeIfPresent(String.self, forKey: .dictateHotkey)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
+        removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)
+        fillers = try c.decodeIfPresent([String].self, forKey: .fillers)
         engine = try c.decodeIfPresent(String.self, forKey: .engine)
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
     }
