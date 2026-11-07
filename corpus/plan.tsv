@@ -58,3 +58,30 @@ dev	ask-agent>spotify	クロードでRustの所有権を調べて、そのあと
 test	ask-agent>spotify	コーデックスでSwiftの並行処理を調べて、そのあと音量を下げて	コーデックス
 test	ask-agent>web-search	グロックでRustの歴史を調べて、それからウィキペディアでRustを検索して	グロック,ウィキペディア
 test	ask-agent>web-search	オープンコードでGoのチャネルを調べて、そのあとYouTubeで動画を探して	オープンコード,YouTube
+# ── 分けすぎの測定：1 つのスキルで済む依頼（動詞が複数・節が複数でも、ステップは 1 つ）。dev＝指示文の調整に使う／test＝最後に 1 回
+dev	ask-agent	Rustの所有権について調べて、要点をまとめて
+dev	ask-agent	クロードでGoの並行処理を調べて、初心者向けに説明して
+dev	spotify	Spotifyを起動して、音楽をかけて
+dev	spotify	音量を下げて、静かにしてほしい
+dev	web-search	Amazonでマウスを検索して、安い順に見たい
+dev	clipboard-note	コピーした文章を、短く要約して、箇条書きにして
+dev	file-search	請求書のPDFを探して、開いて
+dev	default	Safariを開いて、前面に出して
+dev	spotify	お気に入りの曲を、シャッフルでかけて
+dev	web-search	YouTubeでピアノの曲を探して、再生して
+dev	ask-agent	電気自動車の最新の動向について、調べて、教えて
+dev	spotify	次の曲にして、音量も少し下げて
+test	ask-agent	コーデックスでSwiftの並行処理を調べて、わかりやすくまとめて
+test	spotify	Spotifyを開いて、曲を再生して
+test	web-search	楽天で加湿器を検索して、レビューの多い順に出して
+test	clipboard-note	コピーした文章を整えて、読みやすくして
+test	file-search	先月の議事録を探して、開いてほしい
+test	default	Finderを開いて、前に出して
+test	spotify	前の曲に戻して、音を大きくして
+test	web-search	ウィキペディアでSwiftを調べて、開いて
+test	ask-agent	グロックで最新のAIの動向を調べて、要点を教えて
+test	spotify	音楽を止めて、静かにして
+test	ask-agent	パイでRustの歴史を調べて、短くまとめて
+test	spotify	音量を上げて、曲を次に進めて
+test	default	メモを開いて、新しい書類を作って
+test	web-search	Googleで明日の天気を調べて、教えて
