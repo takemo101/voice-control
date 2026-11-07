@@ -194,6 +194,7 @@ vc dictate --dry-run                          # 入力せずに、認識した�
 - 録音中は波形が動き、離すと「認識中…」、入力したら「入力しました」と出ます。Esc で取りやめます。
 - アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
 - 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。
+- **つなぎ言葉（「えーと」「あのー」「um」など）を、消せます**（既定は off。辞書にある語を、文字列の一致で消すだけで、言語モデルは使いません）。`vc fillers on`。辞書は、`vc fillers add あのさ`・`vc fillers remove えー` で足し引きします（`vc fillers` で一覧）。**声でも足せます**：`vc skills install filler-add` →「『あのさ』をつなぎ言葉に追加して」。声で頼む依頼文には、かけません。詳しくは [docs/skills.md](docs/skills.md#つなぎ言葉を消す辞書vc-fillers音声でも足すfiller-add)。
 
 ### キーの決め方（右側のキーだけにもできます）
 
@@ -380,6 +381,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc model [list\|status\|download\|path\|delete] [<ID>]` | モデルの一覧・確認・取得・削除（`~/.voice-control/models`）。Tiny-Jev（ID を省くと、これ）と、音声認識のモデル（`whisper-large-v3-turbo`） |
 | `vc stt [show\|set <apple\|ID>\|reset]` | 使う音声認識の確認・変更（既定：Apple。取得していないモデルは、選べない） |
 | `vc engine [show\|set <エンジン>\|reset]` | スキルを実行するモデル（分析・実行の言語モデル）を、常にこれにする（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`） |
+| `vc fillers [show\|on\|off\|add\|remove\|reset]` | 音声入力で消す、つなぎ言葉（えーと・um など）の辞書の確認・足し引き・オン／オフ（既定は off） |
 | `vc mute [show\|on\|off\|reset]` | 録音中に、ほかの音を消す（on。既定）か、流したままにする（off）か |
 | `vc transcribe <音声ファイル> [--stt …]` | 音声ファイルを文字にする（音声認識の確認用） |
 | `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`） |
