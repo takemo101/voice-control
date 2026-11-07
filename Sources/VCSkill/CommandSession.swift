@@ -39,6 +39,19 @@ final class CommandSession: @unchecked Sendable {
     /// 実行したコマンド（拒否したものを除く）。
     var executedCommands: [String] { lock.lock(); defer { lock.unlock() }; return log }
 
+    /// 道具（`run_command`）を、これまでに呼んだ回数（許可されなかった呼び出しも数える）。
+    var callCount: Int { lock.lock(); defer { lock.unlock() }; return count }
+
+    /// 小さなモデルは、道具を呼ばずに、道具の呼び出しの「文字」（`run_command{command: "open"}`）や、「貼り付けてください」などを返すことがある。
+    /// 道具を 1 回も呼ばず、返事が `done`・`failed`・`skip` で始まらないとき、1 回だけ、道具を呼ぶよう促す（どのモデルでも共通）。
+    static func shouldNudge(callCount: Int, reply: String) -> Bool {
+        guard callCount == 0 else { return false }
+        let head = reply.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return !(head.hasPrefix("done") || head.hasPrefix("failed") || head.hasPrefix("skip"))
+    }
+
+    static let nudgeText = "Do not answer yet. Call the tool run_command now and run the command that the SKILL tells you to run first."
+
     private func nextCall() -> Int { lock.lock(); defer { lock.unlock() }; count += 1; return count }
     private func record(_ c: String) { lock.lock(); log.append(c); lock.unlock() }
 
