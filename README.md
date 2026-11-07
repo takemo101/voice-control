@@ -148,10 +148,10 @@ vc listen --hotkey                               # 声で頼む（Shift を押�
 - オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
 - `~/.local/bin` が PATH にないときは、そう知らせる。
 
-**手で入れる**（[v0.3.10](https://github.com/takemo101/voice-control/releases/tag/v0.3.10) の例）：
+**手で入れる**（[v0.3.11](https://github.com/takemo101/voice-control/releases/tag/v0.3.11) の例）：
 
 ```sh
-V=0.3.10
+V=0.3.11
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
 shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
