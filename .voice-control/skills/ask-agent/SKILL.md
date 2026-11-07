@@ -16,7 +16,7 @@ The user wants something researched ("調べて", "教えて", "まとめて"), 
    - グロック / Grok → grok
    - オープンコード / OpenCode → opencode
    - パイ / pi → pi
-   If the user named NO agent, use no agent id at all (the script then uses agy, and falls back to the on-device model by itself).
+   If the user named NO agent, use no agent id at all (the script then uses agy, and falls back to the on-device model by itself). NEVER add an agent id that the user did not say: for 「Docker とは何か教えて」 run `node ${SKILL_DIR}/ask-agent.mjs "Docker とは何か"` (no `claude`).
 3. Run EXACTLY ONE command. The command you pass to run_command is this WHOLE line: it starts with `node`, then the script path, then the agent id (ONLY when the user named one), then the topic in double quotes. Examples:
    - 「SwiftUI について調べて」 -> node ${SKILL_DIR}/ask-agent.mjs "SwiftUI"
    - 「クロードで量子コンピュータとは何か教えて」 -> node ${SKILL_DIR}/ask-agent.mjs claude "量子コンピュータとは何か"

@@ -17,7 +17,16 @@ const fail = (message, code = 1) => { console.log(`failed: ${message}`); process
 // 引数：1 つなら、調べること。2 つなら、エージェント・調べること
 const args = process.argv.slice(2);
 if (args.length > 2) fail("引数が多すぎます（エージェント〔省略できる〕と、調べること）", 2);
-const requested = args.length === 2 ? args[0].trim().toLowerCase() : undefined;
+// 言語モデルは、エージェントの名前を、声での呼び名（「オープンコード」）や、大文字（「OpenCode」）で渡すことがある：呼び名を、id にそろえる
+const ALIASES = {
+  agy: "agy", antigravity: "agy", "アンチグラビティ": "agy", "アンチグラビティー": "agy",
+  claude: "claude", "クロード": "claude",
+  codex: "codex", "コーデックス": "codex",
+  grok: "grok", "グロック": "grok",
+  opencode: "opencode", "open code": "opencode", "オープンコード": "opencode",
+  pi: "pi", "パイ": "pi",
+};
+const requested = args.length === 2 ? (ALIASES[args[0].trim().toLowerCase()] ?? args[0].trim().toLowerCase()) : undefined;
 const question = (args[args.length - 1] ?? "").trim();
 if (!question) fail("調べることが空です", 2);
 

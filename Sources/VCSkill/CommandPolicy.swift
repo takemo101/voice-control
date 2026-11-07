@@ -97,6 +97,27 @@ public enum CommandPolicy {
         return nil
     }
 
+    /// 言語モデルが、許可の先頭（`osascript /…/spotify.applescript`）を**落として**、動作と引数だけ（`volume 50`）を書いたとき、許可の先頭を前に付けて補う。
+    /// 補うのは、次のすべてに当てはまるときだけ（「先頭を書き忘れた」と言える形に限る）：
+    /// - 許可が **1 項目**で、**インタプリタ + スクリプトのパス**（`osascript /…/x.applescript`・`node /…/x.mjs`）の形。
+    /// - コマンドの先頭が、許可のプログラムと**違う**（`osascript` で始まっていれば、書き忘れでなく、許可にない書き方）。
+    /// - 先頭が、シェルなどの許可できない名前でも、パスでもなく、**PATH にある実在のコマンドでもない**（`rm`・`open`・`curl` は、別のコマンドを頼んでいるので、補わず、拒否のまま）。
+    /// 補っても、許可の先頭 + 言語モデルの引数で、引数を言語モデルが決められることは、補う前と同じ：権限は、広がらない。補ったあとも、`check` を通す。補えなければ nil。
+    public static func completed(command: String, argv: [String], allowed: [String]) -> (command: String, argv: [String])? {
+        guard allowed.count == 1, case let .success(entry) = normalize(allowed[0]), entry.count >= 2, entry[entry.count - 1].hasPrefix("/"),
+              let first = argv.first, first != entry[0], !first.contains("/"), !forbidden.contains(first), !isExecutableOnPath(first),
+              check(argv: argv, allowed: allowed) != nil else { return nil }
+        let full = allowed[0] + " " + command
+        guard case .success(let completed) = tokenize(full), check(argv: completed, allowed: allowed) == nil else { return nil }
+        return (full, completed)
+    }
+
+    /// その名前の実行ファイルが、PATH にあるか。
+    static func isExecutableOnPath(_ name: String) -> Bool {
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        return path.split(separator: ":").contains { FileManager.default.isExecutableFile(atPath: "\($0)/\(name)") }
+    }
+
     /// 実行してよいか。許可なら `nil`、拒否なら理由。
     public static func check(argv: [String], allowed: [String]) -> Violation? {
         guard let first = argv.first else { return Violation(reason: "コマンドが空") }

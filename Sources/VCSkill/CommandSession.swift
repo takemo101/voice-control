@@ -66,10 +66,16 @@ final class CommandSession: @unchecked Sendable {
         if cancel?.isCancelled == true { return "ERROR: cancelled by the user. Stop now and do not run more commands." }
         let n = nextCall()
         if n > Self.maxCommands { return "ERROR: too many commands (limit \(Self.maxCommands)). Stop now and reply: failed: <reason>" }
-        let argv: [String]
+        var command = command
+        var argv: [String]
         switch CommandPolicy.tokenize(command) {
         case .failure(let v): display.onDenied(command, v.reason); return "ERROR: \(v.reason)"
         case .success(let tokens): argv = tokens
+        }
+        // 許可の先頭（`osascript …/spotify.applescript`）を落として、引数だけ書いたとき（Apple のモデルが、よくする）：許可が 1 項目だけのスキルは、先頭を補う（画面には、補ったあとのコマンドを出す）
+        if let completed = CommandPolicy.completed(command: command, argv: argv, allowed: skill.allowedCommands) {
+            command = completed.command
+            argv = completed.argv
         }
         if let violation = CommandPolicy.check(argv: argv, allowed: skill.allowedCommands) {
             display.onDenied(command, violation.reason)

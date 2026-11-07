@@ -46,3 +46,47 @@ import Testing
         #expect(try tokens("echo '\\n'") == ["echo", "\\n"])                // 単一引用符の中は、そのまま
     }
 }
+
+/// 許可の先頭を落とした引数だけのコマンドは、許可が 1 項目のスキルに限り、先頭を補う（権限は広がらない）。
+@Suite struct CommandPolicyCompletionTests {
+    private let spotify = ["osascript /skills/spotify/spotify.applescript"]
+
+    private func complete(_ command: String, allowed: [String]) -> String? {
+        guard case let .success(argv) = CommandPolicy.tokenize(command) else { return nil }
+        return CommandPolicy.completed(command: command, argv: argv, allowed: allowed)?.command
+    }
+
+    @Test func aMissingPrefixIsCompletedForASingleEntrySkill() {
+        #expect(complete("volume 50", allowed: spotify) == "osascript /skills/spotify/spotify.applescript volume 50")
+        #expect(complete(#"search "next""#, allowed: spotify) == #"osascript /skills/spotify/spotify.applescript search "next""#)
+        #expect(complete("play-liked", allowed: spotify) == "osascript /skills/spotify/spotify.applescript play-liked")
+    }
+
+    /// すでに許可なら、補わない。許可が複数ある（先頭が 1 つに決まらない）スキルは、補わない。
+    @Test func nothingIsCompletedWhenAlreadyAllowedOrAmbiguous() {
+        #expect(complete("osascript /skills/spotify/spotify.applescript next", allowed: spotify) == nil)
+        #expect(complete("volume 50", allowed: ["open", "say"]) == nil)
+        #expect(complete("volume 50", allowed: []) == nil)
+    }
+
+    /// 許可のプログラムで始まっている（書き忘れでなく、許可にない書き方）・許可が、スクリプトのパスでない・PATH にある実在のコマンドは、補わない。
+    @Test func onlyAForgottenInterpreterPrefixIsCompleted() {
+        #expect(complete("osascript /skills/other.applescript next", allowed: spotify) == nil)   // 別のスクリプト：拒否のまま
+        #expect(complete("play-liked", allowed: ["vc fillers add"]) == nil)   // 許可が、スクリプトのパスでない
+        #expect(complete("play-liked", allowed: ["echo"]) == nil)
+        for real in ["rm -rf /tmp/x", "open -a Spotify", "curl https://example.com", "ls"] { #expect(complete(real, allowed: spotify) == nil, "\(real)") }
+    }
+
+    /// シェル・権限を上げる名前・パスで始まるコマンドは、補わず、拒否のまま。
+    @Test func forbiddenProgramsAndPathsAreNeverCompleted() {
+        for command in ["sudo reboot", "sh -c ls", "bash script.sh", "env FOO=1 ls", "/bin/rm -rf /tmp/x", "./run.sh"] {
+            #expect(complete(command, allowed: spotify) == nil, "\(command)")
+        }
+    }
+
+    /// 補ったあとも、許可の先頭 + 引数：シェルの記号は、ただの引数の文字（実行されない）。
+    @Test func shellSyntaxStaysPlainArguments() {
+        let completed = CommandPolicy.completed(command: "next; rm -rf ~", argv: ["next;", "rm", "-rf", "~"], allowed: spotify)
+        #expect(completed?.argv == ["osascript", "/skills/spotify/spotify.applescript", "next;", "rm", "-rf", "~"])
+    }
+}

@@ -40,6 +40,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just install` | ソースからビルドした `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がそろっているもの）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
 | `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
 | `vc eval-plan corpus/plan.tsv --set dev\|test` | 依頼を複数のステップに分ける判断（言語モデル）と、各ステップのスキルの選び方の当たり率。dev は調整用・test は最後に 1 回（Tiny-Jev のモデルと、言語モデルが要る。実行はしない） |
+| `scripts/eval-skills.py [--engine apple\|ollama:<モデル>] [--rounds N] [--skill <名前>]` | **全スキルを、言語モデルで動かし、依頼から、正しいコマンドが出るか**を数える（`corpus/skills.tsv`。`--dry-run`：実行しない。一時の `VC_HOME` で、利用者の設定・クリップボードには触れない。Tiny-Jev は使わず、スキルを指定する）。スキルの本文・実行者を変えたら、これで、エンジンごとに測る |
 | `just eval` | 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（`vc eval-gate corpus/gate.tsv`。Tiny-Jev のモデルが要る。実機は操作しない） |
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
 | `just vc <args>` | ビルドして `vc` を呼ぶ |
