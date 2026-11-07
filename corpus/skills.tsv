@@ -1,0 +1,49 @@
+# スキルごとに、依頼から、正しいコマンドが出るかを測る（scripts/eval-skills.py。--dry-run：実行しない）。自作・少数。
+# 形：スキル<TAB>照合（exact＝出たコマンドが、これ 1 つだけ／first＝最初のコマンドが、これで始まる／has＝どれかが、この正規表現に合う）<TAB>期待<TAB>依頼
+# has の期待は、正規表現（検索の言葉に「動画」が付いても、よい、など）。
+# コマンドは、スキルのディレクトリの部分（.../skills/<名前>/）を除いた形で比べる。
+spotify	exact	osascript spotify.applescript volume 50	音量を50にして
+spotify	exact	osascript spotify.applescript next	次の曲にして
+spotify	exact	osascript spotify.applescript previous	前の曲に戻して
+spotify	exact	osascript spotify.applescript pause	一時停止して
+spotify	exact	osascript spotify.applescript play	再生して
+spotify	exact	osascript spotify.applescript play-liked	お気に入りの曲をかけて
+spotify	exact	osascript spotify.applescript play-liked shuffle	お気に入りをシャッフルして
+spotify	exact	osascript spotify.applescript like	この曲をお気に入りに追加して
+spotify	exact	osascript spotify.applescript announce	今の曲を読み上げて
+spotify	exact	osascript spotify.applescript status	今、何が流れてる？
+spotify	exact	osascript spotify.applescript mute	ミュートして
+spotify	exact	osascript spotify.applescript volume 100	音量を最大にして
+spotify	exact	osascript spotify.applescript volume-up	音量を上げて
+spotify	exact	osascript spotify.applescript open	Spotifyを起動して
+spotify	exact	osascript spotify.applescript search "坂本龍一"	坂本龍一の曲をかけて
+web-search	exact	node web-search.mjs amazon "マウス"	Amazonでマウスを検索して
+web-search	exact	node web-search.mjs google "明日の天気"	Googleで明日の天気を検索して
+web-search	has	^node web-search\.mjs youtube "ピアノ	YouTubeでピアノの動画を探して
+web-search	exact	node web-search.mjs wikipedia "Swift"	ウィキペディアでSwiftを調べて
+web-search	exact	node web-search.mjs rakuten "加湿器"	楽天で加湿器を検索して
+web-search	exact	node web-search.mjs maps "東京駅"	地図で東京駅を探して
+ask-agent	exact	node ask-agent.mjs "SwiftUI"	SwiftUIについて調べて
+ask-agent	exact	node ask-agent.mjs "量子コンピュータとは何か"	量子コンピュータとは何か教えて
+ask-agent	exact	node ask-agent.mjs claude "Rustの所有権"	クロードでRustの所有権を調べて
+ask-agent	exact	node ask-agent.mjs codex "Goのチャネル"	コーデックスでGoのチャネルを調べて
+ask-agent	exact	node ask-agent.mjs grok "最新の電気自動車の動向"	グロックで最新の電気自動車の動向をまとめて
+ask-agent	has	^node ask-agent\.mjs "?(opencode|OpenCode|オープンコード)"? "Pythonの型ヒント"$	オープンコードでPythonの型ヒントを調べて
+ask-agent	exact	node ask-agent.mjs pi "Kubernetesの基本"	パイでKubernetesの基本を調べて
+ask-agent	exact	node ask-agent.mjs agy "HTTP/3"	アンチグラビティでHTTP/3について調べて
+ask-agent	exact	node ask-agent.mjs "ブロックチェーンとは何か"	ブロックチェーンとは何か説明して
+ask-agent	exact	node ask-agent.mjs "TCPとUDPの違い"	TCPとUDPの違いを調べて
+ask-agent	exact	node ask-agent.mjs "OAuth"	OAuthについてまとめて
+clipboard-note	first	pbpaste	コピーした文章を要約して
+clipboard-note	first	pbpaste	コピーした文章を英語に翻訳して
+clipboard-note	first	pbpaste	コピーした文章を整えて
+file-search	first	vc find	請求書のPDFを開いて
+file-search	first	vc find	先月の議事録を開いて
+file-search	first	vc find	デスクトップの家計簿のエクセルを開いて
+filler-add	exact	vc fillers add "あのさ"	あのさをつなぎ言葉に追加して
+filler-add	exact	vc fillers add "えーっと"	『えーっと』をフィラーに登録して
+filler-add	exact	vc fillers add "ほら"	ほらをつなぎ言葉に足して
+default	has	^open -a "?Safari"?$	Safariを開いて
+default	has	^open -a "Google Chrome"$	Chromeを開いて
+default	has	^open -a "?Finder"?$	Finderを開いて
+default	has	^date$	今日の日付を教えて
