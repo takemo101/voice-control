@@ -45,7 +45,7 @@ struct EvalPlanCommand: Command {
         for set in ["dev", "test"] where onlySet == nil || onlySet == set {
             let mine = rows.filter { $0.set == set }
             if mine.isEmpty { continue }
-            var countOK = 0, strictOK = 0, collapsedOK = 0, over = 0, under = 0, keepTotal = 0, keepLost = 0
+            var countOK = 0, strictOK = 0, collapsedOK = 0, over = 0, under = 0, keepTotal = 0, keepLost = 0, oversplitRows = 0, oversplitSteps = 0
             var rejections: [String: Int] = [:]
             var times: [Double] = []
             var misses: [String] = []
@@ -68,6 +68,8 @@ struct EvalPlanCommand: Command {
                 }
                 // 固有名（エージェント・アプリ・サイトの名前）が、ステップに残ったか（分けたときだけ）
                 if steps.count > 1 { for name in row.keep { keepTotal += 1; if !steps.contains(where: { $0.contains(name) }) { keepLost += 1; misses.append("\(row.utterance)  「\(name)」が、ステップから落ちた") } } }
+                // 分けすぎ（厳密）：正解の列の長さより、ステップが多い（同じスキルの連続も、数える）
+                if steps.count > row.expected.count { oversplitRows += 1; oversplitSteps += steps.count - row.expected.count; misses.append("\(row.utterance)  分けすぎ：\(row.expected.count) → \(steps.count)（\(steps.joined(separator: " / "))）") }
                 let expectedCollapsed = Self.collapse(row.expected)
                 let actualCollapsed = Self.collapse(actual)
                 if actualCollapsed.count == expectedCollapsed.count { countOK += 1 }
@@ -78,6 +80,7 @@ struct EvalPlanCommand: Command {
             }
             heading("\(set)（\(mine.count) 文・エンジン \(context.engineText ?? "apple")）")
             kv("ステップ数が合う", "\(countOK)/\(mine.count)（分けすぎ \(over)・取りこぼし \(under)）", width: 14)
+            kv("分けすぎ（厳密）", "\(oversplitRows)/\(mine.count) 文（余計なステップ \(oversplitSteps)）", width: 14)
             kv("スキル列がまとめて一致", "\(collapsedOK)/\(mine.count)", width: 14)
             kv("スキル列が厳密に一致", "\(strictOK)/\(mine.count)", width: 14)
             if keepTotal > 0 { kv("固有名が残った", "\(keepTotal - keepLost)/\(keepTotal)", width: 14) }
