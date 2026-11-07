@@ -130,6 +130,7 @@ final class EventLog: @unchecked Sendable {
         case .recognitionCancelled: label = "recognitionCancelled"
         case .recognitionFailed: label = "recognitionFailed"
         case .cancelling: label = "cancelling"
+        case .interrupted: label = "interrupted"
         }
         lock.lock(); items.append(label); lock.unlock()
         mailbox.put(label)

@@ -53,6 +53,8 @@ public enum VoiceLoopEvent: Sendable {
     case recognitionFailed(Error)
     /// Esc で、認識・実行・確認の待ちの取りやめを始めた。
     case cancelling
+    /// 処理の途中で、新しい発話が来たので、前の処理を取りやめた（Esc ではない）。そのあと、新しい発話を、順に処理する。
+    case interrupted
 }
 
 /// 次の発話（確認の返事など）を待つ。取りやめられたら `nil`。待っている間の Esc で、解ける。
@@ -176,6 +178,8 @@ public final class VoiceLoop {
                     activity.stopRecording(queuedAudio: true)
                     tags.push(tag)
                     queue.push(.audio(file))
+                    // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）
+                    if activity.interruptForNewUtterance() { emit(.interrupted, tag) }
                 } else {
                     activity.stopRecording(queuedAudio: false)
                     emit(.recordingEmpty, tag)
@@ -218,9 +222,10 @@ public final class VoiceLoop {
 
     @MainActor private func process(_ file: URL, _ token: CancelToken, _ tag: String) async {
         do {
-            guard let utterance = try await transcribe(file, token, tag) else { emit(.recognitionCancelled, tag); return }
+            guard let utterance = try await transcribe(file, token, tag) else { if !token.isSuperseded { emit(.recognitionCancelled, tag) }; return }
             await handler(utterance, token, { [self] in try await nextUtterance(token, tag) }, tag)
         } catch {
+            if token.isSuperseded { return }   // 新しい発話に、取って代わられた：何も出さない（新しい発話の表示を、上書きしない）
             emit(token.isCancelled || error is CancellationError ? .recognitionCancelled : .recognitionFailed(error), tag)
         }
     }
@@ -240,6 +245,8 @@ public final class VoiceLoop {
     /// 次の発話（確認の返事にも使う）。取りやめられたら nil。
     /// `tag`：この発話（確認の前の依頼）の印。返事の録音の印は、取り出すときに引く（返事も、同じ列から来る）。
     @MainActor private func nextUtterance(_ token: CancelToken, _ tag: String) async throws -> String? {
+        activity.beginAwaitingReply()   // 待っている間に来た発話は、新しい依頼ではなく、返事
+        defer { activity.endAwaitingReply() }
         while true {
             switch await queue.next() {
             case .cancel: if token.isCancelled || Task.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる。この待ち自体が取りやめられたら（ボタンが先に答えた）、やめる

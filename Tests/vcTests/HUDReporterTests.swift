@@ -15,6 +15,22 @@ import VCSkill
         return (reporter, shown, spoken, out)
     }
 
+    /// 新しい発話に取って代わられて中断したときは、「取りやめました」を出さない（新しい発話の表示を、上書きしない）。Esc の取りやめは、出す。
+    @Test func aSupersededRunShowsNoCancelledPanelButAnEscapeCancelDoes() {
+        let shown = Collected<Shown>(), out = Collected<String>()
+        let terminal = TerminalReporter(layout: .voice, dryRun: false, out: { out.add(plain($0)) }, err: { _ in })
+        let superseded = HUDReporter(chip: "shift", utterance: "テスト", dryRun: false, isSuperseded: { true }, terminal: terminal,
+                                     present: { shown.add(Shown(content: $0, hideAfter: $1)) }, speak: { _ in })
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .command("open -a Spotify")].forEach(superseded.report)
+        let before = shown.values.count
+        superseded.report(.cancelled)
+        #expect(shown.values.count == before && !out.values.contains { $0.contains("取りやめ") })
+
+        let escaped = reporter()
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .cancelled].forEach(escaped.reporter.report)
+        #expect(escaped.shown.values.last?.content.title == "取りやめました")
+    }
+
     @Test func aConfirmedRunWalksThroughConfirmWorkingAndSuccess() {
         let r = reporter()
         let events: [RunEvent] = [

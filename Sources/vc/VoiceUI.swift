@@ -51,6 +51,10 @@ enum VoiceUI {
         case .cancelling:
             SaySpeaker.shared.stop()
             HUD.shared.show(HUDContent(phase: .info, title: "取りやめています…", chip: chip))
+        case .interrupted:
+            // 画面の上は、新しい発話の「認識中」のまま（上書きしない）。読み上げだけ止める
+            SaySpeaker.shared.stop()
+            print("  " + Style.dim("前の処理を中断して、新しい依頼を受けました"))
         }
     }
 

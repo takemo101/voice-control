@@ -8,6 +8,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let chip: String
     private let utterance: String
     private let dryRun: Bool
+    private let isSuperseded: @Sendable () -> Bool
     private let terminal: TerminalReporter
     private let present: @Sendable (HUDContent, TimeInterval?) -> Void
     private let speak: @Sendable (String) -> Void
@@ -17,6 +18,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
 
     /// `chip`：右上のチップ（トリガーの名前）。`utterance`：聞こえた文。`terminal`・`present`・`speak`：出力先（既定は、端末・画面の上の表示・`say`。テストで差し替える）。
     init(chip: String, utterance: String, dryRun: Bool,
+         isSuperseded: @escaping @Sendable () -> Bool = { false },
          terminal: TerminalReporter? = nil,
          present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
          speak: @escaping @Sendable (String) -> Void = { say($0) },
@@ -24,6 +26,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         self.chip = chip
         self.utterance = utterance
         self.dryRun = dryRun
+        self.isSuperseded = isSuperseded
         self.terminal = terminal ?? TerminalReporter(layout: .voice, dryRun: dryRun)
         self.present = present
         self.speak = speak
@@ -102,6 +105,8 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             terminal.report(event)
             update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
         case .cancelled:
+            // 新しい発話に、取って代わられた：「取りやめました」を出さない（新しい発話の表示を、上書きしない）
+            if isSuperseded() { return }
             terminal.report(event)
             update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil; $0.choices = false }
         }
