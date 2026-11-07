@@ -11,16 +11,16 @@ dev	default	Safariを開いて
 dev	default	ChromeとSafariを開いて
 dev	clipboard-note	コピーした文章を要約して
 dev	file-search	請求書のPDFを開いて
-dev	spotify>web-search	今の曲名を教えて、それをGoogleで検索して
+dev	spotify>web-search	今の曲名を教えて、それをGoogleで検索して	Google
 dev	ask-agent>spotify	Swiftの並行処理について調べて、そのあと次の曲にして
-dev	web-search>spotify	Amazonでキーボードを検索して、それから音量を下げて
+dev	web-search>spotify	Amazonでキーボードを検索して、それから音量を下げて	Amazon
 dev	default>spotify	Safariを開いて、音楽を一時停止して
 dev	clipboard-note>default	コピーした文章を整えて、そのあとメモを開いて
 dev	file-search>spotify	請求書のPDFを開いて、音楽を止めて
-dev	ask-agent>web-search	コーデックスでRustの所有権を調べて、Amazonで本を検索して
+dev	ask-agent>web-search	コーデックスでRustの所有権を調べて、Amazonで本を検索して	コーデックス,Amazon
 dev	spotify>default	次の曲にして、Chromeを開いて
 dev	spotify>default	音量を下げてChromeを開いて
-dev	default>web-search	Safariを開いてYouTubeでジャズを検索して
+dev	default>web-search	Safariを開いてYouTubeでジャズを検索して	Safari,YouTube
 dev	spotify>default>web-search	次の曲にして、Safariを開いて、Amazonで椅子を検索して
 dev	ask-agent>spotify>default	Kubernetesを調べて、音量を下げて、Finderを開いて
 test	spotify	一時停止して
@@ -37,16 +37,16 @@ test	default	ChromeとFinderを開いて
 test	clipboard-note	コピーした文章を丁寧な文章に直して
 test	file-search	先月の議事録を開いて
 test	filler-add	あのさをつなぎ言葉に追加して
-test	ask-agent>web-search	パイでPythonのGILを調べて、そのあとAmazonで本を探して
+test	ask-agent>web-search	パイでPythonのGILを調べて、そのあとAmazonで本を探して	パイ,Amazon
 test	spotify>default	音楽を止めてカレンダーを開いて
 test	default>spotify	メモを開いて、それから次の曲にして
-test	web-search>ask-agent	楽天でマウスを検索してから、グロックで最新のマウスの動向を調べて
+test	web-search>ask-agent	楽天でマウスを検索してから、グロックで最新のマウスの動向を調べて	楽天,グロック
 test	clipboard-note>spotify	コピーした文章を要約して、そのあと一時停止して
-test	spotify>web-search	今流れている曲を教えてから、それをウィキペディアで検索して
+test	spotify>web-search	今流れている曲を教えてから、それをウィキペディアで検索して	ウィキペディア
 test	file-search>default	議事録のPDFを開いて、それからSafariを開いて
-test	default>web-search	Chromeを開いてYouTubeで猫の動画を検索して
+test	default>web-search	Chromeを開いてYouTubeで猫の動画を検索して	Chrome,YouTube
 test	web-search>spotify	Googleで天気を検索して音量を上げて
-test	spotify>ask-agent	次の曲にして、そのあとクロードでRustのライフタイムを調べて
+test	spotify>ask-agent	次の曲にして、そのあとクロードでRustのライフタイムを調べて	クロード
 test	ask-agent>default	Swiftのasync awaitを調べて、終わったらSafariを開いて
 test	default>clipboard-note	Finderを開いて、そのあとコピーした文章を要約して
 test	spotify>default	音量を下げたあとにメモを開いて
@@ -54,3 +54,7 @@ test	spotify>default>web-search	次の曲にして、Safariを開いて、Google
 test	ask-agent>spotify>default	Rustを調べて、音量を下げて、Finderを開いて
 test	default>web-search>spotify	メモを開いて、Amazonで椅子を検索して、一時停止して
 test	clipboard-note>web-search>default	コピーした文章を要約して、ウィキペディアで検索して、Chromeを開いて
+dev	ask-agent>spotify	クロードでRustの所有権を調べて、そのあとSpotifyで次の曲にして	クロード,Spotify
+test	ask-agent>spotify	コーデックスでSwiftの並行処理を調べて、そのあと音量を下げて	コーデックス
+test	ask-agent>web-search	グロックでRustの歴史を調べて、それからウィキペディアでRustを検索して	グロック,ウィキペディア
+test	ask-agent>web-search	オープンコードでGoのチャネルを調べて、そのあとYouTubeで動画を探して	オープンコード,YouTube
