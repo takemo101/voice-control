@@ -195,6 +195,8 @@ vc dictate --dry-run                          # 入力せずに、認識した�
 - アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
 - 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。
 - **つなぎ言葉（「えーと」「あのー」「um」など）を、消せます**（既定は off。辞書にある語を、文字列の一致で消すだけで、言語モデルは使いません）。`vc fillers on`。辞書は、`vc fillers add あのさ`・`vc fillers remove えー` で足し引きします（`vc fillers` で一覧）。**声でも足せます**：`vc skills install filler-add` →「『あのさ』をつなぎ言葉に追加して」。声で頼む依頼文には、かけません。詳しくは [docs/skills.md](docs/skills.md#つなぎ言葉を消す辞書vc-fillers音声でも足すfiller-add)。
+  - **既定の辞書（19 語）**：日本語は「えーっと」「ええっと」「えーと」「えっと」「ええと」「あのー」「あのう」「そのー」「うーんと」「うーん」「んー」「えー」、英語は `uh`・`um`・`uhm`・`umm`・`uhh`・`hmm`・`erm`。「あの」「その」「まあ」は、ふつうの語でもあるので、入れていません。
+  - 設定に辞書がなければ、この既定を使います。`vc fillers add` で 1 語足すと、**既定の語も含めた辞書の全体**が `settings.json` に保存されます（あとで既定が変わっても、反映されません。`vc fillers reset` で、既定に戻します。足した語は消えます）。
 
 ### キーの決め方（右側のキーだけにもできます）
 
@@ -300,9 +302,10 @@ vc listen --hotkey --stt whisper-large-v3-turbo   # その実行だけ替える
 | 音声入力（音声認識） | `vc stt set whisper-large-v3-turbo`（既定：`apple`） | `--stt` |
 | 分析・実行のモデル（言語モデル） | `vc engine set ollama:qwen3.5:4b`（既定：`apple`） | `--engine` |
 | 1 つの依頼を、複数のステップに分けるか | `vc plan on`（分ける。既定）／`vc plan off` | `vc run` の `--no-plan` |
+| 音声入力で、つなぎ言葉を消すか・辞書 | `vc fillers on`（既定：off）・`vc fillers add <語>` | なし（常に設定） |
 | 録音中に、ほかの音を消すか | `vc mute on`（消す。既定）／`vc mute off`（流したまま） | `--mute`・`--no-mute` |
 
-`vc stt`・`vc engine`・`vc mute` だけを実行すると、いまの設定が分かります。`vc listen` の起動時にも、使っているものが表示されます。
+`vc stt`・`vc engine`・`vc plan`・`vc mute`・`vc fillers` だけを実行すると、いまの設定が分かります。`vc listen` の起動時にも、使っているものが表示されます。
 
 ### ファイルを探して開く
 
