@@ -106,6 +106,17 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 コミットの粒度：利用者に見える一つの変更（実装・必要なテスト・文書）を、まとめて 1 commit。無関係な変更を混ぜない。メッセージは、何を・なぜ変えたかを、1 行目に短く。
 
+## 製品ページ（`site/`）
+
+利用者向けの説明ページ（インストール方法・使い方・注意点）。素の HTML・CSS・JavaScript（ビルドなし・外部の通信なし・解析なし）で、**GitHub Pages** に公開する（`https://takemo101.github.io/voice-control/`）。
+
+- **構成**：`site/index.html`・`site/assets/`（`tokens.css`＝色・文字・余白の名前つきの値、`styles.css`、`main.js`、`video/`、`img/`）。動画（mp4・webm）と画面の静止画は、**本物の `vc` の画面を、自作の背景の上で撮った**もの（`vc hud-preview` の作り物の内容と、`vc show` のサンプル）。
+- **見る**：`python3 -m http.server 8765 --bind 127.0.0.1 -d site` → <http://127.0.0.1:8765/>。
+- **動画・画像を撮り直す**：`scripts/site/capture.sh all`（画面収録の許可が要る。背景が出ていなければ撮らない）→ `scripts/site/encode.sh`（`site/assets/` へ。ffmpeg が要る）。撮影のとき、利用者の画面・アプリを、写さない（自作の背景だけ）。
+- **公開**：`main` に `site/**` が入ると、[pages.yml](../.github/workflows/pages.yml) が公開する。**初めに 1 回だけ**、リポジトリの Settings > Pages > Source を「GitHub Actions」にする（利用者の操作）。
+- **リリースのとき**：ページの版（`v0.3.x`・`V=0.3.x`）を、新しい版へ上げる：`sed -i '' 's/0\.3\.OLD/0.3.NEW/g' site/index.html`（README と同じ変更に含める）。
+- **守ること**：外部の通信・解析・外部フォントを足さない（製品の約束と合わせる）。動作例の出力は、**本物の `vc run --dry-run`** のもの（作らない）。数値は、測ったものだけ。レスポンシブは、幅 320・375・414・768・1280 で、横にはみ出さないこと。動きは、`prefers-reduced-motion` で止まること。
+
 ## リリース
 
 配布は **GitHub Releases**（バイナリの tar.gz と SHA-256）。タグ `vX.Y.Z` の push で、[release.yml](../.github/workflows/release.yml) が、macOS 26 のランナー（Xcode 26）でビルドして、Release に添付する。リリースは、**利用者の依頼があるときだけ**行う。
