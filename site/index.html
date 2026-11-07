@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>voice-control — 押している間だけ、話す。Mac が、動く。</title>
-<meta name="description" content="声や文で頼むだけで、Mac の操作を実行する。音声も、言語モデルも、この Mac の中だけで動くオンデバイスの音声エージェント（試作）。インストール方法・使い方・注意点。">
+<title>voice-control — 押しながら話すと、Mac が動く。</title>
+<meta name="description" content="声や文章でお願いするだけで、Mac の操作を代わりにやってくれるツール。音声認識も AI モデルも Mac の中だけで動くので、話した内容は外に出ません。インストール方法・使い方・注意点をまとめています。">
 <meta name="theme-color" content="#0d1020">
 <meta property="og:type" content="website">
-<meta property="og:title" content="voice-control — 押している間だけ、話す。Mac が、動く。">
-<meta property="og:description" content="完全オンデバイスの音声エージェント。許可は、言語モデルでなく、コードが決める。">
+<meta property="og:title" content="voice-control — 押しながら話すと、Mac が動く。">
+<meta property="og:description" content="Mac の中だけで動く音声エージェント。実行してよいコマンドは、AI ではなく許可リストが決めます。">
 <meta property="og:image" content="https://takemo101.github.io/voice-control/assets/og.jpg">
 <meta property="og:url" content="https://takemo101.github.io/voice-control/">
 <meta name="twitter:card" content="summary_large_image">
@@ -18,231 +18,285 @@
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body id="top">
-<a class="skip" href="#main">本文へ</a>
+<a class="skip" href="#main">本文へ移動</a>
+<div class="progress" aria-hidden="true"><span id="progress"></span></div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.4 2.9 8.2 7 10 4.1-1.8 7-5.6 7-10V6l-7-3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2.2 2.2L15.5 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 1 1 4 0v1h3a1 1 0 0 1 1 1v3h-1a2 2 0 1 0 0 4h1v3a1 1 0 0 1-1 1h-3v-1a2 2 0 1 0-4 0v1H7a1 1 0 0 1-1-1v-3h1a2 2 0 1 0 0-4H6V6a1 1 0 0 1 1-1h3V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
   <symbol id="i-term" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m7.5 10 3 2.5-3 2.5M13 15h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-hand" viewBox="0 0 24 24"><path d="M12 3v9M8 6.5V13M16 6.5V13M5 11.5V14a7 7 0 0 0 14 0v-2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 11V8.5a3.5 3.5 0 0 1 7 0V11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M3 12s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m4 4 16 16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
 <header class="site-header">
   <div class="wrap bar">
     <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>voice-control</a>
-    <nav class="nav-links" aria-label="主なセクション">
-      <a href="#how">しくみ</a><a href="#try">試す</a><a href="#safe">安全</a><a href="#features">できること</a><a href="#install">インストール</a><a href="#notes">注意点</a><a href="#faq">FAQ</a>
+    <nav class="nav-links" aria-label="ページ内の移動">
+      <a href="#how">しくみ</a><a href="#try">使い方の例</a><a href="#features">できること</a><a href="#safe">安全</a><a href="#install">はじめかた</a><a href="#notes">注意点</a><a href="#faq">よくある質問</a>
     </nav>
-    <a class="btn" href="https://github.com/takemo101/voice-control" rel="noopener">GitHub</a>
+    <a class="btn btn-small" href="https://github.com/takemo101/voice-control" rel="noopener">GitHub</a>
   </div>
 </header>
 
 <main id="main">
 
-<!-- ───────── hero ───────── -->
+<!-- ───────── ヒーロー ───────── -->
 <section class="hero">
   <div class="orbs" aria-hidden="true"><span class="orb orb-a"></span><span class="orb orb-b"></span><span class="orb orb-c"></span></div>
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="pill"><i aria-hidden="true"></i><b>試作段階</b><span>v0.3.11</span><span>macOS 26 以降・Apple silicon</span></p>
-      <h1><span class="nb">押している間だけ、</span><span class="nb">話す。</span><br><em class="hl">Mac が、動く。</em></h1>
-      <p class="lead"><strong>voice-control（<code>vc</code>）</strong>は、声や文で頼むだけで、Mac の操作を実行する音声エージェントです。音声も、言語モデルも、<strong>この Mac の中だけ</strong>で動きます。何を実行してよいかは、モデルでなく、<strong>コードが決めます</strong>。</p>
+      <p class="pill"><i aria-hidden="true"></i><b>試作版</b><span>v0.3.11</span><span>macOS 26 以降 / Apple シリコン</span></p>
+      <h1><span class="line"><span class="nb">押しながら</span><span class="nb">話すと、</span></span><span class="line"><em class="hl">Mac が動く。</em></span></h1>
+      <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章でお願いするだけで、Mac の操作を代わりにやってくれるツールです。音声認識も AI モデルも Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
+      <p class="lead sub">何を実行してよいかは、AI の判断ではなく、あらかじめ決めた<strong>許可リスト</strong>で制限します。</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#install">インストールする</a>
-        <a class="btn" href="#how">しくみを見る</a>
+        <a class="btn" href="#how">どう動くか見る</a>
       </div>
+      <p class="cmd-label">ターミナルに貼り付けて実行します</p>
       <div class="cmd">
         <pre><code id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre>
         <button class="copy" type="button" data-copy-from="hero-cmd">コピー</button>
       </div>
     </div>
     <figure class="hero-media reveal">
-      <div class="frame">
-        <video autoplay muted loop playsinline preload="auto" disablepictureinpicture poster="assets/video/demo-hud-poster.jpg" aria-label="画面の上のパネルが、録音、認識、実行中、確認、完了と変わる様子" width="1056" height="440">
+      <div class="frame glow">
+        <video autoplay muted loop playsinline preload="auto" disablepictureinpicture poster="assets/video/demo-hud-poster.jpg" aria-label="画面の上のパネルが、録音中、認識中、実行中、確認、完了の順に変わる様子" width="1056" height="440">
           <source src="assets/video/demo-hud.webm" type="video/webm">
           <source src="assets/video/demo-hud.mp4" type="video/mp4">
         </video>
       </div>
-      <figcaption>実機の画面の録画（<code>vc hud-preview</code> の見本の内容）。Shift を押している間は録音 → 離すと認識 → スキルを選んで実行 → 取り消しにくい操作は確認 → 完了。</figcaption>
+      <figcaption>実際の画面の録画です（パネルの中身は見本）。Shift を押している間は録音し、離すと実行します。</figcaption>
     </figure>
   </div>
 </section>
 
-<!-- ───────── how ───────── -->
+<!-- ───────── 3 つの特長 ───────── -->
+<section class="strip">
+  <div class="wrap strip-grid">
+    <article class="spot reveal"><svg aria-hidden="true"><use href="#i-chip"/></svg><h2>Mac の中だけで動く</h2><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。話した内容をクラウドに送りません。</p></article>
+    <article class="spot reveal" style="--d:80ms"><svg aria-hidden="true"><use href="#i-shield"/></svg><h2>許可したコマンドだけ実行</h2><p>スキルごとに「使ってよいコマンド」を決めます。リストにないコマンドは、プログラムが実行を止めます。</p></article>
+    <article class="spot reveal" style="--d:160ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><h2>やりたいことを自分で足せる</h2><p>テキストファイル（SKILL.md）を 1 つ書くだけで、新しいスキルを追加できます。</p></article>
+  </div>
+</section>
+
+<!-- ───────── しくみ ───────── -->
 <section class="section" id="how">
   <div class="wrap">
-    <div class="section-head reveal">
-      <h2>押す。話す。離す。あとは、仕組みが守る。</h2>
-      <p>話した文は、小さなモデルが合うスキルへ振り分け、許可されたコマンドだけが実行されます。いま何が起きているかは、いつも画面の上に出ます。</p>
-    </div>
+    <header class="section-head reveal">
+      <h2>話してから、実行されるまで</h2>
+      <p>Shift を押して話し、離すと実行されます。いま何をしているかは、画面の上のパネルでいつでも確認できます。</p>
+    </header>
     <div class="how-grid" id="how-tabs">
       <div class="how-stage reveal">
         <div class="frame"><div class="stage-imgs">
-          <img class="is-on" src="assets/img/hud-recording.png" width="1056" height="420" alt="録音中のパネル。波形が声に合わせて動く" loading="lazy">
-          <img src="assets/img/hud-thinking.png" width="1056" height="420" alt="認識中のパネル。考え中のドットが動く" loading="lazy">
-          <img src="assets/img/hud-working.png" width="1056" height="420" alt="実行中のパネル。聞こえた文・選ばれたスキル・実行するコマンドが出る" loading="lazy">
-          <img src="assets/img/hud-confirm.png" width="1056" height="420" alt="確認のパネル。実行する・やめるのボタン" loading="lazy">
-          <img src="assets/img/hud-success.png" width="1056" height="420" alt="完了のパネル。実行したコマンドと結果の一言" loading="lazy">
+          <img class="is-on" src="assets/img/hud-recording.png" width="1056" height="420" alt="録音中のパネル。声に合わせて波形が動く" loading="lazy">
+          <img src="assets/img/hud-thinking.png" width="1056" height="420" alt="認識中のパネル。点が動いている" loading="lazy">
+          <img src="assets/img/hud-working.png" width="1056" height="420" alt="実行中のパネル。聞こえた文、選ばれたスキル、実行するコマンドが出ている" loading="lazy">
+          <img src="assets/img/hud-confirm.png" width="1056" height="420" alt="確認のパネル。「実行する」と「やめる」のボタンがある" loading="lazy">
+          <img src="assets/img/hud-success.png" width="1056" height="420" alt="完了のパネル。実行したコマンドと結果が出ている" loading="lazy">
         </div></div>
-        <p class="how-note">画面は、<code>vc hud-preview</code> の見本（作り物の内容）を、実機で撮ったものです。</p>
+        <p class="how-note">画面は、<code>vc hud-preview</code> の見本（中身は作り物）を実機で撮ったものです。</p>
       </div>
       <ol class="steps" role="tablist" aria-label="声で頼むときの流れ">
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>押している間だけ、録音する</h3><p>Shift を押している間だけ聞きます（キーは <code>vc hotkey set</code> で変えられます）。離すまで、何も実行しません。波形が、声に合わせて動きます。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="1"><span class="step-n">2</span><h3>離すと、文字にする</h3><p>既定は Apple のオンデバイスの音声認識です。雑音が軽いとき・英字の語に強い Whisper を、ダウンロードして使うこともできます。音声は、この Mac の外へ出ません。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="2"><span class="step-n">3</span><h3>合うスキルを選んで、実行する</h3><p>0.6B の小さなモデル（Tiny-Jev）が、依頼に合うスキルを選びます（約 0.1 秒）。実行できるのは、そのスキルが<strong>許可したコマンドだけ</strong>です。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="3"><span class="step-n">4</span><h3>危ない操作は、確認する</h3><p>取り消しにくい操作や、自信がないときは、実行の前に確認します。パネルのボタン・キー（← → と Return、y / n）・声の「はい」のどれでも答えられます。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="4"><span class="step-n">5</span><h3>何をしたかを、見せる</h3><p>実行したコマンドと結果が、画面の上に出ます。Esc で、いつでも取りやめられます。発話の文字は、ファイルにもログにも残しません。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>Shift を押している間、録音します</h3><p>離すまでは、何も実行されません。押すキーは <code>vc hotkey set</code> で変えられます。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="1"><span class="step-n">2</span><h3>離すと、話した内容が文字になります</h3><p>Apple の音声認識を使います。Whisper に切り替えることもできます。音声は Mac の外に出ません。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="2"><span class="step-n">3</span><h3>合うスキルが選ばれて、実行されます</h3><p>小さな選択モデル（Tiny-Jev）が、約 0.1 秒でスキルを選びます。実行できるのは、そのスキルが許可したコマンドだけです。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="3"><span class="step-n">4</span><h3>危ない操作は、先に確認します</h3><p>削除や送信など、取り消しにくい操作は、実行する前に確認します。ボタン、キー、声の「はい」で答えられます。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="4"><span class="step-n">5</span><h3>結果が画面に表示されます</h3><p>実行したコマンドと結果が出ます。Esc でいつでも取り消せます。話した内容は、ファイルにもログにも残しません。</p><span class="step-bar"></span></button></li>
       </ol>
     </div>
   </div>
 </section>
 
-<!-- ───────── try ───────── -->
+<!-- ───────── 使い方の例 ───────── -->
 <section class="section" id="try">
   <div class="wrap">
-    <div class="section-head reveal">
-      <h2>話した文が、どのコマンドになるか。</h2>
-      <p>下は、本物の <code>vc run --dry-run</code> の出力です（実行はせず、実行しようとするコマンドだけを表示します。パスは短くしています）。</p>
-    </div>
+    <header class="section-head reveal">
+      <h2>こう話すと、こう動きます</h2>
+      <p>下の例を選んでみてください。本物の <code>vc run --dry-run</code> の出力です。<code>--dry-run</code> を付けると、実行はせずに、実行しようとするコマンドだけが表示されます。</p>
+    </header>
     <div class="try-grid">
       <div class="reveal">
+        <p class="try-label">話しかける内容</p>
         <ul class="chips" id="chips" aria-label="試す依頼"></ul>
-        <p class="note-small">スキルは、Tiny-Jev が選びます。どのスキルでもない依頼は、組み込みの既定スキルが、基本のコマンドで実行します。</p>
+        <p class="note-small">どのスキルを使うかは自動で選ばれます。どのスキルにも当てはまらない依頼は、基本のコマンドで動く「既定スキル」が受け持ちます。</p>
       </div>
       <figure class="console reveal" style="--d:80ms"><pre id="console" role="log" aria-live="polite" aria-label="実行結果の例"></pre></figure>
     </div>
   </div>
 </section>
 
-<!-- ───────── safe ───────── -->
-<section class="section" id="safe">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <h2>許可を、言語モデルに任せない。</h2>
-      <p>言語モデルは、間違えます。だから、何を実行してよいかは、プロンプトの指示ではなく、<strong>コードが照合</strong>します。</p>
-    </div>
-    <div class="safe-grid">
-      <div>
-        <ul class="rules">
-          <li class="rule reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけが動く</h3><p>スキルの <code>allowed-commands</code> に先頭が一致するものだけを、コードが実行します。一致しなければ、実行しません。</p></div></li>
-          <li class="rule reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルを使わない</h3><p>パイプ・リダイレクト・<code>&amp;&amp;</code> は使えません。シェルや <code>sudo</code> などは、許可に書くこともできません。</p></div></li>
-          <li class="rule reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>取り消しにくい操作は、確認する</h3><p>削除・送信・購入など、取り消しにくい依頼と判断したときや、自信がないときは、実行の前に確認します。スキルに <code>confirm: true</code> と書けば、そのスキルは、必ず確認します。</p></div></li>
-          <li class="rule reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>発話も、画面の内容も、外へ出さない</h3><p>音声認識・スキルの選択・既定の言語モデルは、この Mac の中。クラウドのモデルは使えません。外へ出るのは、<strong>あなたが入れたときだけ</strong>の 2 つのスキル（下の「注意点」）です。</p></div></li>
-          <li class="rule reveal" style="--d:240ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>聞こえた文は、信頼しないデータ</h3><p>発話・画面の内容・言語モデルの出力に書いてある命令は、実行する指示として扱いません。</p></div></li>
-        </ul>
-        <div class="split reveal">
-          <div class="who is-code"><h3>コードが決めること</h3><ul><li>許可の照合</li><li>確認が要るか</li><li>止めるか・続けるか</li><li>入力の検査</li></ul></div>
-          <div class="who"><h3>言語モデルがすること</h3><ul><li>許可の範囲で、手順を考える</li><li>コマンドの引数を組み立てる</li><li>結果を、一言で伝える</li></ul></div>
-        </div>
-      </div>
-      <figure class="shot reveal" style="--d:100ms">
-        <div class="frame"><img src="assets/img/hud-denied.png" width="1056" height="420" alt="許可されていないコマンド ls を、実行しなかったときのパネル。open だけ許可と出る" loading="lazy"></div>
-        <figcaption>許可されていないコマンドは、実行しません。パネルに、「許可されていないコマンドです（open だけ許可）」と出ます。</figcaption>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- ───────── features ───────── -->
+<!-- ───────── できること ───────── -->
 <section class="section" id="features">
   <div class="wrap">
-    <div class="section-head reveal">
-      <h2>声で頼む。声で入力する。つなげて頼む。</h2>
-      <p>声で頼むのも、しゃべった言葉をそのまま打ち込むのも、同じキーで切り替えられます。</p>
-    </div>
+    <header class="section-head reveal">
+      <h2>できること</h2>
+      <p>声で頼むだけでなく、声で文字を入力することもできます。</p>
+    </header>
     <div class="bento">
-      <article class="card b-wide reveal">
+      <article class="card spotlight b-wide reveal">
         <h3>声で頼む</h3>
-        <p><span class="kbd">Shift</span> を押している間だけ話し、離すと実行。<span class="kbd">Esc</span> でいつでも取りやめます。<strong>実行中に新しく話すと、前の処理を中断して、新しい依頼を実行</strong>します（確認の返事を待っている間は、返事として扱います）。<code>vc listen --hotkey</code></p>
-        <div class="keys" aria-hidden="true"><span class="kbd">Shift</span> 長押し<span class="arrow">→</span>話す<span class="arrow">→</span>離す<span class="arrow">→</span>実行<span class="arrow">／</span><span class="kbd">Esc</span> 取りやめ</div>
+        <p>Shift を押している間だけ話して、離すと実行します。Esc で取り消せます。実行中にもう一度話すと、前の処理を止めて、新しい依頼を実行します（確認の返事を待っているときは、返事として扱います）。</p>
+        <div class="keys" aria-hidden="true"><span class="kbd">Shift</span> を押す<span class="arrow">→</span>話す<span class="arrow">→</span>離す<span class="arrow">→</span>実行<span class="sep">／</span><span class="kbd">Esc</span> で取り消し</div>
+        <code class="mini">vc listen --hotkey</code>
       </article>
-      <article class="card b-third b-tall reveal" style="--d:80ms">
-        <h3>結果を、ウィンドウに</h3>
-        <p>調べた結果や要約は、整形した Markdown のウィンドウに出ます。⌘C でコピー、Esc で閉じます。</p>
+      <article class="card spotlight b-third b-tall reveal" style="--d:80ms">
+        <h3>結果を見やすく表示</h3>
+        <p>調べた結果や要約は、読みやすいウィンドウに表示されます。⌘C でコピーでき、Esc で閉じます。</p>
         <div class="card-media is-inset">
-          <video autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/demo-window-poster.jpg" aria-label="Markdown を整形して出すウィンドウが開く様子" width="700" height="640">
+          <video autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/demo-window-poster.jpg" aria-label="整形された結果のウィンドウが開く様子" width="700" height="640">
             <source src="assets/video/demo-window.webm" type="video/webm">
             <source src="assets/video/demo-window.mp4" type="video/mp4">
           </video>
         </div>
       </article>
-      <article class="card b-third reveal">
-        <h3>音声入力だけ</h3>
-        <p>しゃべった言葉を、いま使っているアプリへ、そのまま入力します（<code>vc dictate</code>）。「えーと」「あのー」などの<strong>つなぎ言葉は、辞書で消せます</strong>（既定は off。辞書は、自分で足し引きでき、声でも足せます）。</p>
+      <article class="card spotlight b-third reveal">
+        <h3>声で文字を入力</h3>
+        <p>話した言葉を、いま使っているアプリにそのまま入力します。「えーと」などのつなぎ言葉は、辞書を使って消せます（初期設定はオフ）。</p>
+        <code class="mini">vc dictate</code>
       </article>
-      <article class="card b-third reveal" style="--d:80ms">
-        <h3>複数のスキルを、順に</h3>
-        <p>「Claude で調べて、そのあと Spotify で次の曲」のような依頼を、言語モデルが分け、ステップごとに、スキルを選び・確認し・実行します。最初の失敗で止まります（<code>vc plan off</code> で、無効にできます）。</p>
+      <article class="card spotlight b-third reveal" style="--d:80ms">
+        <h3>続けて頼む</h3>
+        <p>「Claude で調べて、そのあと Spotify で次の曲」のように、続けて頼めます。依頼を順番に分けて、1 つずつ実行し、途中で失敗したらそこで止まります。</p>
+        <div class="mini-row"><code class="mini">vc plan off</code><span class="mini-note">で無効にできます</span></div>
       </article>
-      <article class="card b-third reveal">
-        <h3>スキルは、テキストファイル</h3>
-        <p><code>SKILL.md</code> に、何をするか・どのコマンドを許すかを書くだけ。同梱のスキルは、<code>vc skills install --all</code> で、まとめて入れられます。</p>
+      <article class="card spotlight b-third reveal">
+        <h3>スキルを足せる</h3>
+        <p>「何をするか」と「使ってよいコマンド」を SKILL.md に書くだけです。同梱のスキルは、まとめて入れられます。</p>
+        <code class="mini">vc skills install --all</code>
       </article>
-      <article class="card b-third reveal" style="--d:80ms">
-        <h3>モデルは、替えられる</h3>
-        <p>既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などに替えられます（<code>--engine</code>）。入力を外へ出さないため、クラウドのモデルは、指定できません。</p>
+      <article class="card spotlight b-third reveal" style="--d:80ms">
+        <h3>AI モデルを選べる</h3>
+        <p>初期設定は Apple のモデルです。Ollama や LM Studio など、自分の Mac 上のモデルにも切り替えられます。クラウドのモデルは指定できません。</p>
+        <code class="mini">vc engine set ollama:qwen3.5:4b</code>
       </article>
     </div>
 
-    <div class="section-head reveal" style="margin-top:var(--space-20)">
+    <header class="section-head reveal sub-head">
       <h2>同梱のスキル</h2>
-      <p>どれも、リポジトリの <code>.voice-control/skills/</code> にあります。</p>
-    </div>
+      <p>リポジトリの <code>.voice-control/skills/</code> にあります。</p>
+    </header>
     <ul class="skills">
-      <li class="skill reveal"><span class="skill-name">spotify</span><span class="say"><q>音量を50にして</q><br><q>お気に入りの曲をかけて</q></span><span class="what">再生・一時停止・次の曲・音量・シャッフル・お気に入りに追加・お気に入りを再生・今の曲を読み上げ。<strong>曲名・アーティスト名での自動再生は、できません</strong>（検索ページを開くまで）。</span></li>
-      <li class="skill reveal"><span class="skill-name">clipboard-note</span><span class="say"><q>コピーした文章を要約して</q></span><span class="what">⌘C でコピーした文章を、整えて、きれいなウィンドウに出します。</span></li>
-      <li class="skill reveal"><span class="skill-name">file-search</span><span class="say"><q>先月の議事録を開いて</q></span><span class="what">名前・場所・種類・期間でファイルを探し、似た候補があれば選んで、開きます。</span></li>
-      <li class="skill reveal"><span class="skill-name">web-search <span class="badge is-warn">外へ送る</span></span><span class="say"><q>Amazonでマウスを検索して</q></span><span class="what">言ったサイトの検索ページを、ブラウザで開きます。検索する言葉が、そのサイトへ送られます。</span></li>
-      <li class="skill reveal"><span class="skill-name">ask-agent <span class="badge is-warn">外へ送る</span></span><span class="say"><q>クロードでRustの所有権を調べて</q></span><span class="what">agy・claude・codex・grok・opencode・pi のどれかに調べてもらい、要点をウィンドウに出します（言わなければ agy。入っていなければ、この Mac の中のモデルが、Web を見ずに答えます）。</span></li>
-      <li class="skill reveal"><span class="skill-name">filler-add</span><span class="say"><q>『あのさ』をつなぎ言葉に追加して</q></span><span class="what">音声入力で消す、つなぎ言葉の辞書に、語を足します。</span></li>
-      <li class="skill reveal"><span class="skill-name">default <span class="badge">組み込み</span></span><span class="say"><q>Safariを開いて</q></span><span class="what">上のどれでもない依頼を、<code>agent-desktop</code> と基本のコマンド（open・say・ls・pwd・date）で実行します。許可は控えめです。</span></li>
+      <li class="skill reveal"><span class="skill-name">spotify</span><span class="say"><q>音量を50にして</q><q>お気に入りの曲をかけて</q></span><span class="what">再生、一時停止、次の曲、音量、お気に入りの追加と再生、今の曲の読み上げ。<strong>曲名やアーティスト名を指定した再生はできません</strong>（検索ページを開くところまでです）。</span></li>
+      <li class="skill reveal"><span class="skill-name">clipboard-note</span><span class="say"><q>コピーした文章を要約して</q></span><span class="what">⌘C でコピーした文章を整えて、読みやすいウィンドウに表示します。</span></li>
+      <li class="skill reveal"><span class="skill-name">file-search</span><span class="say"><q>先月の議事録を開いて</q></span><span class="what">名前、場所、種類、期間でファイルを探します。候補が複数あれば選んで開きます。</span></li>
+      <li class="skill reveal"><span class="skill-name">web-search <span class="badge is-warn">外部に送信</span></span><span class="say"><q>Amazonでマウスを検索して</q></span><span class="what">指定したサイトの検索ページをブラウザで開きます。検索ワードは、そのサイトに送られます。</span></li>
+      <li class="skill reveal"><span class="skill-name">ask-agent <span class="badge is-warn">外部に送信</span></span><span class="say"><q>クロードでRustの所有権を調べて</q></span><span class="what">agy、claude、codex、grok、opencode、pi のどれかに調べてもらい、要点をウィンドウに表示します。指定しなければ agy です。入っていないときは、Mac 内のモデルが、Web を見ずに答えます。</span></li>
+      <li class="skill reveal"><span class="skill-name">filler-add</span><span class="say"><q>『あのさ』をつなぎ言葉に追加して</q></span><span class="what">声で文字を入力するときに消す「つなぎ言葉」の辞書に、言葉を追加します。</span></li>
+      <li class="skill reveal"><span class="skill-name">default <span class="badge">組み込み</span></span><span class="say"><q>Safariを開いて</q></span><span class="what">上のどれにも当てはまらない依頼を、<code>agent-desktop</code> と基本のコマンド（open、say、ls、pwd、date）で実行します。許可の範囲は狭くしてあります。</span></li>
     </ul>
   </div>
 </section>
 
-<!-- ───────── install ───────── -->
+<!-- ───────── 安全 ───────── -->
+<section class="section" id="safe">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <h2>安全のしくみ</h2>
+      <p>AI は間違えることがあります。そのため、何を実行してよいかは AI に任せず、<strong>プログラムが毎回チェック</strong>します。</p>
+    </header>
+    <div class="safe-grid">
+      <div>
+        <ul class="rules">
+          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけ実行する</h3><p>スキルに書いた <code>allowed-commands</code> と先頭が一致するコマンドだけを実行します。一致しなければ実行しません。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルは使わない</h3><p>パイプ（<code>|</code>）、リダイレクト（<code>&gt;</code>）、<code>&amp;&amp;</code> は使えません。<code>sudo</code> やシェルの起動は、許可リストに書くこともできません。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>危ない操作は確認する</h3><p>削除、送信、購入など取り消しにくい依頼だと判断したときや、自信がないときは、実行の前に確認します。スキルに <code>confirm: true</code> と書けば、そのスキルは必ず確認します。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。例外は、自分で入れたときだけ使える 2 つのスキルです（下の「注意点」を見てください）。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:240ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>聞こえた内容の「命令」には従わない</h3><p>話した内容、画面の文字、AI の出力に命令が書かれていても、実行の指示としては扱いません。</p></div></li>
+        </ul>
+        <div class="split reveal">
+          <div class="who is-code"><h3>プログラムが決めること</h3><ul><li>許可のチェック</li><li>確認が必要かどうか</li><li>止めるか、続けるか</li><li>入力のチェック</li></ul></div>
+          <div class="who"><h3>AI がすること</h3><ul><li>許可の範囲内で手順を考える</li><li>コマンドの引数を組み立てる</li><li>結果を短く伝える</li></ul></div>
+        </div>
+      </div>
+      <figure class="shot reveal" style="--d:100ms">
+        <div class="frame"><img src="assets/img/hud-denied.png" width="1056" height="420" alt="許可されていないコマンド ls を実行しなかったときのパネル。「open だけ許可」と表示されている" loading="lazy"></div>
+        <figcaption>許可されていないコマンドは実行されません。パネルに「許可されていないコマンドです（open だけ許可）」と表示されます。</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── はじめかた ───────── -->
 <section class="section" id="install">
   <div class="wrap">
-    <div class="section-head reveal">
-      <h2>3 ステップで、試せます。</h2>
-      <p>ビルドは要りません。最新のリリースを取得して、SHA-256 を照合してから置きます。</p>
-    </div>
-    <div class="install-grid">
-      <div class="istep reveal">
-        <h3>そろえる</h3>
-        <ul>
-          <li>macOS 26 以降・Apple silicon の Mac</li>
-          <li><strong>Apple Intelligence をオン</strong>（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）</li>
-          <li><a href="https://github.com/vercel-labs/agent-desktop" rel="noopener">agent-desktop</a>（下のコマンド）</li>
-        </ul>
-        <div class="cmd"><pre><code id="c-agent">npm install -g agent-desktop</code></pre><button class="copy" type="button" data-copy-from="c-agent">コピー</button></div>
-      </div>
-      <div class="istep reveal" style="--d:80ms">
-        <h3>インストールする</h3>
-        <p><code>vc</code> を <code>~/.local/bin</code> に置き、Tiny-Jev のモデル（約 1.2 GB）を取得して、環境を確かめます。</p>
-        <div class="cmd"><pre><code id="c-install">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre><button class="copy" type="button" data-copy-from="c-install">コピー</button></div>
-      </div>
-      <div class="istep reveal" style="--d:160ms">
-        <h3>試す</h3>
-        <ul>
-          <li><code>vc doctor</code> で、足りないものを確かめる</li>
-          <li><code>vc skills install --all</code> でスキルを入れる</li>
-          <li><code>vc run "次の曲にして" --dry-run</code> で、何をするかだけ見る</li>
-        </ul>
-        <div class="cmd"><pre><code id="c-run">vc listen --hotkey</code></pre><button class="copy" type="button" data-copy-from="c-run">コピー</button></div>
-        <p>Shift を押している間だけ録音します。</p>
-      </div>
-    </div>
-    <div class="perms reveal">
-      <div class="perm"><b>アクセシビリティ</b>キー（長押し）の検出と、アプリの操作に要ります。<code>vc doctor</code> が、足りなければ教えます。</div>
-      <div class="perm"><b>マイク</b>声で頼むとき・音声入力のときに要ります。許可の画面は、初めて録音するときに出ます。</div>
-      <div class="perm"><b>オートメーション</b>スキルによっては（Spotify の操作など）、そのアプリを操作する許可を、聞かれます。</div>
-    </div>
+    <header class="section-head reveal">
+      <h2>はじめかた</h2>
+      <p>5 つの手順で、声で Mac を動かすところまで進めます。コマンドは、ターミナルに貼り付けて実行してください。</p>
+    </header>
+
+    <ol class="timeline" id="timeline">
+      <span class="tl-line" aria-hidden="true"><span id="tl-fill"></span></span>
+
+      <li class="tl-step reveal">
+        <div class="tl-head"><span class="tl-n">1</span><div><h3>Mac の条件を確かめる</h3><p class="tl-what">次の 4 つを満たしているか確認します。</p></div></div>
+        <div class="tl-body">
+          <ul class="checks">
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>macOS 26 以降</b></span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Apple シリコン</b>の Mac（M1 以降）</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Apple Intelligence がオン</b><small>システム設定 &gt; Apple Intelligence と Siri で、オンにします。</small></span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Node.js（npm）</b>が使えること<small>手順 2 と、一部のスキルで使います。</small></span></li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="tl-step reveal">
+        <div class="tl-head"><span class="tl-n">2</span><div><h3>agent-desktop を入れる</h3><p class="tl-what">アプリの画面を操作するための道具です。</p></div></div>
+        <div class="tl-body">
+          <p class="cmd-label">ターミナルで実行</p>
+          <div class="cmd"><pre><code id="c-agent">npm install -g agent-desktop</code></pre><button class="copy" type="button" data-copy-from="c-agent">コピー</button></div>
+        </div>
+      </li>
+
+      <li class="tl-step reveal">
+        <div class="tl-head"><span class="tl-n">3</span><div><h3>vc をインストールする</h3><p class="tl-what">vc 本体と、スキルを選ぶ小さなモデル（約 1.2 GB）をダウンロードします。</p></div></div>
+        <div class="tl-body">
+          <p class="cmd-label">ターミナルで実行</p>
+          <div class="cmd"><pre><code id="c-install">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre><button class="copy" type="button" data-copy-from="c-install">コピー</button></div>
+          <p class="tl-result"><b>結果：</b><code>~/.local/bin/vc</code> に置かれます。ダウンロードしたファイルは、SHA-256 を照合してから使います。<code>~/.local/bin</code> が PATH に入っていないときは、そう表示されます。</p>
+        </div>
+      </li>
+
+      <li class="tl-step reveal">
+        <div class="tl-head"><span class="tl-n">4</span><div><h3>足りない設定がないか確認する</h3><p class="tl-what">必要な許可や設定が、そろっているかを調べます。</p></div></div>
+        <div class="tl-body">
+          <p class="cmd-label">ターミナルで実行</p>
+          <div class="cmd"><pre><code id="c-doctor">vc doctor</code></pre><button class="copy" type="button" data-copy-from="c-doctor">コピー</button></div>
+          <p class="tl-result"><b>結果：</b>足りないものがあれば、直し方が表示されます。主に次の許可が必要です。</p>
+          <div class="perms">
+            <div class="perm"><b>アクセシビリティ</b>キーの長押しの検出と、アプリの操作に使います。</div>
+            <div class="perm"><b>マイク</b>声で頼むときと、声で文字を入力するときに使います。</div>
+            <div class="perm"><b>オートメーション</b>Spotify など、スキルが別のアプリを操作するときに聞かれます。</div>
+          </div>
+        </div>
+      </li>
+
+      <li class="tl-step reveal">
+        <div class="tl-head"><span class="tl-n">5</span><div><h3>スキルを入れて、試す</h3><p class="tl-what">まず実行しない設定で試して、次に声で頼みます。</p></div></div>
+        <div class="tl-body">
+          <p class="cmd-label"><b>5-1</b> 同梱のスキルを入れる</p>
+          <div class="cmd"><pre><code id="c-skills">vc skills install --all</code></pre><button class="copy" type="button" data-copy-from="c-skills">コピー</button></div>
+          <p class="cmd-label"><b>5-2</b> 実行しないで、何をするかだけ見る</p>
+          <div class="cmd"><pre><code id="c-dry">vc run "音量を50にして" --dry-run</code></pre><button class="copy" type="button" data-copy-from="c-dry">コピー</button></div>
+          <pre class="out" aria-label="実行結果の例">Tiny-Jev  spotify  90.2%（0.1 秒）
+$ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
+          <p class="tl-result"><b>結果：</b>どのスキルが選ばれたかと、実行しようとするコマンドが表示されます。実際には何も実行されません。</p>
+          <p class="cmd-label"><b>5-3</b> 声で頼む</p>
+          <div class="cmd"><pre><code id="c-listen">vc listen --hotkey</code></pre><button class="copy" type="button" data-copy-from="c-listen">コピー</button></div>
+          <p class="tl-result"><b>使い方：</b>Shift を押している間だけ話して、離すと実行されます。初回は、マイクとアクセシビリティの許可を求められます。</p>
+        </div>
+      </li>
+    </ol>
+
     <details class="more reveal">
-      <summary>手で入れる／ソースから／取り除く</summary>
+      <summary>手動でインストールする・ソースから入れる・削除する</summary>
       <div class="body">
-        <p><strong>手で入れる</strong>（リリースのファイルを、自分で照合する）：</p>
+        <p><strong>手動でインストールする</strong>（ダウンロードしたファイルを自分で照合します）</p>
         <div class="cmd is-block"><pre><code id="c-manual">V=0.3.11
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
 curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
@@ -250,61 +304,61 @@ shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256
 tar -xzf vc-$V-macos-arm64.tar.gz
 mkdir -p ~/.local/bin &amp;&amp; install -m 755 vc-$V-macos-arm64/vc ~/.local/bin/vc
 vc model download</code></pre><button class="copy" type="button" data-copy-from="c-manual">コピー</button></div>
-        <p><strong>ソースから</strong>：リポジトリを clone して <code>just install</code>（Swift 6.2 以降。初回は、音声認識の実行環境のビルドで、数分かかります）。</p>
-        <p><strong>取り除く</strong>：<code>rm ~/.local/bin/vc</code>。モデル・設定・スキルは <code>~/.voice-control</code> に残ります。</p>
+        <p><strong>ソースから入れる</strong>　リポジトリを clone して <code>just install</code> を実行します（Swift 6.2 以降が必要です。初回は、音声認識の実行環境のビルドに数分かかります）。</p>
+        <p><strong>削除する</strong>　<code>rm ~/.local/bin/vc</code> を実行します。モデル、設定、スキルは <code>~/.voice-control</code> に残ります。</p>
       </div>
     </details>
   </div>
 </section>
 
-<!-- ───────── notes ───────── -->
+<!-- ───────── 注意点 ───────── -->
 <section class="section" id="notes">
   <div class="wrap">
-    <div class="section-head reveal">
-      <h2>先に知っておいてほしいこと。</h2>
-      <p>voice-control は、どんな使い道が成り立つかを、測定で確かめている<strong>試作</strong>です。完成した製品ではありません。</p>
-    </div>
+    <header class="section-head reveal">
+      <h2>使う前に知っておいてほしいこと</h2>
+      <p>voice-control は、どんな使い方が成り立つかを確かめている<strong>試作版</strong>です。完成した製品ではありません。</p>
+    </header>
     <ul class="notes">
-      <li class="note reveal"><h3>小さなモデルは、間違えます</h3><p>スキルの選択も、コマンドの組み立ても、間違えることがあります。何をするかだけ見たいときは <code>--dry-run</code>。取り消しにくい操作は、確認が出ますが、確認の文も、よく読んでください。</p></li>
-      <li class="note reveal" style="--d:60ms"><h3>macOS 26 以降・Apple silicon だけ</h3><p>既定の言語モデルは、Apple Intelligence（オン）が必要です。使えない Mac では、この Mac の Ollama などのローカルのモデルに替えます（<code>--engine</code>）。</p></li>
-      <li class="note reveal"><h3>外へ出る例外が、2 つあります</h3><p><code>ask-agent</code>（調べることの文が、選んだエージェントの提供元へ）と <code>web-search</code>（検索する言葉が、選んだサイトへ）。<strong>入れた人だけ</strong>が使います。<code>vc skills install --all</code> で入れると、注意が出ます。</p></li>
-      <li class="note reveal" style="--d:60ms"><h3>署名は、ad-hoc です</h3><p>Developer ID の署名・公証は、ありません。上の <code>curl</code> なら止められませんが、ブラウザで取得して Gatekeeper に止められたら、<code>xattr -dr com.apple.quarantine ~/.local/bin/vc</code> を実行します。</p></li>
-      <li class="note reveal"><h3>音声認識は、間違えます</h3><p>専門用語・数値・否定は、誤りやすくなります。声で頼む前に、聞こえた文が、画面の上に出ます。</p></li>
-      <li class="note reveal" style="--d:60ms"><h3>確かめきれていないこと</h3><p>実際のマイクでの長い使用・実アプリでの動作の一部は、まだ確認が済んでいません。確認した範囲と、していない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>に、そのまま書いてあります。</p></li>
+      <li class="note spotlight reveal"><h3>AI は間違えることがあります</h3><p>スキルの選び間違いや、コマンドの組み立て間違いが起こることがあります。実行内容を先に見たいときは、<code>--dry-run</code> を付けてください。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>対応している環境</h3><p>macOS 26 以降の Apple シリコン Mac だけです。初期設定の AI モデルには、Apple Intelligence（オン）が必要です。使えない場合は、Mac 上の Ollama などに切り替えます（<code>--engine</code>）。</p></li>
+      <li class="note spotlight reveal"><h3>外部に送られる 2 つのスキル</h3><p><code>ask-agent</code> は調べる内容を、選んだ AI エージェントの提供元に送ります。<code>web-search</code> は検索ワードを、選んだサイトに送ります。どちらも、自分で入れたときだけ使えます。<code>vc skills install --all</code> で入れると、注意が表示されます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>署名は ad-hoc です</h3><p>Apple の Developer ID による署名と公証はありません。上の <code>curl</code> でインストールすれば止められませんが、ブラウザで取得して Gatekeeper に止められたときは、<code>xattr -dr com.apple.quarantine ~/.local/bin/vc</code> を実行してください。</p></li>
+      <li class="note spotlight reveal"><h3>音声認識も間違えます</h3><p>専門用語、数字、否定の言い方は、間違えやすくなります。実行する前に、聞こえた内容が画面に表示されます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクを長く使った場合や、一部の実際のアプリでの動作は、まだ確認が終わっていません。確認した範囲としていない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>にそのまま書いてあります。</p></li>
     </ul>
   </div>
 </section>
 
-<!-- ───────── faq ───────── -->
+<!-- ───────── よくある質問 ───────── -->
 <section class="section" id="faq">
   <div class="wrap">
-    <div class="section-head reveal"><h2>よくある質問</h2></div>
+    <header class="section-head reveal"><h2>よくある質問</h2></header>
     <div class="faq">
-      <details class="reveal"><summary>本当に、外へ出ませんか？</summary><div class="body"><p>音声認識（既定は Apple のオンデバイス）・スキルの選択（Tiny-Jev）・既定の言語モデルは、この Mac の中で動きます。通信するのは、<strong>インストール・モデルの取得・スキルの取得</strong>と、この Mac の <code>127.0.0.1</code>（Ollama などを使うとき）だけです。例外は、あなたが入れた <code>ask-agent</code> と <code>web-search</code> だけです。</p></div></details>
-      <details class="reveal"><summary>どのキーで話しますか？</summary><div class="body"><p>既定は Shift の長押しです。<code>vc hotkey set rshift</code>（右 Shift）のように変えられます。声で頼むキーと、音声入力のキーを、別々にもできます（<code>vc hotkey set-dictate</code>）。</p></div></details>
-      <details class="reveal"><summary>自分のスキルは、作れますか？</summary><div class="body"><p>作れます。<code>~/.voice-control/skills/&lt;名前&gt;/SKILL.md</code> に、次のように書きます。</p><pre class="skillmd">---
+      <details class="reveal"><summary>本当に、話した内容は外に出ませんか？</summary><div class="body"><p>音声認識（初期設定は Apple のオンデバイス）、スキルの選択（Tiny-Jev）、初期設定の AI モデルは、Mac の中で動きます。通信するのは、インストール、モデルの取得、スキルの取得のときと、Ollama などを使うときの Mac 自身（<code>127.0.0.1</code>）だけです。例外は、自分で入れた <code>ask-agent</code> と <code>web-search</code> の 2 つのスキルです。</p></div></details>
+      <details class="reveal"><summary>話すときに押すキーは変えられますか？</summary><div class="body"><p>初期設定は Shift の長押しです。たとえば <code>vc hotkey set rshift</code> で、右 Shift に変えられます。声で頼むキーと、声で文字を入力するキーを、別々に設定することもできます（<code>vc hotkey set-dictate</code>）。</p></div></details>
+      <details class="reveal"><summary>自分のスキルは作れますか？</summary><div class="body"><p>作れます。<code>~/.voice-control/skills/&lt;名前&gt;/SKILL.md</code> を、次のように書きます。</p><pre class="skillmd">---
 name: open-app
 description: アプリを開く：「Safari を開いて」
 allowed-commands:
   - open
 ---
-Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p>許可に書いたコマンドだけが、実行できます。詳しくは、リポジトリの <a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a>。</p></div></details>
-      <details class="reveal"><summary>Apple Intelligence が使えない Mac では？</summary><div class="body"><p>この Mac の中で動く、Ollama・LM Studio などのモデルに替えられます（<code>vc engine set ollama:qwen3.5:4b</code>）。通信先は <code>127.0.0.1</code> に固定で、クラウドのモデルは指定できません。</p></div></details>
-      <details class="reveal"><summary>発話は、記録されますか？</summary><div class="body"><p>発話の文字・画面の内容・入力した文字を、ファイルにも、ログにも、残しません。画面の上のパネルと、端末に出すだけです。</p></div></details>
-      <details class="reveal"><summary>つなぎ言葉（えーと）を消すには？</summary><div class="body"><p><code>vc fillers on</code>。辞書は <code>vc fillers add あのさ</code> で足し、<code>vc fillers</code> で一覧します。音声入力にだけかかります（声で頼む依頼文には、かけません）。</p></div></details>
-      <details class="reveal"><summary>止めたい・やめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> で、録音も、認識も、実行中のコマンドも、取りやめます。複数のステップに分けるのをやめるなら <code>vc plan off</code>。<code>vc</code> 自体は、<code>rm ~/.local/bin/vc</code> で取り除けます。</p></div></details>
+Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
+      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（<code>vc engine set ollama:qwen3.5:4b</code>）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
+      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。</p></div></details>
+      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p><code>vc fillers on</code> を実行します。消す言葉は <code>vc fillers add あのさ</code> で追加できて、<code>vc fillers</code> で一覧を見られます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
+      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。依頼を順番に分けて実行する機能は、<code>vc plan off</code> で止められます。vc 自体は、<code>rm ~/.local/bin/vc</code> で削除できます。</p></div></details>
     </div>
   </div>
 </section>
 
-<!-- ───────── closing ───────── -->
+<!-- ───────── むすび ───────── -->
 <section class="section closing">
   <div class="wrap">
-    <h2 class="reveal">押して、話してみる。</h2>
-    <p class="lead reveal" style="margin-inline:auto">まずは <code>--dry-run</code> で、何をするかだけ見るところから。</p>
+    <h2 class="reveal">まずは、実行しない設定で試してみる。</h2>
+    <p class="lead reveal">いちばん安全な始め方は、<code>--dry-run</code> を付けて、何をするかだけを見ることです。</p>
     <div class="cmd reveal"><pre><code id="c-close">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre><button class="copy" type="button" data-copy-from="c-close">コピー</button></div>
     <div class="cta-row reveal">
-      <a class="btn btn-primary" href="https://github.com/takemo101/voice-control/releases/latest" rel="noopener">最新のリリース</a>
+      <a class="btn btn-primary" href="#install">はじめかたを見る</a>
       <a class="btn" href="https://github.com/takemo101/voice-control" rel="noopener">GitHub で見る</a>
     </div>
   </div>
@@ -314,7 +368,7 @@ Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done:
 
 <footer class="site-footer">
   <div class="wrap foot">
-    <p>voice-control は、MIT ライセンスのオープンソースです（試作）。</p>
+    <p>voice-control は、MIT ライセンスのオープンソースです（試作版）。</p>
     <nav aria-label="リンク">
       <a href="https://github.com/takemo101/voice-control" rel="noopener">GitHub</a>
       <a href="https://github.com/takemo101/voice-control/releases" rel="noopener">Releases</a>

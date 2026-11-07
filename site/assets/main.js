@@ -5,6 +5,39 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // ── スクロールの進み具合（上の細い線）と、はじめかたの縦線 ─────────────────
+  const progress = document.getElementById("progress");
+  const timeline = document.getElementById("timeline");
+  const tlFill = document.getElementById("tl-fill");
+  const tlSteps = timeline ? $$(".tl-step", timeline) : [];
+  let ticking = false;
+  const onScroll = () => {
+    ticking = false;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if (progress) progress.style.setProperty("--p", max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)).toFixed(4) : "0");
+    if (timeline && tlFill) {
+      const r = timeline.getBoundingClientRect();
+      const mid = window.innerHeight * 0.55;
+      const p = Math.min(1, Math.max(0, (mid - r.top) / r.height));
+      tlFill.style.setProperty("--p", p.toFixed(4));
+      tlSteps.forEach((st) => st.classList.toggle("is-active", st.getBoundingClientRect().top < mid));
+    }
+  };
+  window.addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  window.addEventListener("resize", onScroll);
+  onScroll();
+
+  // ── カードの上で、光が、マウスについてくる ─────────────────────────
+  if (!reduced) {
+    $$(".spotlight, .spot").forEach((el) => {
+      el.addEventListener("pointermove", (e) => {
+        const b = el.getBoundingClientRect();
+        el.style.setProperty("--mx", `${e.clientX - b.left}px`);
+        el.style.setProperty("--my", `${e.clientY - b.top}px`);
+      });
+    });
+  }
+
   // ── スクロールで現れる ───────────────────────────────
   const reveals = $$(".reveal");
   if (reduced || !("IntersectionObserver" in window)) {
@@ -102,7 +135,7 @@
     { say: "クロードでRustの所有権を調べて", lines: [["skill", "ask-agent", "98.9%（0.1 秒）"], ["cmd", `node ${SK}ask-agent/ask-agent.mjs claude "Rustの所有権"`]] },
     { say: "コピーした文章を要約して", lines: [["skill", "clipboard-note", "100.0%（0.1 秒）"], ["cmd", "pbpaste"]] },
     { say: "Safariを開いて", lines: [["dim", "Tiny-Jev  どのスキルでもない → 既定スキル default（0.4 秒）"], ["cmd", "open -a Safari"]] },
-    { say: "クロードでRustの所有権を調べて、そのあとSpotifyで次の曲にして", label: "調べて、そのあと次の曲（複数ステップ）", lines: [
+    { say: "クロードでRustの所有権を調べて、そのあとSpotifyで次の曲にして", label: "調べて、そのあと次の曲（続けて頼む）", lines: [
       ["dim", "手順  2 つに分けました"], ["dim", "  1. クロードでRustの所有権を調べて"], ["dim", "  2. Spotifyで次の曲にして"],
       ["step", "▶ ステップ 1/2"], ["skill", "ask-agent", "98.9%（0.1 秒）"], ["cmd", `node ${SK}ask-agent/ask-agent.mjs claude "Rustの所有権"`],
       ["step", "▶ ステップ 2/2"], ["skill", "spotify", "99.5%（0.2 秒）"], ["cmd", `osascript ${SK}spotify/spotify.applescript next`] ] },
@@ -128,7 +161,7 @@
           else html += `<span class="c-dim">${esc(a)}</span>\n`;
         }
       }
-      return html + `<span class="c-dim">（--dry-run：実行はしません）</span>`;
+      return html + `<span class="c-dim">（--dry-run なので、実行はしません）</span>`;
     };
     let current = -1, tick = 0, auto = 0, touched = false, seen = false;
     const play = (i) => {
