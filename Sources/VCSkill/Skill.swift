@@ -29,6 +29,9 @@ public struct Skill: Sendable, Equatable {
     /// このスキルが、利用者の発話を、**この Mac の外へ送る**とき、その送り先（フロントマター `external`。例：`Google（agy）`）。書かなければ、送らない。
     /// 一覧・インストールの結果に出し、`--all` のインストールのあとに、注意を出す（`vc` の基本：発話を、この Mac の外へ出さない、の例外を、見えるようにする）。
     public var external: String?
+    /// 複数ステップの依頼で、**前のステップの結果**（返事）を、受け取ってよいか（フロントマター `accepts-previous`。既定は false）。
+    /// 結果は、信頼しないデータ（`PreviousResult`）。外の内容を含みうるので、受け取る（宣言する）スキルは、そのデータで、危ない動作をしないものだけ。
+    public var acceptsPrevious: Bool = false
     /// 1 つのコマンドの、実行時間の上限（秒。フロントマター `timeout`）。書かなければ、`CommandRunner.defaultTimeout`（30 秒）。
     public var commandTimeout: TimeInterval = CommandRunner.defaultTimeout
     /// `timeout` に書ける範囲（秒）。上限は、止まらないコマンドが、いつまでも残らないための歯止め（Esc の取りやめは、いつでも効く）。

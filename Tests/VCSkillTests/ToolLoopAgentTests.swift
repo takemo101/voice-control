@@ -10,7 +10,7 @@ import Testing
         private var replies: [ChatMessage]
         private(set) var received: [[ChatMessage]] = []
         init(_ replies: [ChatMessage]) { self.replies = replies }
-        func chat(_ messages: [ChatMessage]) async throws -> ChatMessage {
+        func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
             lock.lock(); defer { lock.unlock() }
             received.append(messages)
             return replies.isEmpty ? ChatMessage(role: .assistant, content: "done: 終わり") : replies.removeFirst()

@@ -141,7 +141,8 @@ struct ListenCommand: Command {
                 skills.reportProblems()
                 let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine, scorer: context.scorerProvider(loaded: jev))
                 let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun, isSuperseded: { token.isSuperseded })
-                _ = try await skillRunner.run(utterance, reporter: reporter, confirm: {
+                let planner = context.makePlanner(skills: skills.enabled)
+                _ = try await PlanRunner(runner: skillRunner, planner: planner, dryRun: context.options.dryRun, cancel: token).run(utterance, reporter: reporter, confirm: {
                     // パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）
                     let panel = PanelAnswer()
                     HUD.shared.answers.set { panel.resolve($0) }

@@ -23,13 +23,16 @@ struct ChatMessage: Sendable, Equatable {
 /// **通信先は、この Mac の `127.0.0.1` だけ**（`LocalServer`）。
 protocol ChatModel: Sendable {
     /// これまでのやりとりを渡して、モデルの次の発言（文、または道具の呼び出し）を受け取る。
-    func chat(_ messages: [ChatMessage]) async throws -> ChatMessage
+    /// `tools`：`run_command` の道具を渡すか。**文だけがほしいとき（依頼を分けるとき）は、false**（道具があると、小さなモデルは、文でなく、道具を呼んで返す）。
+    func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage
     /// 使える状態か（`vc doctor`）：サーバーが動いていて、モデルがあるか。失敗は `ChatError`。
     func check() async throws
 }
 
 extension ChatModel {
     func check() async throws {}
+    /// スキルの実行：道具つき。
+    func chat(_ messages: [ChatMessage]) async throws -> ChatMessage { try await chat(messages, tools: true) }
 }
 
 enum ChatError: Error, Equatable, CustomStringConvertible {

@@ -34,6 +34,14 @@ public enum RunEvent: Sendable, Equatable {
     case failed(String)
     /// 取りやめられた。
     case cancelled
+    /// 依頼を、複数のステップに分けた（言語モデルの案を、検査したもの）。このあと、ステップごとに、`stepStarted` から始まる。
+    case planned(steps: [String])
+    /// ステップを始める（`index` は 1 から）。`text`：そのステップの文。
+    case stepStarted(index: Int, total: Int, text: String)
+    /// 前のステップの結果を、このステップのスキルへ渡した（`accepts-previous` のスキルだけ）。`characters`：渡した文字数。
+    case carriedResult(characters: Int)
+    /// ステップの途中で止まった（失敗・拒否・確認の却下・取りやめ）。`completed`：済んだステップの数。残りは、実行しない。
+    case planStopped(completed: Int, total: Int)
 }
 
 /// `RunEvent` の受け手（端末の表示・画面の上の表示など）。実行中のコマンドの出来事は、実行者のスレッドから届くので、どのスレッドからも呼べること。
@@ -89,7 +97,8 @@ public struct SkillRunner: Sendable {
     }
 
     /// `confirm`：確認が要るときに呼ぶ（承認なら true）。理由は、直前の `RunEvent.confirmRequired` で渡す。
-    public func run(_ request: String, reporter: RunReporter, confirm: () async throws -> Bool) async throws -> RunOutcome {
+    /// `previousResult`：前のステップの結果（返事）。**このスキルが `accepts-previous` のときだけ**、信頼しないデータの囲みにして、依頼のあとに足して渡す。
+    public func run(_ request: String, reporter: RunReporter, previousResult: String? = nil, confirm: () async throws -> Bool) async throws -> RunOutcome {
         let skill: Skill
         var confirmReason: String?
         switch selection {
@@ -131,7 +140,12 @@ public struct SkillRunner: Sendable {
         do {
             // 確認の待ちの間に取りやめられていたら、実行者を呼ばない
             if cancel?.isCancelled == true { throw CancellationError() }
-            var reply = try await executor.run(request: request)
+            var input = request
+            if let previousResult, skill.acceptsPrevious {
+                input += PreviousResult.block(previousResult)
+                reporter.report(.carriedResult(characters: min(previousResult.count, PreviousResult.maxLength)))
+            }
+            var reply = try await executor.run(request: input)
             // ウィンドウに表示するスキル：返事（Markdown の本文）を、結果として渡し、返事は `done: …` にする（dry-run・失敗の返事は、そのまま）
             if skill.result == .markdownWindow, !dryRun, !reply.lowercased().hasPrefix("failed") {
                 reporter.report(.document(reply))

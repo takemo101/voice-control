@@ -6,7 +6,7 @@ import VCSkill
 struct RunCommand: Command {
     static let info = CommandInfo(
         name: "run", group: .skills, summary: "スキルを選んで、コマンドを実行する",
-        usage: ["vc run <依頼> [--skill <name>] [--dry-run] [--yes]"],
+        usage: ["vc run <依頼> [--skill <name>] [--no-plan] [--dry-run] [--yes]"],
         details: [
             "Tiny-Jev が、有効なスキルから、呼ぶものを選ぶ。スキルの本文と依頼文を Apple の言語モデルに渡し、コマンドを実行させる。",
             "実行してよいのは、スキルの allowed-commands に一致するコマンドだけ（シェルは使わない）。実行するコマンドと結果は、すべて表示する。",
@@ -14,6 +14,7 @@ struct RunCommand: Command {
         ],
         options: [
             ("--skill <name>", "Tiny-Jev で選ばず、このスキルを使う（無効なスキルは使えない）"),
+            ("--no-plan", "依頼を、複数のステップに分けない（1 依頼 = 1 スキル。常にそうするなら vc plan off）"),
             ("--dry-run", "コマンドを実行せず、実行しようとするコマンドだけを表示する（モデルは出力を見られないので、途中は推測になる）"),
             ("--yes", "確認を省略する"),
         ],
@@ -25,6 +26,7 @@ struct RunCommand: Command {
         // 実行するコマンドと結果は、すべて表示する。実行してよいコマンドは、スキルの allowed-commands だけ（シェルは使わない）。
         var arguments = arguments
         let dryRun = arguments.flag("--dry-run")
+        let noPlan = arguments.flag("--no-plan")
         let forced = arguments.option("--skill")
         guard let request = arguments.positionals.first else { usageError("run", "依頼を渡してください（例: vc run \"Safariを開いて\"）") }
         requireAppleIntelligence(for: context.engine)
@@ -50,7 +52,11 @@ struct RunCommand: Command {
         let yes = context.options.yes
         let outcome: RunOutcome
         do {
-            outcome = try await SkillRunner(selection: selection, dryRun: dryRun, engine: context.engine, scorer: context.scorerProvider(loaded: loadedJev)).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
+            let runner = SkillRunner(selection: selection, dryRun: dryRun, engine: context.engine, scorer: context.scorerProvider(loaded: loadedJev))
+            // 依頼を分けるのは、Tiny-Jev で選ぶとき（`--skill` で指定したときは、分けない）。分け方は、言語モデルが決める
+            var planner: RequestPlanning?
+            if forced == nil && !noPlan { planner = context.makePlanner(skills: enabled) }
+            outcome = try await PlanRunner(runner: runner, planner: planner, dryRun: dryRun).run(request, reporter: TerminalReporter(layout: .command, dryRun: dryRun), confirm: { askOnTerminal(yes: yes) })
         } catch { fail("\(error)") }
         // 失敗は、`TerminalReporter` が、標準エラーへ出している。ここでは、終了コードだけ
         switch outcome {
