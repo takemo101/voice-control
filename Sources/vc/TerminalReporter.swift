@@ -14,9 +14,8 @@ struct TerminalReporter: RunReporter {
     /// 出力先（既定は、標準出力・標準エラー。テストで差し替える）。
     var out: @Sendable (String) -> Void = { print($0) }
     var err: @Sendable (String) -> Void = { eprint($0) }
-    /// `result: markdown-window` のスキルの結果（Markdown の本文）の見せ先（既定は、別のプロセスのウィンドウ）。起こせなければ、理由を返す。
-    var document: @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) }
-    var image: @Sendable (URL) -> String? = { ImagePanel.present(file: $0, title: "加工した画像") }
+    /// 結果（Markdown の答え・加工した画像）の見せ先（既定は、別のプロセスのウィンドウ・パネル）。
+    var presenters = ResultPresenters.live
 
     func report(_ event: RunEvent) {
         switch event {
@@ -57,9 +56,9 @@ struct TerminalReporter: RunReporter {
         case let .denied(command, reason):
             out("  " + Style.red("✗ 拒否: ") + command + Style.dim("  — " + reason))
         case let .document(markdown):
-            if let why = document(markdown) { err(Style.red("ウィンドウを出せません: ") + why) }
+            if let why = presenters.document(markdown) { err(Style.red("ウィンドウを出せません: ") + why) }
         case let .image(url):
-            if let why = image(url) { err(Style.red("パネルを出せません: ") + why) }
+            if let why = presenters.image(url) { err(Style.red("パネルを出せません: ") + why) }
         case let .reply(reply, commandCount, elapsed):
             if layout == .command { out(headingText("結果")) }
             out(kvText("返事", reply))

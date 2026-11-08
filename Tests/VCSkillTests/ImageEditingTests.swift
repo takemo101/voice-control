@@ -108,3 +108,19 @@ extension ImageEditingTests {
         #expect(try ShotOutput.nextURL(in: dir, ext: "jpg", now: now).pathExtension == "jpg")
     }
 }
+
+extension ImageEditingTests {
+    /// `vc see` の答えと `vc image` の保存先は、モデルに返す文とは別の成果物として持つ。失敗には、成果物がない。
+    @Test func deliverablesAreSeparateFromTheTextForTheModel() throws {
+        let box = Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        var commands = InternalCommands(request: "x", scorer: nil, memory: OptionMemory())
+        commands.images = box.editing()
+        commands.vision = { _, _, _, _ in .success("# 答え") }
+        let saved = commands.run(["vc", "image", "rotate", "90"])
+        #expect(saved.exitCode == 0 && saved.document == nil && saved.image?.path.hasPrefix(box.out.path) == true)
+        let failed = commands.run(["vc", "image", "rotate", "45"])
+        #expect(failed.exitCode == 2 && failed.image == nil && failed.text.hasPrefix("error: "))
+        #expect(InternalCommands.name(of: ["vc", "see"]) == .see && InternalCommands.name(of: ["vc", "show"]) == nil && InternalCommands.name(of: ["ls", "find"]) == nil)
+    }
+}

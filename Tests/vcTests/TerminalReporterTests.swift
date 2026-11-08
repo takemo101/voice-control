@@ -85,3 +85,25 @@ private func terminal(_ layout: TerminalReporter.Layout, dryRun: Bool = false) -
         #expect(spoken.out.values.last == "  → 実行しない（会話）")
     }
 }
+
+/// 結果の見せ先（ウィンドウ・パネル）：答え・加工した画像が、見せ先へ渡り、起こせなかったときは、理由が、標準エラーに出る。
+@Suite struct ResultPresentersTests {
+    @Test func theDocumentAndTheImageAreHandedToThePresenters() {
+        let t = terminal(.command)
+        let shown = Collected<String>()
+        var reporter = t.reporter
+        reporter.presenters = ResultPresenters(document: { shown.add("document:\($0)"); return nil }, image: { shown.add("image:\($0.lastPathComponent)"); return nil })
+        reporter.report(.document("# 題"))
+        reporter.report(.image(URL(fileURLWithPath: "/tmp/shot-1.png")))
+        #expect(shown.values == ["document:# 題", "image:shot-1.png"] && t.err.values.isEmpty && t.out.values.isEmpty)
+    }
+
+    @Test func aPresenterFailureIsShownOnStandardError() {
+        let t = terminal(.command)
+        var reporter = t.reporter
+        reporter.presenters = ResultPresenters(document: { _ in "ウィンドウを出せません" }, image: { _ in "画像を読めません" })
+        reporter.report(.document("x"))
+        reporter.report(.image(URL(fileURLWithPath: "/tmp/a.png")))
+        #expect(t.err.values.count == 2 && t.err.values[0].contains("ウィンドウを出せません") && t.err.values[1].contains("画像を読めません"))
+    }
+}

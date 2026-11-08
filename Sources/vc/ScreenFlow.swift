@@ -1,10 +1,25 @@
 import Foundation
 import VCCore
 import VCSkill
+import VCSpeech
 
 /// ショートカットから始まる、スクリーンショットの流れ（`vc listen --hotkey` の中）。範囲の選択は、別のスレッドで待つ（画面の上のパネル・キーの監視を、止めない）。
 /// 結果は、画面の上のパネルに出す。画像・読み取った文字は、端末へは出さない。
 @MainActor enum ScreenFlow {
+    /// 撮ったあとの案内（どのキーで、頼むか）。
+    static func followUpHint(listen spec: HotKeySpec, handsFree: Bool) -> String {
+        "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(ScreenshotStore.timeToLiveMinutes) 分以内）" + (handsFree ? "。ダブルタップなら、話し終わるまで聞きます" : "")
+    }
+
+    /// スクリーンショットのショートカットを、登録する（`shot` がなければ、何も登録しない）。返したトリガーは、聞いている間、保持する。前の実行の画像は、消す（使わない）。
+    static func install(shot: HotKeySpec?, followUp: String) throws -> [any PushToTalkTrigger] {
+        ScreenshotStore.clear()
+        guard let shot else { return [] }
+        let key = try makeTrigger(shot)
+        key.onPress = { Task { @MainActor in captureForVoice(next: followUp, chip: shot.displayName) } }
+        return [key]
+    }
+
     /// 範囲を選んでいる間は、次のショートカットを受けない。
     private static var busy = false
 
