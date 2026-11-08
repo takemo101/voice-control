@@ -136,7 +136,7 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>できること</h2>
-      <p>声で頼むだけでなく、声で文字を入力することもできます。</p>
+      <p>声で頼むだけでなく、声で文字を入力したり、撮った画面について頼んだりできます。</p>
     </header>
     <div class="bento">
       <article class="card spotlight b-wide reveal">
@@ -178,6 +178,39 @@
     </div>
 
     <header class="section-head reveal sub-head">
+      <h2>画面を撮って、声で頼む</h2>
+      <p>撮った画面について、声で頼めます。画像は、Mac の中の AI モデルにだけ渡します。</p>
+    </header>
+    <div class="bento">
+      <article class="card spotlight b-wide reveal" style="--d:80ms">
+        <h3>画面を撮って、声で頼む</h3>
+        <p>ショートカットで画面が静止して暗くなり、<strong>ドラッグで範囲</strong>、<strong>ウィンドウをクリック</strong>、<strong>Enter で全画面</strong>を選べます。大きさは「1200 × 500」のようにピクセルで表示されます。撮れたら、「この画像の文字を書き出して」「これは何？」「右半分を切り抜いて」「JPEG に変換して」と頼みます。<strong>画像は、Mac の中の AI モデルにだけ渡します。</strong></p>
+        <div class="keys" aria-hidden="true"><span class="kbd">⇧</span> 正方形<span class="sep">／</span><span class="kbd">⌥</span> 中心から<span class="sep">／</span><span class="kbd">Space</span> 動かす<span class="sep">／</span><span class="kbd">R</span> 前回<span class="sep">／</span><span class="kbd">Z</span> 拡大鏡（色のコピー）</div>
+        <div class="card-media is-inset">
+          <img src="assets/img/capture-drag.jpg" width="1500" height="850" alt="暗くなった画面で範囲をドラッグしている様子。範囲だけが明るく、大きさ「1200 × 500」と縦横比が表示され、下に操作の案内が出ている" loading="lazy">
+        </div>
+        <div class="mini-row"><code class="mini">vc hotkey set-shot ctrl+opt+s</code></div>
+      </article>
+      <article class="card spotlight b-third b-tall-2 reveal">
+        <h3>撮った画像のパネル</h3>
+        <p>撮ったあとに、画像のパネルが開きます。<strong>画像のコピー</strong>、<strong>パスのコピー</strong>、Finder で表示ができ、画像は、ほかのアプリへドラッグして渡せます。<strong>「文字起こし」</strong>を押すと、画像の文字を、そのまま、パネルの下に出します（macOS の文字認識。Mac の中だけで動きます）。</p>
+        <div class="card-media is-inset">
+          <img src="assets/img/image-panel.png" width="631" height="900" alt="画像のパネル。画像、形式と大きさ、保存の状態、文字起こしの結果、画像をコピーのボタンが並んでいる" loading="lazy">
+        </div>
+      </article>
+      <article class="card spotlight b-third reveal">
+        <h3>ダブルタップで、話し終わるまで</h3>
+        <p>Shift を押している間だけ話す代わりに、<strong>2 回タップ</strong>すると、手を離しても録音が続きます。<strong>黙ると</strong>認識を始め、もう一度タップすると、すぐ始めます。押し続ける使い方は、そのままです。</p>
+        <div class="mini-row"><code class="mini">vc handsfree off</code><span class="mini-note">で、押している間だけに戻せます</span></div>
+      </article>
+      <article class="card spotlight b-third reveal" style="--d:80ms">
+        <h3>撮った画像を、ほかのツールへ</h3>
+        <p>スキルの本文に <code>${SCREENSHOT}</code> と書くと、撮った画像のパスが入ります。ImageMagick などの自分のコマンドに、画像を渡すスキルが作れます。</p>
+        <div class="mini-row"><code class="mini">magick "${SCREENSHOT}" -trim …</code></div>
+      </article>
+    </div>
+
+    <header class="section-head reveal sub-head">
       <h2>同梱のスキル</h2>
       <p>リポジトリの <code>.voice-control/skills/</code> にあります。</p>
     </header>
@@ -208,7 +241,7 @@
           <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけ実行する</h3><p>スキルに書いた <code>allowed-commands</code> と先頭が一致するコマンドだけを実行します。一致しなければ実行しません。</p></div></li>
           <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルは使わない</h3><p>パイプ（<code>|</code>）、リダイレクト（<code>&gt;</code>）、<code>&amp;&amp;</code> は使えません。<code>sudo</code> やシェルの起動は、許可リストに書くこともできません。</p></div></li>
           <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>危ない操作は確認する</h3><p>削除、送信、購入など取り消しにくい依頼だと判断したときや、自信がないときは、実行の前に確認します。スキルに <code>confirm: true</code> と書けば、そのスキルは必ず確認します。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。例外は、自分で入れたときだけ使える 2 つのスキルです（下の「注意点」を見てください）。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。撮った画面の画像も、Mac の中のモデルだけに渡し、自分だけが読める場所に 1 枚だけ置いて、3 分で使えなくなります。例外は、自分で入れたときだけ使える 2 つのスキルです（下の「注意点」を見てください）。</p></div></li>
           <li class="rule spotlight reveal" style="--d:240ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>聞こえた内容の「命令」には従わない</h3><p>話した内容、画面の文字、AI の出力に命令が書かれていても、実行の指示としては扱いません。</p></div></li>
         </ul>
         <div class="split reveal">
@@ -290,7 +323,10 @@ $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
           <p class="tl-result"><b>結果：</b>どのスキルが選ばれたかと、実行しようとするコマンドが表示されます。実際には何も実行されません。</p>
           <p class="cmd-label"><b>5-3</b> 声で頼む</p>
           <div class="cmd"><pre><code id="c-listen">vc listen --hotkey</code></pre><button class="copy" type="button" data-copy-from="c-listen">コピー</button></div>
-          <p class="tl-result"><b>使い方：</b>Shift を押している間だけ話して、離すと実行されます。初回は、マイクとアクセシビリティの許可を求められます。</p>
+          <p class="tl-result"><b>使い方：</b>Shift を押している間だけ話して、離すと実行されます。<strong>Shift を 2 回タップ</strong>すると、話し終わるまで聞きます。初回は、マイクとアクセシビリティの許可を求められます。</p>
+          <p class="cmd-label"><b>5-4</b> 画面を撮って頼む（任意）</p>
+          <div class="cmd"><pre><code id="c-shot">vc hotkey set-shot ctrl+opt+s</code></pre><button class="copy" type="button" data-copy-from="c-shot">コピー</button></div>
+          <p class="tl-result"><b>使い方：</b><code>vc listen --hotkey</code> を動かしたまま <code>ctrl+opt+s</code> を押し、範囲を選びます。そのあと、「この画像の文字を書き出して」のように頼みます。初回は、画面収録の許可を求められます。</p>
         </div>
       </li>
     </ol>
@@ -323,7 +359,8 @@ vc model download</code></pre><button class="copy" type="button" data-copy-from=
     <ul class="notes">
       <li class="note spotlight reveal"><h3>AI は間違えることがあります</h3><p>スキルの選び間違いや、コマンドの組み立て間違いが起こることがあります。実行内容を先に見たいときは、<code>--dry-run</code> を付けてください。</p></li>
       <li class="note spotlight reveal" style="--d:60ms"><h3>対応している環境</h3><p>macOS 26 以降の Apple シリコン Mac だけです。初期設定の AI モデルには、Apple Intelligence（オン）が必要です。使えない場合は、Mac 上の Ollama などに切り替えます（<code>--engine</code>）。</p></li>
-      <li class="note spotlight reveal"><h3>外部に送られる 2 つのスキル</h3><p><code>ask-agent</code> は調べる内容を、選んだ AI エージェントの提供元に送ります。<code>web-search</code> は検索ワードを、選んだサイトに送ります。どちらも、自分で入れたときだけ使えます。<code>vc skills install --all</code> で入れると、注意が表示されます。</p></li>
+      <li class="note spotlight reveal"><h3>スクリーンショットには、画面収録の許可が要ります</h3><p>画面を撮るときだけ、システム設定の「画面収録」で、<code>vc</code> を動かしているターミナルを許可してください（<code>vc doctor</code> で確かめられます）。撮った画像は、3 分で使えなくなり、終了すると消えます。パネルの「パスをコピー」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>外部に送られる 2 つのスキル</h3><p><code>ask-agent</code> は調べる内容を、選んだ AI エージェントの提供元に送ります。<code>web-search</code> は検索ワードを、選んだサイトに送ります。どちらも、自分で入れたときだけ使えます。<code>vc skills install --all</code> で入れると、注意が表示されます。</p></li>
       <li class="note spotlight reveal" style="--d:60ms"><h3>署名は ad-hoc です</h3><p>Apple の Developer ID による署名と公証はありません。上の <code>curl</code> でインストールすれば止められませんが、ブラウザで取得して Gatekeeper に止められたときは、<code>xattr -dr com.apple.quarantine ~/.local/bin/vc</code> を実行してください。</p></li>
       <li class="note spotlight reveal"><h3>音声認識も間違えます</h3><p>専門用語、数字、否定の言い方は、間違えやすくなります。実行する前に、聞こえた内容が画面に表示されます。</p></li>
       <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクを長く使った場合や、一部の実際のアプリでの動作は、まだ確認が終わっていません。確認した範囲としていない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>にそのまま書いてあります。</p></li>
@@ -348,6 +385,8 @@ Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done:
       <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（<code>vc engine set ollama:qwen3.5:4b</code>）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
       <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。</p></div></details>
       <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p><code>vc fillers on</code> を実行します。消す言葉は <code>vc fillers add あのさ</code> で追加できて、<code>vc fillers</code> で一覧を見られます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
+      <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に、1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、<code>vc listen</code> を終えると消えます。新しく撮ると、置き換わります。パネルの「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中の AI モデル（Apple のモデル、または画像に対応した Ollama のモデル）にだけ渡します。</p></div></details>
+      <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとに出るパネルの<strong>「文字起こし」</strong>を押します。macOS の文字認識で読み取って、パネルの下に、そのまま出します（選んでコピーできます）。AI を通さないので、写し間違いがありません。最初の 1 回だけ、システムの準備で 30 秒ほどかかります。</p></div></details>
       <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。依頼を順番に分けて実行する機能は、<code>vc plan off</code> で止められます。vc 自体は、<code>rm ~/.local/bin/vc</code> で削除できます。</p></div></details>
     </div>
   </div>
