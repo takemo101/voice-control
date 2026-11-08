@@ -75,6 +75,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             terminal.report(event)
             update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil; $0.choices = false }
         case .confirmed:
+            terminal.report(event)
             update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil; $0.choices = false }
         case .started:
             break

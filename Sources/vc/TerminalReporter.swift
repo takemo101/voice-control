@@ -35,15 +35,17 @@ struct TerminalReporter: RunReporter {
             case .command: out("\n  " + Style.dim("→ 実行しない（\(reason)）"))
             case .voice: out("  " + Style.dim("→ 実行しない（\(reason)）"))
             }
-        case let .confirmRequired(_, reason):
+        case let .confirmRequired(skill, reason):
+            ConfirmImagePanel.show(for: skill)
             switch layout {
             case .command: out(noticeText(reason + "。"))
             case .voice: out(noticeText("確認待ち：パネルの\(ConfirmGuide.howToAnswer)（\(reason)）"))
             }
         case .confirmationDeclined:
+            ConfirmImagePanel.dismiss()
             out("  " + Style.dim("やめた"))
         case .confirmed:
-            break
+            ConfirmImagePanel.dismiss()
         case .started:
             if layout == .command { out(headingText(dryRun ? "実行（dry-run：コマンドは実行しない）" : "実行")) }
         case let .command(command):

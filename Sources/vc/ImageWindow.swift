@@ -14,9 +14,11 @@ import VCSkill
     /// 保存済みのパス（`image-edit` の結果は、最初から。撮ったばかりの画像は、保存を押したあと）。
     private var savedURL: URL?
     private let window: ImagePanelFrame
+    private let expiresAt: Date?
     private let state = ImageState()
 
-    private init(png: Data, image: NSImage, pixelSize: CGSize, savedURL: URL?, title: String) {
+    private init(png: Data, image: NSImage, pixelSize: CGSize, savedURL: URL?, title: String, expiresAt: Date?) {
+        self.expiresAt = expiresAt
         self.png = png
         self.image = image
         self.pixelSize = pixelSize
@@ -35,7 +37,7 @@ import VCSkill
         window.copyImage = { [unowned self] in copyImage() }
         window.transcribe = { [unowned self] in toggleTranscript() }
         let root = ImageCardView(
-            title: title, size: pixelSize, image: image, byteCount: png.count, savedPath: savedURL?.path, state: state,
+            title: title, size: pixelSize, image: image, byteCount: png.count, savedPath: savedURL?.path, expiresAt: expiresAt, state: state,
             copyImage: { [unowned self] in copyImage() },
             copyPath: { [unowned self] in copyPath() },
             reveal: { [unowned self] in reveal() },
@@ -58,11 +60,11 @@ import VCSkill
     }
 
     /// 表示して、閉じられるまで、イベントのループを回す（終わらない：閉じると、プロセスを終える）。
-    static func runUntilClosed(png: Data, savedURL: URL?, title: String) -> Never {
+    static func runUntilClosed(png: Data, savedURL: URL?, title: String, expiresAt: Date? = nil) -> Never {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail("画像を読めません") }
-        let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title)
+        let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title, expiresAt: expiresAt)
         controller.window.alphaValue = 0
         controller.window.orderFrontRegardless()   // 前面のアプリから、キーを奪わない
         ScreenText.warmUp()   // 最初の文字認識は、30 秒ほどかかる（システムのモデルの準備）。「文字起こし」を押すまでに、済ませておく
