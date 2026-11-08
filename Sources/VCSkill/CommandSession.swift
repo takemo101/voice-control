@@ -29,6 +29,8 @@ final class CommandSession: @unchecked Sendable {
     private var document: String?
     private var image: URL?
     var spotlight: FileSearch.Spotlight = FileSearch.live
+    /// いまのスクリーンショットのパス（`${SCREENSHOT}`）。撮っていない・古いときは nil。テストで、差し替える。
+    var screenshotPath: @Sendable () -> String? = { if case let .success(url) = ScreenshotStore.current() { return url.path } else { return nil } }
 
     init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?, scorer: (@Sendable () -> OptionScorer?)? = nil, engine: Engine = .apple) {
         self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel; self.scorer = scorer; self.engine = engine
@@ -132,7 +134,7 @@ final class CommandSession: @unchecked Sendable {
         \(finish)
 
         SKILL (\(skill.name)):
-        \(SkillPlaceholder.expand(skill.body, request: currentRequest))
+        \(SkillPlaceholder.expand(skill.body, request: currentRequest, screenshotPath: screenshotPath()))
         """
     }
 

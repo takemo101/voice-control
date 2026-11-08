@@ -98,20 +98,20 @@ struct ListenCommand: Command {
             }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let listenTrigger = try makeTrigger(spec)
+            // 手放し：ちょっと押すと、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+            let handsFreeOn = context.currentSettings().handsFree ?? true
+            let handsFree = HandsFreeGroup()
+            func wrapped(_ key: PushToTalkTrigger, _ tag: String) -> PushToTalkTrigger { handsFreeOn ? handsFree.wrap(key, tag: tag) : key }
             let trigger: PushToTalkTrigger
-            if dictateSpec != nil || shotSpec != nil {
-                // 撮った直後の自動の録音（`AutoListen`）は、声で頼むトリガーの 1 つ（印も同じ）。音声入力のキーがあれば、それも
-                var triggers: [(tag: String, trigger: PushToTalkTrigger)] = [(VoiceMode.listen, listenTrigger)]
-                if let dictateSpec { triggers.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }
-                if shotSpec != nil { triggers.append((VoiceMode.listen, AutoListen.shared.trigger)) }
-                trigger = ModeTrigger(triggers)
+            if let dictateSpec {
+                trigger = ModeTrigger([(VoiceMode.listen, wrapped(listenTrigger, VoiceMode.listen)), (VoiceMode.dictate, wrapped(try makeTrigger(dictateSpec), VoiceMode.dictate))])
             } else {
-                trigger = listenTrigger
+                trigger = wrapped(listenTrigger, VoiceMode.listen)
             }
             // `ScreenFlow` のトリガーは、このループの間、保持する（外れると、キーを受けなくなる）
             var screenTriggers: [any PushToTalkTrigger] = []
             if let shotSpec {
-                let next = "撮りました。そのまま話してください（「この画像の文字を書き出して」など）。黙ると自動で認識します。Shift で今すぐ・Esc で取りやめ"
+                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ちょっと押すだけなら、話し終わるまで聞きます" : "")
                 let key = try makeTrigger(shotSpec)
                 key.onPress = { Task { @MainActor in ScreenFlow.captureForVoice(next: next, chip: shotSpec.displayName) } }
                 screenTriggers.append(key)
@@ -127,7 +127,7 @@ struct ListenCommand: Command {
             let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip]
             let paste = ClipboardPaste()
             let session = RecordingSession()
-            session.setLevelHandler { HUD.shared.pushLevel($0); AutoListen.pushLevel($0) }   // 録音中の波形・撮った直後の自動の録音の「黙った」
+            session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
@@ -138,9 +138,12 @@ struct ListenCommand: Command {
                     }
                 },
                 onEvent: { event, tag in
-                    let hint = AutoListen.watches(event) ? AutoListen.process(event) : nil
-                    VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate, recordingHint: hint)
+                    if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
+                    VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate)
                 })
+            handsFree.onHandsFree = { tag in
+                HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
+            }
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)

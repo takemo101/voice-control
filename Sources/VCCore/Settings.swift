@@ -6,6 +6,7 @@ import Foundation
 /// - `dictateHotkey`：音声入力（`vc dictate`）のトリガー。なければ、声で頼むトリガー（`hotkey`）と同じ。**設定すると、`vc listen --hotkey` も、このトリガーで音声入力になる**（トリガーで切り替わる）。
 /// - `shotHotkey`：スクリーンショットを撮るショートカット（`vc hotkey set-shot`。撮ったあと、声で指示する）。なければ、ショートカットなし（`vc shot` だけ）。
 /// - `ocrHotkey`：範囲を選んで、文字だけを書き出すショートカット（`vc hotkey set-ocr`。声は使わない）。なければ、ショートカットなし（`vc ocr` だけ）。
+/// - `handsFree`：ちょっと押すと、黙るまで録音する（手放し）か。なければ、する（`vc handsfree off` で、押している間だけ）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -20,6 +21,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var stt: String?
     public var shotHotkey: String?
     public var ocrHotkey: String?
+    public var handsFree: Bool?
     public var mute: Bool?
     public var removeFillers: Bool?
     public var multiStep: Bool?
@@ -38,6 +40,7 @@ public struct Settings: Codable, Sendable, Equatable {
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         shotHotkey = try c.decodeIfPresent(String.self, forKey: .shotHotkey)
         ocrHotkey = try c.decodeIfPresent(String.self, forKey: .ocrHotkey)
+        handsFree = try c.decodeIfPresent(Bool.self, forKey: .handsFree)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)
         multiStep = try c.decodeIfPresent(Bool.self, forKey: .multiStep)

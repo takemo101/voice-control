@@ -19,6 +19,7 @@ extension SkillStore {
         guard !commands.isEmpty else { return .failure(ParseError(reason: "allowed-commands がない（実行してよいコマンドを、明示する）")) }
         for c in commands {
             // 許可は、発話で変えられない（`${USER_REQUEST}` は、本文だけ）。知らない記号は、書き間違い
+            if c.contains("${\(SkillPlaceholder.screenshot)}") { return .failure(ParseError(reason: "allowed-commands「\(c)」：${SCREENSHOT} は、本文だけに書ける（許可は、実行のたびに変わる値で決めないため）")) }
             if c.contains("${\(SkillPlaceholder.userRequest)}") { return .failure(ParseError(reason: "allowed-commands「\(c)」：${USER_REQUEST} は、本文だけに書ける（許可を、発話で変えないため）")) }
             if let unknown = SkillPlaceholder.unknownNames(in: c).first { return .failure(ParseError(reason: "allowed-commands「\(c)」：知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}）")) }
             if let why = CommandPolicy.validateEntry(c) { return .failure(ParseError(reason: "allowed-commands「\(c)」：\(why)")) }
@@ -41,7 +42,7 @@ extension SkillStore {
         }
         let trimmed = expandSkillDir(body, file: file).trimmingCharacters(in: .whitespacesAndNewlines)
         if let unknown = SkillPlaceholder.unknownNames(in: trimmed).first {
-            return .failure(ParseError(reason: "本文に、知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}・${USER_REQUEST}。書き間違いでなければ、$ と { の間に、スペースなどを入れる）"))
+            return .failure(ParseError(reason: "本文に、知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}・${USER_REQUEST}・${SCREENSHOT}。書き間違いでなければ、$ と { の間に、スペースなどを入れる）"))
         }
         guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
