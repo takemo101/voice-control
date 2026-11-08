@@ -74,6 +74,8 @@ jobs:
         run: ./scripts/build-native.sh
 
       - name: Unit tests
+        # 止まったとき、40 分待たずに、失敗にする（通常は 2 分ほど）
+        timeout-minutes: 15
         run: swift test --explicit-target-dependency-import-check=error
 
       - name: Build and package

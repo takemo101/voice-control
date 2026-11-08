@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import TestSupport
 import Testing
 @testable import VCSkill
 
@@ -67,7 +68,8 @@ import Testing
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("io-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        for format in ImageOps.Format.allCases {
+        // HEIC は、CI の VM では、書き出せない（`RunEnvironment.platformMediaReason`）
+        for format in ImageOps.Format.allCases where !(format == .heic && RunEnvironment.isCI) {
             let url = dir.appendingPathComponent("a.\(format.rawValue)")
             try ImageOps.write(image, to: url, format: format)
             let size = try ImageOps.size(of: url)

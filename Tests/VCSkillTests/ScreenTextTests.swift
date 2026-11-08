@@ -1,10 +1,12 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import TestSupport
 import Testing
 @testable import VCSkill
 
 /// 文字の読み取り：自作の画像（白地に黒い文字）を読めること、行が上から下へ並ぶこと。
+/// **Vision を使う 3 つは、CI では動かさない**（`RunEnvironment.platformMediaReason`）。並べ替え（`linesAreOrderedTopToBottomThenLeftToRight`）は、純粋な計算なので、CI でも動かす。
 @Suite struct ScreenTextTests {
     fileprivate func render(_ lines: [String]) throws -> URL {
         let width = 900, rowHeight = 90, height = rowHeight * lines.count + 40
@@ -22,7 +24,7 @@ import Testing
         return url
     }
 
-    @Test func readsJapaneseAndEnglishLinesInOrder() throws {
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)")) func readsJapaneseAndEnglishLinesInOrder() throws {
         let url = try render(["Invoice 12345", "請求書の合計金額"])
         defer { try? FileManager.default.removeItem(at: url) }
         let text = try ScreenText.recognize(url)
@@ -32,7 +34,7 @@ import Testing
         #expect(lines.last?.contains("請求書") == true)
     }
 
-    @Test func aBlankImageGivesNoText() throws {
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)")) func aBlankImageGivesNoText() throws {
         let url = try render([])
         defer { try? FileManager.default.removeItem(at: url) }
         #expect(try ScreenText.recognize(url).isEmpty)
@@ -50,7 +52,7 @@ import Testing
 
 extension ScreenTextTests {
     /// 画像のデータ（ファイルを経由しない）からも、同じ文字を読める。読めないデータは、理由つきで失敗する。
-    @Test func readsFromImageDataToo() throws {
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)")) func readsFromImageDataToo() throws {
         let url = try render(["Invoice 12345"])
         defer { try? FileManager.default.removeItem(at: url) }
         let text = try ScreenText.recognize(data: Data(contentsOf: url))
