@@ -24,10 +24,11 @@ enum VoiceUI {
     }
 
     /// `VoiceLoop` の出来事を、画面の上と端末に出す。
-    static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false) {
+    /// `recordingHint`：録音中の案内を、これに替える（撮った直後の自動の録音）。
+    static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false, recordingHint: String? = nil) {
         switch event {
         case .recordingStarted:
-            HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）", chip: chip))
+            HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: recordingHint ?? (dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）"), chip: chip))
         case .recordingDiscarded:
             muter.restore()
             print("  " + Style.yellow("録音を取りやめました（Esc）"))

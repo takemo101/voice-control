@@ -31,3 +31,12 @@ import Foundation
         active = nil
     }
 }
+
+/// 人が押すキーではなく、**コードが押す・離す**トリガー（スクリーンショットを撮った直後に、録音を始める・黙ったら止める）。`ModeTrigger` の 1 つとして、キーのトリガーと同じに扱われる。
+@MainActor public final class VirtualTrigger: PushToTalkTrigger {
+    public var onPress: (@Sendable () -> Void)?
+    public var onRelease: (@Sendable () -> Void)?
+    public init() {}
+    public func press() { onPress?() }
+    public func release() { onRelease?() }
+}

@@ -17,8 +17,12 @@ import VCSkill
             await MainActor.run {
                 busy = false
                 switch outcome {
-                case let .captured(width, height):
-                    HUD.shared.show(HUDContent(phase: .success, title: "スクリーンショットを撮りました（\(width)×\(height)）", hint: next, chip: chip), hideAfter: 6)
+                case .captured:
+                    // 撮った直後に、そのまま録音を始める（黙ったら認識。始められなければ〔別の処理中〕、案内だけ出す：声のトリガーで、3 分以内に頼める）
+                    AutoListen.shared.begin(hint: next)
+                    if AutoListen.shared.hint == nil {
+                        HUD.shared.show(HUDContent(phase: .success, title: "スクリーンショットを撮りました", hint: "\(Int(ScreenshotStore.timeToLive / 60)) 分以内に、声のトリガーで頼んでください", chip: chip), hideAfter: 6)
+                    }
                 case .cancelled: break
                 case let .failed(reason):
                     HUD.shared.show(HUDContent(phase: .failure, title: "撮れませんでした", chip: chip, reply: reason), hideAfter: 8)

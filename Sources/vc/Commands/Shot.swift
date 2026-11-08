@@ -26,7 +26,7 @@ struct ShotCommand: Command {
         print(Style.dim("範囲をドラッグで選んでください（Esc で取りやめ）"))
         switch await Task.detached(operation: { ScreenCapture.captureForVoice() }).value {
         case let .captured(width, height):
-            print(Style.green("✓") + " 撮りました（\(width)×\(height)）。声で指示してください（vc listen --hotkey）")
+            print(Style.green("✓") + " 撮りました（\(width)×\(height)）。\(Int(ScreenshotStore.timeToLive / 60)) 分以内に、声で指示してください（vc listen --hotkey）")
         case .cancelled: print(Style.dim("取りやめました"))
         case let .failed(reason): fail(reason)
         }
