@@ -49,12 +49,16 @@ final class FakeExecutor: SkillExecuting, @unchecked Sendable {
     private let script: @Sendable (ExecutionDisplay) async throws -> String
     private let lock = NSLock()
     private var ran: [String] = []
+    private var confirmedFlag = false
 
     init(display: ExecutionDisplay, script: @escaping @Sendable (ExecutionDisplay) async throws -> String) {
         self.display = display; self.script = script
     }
 
     var requests: [String] { lock.lock(); defer { lock.unlock() }; return ran }
+    /// 確認を通ったと、知らされたか（`markConfirmed`）。
+    var wasConfirmed: Bool { lock.lock(); defer { lock.unlock() }; return confirmedFlag }
+    func markConfirmed() { lock.withLock { confirmedFlag = true } }
 
     func run(request: String) async throws -> String {
         lock.withLock { ran.append(request) }

@@ -70,11 +70,6 @@ public struct SkillResolver: Sendable {
     /// スキルが `confirm: true` のときの、確認の理由（Tiny-Jev で選んだときも、`--skill` で指定したときも、同じ文）。
     public static let confirmRequiredReason = "このスキルは、実行の前に確認が要ります"
 
-    /// 確認の理由：外へ送るスキルは、**何を、どこへ送るか**を言う（確認で、何に「はい」と言うのかが、分かるように）。
-    public static func confirmReason(for skill: Skill) -> String {
-        skill.externalNotice.map { "\($0)。実行の前に確認します" } ?? confirmRequiredReason
-    }
-
     private let scorer: OptionScorer
     private let skills: [Skill]
     private let gate: Gate
@@ -86,9 +81,9 @@ public struct SkillResolver: Sendable {
     }
 
     public func resolve(_ request: String) throws -> Outcome {
-        let routed = try SkillRouter(scorer: scorer, skills: skills.filter { $0.name != DefaultSkill.name && $0.isCandidate(for: request) }).route(request)
+        let routed = try SkillRouter(scorer: scorer, skills: skills.filter { $0.name != DefaultSkill.name }).route(request)
         if let skill = routed.skill, routed.probability >= gate.floor {
-            let reason = skill.confirm ? Self.confirmReason(for: skill) : (routed.probability < gate.execute ? "確信度が高くないので、確認します" : nil)
+            let reason = skill.needsConfirmation(for: request) ? skill.confirmReason(for: request) : (routed.probability < gate.execute ? "確信度が高くないので、確認します" : nil)
             return .resolved(Resolution(skill: skill, kind: .matched, probability: routed.probability, risk: nil, confirmReason: reason))
         }
         guard let fallback = skills.first(where: { $0.name == DefaultSkill.name }) else {
@@ -102,7 +97,7 @@ public struct SkillResolver: Sendable {
             state: "依頼: \(request)",
             question: "この依頼は、削除・送信・購入・終了・退出など、取り消しにくい、または外へ影響する操作か",
             options: ["no", "yes"])[1]
-        let reason = fallback.confirm ? Self.confirmReason(for: fallback) : (risk >= gate.destructive ? "取り消しにくい操作かもしれないので、確認します" : nil)
+        let reason = fallback.needsConfirmation(for: request) ? fallback.confirmReason(for: request) : (risk >= gate.destructive ? "取り消しにくい操作かもしれないので、確認します" : nil)
         return .resolved(Resolution(skill: fallback, kind: .fallback, probability: actionable, risk: risk, confirmReason: reason))
     }
 }

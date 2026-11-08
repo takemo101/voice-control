@@ -1,8 +1,11 @@
 ---
 name: ask-agent
-description: 調べものを、コーディングエージェント（アンチグラビティ・クロード・コーデックス・グロック・オープンコード・パイ）に頼んで、要点を教える：「クロードで〇〇を調べて」「〇〇について調べて」
+description: 調べものを、コーディングエージェント（アンチグラビティ・クロード・コーデックス・グロック・オープンコード・パイ）に頼んで、要点を教える：「クロードで〇〇を調べて」「〇〇について調べて」。撮った画面を、外のAIに見せて聞く：「この画面をコーデックスに見せて」「この画像を外のAIに見せて」
 allowed-commands:
   - node ${SKILL_DIR}/ask-agent.mjs
+# 画面や画像と言った依頼だけ、確認する（画像を、選んだエージェントの提供元へ送るため。コードが、依頼の文から決める）
+confirm-when: 画面|画像|スクショ|スクリーンショット|スクリーン|キャプチャ
+confirm-sends: 撮った画面の画像と質問
 external: 選んだエージェントの提供元（agy＝Google／claude＝Anthropic／codex＝OpenAI／grok＝xAI。opencode・pi は、設定したモデルの提供元）
 timeout: 150
 ---
@@ -25,6 +28,12 @@ The user wants something researched ("調べて", "教えて", "まとめて"), 
 
    Add NO other arguments or options. It takes a while (up to about two minutes). Do not run it twice.
 4. The command prints ONE line. If it starts with "ok:", reply: done: 調べた結果をウィンドウに表示しました. If it starts with "failed:", reply with that line exactly (keep the text after "failed:" as it is, do not retry). Add nothing else.
+
+IMAGE FORM. If the user wants an agent to LOOK at the screenshot or image they just took (words like 画面・画像・スクショ・スクリーンショット, for example 「この画面をコーデックスに見せて」「スクショをクロードに送って聞いて」「この画像を外のAIに見せて」), do NOT use the research form above. Use this form instead, with exactly three parts after the script path: `--image`, the agent id (or the word `auto` if the user did not say an agent's name: 「外のAI」「AIエージェント」 are NOT a name), and the question about the image in double quotes. The script finds the image by itself and asks the user for confirmation first (never write a file path):
+   - 「この画面をコーデックスに見せて、エラーの意味を聞いて」 -> node ${SKILL_DIR}/ask-agent.mjs --image codex "エラーの意味"
+   - 「スクショをクロードに送って、どこが違うか聞いて」 -> node ${SKILL_DIR}/ask-agent.mjs --image claude "どこが違うか"
+   - 「この画像を外のAIに見せて、要約してもらって」 -> node ${SKILL_DIR}/ask-agent.mjs --image auto "要約してください"
+   Same reply rules as above (ok: → done: …; failed: → that line exactly).
 
 Rules:
 - Never run `agy`, `claude`, `codex`, `grok`, `opencode`, `pi`, `vc` or any other command yourself. Only run the script, once.
