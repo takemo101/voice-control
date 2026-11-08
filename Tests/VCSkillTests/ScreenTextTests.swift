@@ -6,7 +6,7 @@ import Testing
 
 /// 文字の読み取り：自作の画像（白地に黒い文字）を読めること、行が上から下へ並ぶこと。
 @Suite struct ScreenTextTests {
-    private func render(_ lines: [String]) throws -> URL {
+    fileprivate func render(_ lines: [String]) throws -> URL {
         let width = 900, rowHeight = 90, height = rowHeight * lines.count + 40
         let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: width, height: height))
@@ -45,5 +45,16 @@ import Testing
             ScreenText.Line(text: "左上", top: 0.9, left: 0.1, height: 0.1),
         ]
         #expect(ScreenText.text(from: lines) == "左上\n右上\n下")
+    }
+}
+
+extension ScreenTextTests {
+    /// 画像のデータ（ファイルを経由しない）からも、同じ文字を読める。読めないデータは、理由つきで失敗する。
+    @Test func readsFromImageDataToo() throws {
+        let url = try render(["Invoice 12345"])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let text = try ScreenText.recognize(data: Data(contentsOf: url))
+        #expect(text.contains("12345"))
+        #expect(throws: ScreenText.Failure.self) { try ScreenText.recognize(data: Data("not an image".utf8)) }
     }
 }

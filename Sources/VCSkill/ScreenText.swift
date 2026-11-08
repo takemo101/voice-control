@@ -1,9 +1,10 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Vision
 
 /// 画像の中の文字を読み取る（Apple の Vision フレームワークの文字認識。**この Mac の中だけ**で動く。言語モデルを通さない：速く、写し間違い・補足をしない）。
-/// `vc ocr`（ショートカットでスクリーンショットの文字だけを書き出す）が使う。
+/// 画像のパネルの「文字起こし」と、`vc ocr`（標準出力へ出す）が使う。
 public enum ScreenText {
     public struct Failure: Error, CustomStringConvertible, Equatable {
         public let message: String
@@ -15,8 +16,16 @@ public enum ScreenText {
 
     /// 読み取った文字。上から下・行ごとに、改行でつなぐ。文字がなければ、空の文字列。
     public static func recognize(_ url: URL) throws -> String {
-        let image: CGImage
-        do { image = try ImageOps.load(url) } catch { throw Failure(message: "\(error)") }
+        do { return try recognize(image: try ImageOps.load(url)) } catch let failure as ImageOps.Failure { throw Failure(message: failure.message) }
+    }
+
+    /// 画像のデータ（PNG など）から読み取る（画像のパネルが使う：ファイルを、経由しない）。
+    public static func recognize(data: Data) throws -> String {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw Failure(message: "画像を読めません") }
+        return try recognize(image: image)
+    }
+
+    static func recognize(image: CGImage) throws -> String {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = languages

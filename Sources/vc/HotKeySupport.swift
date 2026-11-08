@@ -50,7 +50,7 @@ func holdInstruction(_ spec: HotKeySpec) -> String {
     spec.isHold ? "\(spec.description) を単独で 0.35 秒以上押し続け" : "\(spec.description) を押し"
 }
 
-/// スクリーンショットのショートカット（撮る＝`shotHotkey`・文字だけ書き出す＝`ocrHotkey`）。範囲を選ぶ操作の起点なので、**キーの組み合わせ**だけ（長押しは使えない）。
+/// スクリーンショットのショートカット（`shotHotkey`）。範囲を選ぶ操作の起点なので、**キーの組み合わせ**だけ（長押しは使えない）。
 enum ScreenKeys {
     /// 設定できない理由（なければ `nil`）。`taken`：すでに使っているキー（名前と、キー）。
     static func problem(_ spec: HotKeySpec, taken: [(name: String, spec: HotKeySpec)]) -> String? {
@@ -61,7 +61,7 @@ enum ScreenKeys {
 }
 
 extension CommandContext {
-    /// `shotHotkey`・`ocrHotkey` を、読む。なければ `nil`。書き方が違えば、理由を示して終わる。
+    /// `shotHotkey` を、読む。なければ `nil`。書き方が違えば、理由を示して終わる。
     func resolveScreenKey(_ keyPath: KeyPath<Settings, String?>, command: String) -> HotKeySpec? {
         guard let text = currentSettings()[keyPath: keyPath] else { return nil }
         switch HotKeySpec.parse(text) {
@@ -70,5 +70,4 @@ extension CommandContext {
         }
     }
     func resolveShotHotKey() -> HotKeySpec? { resolveScreenKey(\.shotHotkey, command: "set-shot") }
-    func resolveOcrHotKey() -> HotKeySpec? { resolveScreenKey(\.ocrHotkey, command: "set-ocr") }
 }

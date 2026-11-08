@@ -34,29 +34,4 @@ import VCSkill
         guard let data = try? Data(contentsOf: ScreenshotStore.currentFile) else { return }   // try?: 読めなければ、パネルを出さないだけ（声の流れは、続く）
         if let why = ImagePanel.present(png: data, title: "スクリーンショット") { eprint("パネルを出せません: \(why)") }
     }
-
-    /// 撮って、文字だけを書き出し、ウィンドウに出す。
-    static func transcribe(chip: String) {
-        guard !busy else { return }
-        busy = true
-        Task { @MainActor in
-            let result = await ScreenCapture.recognizeRegion()
-            do {
-                busy = false
-                switch result {
-                case .success(nil): break   // 取りやめ
-                case let .success(text?) where text.isEmpty:
-                    HUD.shared.show(HUDContent(phase: .info, title: "文字が見つかりませんでした", chip: chip), hideAfter: 3)
-                case let .success(text?):
-                    if let why = DocumentWindow.present(markdown: TranscriptDocument.markdown(text), title: "文字起こし") {
-                        HUD.shared.show(HUDContent(phase: .failure, title: "ウィンドウを出せませんでした", chip: chip, reply: why), hideAfter: 6)
-                    } else {
-                        HUD.shared.show(HUDContent(phase: .success, title: "文字を書き出しました（\(text.count) 文字）", hint: "ウィンドウに出しました（閉じるまで残ります）", chip: chip), hideAfter: 3.5)
-                    }
-                case let .failure(failure):
-                    HUD.shared.show(HUDContent(phase: .failure, title: "読み取れませんでした", chip: chip, reply: failure.message), hideAfter: 8)
-                }
-            }
-        }
-    }
 }

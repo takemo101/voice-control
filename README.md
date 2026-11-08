@@ -309,12 +309,11 @@ vc listen --hotkey --stt whisper-large-v3-turbo   # その実行だけ替える
 
 `vc stt`・`vc engine`・`vc plan`・`vc mute`・`vc fillers` だけを実行すると、いまの設定が分かります。`vc listen` の起動時にも、使っているものが表示されます。
 
-### スクリーンショットに声で頼む／文字だけ書き出す
+### スクリーンショットに声で頼む／文字起こし
 
 ```sh
-vc hotkey set-shot ctrl+opt+s   # 範囲を選んで撮る（そのあと声で頼む）
-vc hotkey set-ocr  ctrl+opt+t   # 範囲を選んで、文字だけを書き出す（声は使わない）
-vc listen --hotkey              # この中で、2 つのショートカットが動く
+vc hotkey set-shot ctrl+opt+s   # 範囲を選んで撮る（そのあと声で頼む／パネルで文字起こし）
+vc listen --hotkey              # この中で、ショートカットが動く
 ```
 
 `ctrl+opt+s` → 画面が静止して暗くなる → **ドラッグで範囲**（⇧ 正方形・⌥ 中心から）・**ウィンドウをクリック**・↩ 全画面・Z 拡大鏡（色のコピー）。大きさが「1000 × 300」のように出ます。撮れると、画像のパネル（画像・パスのコピー）が出て、「続けて、声で頼んでください」と案内が出ます。**声のトリガー（Shift の長押しなど）を押して**、3 分以内に頼みます（**ちょっと押す**だけなら、話し終わるまで聞きます：手放し）。「**この画像の文字を書き出して**」「これは何？」「**右半分を切り抜いて**」「横幅を 800 に」「JPEG に変換して」。答えは、ウィンドウに出ます（切り抜きなどは、`~/Pictures/voice-control` に保存）。`ctrl+opt+t` は、範囲の文字だけを、そのままウィンドウに出します（macOS の文字認識。言語モデルを通しません）。**画像は、Mac の中のモデルだけ**に渡ります（Apple のモデル、または画像対応の Ollama）。画面収録の許可が要ります（`vc doctor`）。詳しくは [スキル](docs/skills.md#スクリーンショットに声で頼むscreen-askimage-edit任意)。
@@ -375,7 +374,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc dictate [--trigger <キー>] [--stt …] [--dry-run]` | **音声入力だけ**：押している間だけ録音し、文字にして、前面のアプリへ入力する（⌘V。クリップボードは、あとで戻す）。スキル・言語モデルは使わない |
 | `vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes]` | マイクから聞いて、スキルで実行する（既定：Enter で録音。`--hotkey`：押している間だけ録音。[声の入力](docs/skills.md#声の入力vc-listen)） |
 | `vc preview <画像>` | 画像を、パネルに表示する（画像・パスのコピー・Finder で表示）。撮ったあと・`image-edit` の結果は、自動で出る |
-| `vc shot` / `vc ocr [--file <画像>]` | 範囲を選んでスクリーンショットを撮る（そのあと声で頼む）／範囲の文字だけを書き出して、ウィンドウに出す |
+| `vc shot` / `vc ocr [--file <画像>]` | 範囲を選んでスクリーンショットを撮る（そのあと声で頼む。パネルの「文字起こし」もある）／画像の文字を標準出力へ出す |
 | `vc show [--file <パス>] [--text <Markdown>] [--title <題名>] [--wait]` | Markdown を整形して、一時的なウィンドウに表示する（`pbpaste \| vc show`）。選択して ⌘C・コピーのボタン・Esc で閉じる |
 
 `vc run`・`vc listen`・`vc doctor` の共通：`--engine <エンジン>`（スキルを実行するモデル。下の「モデルを替える」）。
@@ -405,7 +404,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc handsfree [show\|on\|off\|reset]` | ちょっと押すと、黙るまで録音する（手放し。既定 on）か、押している間だけか |
 | `vc mute [show\|on\|off\|reset]` | 録音中に、ほかの音を消す（on。既定）か、流したままにする（off）か |
 | `vc transcribe <音声ファイル> [--stt …]` | 音声ファイルを文字にする（音声認識の確認用） |
-| `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。`set-dictate`（音声入力）・`set-shot`（範囲を撮る）・`set-ocr`（範囲の文字だけ書き出す）も同じ形 |
+| `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。`set-dictate`（音声入力）・`set-shot`（範囲を撮る）も同じ形 |
 
 ## 安全のしくみ
 
@@ -440,7 +439,7 @@ flowchart TB
 | Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
 | 音声認識の切り替え（`vc stt`・Whisper） | 合成音声での測定と、実マイク（スピーカーの音）での 1 回の確認。**実際の声での比較は未確認** |
 | ファイル検索（`vc find`・`vc pick`・`file-search`） | 自作のフォルダで確認（Ollama 9/10・Apple 9/10。同じ場面で調整）。**実際のホームでの検索の質は未確認** |
-| スクリーンショットに声で頼む（`vc shot`・`screen-ask`・`image-edit`）・文字だけ書き出す（`vc ocr`） | 自作の画像で確認（Apple と Ollama で答えさせ、切り抜き・サイズ変更・変換を続けて実行。スキルの測定：Apple 90〜94%・Ollama 100%）。**実際の範囲選択・ショートカット・画面収録の許可の流れは未確認** |
+| スクリーンショットに声で頼む（`vc shot`・`screen-ask`・`image-edit`）・パネルの文字起こし・`vc ocr` | 自作の画像で確認（Apple と Ollama で答えさせ、切り抜き・サイズ変更・変換を続けて実行。スキルの測定：Apple 90〜94%・Ollama 100%）。**実際の範囲選択・ショートカット・画面収録の許可の流れは未確認** |
 | `--engine`（Ollama・OpenAI 互換） | Ollama（`qwen3.5:4b`）で確認。**LM Studio・llama.cpp など、ほかのサーバーは未確認** |
 
 PC 操作は、2026-11-04 に廃止し、既定スキルに一本化しました。詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。

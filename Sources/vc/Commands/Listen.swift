@@ -87,15 +87,11 @@ struct ListenCommand: Command {
             if let dictateSpec, dictateSpec.overlaps(spec) {
                 fail("声で頼むトリガー（\(spec.description)）と、音声入力のトリガー（\(dictateSpec.description)）が、重なります。vc hotkey set-dictate で、別のキーにしてください")
             }
-            // スクリーンショットのショートカット（撮る・文字だけ書き出す）：キーの組み合わせ。ほかのキーと重ならないこと
-            let shotSpec = context.resolveShotHotKey(), ocrSpec = context.resolveOcrHotKey()
+            // スクリーンショットのショートカット：キーの組み合わせ。ほかのキーと重ならないこと
+            let shotSpec = context.resolveShotHotKey()
             var taken: [(name: String, spec: HotKeySpec)] = [("声で頼む", spec)]
             if let dictateSpec { taken.append(("音声入力", dictateSpec)) }
-            for (name, key) in [("スクリーンショット", shotSpec), ("文字の書き出し", ocrSpec)] {
-                guard let key else { continue }
-                if let why = ScreenKeys.problem(key, taken: taken) { fail("\(name)のキー（\(key.description)）: \(why)（vc hotkey で直す）") }
-                taken.append((name, key))
-            }
+            if let shotSpec, let why = ScreenKeys.problem(shotSpec, taken: taken) { fail("スクリーンショットのキー（\(shotSpec.description)）: \(why)（vc hotkey で直す）") }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let listenTrigger = try makeTrigger(spec)
             // 手放し：ちょっと押すと、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
@@ -111,16 +107,10 @@ struct ListenCommand: Command {
             // `ScreenFlow` のトリガーは、このループの間、保持する（外れると、キーを受けなくなる）
             var screenTriggers: [any PushToTalkTrigger] = []
             if let shotSpec {
-                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ちょっと押すだけなら、話し終わるまで聞きます" : "")
+                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ちょっと押すだけなら、話し終わるまで聞きます" : "")
                 let key = try makeTrigger(shotSpec)
                 key.onPress = { Task { @MainActor in ScreenFlow.captureForVoice(next: next, chip: shotSpec.displayName) } }
                 screenTriggers.append(key)
-            }
-            if let ocrSpec {
-                let key = try makeTrigger(ocrSpec)
-                key.onPress = { Task { @MainActor in ScreenFlow.transcribe(chip: ocrSpec.displayName) } }
-                screenTriggers.append(key)
-                ScreenText.warmUp()   // 最初の文字認識は、30 秒ほどかかる（モデルの準備）。待たせないよう、先に、小さな画像で済ませる
             }
             ScreenshotStore.clear()   // 前の実行の画像は、使わない
             defer { withExtendedLifetime(screenTriggers) {} }
@@ -151,7 +141,6 @@ struct ListenCommand: Command {
                 kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
                 if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
                 if let shotSpec { kv("画面撮影", "\(shotSpec.description) を押して範囲を選び、そのあと声で頼む") }
-                if let ocrSpec { kv("文字出し", "\(ocrSpec.description) を押して範囲を選ぶ（声は使わない）", width: 8) }
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。

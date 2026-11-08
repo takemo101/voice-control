@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import VCCore
+import VCSkill
 
 /// 画像を見せる、一時的なパネル（`vc preview --wait`。`vc shot`・ショートカットで撮ったあとと、`image-edit` の結果が、これを別のプロセスで開く：`ImagePanel`）。
 /// 見た目は、`vc show` のウィンドウと同じ **Liquid Glass のカード**。**画像をコピー**（⌘C）・**パスをコピー**・**Finder で表示**・画像をドラッグして、ほかのアプリへ渡す。
@@ -21,7 +22,7 @@ import VCCore
         self.pixelSize = pixelSize
         self.savedURL = savedURL
         let display = Self.displaySize(for: pixelSize)
-        window = ImagePanelFrame(contentRect: NSRect(x: 0, y: 0, width: max(display.width + 36, 560), height: display.height + 150), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window = ImagePanelFrame(contentRect: NSRect(x: 0, y: 0, width: max(display.width + 36, 640), height: display.height + 150), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         super.init()
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -38,6 +39,8 @@ import VCCore
             copyImage: { [unowned self] in copyImage() },
             copyPath: { [unowned self] in copyPath() },
             reveal: { [unowned self] in reveal() },
+            transcribe: { [unowned self] in toggleTranscript() },
+            copyText: { [unowned self] in copyTranscript() },
             close: { [unowned self] in window.close() })
         window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
         // いま使っている画面の、右下
@@ -60,6 +63,7 @@ import VCCore
         let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title)
         controller.window.alphaValue = 0
         controller.window.orderFrontRegardless()   // 前面のアプリから、キーを奪わない
+        ScreenText.warmUp()   // 最初の文字認識は、30 秒ほどかかる（システムのモデルの準備）。「文字起こし」を押すまでに、済ませておく
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.22
             controller.window.animator().alphaValue = 1
@@ -106,6 +110,52 @@ import VCCore
         }
     }
 
+    // MARK: 文字起こし
+
+    /// 文字の欄の高さ。
+    private static let paneHeight: CGFloat = 236
+    private var paneOpen = false
+
+    /// 「文字起こし」：画像の文字を読み取って（macOS の文字認識。**この Mac の中だけ**・言語モデルを通さない）、パネルの下に、そのまま（Markdown にせず）出す。もう一度押すと、閉じる。
+    private func toggleTranscript() {
+        if paneOpen { setPane(open: false); return }
+        setPane(open: true)
+        if case .text = state.transcript { return }   // 読み取り済み
+        state.transcript = .reading
+        let png = png
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try ScreenText.recognize(data: png) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    switch result {
+                    case let .success(text): self.state.transcript = text.isEmpty ? .empty : .text(text)
+                    case let .failure(error): self.state.transcript = .failed("\(error)")
+                    }
+                }
+            }
+        }
+    }
+
+    private func copyTranscript() {
+        guard case let .text(text) = state.transcript else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        flash(.text)
+    }
+
+    /// 文字の欄を、開く・閉じる（パネルの上端が伸び縮みする：下は、動かさない。画面の上へはみ出すなら、下げる）。
+    private func setPane(open: Bool) {
+        guard open != paneOpen else { return }
+        paneOpen = open
+        state.paneOpen = open
+        var frame = window.frame
+        let delta = open ? Self.paneHeight : -Self.paneHeight
+        frame.size.height += delta
+        let visible = ScreenPlacement.currentVisibleFrame()
+        if frame.maxY > visible.maxY { frame.origin.y = max(visible.minY, visible.maxY - frame.height) }
+        window.setFrame(frame, display: true, animate: true)
+    }
+
     private func flash(_ button: ImageState.Button) {
         state.copied = button
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in
@@ -115,8 +165,15 @@ import VCCore
 }
 
 @MainActor final class ImageState: ObservableObject {
-    enum Button { case image, path }
+    enum Button { case image, path, text }
+    enum Transcript: Equatable {
+        case idle, reading, empty
+        case text(String)
+        case failed(String)
+    }
     @Published var copied: Button?
+    @Published var transcript: Transcript = .idle
+    @Published var paneOpen = false
     @Published var savedPath: String?
     @Published var error: String?
 }
@@ -151,6 +208,8 @@ private struct ImageCardView: View {
     let copyImage: () -> Void
     let copyPath: () -> Void
     let reveal: () -> Void
+    let transcribe: () -> Void
+    let copyText: () -> Void
     let close: () -> Void
 
     var body: some View {
@@ -168,6 +227,10 @@ private struct ImageCardView: View {
                 Text(caption).font(.system(size: 10.5, weight: .medium)).foregroundStyle(.white.opacity(0.5)).lineLimit(1).truncationMode(.middle)
             }
             .padding(.vertical, 14).padding(.horizontal, 18)
+            if state.paneOpen {
+                Rule()
+                transcriptPane
+            }
             Rule()
             footer
         }
@@ -200,10 +263,53 @@ private struct ImageCardView: View {
         .background(DragArea())
     }
 
+    /// 文字起こしの欄：読み取った文字を、そのまま（選んで、コピーできる）。
+    private var transcriptPane: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "text.viewfinder").font(.system(size: 12, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
+                Text("文字起こし").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                if case let .text(text) = state.transcript {
+                    Text(verbatim: "\(text.count) 文字").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
+                        .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
+                }
+                Spacer(minLength: 8)
+                if case .text = state.transcript {
+                    PillButton(title: "テキストをコピー", symbol: "doc.on.doc", flashed: state.copied == .text, action: copyText)
+                }
+            }
+            Group {
+                switch state.transcript {
+                case .idle, .reading:
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("読み取っています…（最初の 1 回は、準備で、30 秒ほどかかります）").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6))
+                    }
+                case .empty:
+                    Text("文字が見つかりませんでした").font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6))
+                case let .failed(message):
+                    Text(message).font(.system(size: 12.5)).foregroundStyle(.red.opacity(0.9))
+                case let .text(text):
+                    ScrollView {
+                        Text(verbatim: text)
+                            .font(.system(size: 13.5)).lineSpacing(3).foregroundStyle(.white.opacity(0.94))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 2)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 12)
+        .frame(height: 236)
+    }
+
     private var footer: some View {
         HStack(spacing: 8) {
             PillButton(title: "画像をコピー", symbol: "photo.on.rectangle", flashed: state.copied == .image, action: copyImage)
             PillButton(title: "パスをコピー", symbol: "link", flashed: state.copied == .path, action: copyPath)
+            PillButton(title: state.paneOpen ? "文字を隠す" : "文字起こし", symbol: "text.viewfinder", flashed: false, action: transcribe)
             PillButton(title: "Finder", symbol: "folder", flashed: false, action: reveal)
             Spacer(minLength: 4)
             PillButton(title: "閉じる", symbol: "xmark", flashed: false, cancel: true, action: close)

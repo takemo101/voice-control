@@ -34,7 +34,7 @@ struct DoctorCommand: Command {
             : .warn("アクセシビリティ", "許可されていません",
                     fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
         checks.append(ScreenCapture.isAllowed
-            ? .ok("画面収録", "許可されています（スクリーンショット：vc shot・vc ocr）")
+            ? .ok("画面収録", "許可されています（スクリーンショット：vc shot・ショートカット）")
             : .warn("画面収録", "許可されていません（スクリーンショットを使うときだけ要ります）", fix: ScreenCapture.permissionHint))
         checks.append(Self.microphoneCheck(MicRecorder.permission))
         checks.append(Self.speechCheck(context))

@@ -63,13 +63,3 @@ import VCSkill
 }
 
 struct ScreenCaptureFailure: Error { let message: String }
-
-/// 読み取った文字を、ウィンドウで見せる Markdown にする：**そのまま**（Markdown として解釈させない）。コードの囲みの中に入れ、囲みの記号は、中の `` ` `` より長くする。
-enum TranscriptDocument {
-    static func markdown(_ text: String) -> String {
-        var longest = 0, run = 0
-        for ch in text { if ch == "`" { run += 1; longest = max(longest, run) } else { run = 0 } }
-        let fence = String(repeating: "`", count: max(3, longest + 1))
-        return "\(fence)\n\(text)\n\(fence)\n"
-    }
-}
