@@ -83,8 +83,8 @@ public struct SkillRunner: Sendable {
     /// `scorer`：Tiny-Jev（`vc pick`・`vc find` を使うスキルが、選ぶのに使う。使うときまで、読み込まない）。
     public init(selection: Selection, dryRun: Bool, cancel: CancelToken? = nil, engine: Engine = .apple, scorer: (@Sendable () -> OptionScorer?)? = nil) {
         self.init(selection: selection, dryRun: dryRun, cancel: cancel, makeExecutor: { skill, dryRun, display, cancel in
-            if let chat = engine.makeChat() { return ToolLoopAgent(skill: skill, chat: chat, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer) }
-            return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
+            if let chat = engine.makeChat() { return ToolLoopAgent(skill: skill, chat: chat, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer, engine: engine) }
+            return SkillAgent(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer, engine: engine)
         })
     }
 
@@ -147,7 +147,11 @@ public struct SkillRunner: Sendable {
             }
             var reply = try await executor.run(request: input)
             // ウィンドウに表示するスキル：返事（Markdown の本文）を、結果として渡し、返事は `done: …` にする（dry-run・失敗の返事は、そのまま）
-            if skill.result == .markdownWindow, !dryRun, !reply.lowercased().hasPrefix("failed") {
+            // `vc see` の答えがあれば、それが文書（返事は、言語モデルが、短く言い換えたもの）
+            if !dryRun, !reply.lowercased().hasPrefix("failed"), let produced = executor.producedDocument {
+                reporter.report(.document(produced))
+                reply = "done: 結果をウィンドウに表示しました"
+            } else if skill.result == .markdownWindow, !dryRun, !reply.lowercased().hasPrefix("failed") {
                 reporter.report(.document(reply))
                 reply = "done: 結果をウィンドウに表示しました"
             }

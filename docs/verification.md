@@ -725,6 +725,22 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 | Apple Intelligence が使えない状態 | **作業用のコピー**（`AppleIntelligence.current()` を `.unavailable(.notEnabled)` に固定してビルド）で、`vc run`・`vc listen --hotkey`・`vc doctor` が、理由と手順（システム設定 > Apple Intelligence と Siri）を示し、終了コード 1 で終わることを確認した。マイクの許可は、聞かれる前に終わる。**実際にオフにした Mac では、未確認** |
 | 単体テスト | 状態の写し方（非対応・オフ・準備中・使える）・理由ごとの手順・`DoctorReport`（必須だけが失敗・手順の表示・まとめ）・マイクの許可が失敗にならないこと |
 
+### スクリーンショットに声で頼む・文字だけ書き出す（2026-11-08。利用者の依頼）
+
+`vc shot`・`vc ocr`・`vc see`・`vc image`・スキル `screen-ask`・`image-edit`・ショートカット（`vc hotkey set-shot`・`set-ocr`）を足した（SPEC F41・F42）。**画像は、Mac の中のモデルだけ**に渡す。利用者の実画面は、撮っていない（自作の画像だけ）。
+
+| 項目 | 結果 |
+|---|---|
+| 単体テスト | `vc` 82・`VCSpeech` 93・`VCSkill` 172・`VCDecision` 8・`VCCore` 26 が通った。`ScreenshotStore`（0700・0600・1 枚・180 秒・消す）・`ImageOps`（4 色の画像で、切り抜きの位置・回転の向き・拡大縮小の比・形式・縮小）・`ImageEditing`（保存先・いまのスクリーンショットの置き換え・続けた加工・不正な引数の拒否〔書き出しもしない〕・撮っていないときの案内・名前つきの部分）・`vc see`（引数の検査）・`ScreenText`（自作の画像の日本語・英語・並び順・空）・`ProducedDocument`（`vc see` の文書が、返事の代わりにウィンドウへ）・ショートカットの検査（長押し・重なり）・文字の囲み |
+| `vc ocr --file`（自作の画像 `site/assets/img/hud-success.png`） | 106 文字を読み、ウィンドウを出した。読み取った文字は、正しい（`osascript .../spotify.applescript volume 50` まで）。**初回は 32 秒、2 回目は 0.18 秒**（システムが文字認識のモデルを準備する。ビルドし直すと、また初回になることがあった）→ `vc listen --hotkey` は、起動のときに、小さな画像で先に済ませる（効果は未確認） |
+| `vc see`（自作の画像。`vc run --skill screen-ask`） | **Apple（`fm --image`）**：7 秒。最初は `osascript` を `osacscript` と読み違えた → **文字認識の結果を、質問に添えて、正とする**ようにして、正しく書き出した。**Ollama（`qwen3.5:4b`）**：7.8 秒。文字は読めたが、画面の説明を取り違えた（HUD を「Shortcuts のアプリ」と言った）→ 説明の正確さは、モデル次第 |
+| `vc image`（自作の画像。`vc run --skill image-edit`） | `crop` → `resize --width 200` → `convert jpg` を続けて実行し、528×420 → 200×159 → jpg の順に保存された（続けて、いまのスクリーンショットが置き換わる）。**確認のために、利用者の `~/Pictures/voice-control` へ書いてしまったので、消した**（保存先は、固定）。 |
+| スキルの測定（`scripts/eval-skills.py`・3 回ずつ・`--dry-run`） | **Apple：`screen-ask` 35/39（90%）・`image-edit` 90/96（94%）。Ollama（`qwen3.5:4b`）：39/39・96/96（100%）**。Apple の残り：翻訳の依頼（「日本語に訳して」）で、コマンドを出さない・「4 分の 1」を `crop` にする・「75 パーセント」を 50 にする。**調整の経過**（評価に使った文を、調整にも使った）：最初の `image-edit` は 61/72（85%）→ 文言を直して、別の文 9 件を足して 85/96（89%）→ 切り抜きの `--left 0.5 --width 0.5` などの数を、**言葉（`right-half`・`left-half`・`top-half`・`bottom-half`・`center`）に替えた**（上半分と下半分の取り違え・余計な `--width` を、なくすため）→ 90/96（94%）。`screen-ask` は、コマンドを `vc see` 1 つ（引数なし）にして 33/36（92%）→ 35/39 |
+| Tiny-Jev の振り分け（自作の 20 文） | 画面・画像の依頼 11 件のうち 9 件が、正しく選ばれた（「これは何？」「これって何ですか」は、どのスキルでもない〔画像と言っていないので、そのまま〕。「文字起こしして」は 40.8%）。**無関係な 9 件（天気・音量・ファイル・Amazon・Claude・コピーした文章・次の曲・写真を探す・こんにちは）が、`screen-ask`・`image-edit` に入ったことは 0 件** |
+| ショートカットの設定（`vc hotkey set-shot`・`set-ocr`） | 設定・同じキーの拒否・長押し（`shift`）の拒否・`vc hotkey` の表示が、思った通り。`vc doctor` に「画面収録」の項目を足した（この Mac では、許可済み） |
+
+**未確認（人間の確認が要る）**：実際の範囲選択（`screencapture -i`。ドラッグ・Esc）・ショートカットが `vc listen --hotkey` の中で動くこと・撮ったあとに、声で頼む通し・画面収録の許可の流れ（未許可のときの案内を含む）・撮った直後の画面の上の表示・macOS 26 の `fm`（`--image` なし）で、理由が出ること（コードだけ）・文字認識の初回の準備を起動のときに済ませる効果・Ollama の画像の説明の正確さ・OpenAI 互換のエンジンは、画像に未対応（理由を返す）。
+
 ## 人間の確認が要るもの（AI は合格にしない）
 
 - 録音中の消音：音楽を流しながら `vc listen --hotkey`（と、Enter モード）を使い、録音の間だけ消え、離す・Esc・Ctrl+C のあと、戻ること。Bluetooth・HDMI・USB など、出力の種類ごと（SPEC A19）。
@@ -732,6 +748,7 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 - 声の「はい」による確認が、実際の声で通るか。
 - 実アプリ（Safari・Chrome・Slack・Spotify など）での動き。
 - Shift の長押しの使い心地・誤作動（日常のタイピング中）。
+- スクリーンショット：ショートカットで範囲を選び、そのあと声で頼む通し（`vc hotkey set-shot`・`set-ocr`。画面収録の許可の流れを含む）。
 - アクセシビリティ・オートメーション・マイクの許可の流れ。
 - Apple Intelligence をオフにした Mac で、`vc run`・`vc listen`・`vc doctor` が、理由と手順を示して終わるか（SPEC A18。オンにしたあとの動きも）。
 

@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 import VCDecision
 
 /// 直前の候補（`vc find` の結果・直前のコマンドの出力の行）：`vc pick` が、選ぶ相手。1 回の実行の中だけ（記憶は、プロセスの外へ出さない・ファイルに残さない）。
@@ -24,7 +25,7 @@ final class OptionMemory: @unchecked Sendable {
     }
 }
 
-/// スキルの実行の中で、`vc` 自身が処理するコマンド：`vc find`（ファイルの検索）・`vc pick`（Tiny-Jev での選択）。モデルが呼ぶ（スキルの `allowed-commands` に書く。許可の照合は、ほかのコマンドと同じ）。
+/// スキルの実行の中で、`vc` 自身が処理するコマンド：`vc find`（ファイルの検索）・`vc pick`（Tiny-Jev での選択）・`vc see`（スクリーンショットを見て答える）・`vc image`（スクリーンショットの加工）。モデルが呼ぶ（スキルの `allowed-commands` に書く。許可の照合は、ほかのコマンドと同じ）。
 /// **外のプロセスは起こさない**（`vc` の実行ファイルを、呼び直さない：Tiny-Jev を、読み直さずに済み、検索の引数は、決まった形で受ける）。
 struct InternalCommands {
     /// 依頼の文（`vc pick` が、何を選ぶかの、既定）。
@@ -33,12 +34,23 @@ struct InternalCommands {
     let scorer: (@Sendable () -> OptionScorer?)?
     let memory: OptionMemory
     var spotlight: FileSearch.Spotlight = FileSearch.live
+    /// 画像を見るモデル（`vc see`）。実行しているスキルと、同じエンジン（この Mac の中のモデルだけ）。
+    var engine: Engine = .apple
+    var cancel: CancelToken?
+    /// 画像を見る関数（テストで、偽物に替える）。
+    var vision: @Sendable (_ image: URL, _ question: String, _ engine: Engine, _ cancel: CancelToken?) -> Result<String, ToolFailure> = { VisionModel.ask(image: $0, question: $1, engine: $2, cancel: $3) }
+    var images = ImageEditing()
 
-    static func handles(_ argv: [String]) -> Bool { argv.count >= 2 && argv[0] == "vc" && ["find", "pick"].contains(argv[1]) }
+    static func handles(_ argv: [String]) -> Bool { argv.count >= 2 && argv[0] == "vc" && ["find", "pick", "see", "image"].contains(argv[1]) }
 
     /// 実行する。成功は出力の文、失敗は `ToolFailure`。
     func execute(_ argv: [String]) -> Result<String, ToolFailure> {
         let arguments = Array(argv.dropFirst(2))
+        switch argv[1] {
+        case "see": return see(arguments)
+        case "image": return images.run(arguments)
+        default: break
+        }
         return Result { try argv[1] == "find" ? find(arguments) : pick(arguments) }.mapError { $0 as? ToolFailure ?? ToolFailure(exitCode: 1, message: "\($0)") }
     }
 
@@ -65,6 +77,23 @@ struct InternalCommands {
         else if found.count > 1 { text += "\nTo choose the one that fits the user's request, run: vc pick" }
         return text
     }
+
+    // MARK: vc see
+
+    /// `vc see`：いまのスクリーンショットを見て、利用者の依頼（文字を書き出す・説明する・質問に答える）に、Markdown で答える。**引数なしが基本**（依頼の文を、そのまま使う：小さなモデルが、言い換えて、ずらさない）。`vc see "<指示>"` で、指示を、別に渡すこともできる。
+    private func see(_ arguments: [String]) -> Result<String, ToolFailure> {
+        let question = arguments.isEmpty ? request : arguments[0]
+        guard arguments.count <= 1, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .failure(ToolFailure(exitCode: 2, message: "usage: vc see   (no arguments: it uses the user's request), or vc see \"<instruction>\" (one quoted argument)"))
+        }
+        guard question.count <= Self.maxQuestion else { return .failure(ToolFailure(exitCode: 2, message: "the instruction is too long (\(Self.maxQuestion) characters at most)")) }
+        switch ScreenshotStore.current() {
+        case let .success(url): return vision(url, question, engine, cancel)
+        case let .failure(missing): return .failure(ToolFailure(exitCode: 1, message: "\(missing)"))
+        }
+    }
+
+    static let maxQuestion = 1000
 
     // MARK: vc pick
 

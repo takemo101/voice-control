@@ -9,12 +9,13 @@ final class ToolLoopAgent: SkillExecuting {
     private let session: CommandSession
     private let chat: ChatModel
 
-    init(skill: Skill, chat: ChatModel, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil) {
-        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
+    init(skill: Skill, chat: ChatModel, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil, engine: Engine = .apple) {
+        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer, engine: engine)
         self.chat = chat
     }
 
     var executedCommands: [String] { session.executedCommands }
+    var producedDocument: String? { session.producedDocument }
 
     func run(request: String) async throws -> String {
         try session.checkCancelled()

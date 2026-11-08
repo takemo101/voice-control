@@ -20,15 +20,21 @@ final class CommandSession: @unchecked Sendable {
     let memory = OptionMemory()
     /// Tiny-Jev（使うときまで、読み込まない）。`vc pick` が使う。
     private let scorer: (@Sendable () -> OptionScorer?)?
+    /// 画像を見るモデル（`vc see`）：実行しているスキルと、同じエンジン。
+    private let engine: Engine
     private let lock = NSLock()
     private var count = 0
     private var log: [String] = []
     private var request = ""
+    private var document: String?
     var spotlight: FileSearch.Spotlight = FileSearch.live
 
-    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?, scorer: (@Sendable () -> OptionScorer?)? = nil) {
-        self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel; self.scorer = scorer
+    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?, scorer: (@Sendable () -> OptionScorer?)? = nil, engine: Engine = .apple) {
+        self.skill = skill; self.dryRun = dryRun; self.display = display; self.cancel = cancel; self.scorer = scorer; self.engine = engine
     }
+
+    /// `vc see` の答え（Markdown）。あれば、`SkillRunner` が、ウィンドウに出す（言語モデルに、長い文を写させない：写し間違い・省略をしない）。
+    var producedDocument: String? { lock.lock(); defer { lock.unlock() }; return document }
 
     /// 利用者の依頼の文（`vc pick` の、何を選ぶかの既定）。実行の前に、呼ぶ。
     /// いまの依頼（`instructions` の `${USER_REQUEST}` に使う）。
@@ -87,8 +93,15 @@ final class CommandSession: @unchecked Sendable {
         // `vc find`・`vc pick` は、`vc` 自身が処理する（外のプロセスを起こさない）
         if InternalCommands.handles(argv) {
             lock.lock(); let current = request; lock.unlock()
-            let result = InternalCommands(request: current, scorer: scorer, memory: memory, spotlight: spotlight).run(argv)
+            var commands = InternalCommands(request: current, scorer: scorer, memory: memory, spotlight: spotlight)
+            commands.engine = engine; commands.cancel = cancel
+            let result = commands.run(argv)
             display.onResult(result.exitCode, result.output)
+            // `vc see` の答えは、ウィンドウに出すので、言語モデルには、短い知らせだけ返す（長い文を、写させない）
+            if argv[1] == "see", result.exitCode == 0 {
+                lock.lock(); document = result.output; lock.unlock()
+                return "exit 0\nThe answer (\(result.output.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"
+            }
             return "exit \(result.exitCode)\n\(result.output)"
         }
         let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel)

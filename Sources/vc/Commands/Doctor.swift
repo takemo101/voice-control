@@ -10,7 +10,7 @@ struct DoctorCommand: Command {
         usage: ["vc doctor [--engine <エンジン>]"],
         details: [
             "Apple Intelligence（スキルの実行に使う言語モデル）・Tiny-Jev のモデル（スキルの選択）が使えるかを確かめ、使えないものは、直す手順を示す。",
-            "任意の機能に要るもの（agent-desktop・アクセシビリティ・マイクの許可・設定ファイル）も確かめる。許可の確認ダイアログは出さず、設定も変えない。",
+            "任意の機能に要るもの（agent-desktop・アクセシビリティ・画面収録・マイクの許可・設定ファイル）も確かめる。許可の確認ダイアログは出さず、設定も変えない。",
             "必須（Apple Intelligence・Tiny-Jev）が使えなければ、終了コード 1。任意のものだけなら、0。",
         ],
         options: [], examples: ["vc doctor", "vc doctor --engine ollama:qwen3.5:4b", "vc doctor --engine openai:qwen3-4b@1234"])
@@ -33,6 +33,9 @@ struct DoctorCommand: Command {
             ? .ok("アクセシビリティ", "許可されています（ホットキー・agent-desktop）")
             : .warn("アクセシビリティ", "許可されていません",
                     fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
+        checks.append(ScreenCapture.isAllowed
+            ? .ok("画面収録", "許可されています（スクリーンショット：vc shot・vc ocr）")
+            : .warn("画面収録", "許可されていません（スクリーンショットを使うときだけ要ります）", fix: ScreenCapture.permissionHint))
         checks.append(Self.microphoneCheck(MicRecorder.permission))
         checks.append(Self.speechCheck(context))
         let (_, problem) = Settings.loadOrDefault()

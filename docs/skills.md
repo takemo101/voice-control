@@ -217,6 +217,8 @@ allowed-commands: open                 # 1 つだけ
 |---|---|---|
 | `vc find` | ファイルを探す（Spotlight。読み取りだけ）。候補を、1 行ずつ（名前・フォルダ・種類・日付）と、フルパスで返す | **`vc` 自身が処理する**（外のプロセスを起こさない）。候補は、同じ実行の中で覚える |
 | `vc pick` | 候補の中から、**利用者の依頼に合うものを、Tiny-Jev で選ぶ**（`verdict: picked／ambiguous／none`）。候補は、直前の `vc find` の結果（または、直前のコマンドの出力の行）か、`--option` | 同上。Tiny-Jev は、使うときに、初めて読み込む |
+| `vc see` | **いまのスクリーンショットを見て**、利用者の依頼（文字を書き出す・説明する・質問に答える）に、Markdown で答える。**引数なしが基本**（依頼の文を、そのまま使う）。答えは、ウィンドウに出る（言語モデルには、短い知らせだけを返す） | **`vc` 自身が処理する**。Mac の中のモデルだけ（Apple・Ollama） |
+| `vc image` | いまのスクリーンショットを加工して、保存する（`crop <部分>`・`resize`・`rotate`・`convert`） | **`vc` 自身が処理する**。保存先は固定 |
 | `vc show` | Markdown を、整形したウィンドウに出す（`--text`・`--file`・標準入力）。選んで ⌘C・コピーのボタン・Esc で閉じる | 別のプロセスが、ウィンドウを出す（`vc` が PATH にあること）。実際に、スキルから呼べることを確認した |
 
 - 書き方（`allowed-commands`）：`- vc find`・`- vc pick`・`- vc show`（サブコマンドまで書く。`vc` だけは、書かない）。
@@ -379,6 +381,26 @@ flowchart LR
 - **`agy` のモデル**：既定は **Gemini 3.8 Flash（Medium）**（`gemini-3.8-flash-medium`）。替えるときは、環境変数 `ASK_AGENT_AGY_MODEL` に、`agy models` の名前を入れる（例：`gemini-3.8-flash-high`）。名前は、英小文字・数字・`.`・`-` だけ（それ以外は、`agy` を呼ぶ前に、拒否する：オプションの注入を防ぐ）。ほかのエージェントは、それぞれの既定のモデルです。
 - **エージェントを足す**：`ask-agent.mjs` の `AGENTS` の表に 1 つ足して（呼び方と、読むだけのオプション）、`SKILL.md` の名前の対応表に、声での呼び方を足し、スキルを作り直します（[スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md)）。
 - 前の名前（`ask-agy`）は、このスキルに置き換えました。入れていた人は、`~/.voice-control/skills/ask-agy` を消して、`vc skills install ask-agent` を実行します（環境変数も、`ASK_AGY_MODEL` → `ASK_AGENT_AGY_MODEL`）。
+
+## スクリーンショットに声で頼む（`screen-ask`・`image-edit`。任意）
+
+範囲を選んで撮った画面の一部について、声で頼めます。**画像は、Mac の中のモデルだけ**に渡ります（外へ出ません。[SPEC F41](../SPEC.md)）。
+
+1. `vc hotkey set-shot ctrl+opt+s` で、撮るショートカットを決める（`vc listen --hotkey` の中で動く。画面収録の許可が要る：`vc doctor` が確かめる）。`vc shot` でも撮れる。
+2. ショートカットを押す → 画面が暗くなる → ドラッグで範囲を選ぶ（Esc で取りやめ）→ 画面の上に「撮りました」と出る。
+3. **3 分以内**に、いつもの声で頼む（Shift の長押し）：
+   - 「**この画像の文字を書き出して**」「この表をマークダウンにして」「これは何？」「エラーを教えて」 → `screen-ask`。答えは、ウィンドウに出る（コピーできる）。
+   - 「**右半分を切り抜いて**」「横幅を 800 にして」「半分の大きさに」「右に回転して」「JPEG に変換して」 → `image-edit`。`~/Pictures/voice-control/` へ保存され、**結果が、いまのスクリーンショットになる**ので、続けて「横を 400 に」「JPEG にして」と頼める（「切り抜いて、そのあと JPEG に」は、マルチステップで、順に実行される）。
+
+**文字だけが欲しいとき**は、声のいらない別のショートカット：`vc hotkey set-ocr ctrl+opt+t`。範囲を選ぶだけで、文字が、`vc show` のウィンドウに出る（macOS の文字認識。言語モデルを通さないので、速く、写し間違いが起きない。`vc ocr` でも同じ）。
+
+しくみと、守っていること：
+
+- 画像は、`~/.voice-control/shot/current.png` の 1 枚だけ（自分だけが読める。**180 秒で、使えなくなる**。新しく撮ると置き換わる。`vc listen` の終了と、`vc shot --clear` で、消える）。ログ・文書・テストには、残さない。
+- `vc see`：Apple のモデルには `fm respond --image`（macOS 27 以降。なければ、理由を返す）、Ollama には `/api/chat` の `images`（画像に対応したモデル。`vc engine set ollama:qwen3.5:4b`）。OpenAI 互換は未対応。画像は、長いほうの辺を 1568 ピクセルまで縮めて渡す。**文字は、文字認識（Vision）の結果を、質問に添えて、正とする**（言語モデルは、`osascript` を `osacscript` と読むような、細かい読み違いをする）。画像の中の文字は、非信頼のデータ（命令を、実行しない）。
+- `vc image`：ImageIO・CoreGraphics だけ。モデルが渡すのは、操作の名前と数だけ（部分は `left-half`・`right-half`・`top-half`・`bottom-half`・`center`。ほかは、割合 `--left`・`--top`・`--width`・`--height`）。ファイル名・保存先は、モデルが決められない。
+- 弱い Apple のモデル向けの作り：`screen-ask` は、コマンドが `vc see` の 1 つだけ（依頼の文は、コマンドが自分で受ける：言い換えて、ずらさない）。`image-edit` は、数を言わせず、言葉（`right-half`）にした（`--height 0.5` と `--top 0.5` の取り違えを、なくすため）。測定は [検証記録](verification.md)。
+- 参考：[vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)（Mac のメニューバーのツール集。範囲選択・文字認識・画像の加工の考え方）。**GPL-3.0 なので、コードは、取り込んでいない**（考え方だけを、自分で実装した）。
 
 ## Markdown のウィンドウ（`vc show`・`result: markdown-window`）
 

@@ -6,6 +6,12 @@ protocol SkillExecuting: Sendable {
     var executedCommands: [String] { get }
     /// 依頼を実行して、返事（`done: …` / `failed: …`）を返す。取りやめられたら `CancellationError`。
     func run(request: String) async throws -> String
+    /// 実行の途中で、できた文書（`vc see` の答え）。あれば、ウィンドウに出す。
+    var producedDocument: String? { get }
+}
+
+extension SkillExecuting {
+    var producedDocument: String? { nil }
 }
 
 /// 実行者が、コマンド・結果・拒否を知らせる先。どのスレッドからも呼ばれる。
