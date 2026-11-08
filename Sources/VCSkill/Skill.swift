@@ -29,12 +29,12 @@ public struct Skill: Sendable, Equatable {
     /// このスキルが、利用者の発話を、**この Mac の外へ送る**とき、その送り先（フロントマター `external`。例：`Google（agy）`）。書かなければ、送らない。
     /// 一覧・インストールの結果に出し、`--all` のインストールのあとに、注意を出す（`vc` の基本：発話を、この Mac の外へ出さない、の例外を、見えるようにする）。
     public var external: String?
-    /// **撮ったスクリーンショットを使うスキル**（フロントマター `image: true`）。いまのスクリーンショットがあるときだけ、Tiny-Jev の選択肢に入る（コードが決める：撮っていない・古いときは、選ばれない）。
+    /// **画像を使うスキル**（フロントマター `image:`。`true`・`screenshot`＝撮ったスクリーンショット／`clipboard`＝コピーした画像）。**その画像があるときだけ**、Tiny-Jev の選択肢に入る（コードが決める）。
     /// 画像を使わない依頼が、画像のスキルに振り分けられない（画像を、外へ送るスキルと、取り違えない）。
-    public var image = false
+    public var imageSource: ImageSource?
 
     /// 撮った画面の画像を、外へ送るスキルか（`image: true` と `external`）。確認のとき、送る画像を見せる。
-    public var sendsScreenshot: Bool { image && external != nil }
+    public var sendsScreenshot: Bool { imageSource == .screenshot && external != nil }
 
     /// 外へ送ることの、断り書き（「撮った画面の画像と質問を、OpenAI（codex） へ送ります」）。送らなければ nil。確認の文・一覧・インストールの結果で使う。
     public var externalNotice: String? { external.map { "\(sendsScreenshot ? "撮った画面の画像と質問" : "発話")を、\($0) へ送ります" } }

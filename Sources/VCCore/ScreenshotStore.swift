@@ -11,6 +11,8 @@ public enum ScreenshotStore {
 
     public static var directory: URL { VoiceControlHome.root.appendingPathComponent("shot") }
     public static var currentFile: URL { directory.appendingPathComponent("current.png") }
+    /// コピーした画像を、`vc see` が読むために、書き出す場所（使い終わったら消す）。
+    public static var clipboardFile: URL { directory.appendingPathComponent("clipboard.png") }
 
     public enum Missing: Error, Equatable, CustomStringConvertible {
         case none
@@ -46,8 +48,14 @@ public enum ScreenshotStore {
         return age > timeToLive ? .failure(.expired(seconds: Int(age))) : .success(file)
     }
 
+    /// コピーした画像の書き出しを、消す。
+    public static func clearClipboardExport() {
+        try? FileManager.default.removeItem(at: clipboardFile)   // try?: 後片付け。なくても、よい
+    }
+
     /// 消す（終了のとき）。なくても、よい。
     public static func clear(directory: URL = ScreenshotStore.directory) {
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent("clipboard.png"))
         try? FileManager.default.removeItem(at: directory.appendingPathComponent("current.png"))   // try?: 後片付け。消えていなくても、次の置き換えで消える
     }
 }

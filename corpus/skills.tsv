@@ -119,3 +119,13 @@ ask-agent-image	first	node ask-agent-image.mjs agy	アンチグラビティに�
 ask-agent-image	first	node ask-agent-image.mjs agy	この画像をアンチグラビティに見てもらって
 ask-agent-image	first	node ask-agent-image.mjs grok	グロックにこのスクショを見せて、エラーの意味を聞いて
 ask-agent-image	first	node ask-agent-image.mjs grok	この画面をグロックに聞いて、何が写っているか教えて
+clipboard-image	exact	vc see --from clipboard	コピーした画像の文字を書き出して
+clipboard-image	exact	vc see --from clipboard	コピーした画像を要約して
+clipboard-image	exact	vc see --from clipboard	コピーした画像を日本語にして
+clipboard-image	exact	vc see --from clipboard	コピーした図を説明して
+clipboard-image	exact	vc see --from clipboard	コピーした画像に何て書いてある？
+clipboard-image	exact	vc see --from clipboard	コピーした画像の表をマークダウンにして
+clipboard-image	exact	vc see --from clipboard	コピーした画像を整理して
+clipboard-image	exact	vc see --from clipboard	コピーした画像のエラーメッセージを教えて
+clipboard-image	exact	vc see --from clipboard	クリップボードの画像の文字を読んで
+clipboard-image	exact	vc see --from clipboard	いまコピーした画像は何？

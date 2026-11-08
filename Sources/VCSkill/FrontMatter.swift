@@ -48,7 +48,10 @@ extension SkillStore {
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
         skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
-        skill.image = (fields["image"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
+        if let value = fields["image"]?.scalar, !value.isEmpty, !["false", "no", "off"].contains(value.lowercased()) {
+            guard let source = ImageSource.parse(value) else { return .failure(ParseError(reason: "image「\(value.prefix(20))」は、true・screenshot（撮ったスクリーンショット）・clipboard（コピーした画像）のどれかです")) }
+            skill.imageSource = source
+        }
         skill.commandTimeout = commandTimeout
         skill.acceptsPrevious = (fields["accepts-previous"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         return .success(skill)

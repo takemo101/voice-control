@@ -79,25 +79,27 @@ public struct SkillResolver: Sendable {
     private let scorer: OptionScorer
     private let skills: [Skill]
     private let gate: Gate
-    private let screenshot: @Sendable () -> Result<URL, ScreenshotStore.Missing>
+    private let imageMissing: @Sendable (ImageSource) -> ImageSource.Missing?
 
-    /// `screenshot`：いまのスクリーンショット（既定は、`ScreenshotStore`）。**画像のスキル（`image: true`）は、これがあるときだけ、選択肢に入る**。
-    public init(scorer: OptionScorer, skills: [Skill], gate: Gate, screenshot: @escaping @Sendable () -> Result<URL, ScreenshotStore.Missing> = { ScreenshotStore.current() }) {
+    /// `imageMissing`：画像の取り先が、いま使えないか（使えるなら nil。既定は、`ImageSource.missing`）。**画像のスキル（`image:`）は、その画像があるときだけ、選択肢に入る**。
+    public init(scorer: OptionScorer, skills: [Skill], gate: Gate, imageMissing: @escaping @Sendable (ImageSource) -> ImageSource.Missing? = { $0.missing }) {
         self.scorer = scorer
         self.skills = skills
         self.gate = gate
-        self.screenshot = screenshot
+        self.imageMissing = imageMissing
     }
 
     public func resolve(_ request: String) throws -> Outcome {
         let candidates = skills.filter { $0.name != DefaultSkill.name }
         var usable = candidates
-        if case let .failure(missing) = screenshot(), candidates.contains(where: \.image) {
-            // 撮っていない・古い：画像のスキルを、選択肢から外す。ただし、**すべての中から選んで、画像のスキルが選ばれるなら、撮り忘れ**：
-            // 別のスキル（調べものなど）や、既定のスキルに回さず、撮り方を案内して、止める
+        // 画像がない（撮っていない・古い・コピーしていない）：その画像のスキルを、選択肢から外す。ただし、**すべての中から選んで、外したスキルが選ばれるなら、画像の出し忘れ**：
+        // 別のスキル（調べものなど）や、既定のスキルに回さず、画像の用意の仕方を案内して、止める
+        var unavailable: [ImageSource: ImageSource.Missing] = [:]
+        for source in Set(candidates.compactMap(\.imageSource)) { if let why = imageMissing(source) { unavailable[source] = why } }
+        if !unavailable.isEmpty {
             let all = try SkillRouter(scorer: scorer, skills: candidates).route(request)
-            if let skill = all.skill, skill.image, all.probability >= gate.floor { return .declined(reason: "\(missing)", fallbackAvailable: false) }
-            usable = candidates.filter { !$0.image }
+            if let skill = all.skill, let source = skill.imageSource, let why = unavailable[source], all.probability >= gate.floor { return .declined(reason: "\(why)", fallbackAvailable: false) }
+            usable = candidates.filter { $0.imageSource.map { unavailable[$0] == nil } ?? true }
         }
         let routed = try SkillRouter(scorer: scorer, skills: usable).route(request)
         if let skill = routed.skill, routed.probability >= gate.floor {
