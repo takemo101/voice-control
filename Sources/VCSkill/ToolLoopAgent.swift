@@ -16,6 +16,7 @@ final class ToolLoopAgent: SkillExecuting {
 
     var executedCommands: [String] { session.executedCommands }
     var producedDocument: String? { session.producedDocument }
+    var producedImage: URL? { session.producedImage }
 
     func run(request: String) async throws -> String {
         try session.checkCancelled()

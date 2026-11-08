@@ -13,6 +13,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let present: @Sendable (HUDContent, TimeInterval?) -> Void
     private let speak: @Sendable (String) -> Void
     private let document: @Sendable (String) -> String?
+    private let image: @Sendable (URL) -> String?
     private let lock = NSLock()
     private var session: HUDSession?
     /// 複数ステップの依頼で、いま何番目か（なければ、ステップに分けていない）。
@@ -24,7 +25,8 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
          terminal: TerminalReporter? = nil,
          present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
          speak: @escaping @Sendable (String) -> Void = { say($0) },
-         document: @escaping @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) }) {
+         document: @escaping @Sendable (String) -> String? = { DocumentWindow.present(markdown: $0) },
+         image: @escaping @Sendable (URL) -> String? = { ImagePanel.present(file: $0, title: "加工した画像") }) {
         self.chip = chip
         self.utterance = utterance
         self.dryRun = dryRun
@@ -33,6 +35,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         self.present = present
         self.speak = speak
         self.document = document
+        self.image = image
     }
 
     private var progress: String {
@@ -94,6 +97,8 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .document(markdown):
             // ウィンドウに表示する結果（HUD には、出さない。端末にも、本文は出さない）
             if let why = document(markdown) { eprint("ウィンドウを出せません: \(why)") }
+        case let .image(url):
+            if let why = image(url) { eprint("パネルを出せません: \(why)") }
         case let .reply(reply, _, _):
             terminal.report(event)
             lock.lock(); let current = step; lock.unlock()

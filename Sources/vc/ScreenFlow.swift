@@ -12,12 +12,13 @@ import VCSkill
     static func captureForVoice(next: String, chip: String) {
         guard !busy else { return }
         busy = true
-        Task.detached {
-            let outcome = ScreenCapture.captureForVoice()
-            await MainActor.run {
+        Task { @MainActor in
+            let outcome = await ScreenCapture.captureForVoice()
+            do {
                 busy = false
                 switch outcome {
                 case .captured:
+                    showPreview()
                     // 撮った直後に、そのまま録音を始める（黙ったら認識。始められなければ〔別の処理中〕、案内だけ出す：声のトリガーで、3 分以内に頼める）
                     AutoListen.shared.begin(hint: next)
                     if AutoListen.shared.hint == nil {
@@ -31,13 +32,19 @@ import VCSkill
         }
     }
 
+    /// 撮った画像を、パネルに出す（画像のコピー・パスのコピー）。画像は、パネルのプロセスへ渡す（ファイルには、残さない）。
+    static func showPreview() {
+        guard let data = try? Data(contentsOf: ScreenshotStore.currentFile) else { return }   // try?: 読めなければ、パネルを出さないだけ（声の流れは、続く）
+        if let why = ImagePanel.present(png: data, title: "スクリーンショット") { eprint("パネルを出せません: \(why)") }
+    }
+
     /// 撮って、文字だけを書き出し、ウィンドウに出す。
     static func transcribe(chip: String) {
         guard !busy else { return }
         busy = true
-        Task.detached {
-            let result = ScreenCapture.recognizeRegion()
-            await MainActor.run {
+        Task { @MainActor in
+            let result = await ScreenCapture.recognizeRegion()
+            do {
                 busy = false
                 switch result {
                 case .success(nil): break   // 取りやめ

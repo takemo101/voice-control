@@ -3,46 +3,43 @@ import Foundation
 import VCCore
 import VCSkill
 
-/// 範囲を選んで、スクリーンショットを撮る（macOS 標準の `screencapture -i`：画面を暗くして、ドラッグで範囲を選ぶ。Esc で取りやめ）。
+/// 範囲を選んで、スクリーンショットを撮る（`ScreenSelector`：静止画を暗くして、ドラッグ・ウィンドウのクリック・全画面で選ぶ）。
 /// 撮った画像は、この Mac の中だけに置く（`ScreenshotStore`）。**画面収録の許可**が要る（ターミナルなど、`vc` を動かしているアプリに）。
-enum ScreenCapture {
+/// イベントのループ（`NSApplication.run()`）が回っているときに呼ぶ（`vc listen --hotkey`。単独のコマンドは、`ScreenSelector.runStandalone`）。
+@MainActor enum ScreenCapture {
     enum Outcome {
         case captured(width: Int, height: Int)
         case cancelled
         case failed(String)
     }
 
-    /// 範囲の選択を待つ時間の上限（秒）。
-    static let selectionTimeout: TimeInterval = 180
+    nonisolated static var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
 
-    static var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
+    nonisolated static let permissionHint = "システム設定 > プライバシーとセキュリティ > 画面収録 で、vc を動かしているターミナルを許可してください（許可したら、ターミナルを開き直す）"
 
-    static let permissionHint = "システム設定 > プライバシーとセキュリティ > 画面収録 で、vc を動かしているターミナルを許可してください（許可したら、ターミナルを開き直す）"
-
-    /// 範囲を選んで撮り、`destination`（PNG）へ書く。呼ぶと、選び終わるまで戻らない（メインのスレッドでは呼ばない）。
-    static func captureRegion(to destination: URL) -> Outcome {
+    /// 範囲を選んで撮り、`destination`（PNG）へ書く。
+    static func capture(to destination: URL) async -> Outcome {
         guard isAllowed else { return .failed("画面収録の許可がありません。\(permissionHint)") }
-        do { try ScreenshotStore.prepare(directory: destination.deletingLastPathComponent()) } catch { return .failed("保存先を用意できません（\(error.localizedDescription)）") }
-        let result = ProcessRunner.run(executable: "screencapture", arguments: ["-i", "-x", "-t", "png", destination.path], mergeStderr: true, timeout: selectionTimeout)
-        if result.timedOut { return .failed("範囲が選ばれないまま、\(Int(selectionTimeout)) 秒たちました") }
-        // Esc で取りやめると、終了コード 0 で、ファイルができない
-        guard FileManager.default.fileExists(atPath: destination.path) else {
-            return result.exitCode == 0 ? .cancelled : .failed("screencapture が失敗しました（\(result.exitCode)：\(String(result.text.prefix(200)))）")
-        }
-        do {
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
-            let size = try ImageOps.size(of: destination)
-            return .captured(width: size.width, height: size.height)
-        } catch {
-            try? FileManager.default.removeItem(at: destination)   // try?: 読めない画像は、残さない（後片付け）
-            return .failed("撮った画像を読めません（\(error)）")
+        switch await ScreenSelector.select() {
+        case .cancelled: return .cancelled
+        case let .failed(reason): return .failed(reason)
+        case let .captured(capture):
+            do {
+                try ScreenshotStore.prepare(directory: destination.deletingLastPathComponent())
+                try ImageOps.write(capture.image, to: destination, format: .png)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+                return .captured(width: capture.image.width, height: capture.image.height)
+            } catch {
+                try? FileManager.default.removeItem(at: destination)   // try?: 書きかけは、残さない（後片付け）
+                return .failed("撮った画像を保存できません（\(error)）")
+            }
         }
     }
 
     /// 範囲を選んで撮り、いまのスクリーンショットにする（声で指示する相手）。
-    static func captureForVoice() -> Outcome {
+    static func captureForVoice() async -> Outcome {
         let file = ScreenshotStore.directory.appendingPathComponent("capture-\(UUID().uuidString).png")
-        let outcome = captureRegion(to: file)
+        let outcome = await capture(to: file)
         if case .captured = outcome {
             do { try ScreenshotStore.replace(with: file) } catch {
                 try? FileManager.default.removeItem(at: file)   // try?: 後片付け
@@ -52,11 +49,11 @@ enum ScreenCapture {
         return outcome
     }
 
-    /// 範囲を選んで撮り、文字を読み取る（画像は、読み取ったら、すぐ消す）。文字がなければ、空の文字列。
-    static func recognizeRegion() -> Result<String?, ScreenCaptureFailure> {
+    /// 範囲を選んで撮り、文字を読み取る（画像は、読み取ったら、すぐ消す）。取りやめは `nil`。文字がなければ、空の文字列。
+    static func recognizeRegion() async -> Result<String?, ScreenCaptureFailure> {
         let file = ScreenshotStore.directory.appendingPathComponent("ocr-\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: file) }   // try?: 後片付け
-        switch captureRegion(to: file) {
+        switch await capture(to: file) {
         case .cancelled: return .success(nil)
         case let .failed(reason): return .failure(ScreenCaptureFailure(message: reason))
         case .captured:

@@ -27,6 +27,7 @@ final class CommandSession: @unchecked Sendable {
     private var log: [String] = []
     private var request = ""
     private var document: String?
+    private var image: URL?
     var spotlight: FileSearch.Spotlight = FileSearch.live
 
     init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken?, scorer: (@Sendable () -> OptionScorer?)? = nil, engine: Engine = .apple) {
@@ -34,6 +35,9 @@ final class CommandSession: @unchecked Sendable {
     }
 
     /// `vc see` の答え（Markdown）。あれば、`SkillRunner` が、ウィンドウに出す（言語モデルに、長い文を写させない：写し間違い・省略をしない）。
+    /// `vc image` が保存した画像（最後のもの）。
+    var producedImage: URL? { lock.lock(); defer { lock.unlock() }; return image }
+
     var producedDocument: String? { lock.lock(); defer { lock.unlock() }; return document }
 
     /// 利用者の依頼の文（`vc pick` の、何を選ぶかの既定）。実行の前に、呼ぶ。
@@ -101,6 +105,9 @@ final class CommandSession: @unchecked Sendable {
             if argv[1] == "see", result.exitCode == 0 {
                 lock.lock(); document = result.output; lock.unlock()
                 return "exit 0\nThe answer (\(result.output.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"
+            }
+            if argv[1] == "image", result.exitCode == 0, let path = ImageEditing.savedPath(in: result.output) {
+                lock.lock(); image = URL(fileURLWithPath: path); lock.unlock()
             }
             return "exit \(result.exitCode)\n\(result.output)"
         }

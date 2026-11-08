@@ -29,6 +29,7 @@ final class Recorder: RunReporter, @unchecked Sendable {
             case .result: "result"
             case .denied: "denied"
             case .document: "document"
+            case .image: "image"
             case .reply: "reply"
             case .failed: "failed"
             case .cancelled: "cancelled"

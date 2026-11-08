@@ -90,16 +90,21 @@ public enum ImageOps {
         guard CGImageDestinationFinalize(destination) else { throw Failure(message: "\(format.rawValue) で書き出せません") }
     }
 
-    /// 言語モデルへ渡す画像：長いほうの辺を `maxSide` ピクセルまでに縮めた PNG（大きな画面の画像は、遅く・入力に入らないため）。
-    public static func downscaledPNG(_ url: URL, maxSide: Int = 1568) throws -> Data {
-        var image = try load(url)
-        let longest = max(image.width, image.height)
-        if longest > maxSide { image = try resize(image, width: max(16, image.width * maxSide / longest)) }
+    /// PNG のデータにする（パネルへ渡す）。
+    public static func pngData(_ image: CGImage) throws -> Data {
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { throw Failure(message: "画像を作れません") }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw Failure(message: "画像を作れません") }
         return data as Data
+    }
+
+    /// 言語モデルへ渡す画像：長いほうの辺を `maxSide` ピクセルまでに縮めた PNG（大きな画面の画像は、遅く・入力に入らないため）。
+    public static func downscaledPNG(_ url: URL, maxSide: Int = 1568) throws -> Data {
+        var image = try load(url)
+        let longest = max(image.width, image.height)
+        if longest > maxSide { image = try resize(image, width: max(16, image.width * maxSide / longest)) }
+        return try pngData(image)
     }
 
     public static func size(of url: URL) throws -> (width: Int, height: Int) {

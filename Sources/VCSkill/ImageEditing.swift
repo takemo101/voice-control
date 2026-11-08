@@ -10,17 +10,20 @@ import VCCore
 /// - `convert png|jpg|heic`：形式の変換
 /// 結果は、新しいファイルとして、保存先（`~/Pictures/voice-control`。決まった場所：モデルは、場所・名前を決められない）へ書く。**いまのスクリーンショットも、結果に置き換える**（続けて、サイズ変更などができる）。元の画像は、変えない（古い版は、残らない）。
 struct ImageEditing {
-    static var defaultOutputDirectory: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/voice-control")
-    }
-
     /// 切り抜きの部分（割合）。
     static let cropParts: [String: (left: Double, top: Double, width: Double, height: Double)] = [
         "left-half": (0, 0, 0.5, 1), "right-half": (0.5, 0, 0.5, 1), "top-half": (0, 0, 1, 0.5), "bottom-half": (0, 0.5, 1, 0.5), "center": (0.25, 0.25, 0.5, 0.5),
     ]
 
+    /// `saved: <パス> (<幅>x<高さ>, <形式>)` の、パス。
+    static func savedPath(in output: String) -> String? {
+        guard output.hasPrefix("saved: "), let end = output.range(of: " (", options: .backwards) else { return nil }
+        let path = String(output[output.index(output.startIndex, offsetBy: 7)..<end.lowerBound])
+        return path.isEmpty ? nil : path
+    }
+
     var storeDirectory: URL = ScreenshotStore.directory
-    var outputDirectory: URL = ImageEditing.defaultOutputDirectory
+    var outputDirectory: URL = ShotOutput.directory
     var now: Date = Date()
 
     func run(_ arguments: [String]) -> Result<String, ToolFailure> {
@@ -87,13 +90,7 @@ struct ImageEditing {
 
     /// `shot-年月日-時分秒.<形式>`（同じ秒に重なったら、連番）。
     private func save(_ image: CGImage, format: ImageOps.Format) throws -> URL {
-        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-        let stamp = DateFormatter()
-        stamp.locale = Locale(identifier: "en_US_POSIX"); stamp.dateFormat = "yyyyMMdd-HHmmss"
-        let base = "shot-\(stamp.string(from: now))"
-        var url = outputDirectory.appendingPathComponent("\(base).\(format.rawValue)")
-        var n = 2
-        while FileManager.default.fileExists(atPath: url.path) { url = outputDirectory.appendingPathComponent("\(base)-\(n).\(format.rawValue)"); n += 1 }
+        let url = try ShotOutput.nextURL(in: outputDirectory, ext: format.rawValue, now: now)
         do { try ImageOps.write(image, to: url, format: format) } catch { throw ToolFailure(exitCode: 1, message: "保存できません（\(error)）") }
         return url
     }

@@ -28,6 +28,8 @@ public enum RunEvent: Sendable, Equatable {
     case denied(command: String, reason: String)
     /// `result: markdown-window` のスキルの結果（Markdown の本文）。受け手が、ウィンドウに表示する。このあとに、`reply`（`done: …`）が来る。
     case document(String)
+    /// 加工して保存した画像（`image-edit`）。受け手が、パネルに表示する。
+    case image(URL)
     /// 実行者の返事。`commandCount`：実行したコマンドの数（dry-run なら 0）。
     case reply(String, commandCount: Int, elapsed: TimeInterval)
     /// 実行者が失敗した。
@@ -146,6 +148,7 @@ public struct SkillRunner: Sendable {
                 reporter.report(.carriedResult(characters: min(previousResult.count, PreviousResult.maxLength)))
             }
             var reply = try await executor.run(request: input)
+            if !dryRun, !reply.lowercased().hasPrefix("failed"), let image = executor.producedImage { reporter.report(.image(image)) }
             // ウィンドウに表示するスキル：返事（Markdown の本文）を、結果として渡し、返事は `done: …` にする（dry-run・失敗の返事は、そのまま）
             // `vc see` の答えがあれば、それが文書（返事は、言語モデルが、短く言い換えたもの）
             if !dryRun, !reply.lowercased().hasPrefix("failed"), let produced = executor.producedDocument {

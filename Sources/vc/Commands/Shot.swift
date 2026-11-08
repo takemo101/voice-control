@@ -23,9 +23,10 @@ struct ShotCommand: Command {
             print(Style.green("✓") + " いまのスクリーンショットを消しました")
             return
         }
-        print(Style.dim("範囲をドラッグで選んでください（Esc で取りやめ）"))
-        switch await Task.detached(operation: { ScreenCapture.captureForVoice() }).value {
+        print(Style.dim("範囲をドラッグで選ぶ・ウィンドウをクリック・↩ で全画面（Esc で取りやめ）"))
+        switch ScreenSelector.runStandalone({ await ScreenCapture.captureForVoice() }) {
         case let .captured(width, height):
+            ScreenFlow.showPreview()
             print(Style.green("✓") + " 撮りました（\(width)×\(height)）。\(Int(ScreenshotStore.timeToLive / 60)) 分以内に、声で指示してください（vc listen --hotkey）")
         case .cancelled: print(Style.dim("取りやめました"))
         case let .failed(reason): fail(reason)

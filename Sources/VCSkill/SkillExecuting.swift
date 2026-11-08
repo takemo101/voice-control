@@ -8,10 +8,13 @@ protocol SkillExecuting: Sendable {
     func run(request: String) async throws -> String
     /// 実行の途中で、できた文書（`vc see` の答え）。あれば、ウィンドウに出す。
     var producedDocument: String? { get }
+    /// 実行の途中で、保存した画像（`vc image` の結果）。あれば、パネルに出す。
+    var producedImage: URL? { get }
 }
 
 extension SkillExecuting {
     var producedDocument: String? { nil }
+    var producedImage: URL? { nil }
 }
 
 /// 実行者が、コマンド・結果・拒否を知らせる先。どのスレッドからも呼ばれる。

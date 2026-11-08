@@ -24,8 +24,8 @@ struct OcrCommand: Command {
             guard FileManager.default.fileExists(atPath: url.path) else { fail("ファイルがありません: \(file)") }
             do { text = try ScreenText.recognize(url) } catch { fail("\(error)") }
         } else {
-            print(Style.dim("範囲をドラッグで選んでください（Esc で取りやめ）"))
-            switch await Task.detached(operation: { ScreenCapture.recognizeRegion() }).value {
+            print(Style.dim("範囲をドラッグで選ぶ・ウィンドウをクリック・↩ で全画面（Esc で取りやめ）"))
+            switch ScreenSelector.runStandalone({ await ScreenCapture.recognizeRegion() }) {
             case .success(nil): print(Style.dim("取りやめました")); return
             case let .success(read?): text = read
             case let .failure(failure): fail(failure.message)

@@ -89,3 +89,22 @@ extension ImageEditingTests {
         #expect(box.editing().run(["crop", "middle"]).isFailure)
     }
 }
+
+extension ImageEditingTests {
+    @Test func savedPathIsReadFromTheCommandOutput() {
+        #expect(ImageEditing.savedPath(in: "saved: /Users/a b/Pictures/voice-control/shot-1.png (100x50, png)") == "/Users/a b/Pictures/voice-control/shot-1.png")
+        #expect(ImageEditing.savedPath(in: "error: no screenshot") == nil)
+        #expect(ImageEditing.savedPath(in: "saved:  (1x1, png)") == nil)
+    }
+
+    @Test func outputNamesNeverOverwriteAnExistingFile() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("so-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let now = Date()
+        let first = try ShotOutput.nextURL(in: dir, ext: "png", now: now)
+        try Data("a".utf8).write(to: first)
+        let second = try ShotOutput.nextURL(in: dir, ext: "png", now: now)
+        #expect(first != second && second.lastPathComponent.hasSuffix("-2.png") && first.lastPathComponent.hasPrefix("shot-"))
+        #expect(try ShotOutput.nextURL(in: dir, ext: "jpg", now: now).pathExtension == "jpg")
+    }
+}
