@@ -28,6 +28,7 @@ final class CommandSession: @unchecked Sendable {
     private var request = ""
     private var document: String?
     private var image: URL?
+    private var confirmed = false
     var spotlight: FileSearch.Spotlight = FileSearch.live
     /// いまのスクリーンショットのパス（`${SCREENSHOT}`）。撮っていない・古いときは nil。テストで、差し替える。
     var screenshotPath: @Sendable () -> String? = { if case let .success(url) = ScreenshotStore.current() { return url.path } else { return nil } }
@@ -37,6 +38,15 @@ final class CommandSession: @unchecked Sendable {
     }
 
     /// `vc see` の答え（Markdown）。あれば、`SkillRunner` が、ウィンドウに出す（言語モデルに、長い文を写させない：写し間違い・省略をしない）。
+    /// 確認を通った実行か（`VC_CONFIRMED`）。確認が要らない実行・確認を通らなかった実行では、false。
+    func markConfirmed() { lock.lock(); confirmed = true; lock.unlock() }
+
+    /// 外のコマンドへ渡す、環境変数：**確認を通ったかを、コードが決めて、伝える**（スクリプトは、これがなければ、外へ出す量が増える動きをしない）。言語モデルは、環境変数を、渡せない（コマンドは、引数の並びだけ）。
+    private var commandEnvironment: [String: String] {
+        lock.lock(); defer { lock.unlock() }
+        return ["VC_CONFIRMED": confirmed ? "1" : "0"]
+    }
+
     /// `vc image` が保存した画像（最後のもの）。
     var producedImage: URL? { lock.lock(); defer { lock.unlock() }; return image }
 
@@ -111,7 +121,7 @@ final class CommandSession: @unchecked Sendable {
             }
             return "exit \(result.exitCode)\n\(result.text)"
         }
-        let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel)
+        let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel, environment: commandEnvironment)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
         display.onResult(result.exitCode, result.timedOut ? "（\(Int(skill.commandTimeout)) 秒の上限で止めました。スキルの timeout で変えられます）\n\(compact)" : compact)
         memory.setLines(from: result.output)   // 直前のコマンドの出力の行を、`vc pick` が選べる

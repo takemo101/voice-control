@@ -29,19 +29,27 @@ public struct Skill: Sendable, Equatable {
     /// このスキルが、利用者の発話を、**この Mac の外へ送る**とき、その送り先（フロントマター `external`。例：`Google（agy）`）。書かなければ、送らない。
     /// 一覧・インストールの結果に出し、`--all` のインストールのあとに、注意を出す（`vc` の基本：発話を、この Mac の外へ出さない、の例外を、見えるようにする）。
     public var external: String?
-    /// 外へ送るもの（フロントマター `sends`。既定は「発話」。画面の画像を送るスキルは「撮った画面の画像」と書く）。`external` を書いたときだけ、意味がある。
-    public var sends = "発話"
-    /// 選ばれる条件（フロントマター `trigger`。正規表現）。**依頼の文が、これに合わないとき、このスキルは、Tiny-Jev の選択肢に入らない**（コードが決める：説明の言い回しの、近さだけでは、選ばれない）。
-    /// 外へ送るスキルが、「外の AI に」と言っていない依頼に、選ばれないための歯止め。`--skill` で指定したときは、使わない。書かなければ、いつでも選択肢。
-    public var trigger: String?
+    /// 外へ送ることの、断り書き（「発話を、Google（agy） へ送ります」）。送らなければ nil。一覧・インストールの結果で使う。
+    public var externalNotice: String? { external.map { "発話を、\($0) へ送ります" } }
+    /// **依頼の文が、この正規表現に合うときだけ、確認する**（フロントマター `confirm-when`）。`confirm: true`（いつも確認）と違い、**コードが、依頼の文から決める**。
+    /// 外へ送る量が増える依頼（撮った画面の画像を、外のエージェントへ送る）だけ、確認したいスキルが使う。確認を通った実行だけが、環境変数 `VC_CONFIRMED=1` を受ける（スクリプトが、確かめる：確認なしに、送らないため）。
+    public var confirmWhen: String?
+    /// `confirm-when` に合ったとき、確認の文に書く、外へ送るもの（フロントマター `confirm-sends`。例：「撮った画面の画像と質問」）。
+    public var confirmSends = "発話"
 
-    /// 依頼の文が、選ばれる条件に合うか（条件がなければ、いつも）。
-    public func isCandidate(for request: String) -> Bool {
-        guard let trigger, let regex = try? NSRegularExpression(pattern: trigger) else { return true }   // try?: 書き方は、読み込みで、検査済み（読めないスキルは、ここへ来ない）
+    /// この依頼は、実行の前に、確認が要るか。
+    public func needsConfirmation(for request: String) -> Bool {
+        if confirm { return true }
+        guard let confirmWhen, let regex = try? NSRegularExpression(pattern: confirmWhen) else { return false }   // try?: 書き方は、読み込みで、検査済み
         return regex.firstMatch(in: request, range: NSRange(request.startIndex..., in: request)) != nil
     }
-    /// 外へ送ることの、断り書き（「発話を、Google（agy） へ送ります」）。送らなければ nil。一覧・確認で、同じ文を使う。
-    public var externalNotice: String? { external.map { "\(sends)を、\($0) へ送ります" } }
+
+    /// 確認の理由：外へ送るスキルは、**何を、どこへ送るか**を言う（確認で、何に「はい」と言うのかが、分かるように）。
+    public func confirmReason(for request: String) -> String {
+        guard let external else { return SkillResolver.confirmRequiredReason }
+        let sent = (confirmWhen != nil && !confirm) ? confirmSends : "発話"
+        return "\(sent)を、\(external) へ送ります。実行の前に確認します"
+    }
     /// 複数ステップの依頼で、**前のステップの結果**（返事）を、受け取ってよいか（フロントマター `accepts-previous`。既定は false）。
     /// 結果は、信頼しないデータ（`PreviousResult`）。外の内容を含みうるので、受け取る（宣言する）スキルは、そのデータで、危ない動作をしないものだけ。
     public var acceptsPrevious: Bool = false
