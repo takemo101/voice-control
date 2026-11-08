@@ -90,6 +90,13 @@ public enum ImageOps {
         guard CGImageDestinationFinalize(destination) else { throw Failure(message: "\(format.rawValue) で書き出せません") }
     }
 
+    /// ファイルの画像（PNG・JPEG・HEIC）を、PNG のデータにする（パネルへ渡す）。PNG は、そのまま（再び符号化しない）。読めなければ、失敗。
+    public static func pngData(contentsOf url: URL) throws -> Data {
+        let image = try load(url)
+        if url.pathExtension.lowercased() == "png", let data = FileManager.default.contents(atPath: url.path) { return data }
+        return try pngData(image)
+    }
+
     /// PNG のデータにする（パネルへ渡す）。
     public static func pngData(_ image: CGImage) throws -> Data {
         let data = NSMutableData()

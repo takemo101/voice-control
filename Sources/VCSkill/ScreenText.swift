@@ -25,11 +25,17 @@ public enum ScreenText {
         return try recognize(image: image)
     }
 
-    static func recognize(image: CGImage) throws -> String {
+    /// 認識の設定（本番と、準備〔`warmUp`〕で、同じにする：準備が、本番と別の経路だと、効かない）。
+    private static func makeRequest() -> VNRecognizeTextRequest {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = languages
         request.usesLanguageCorrection = true
+        return request
+    }
+
+    static func recognize(image: CGImage) throws -> String {
+        let request = makeRequest()
         do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([request]) } catch { throw Failure(message: "文字を読み取れませんでした（\(error.localizedDescription)）") }
         return text(from: (request.results ?? []).compactMap { observation in
             observation.topCandidates(1).first.map { Line(text: $0.string, top: observation.boundingBox.maxY, left: observation.boundingBox.minX, height: observation.boundingBox.height) }
@@ -42,10 +48,7 @@ public enum ScreenText {
             guard let context = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
             context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
             guard let image = context.makeImage() else { return }
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.recognitionLanguages = languages
-            try? VNImageRequestHandler(cgImage: image, options: [:]).perform([request])   // try?: 準備だけ。失敗しても、本番の読み取りが、同じ失敗を返す
+            try? VNImageRequestHandler(cgImage: image, options: [:]).perform([makeRequest()])   // try?: 準備だけ。失敗しても、本番の読み取りが、同じ失敗を返す
         }
     }
 

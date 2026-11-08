@@ -80,15 +80,14 @@ struct DictateCommand: Command {
             let spec = context.options.trigger == nil ? (context.resolveDictateHotKey()?.spec ?? context.resolveHotKey().spec) : context.resolveHotKey().spec
             let chip = spec.displayName
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す
-            let handsFree = HandsFreeGroup()
-            let key = try makeTrigger(spec)
             // 手放し：ダブルタップで、黙るまで録音して、入力する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
-            let trigger: PushToTalkTrigger = (context.currentSettings().handsFree ?? true) ? handsFree.wrap(key, tag: VoiceMode.dictate) : key
+            let triggers = VoiceTriggers.make([(VoiceMode.dictate, try makeTrigger(spec))], handsFreeEnabled: context.currentSettings().handsFree ?? true)
+            let handsFree = triggers.handsFree
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
             let paste = ClipboardPaste()
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
+                trigger: triggers.trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: { utterance, token, _, _ in await Self.handle(utterance, token, context: context, chip: chip, paste: paste) },
                 onEvent: { event, _ in
                     if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く

@@ -84,42 +84,24 @@ struct ListenCommand: Command {
             let chip = spec.displayName
             // 音声入力のトリガーがあれば、トリガーで、声で頼む／音声入力を切り替える（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）
             let dictateSpec = context.resolveDictateHotKey()?.spec
-            if let dictateSpec, dictateSpec.overlaps(spec) {
-                fail("声で頼むトリガー（\(spec.description)）と、音声入力のトリガー（\(dictateSpec.description)）が、重なります。vc hotkey set-dictate で、別のキーにしてください")
-            }
-            // スクリーンショットのショートカット：キーの組み合わせ。ほかのキーと重ならないこと
             let shotSpec = context.resolveShotHotKey()
-            var taken: [(name: String, spec: HotKeySpec)] = [("声で頼む", spec)]
-            if let dictateSpec { taken.append(("音声入力", dictateSpec)) }
-            if let shotSpec, let why = ScreenKeys.problem(shotSpec, taken: taken) { fail("スクリーンショットのキー（\(shotSpec.description)）: \(why)（vc hotkey で直す）") }
+            if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec) { fail(message) }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
-            let listenTrigger = try makeTrigger(spec)
+            var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
+            if let dictateSpec { keys.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }
             // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
             let handsFreeOn = context.currentSettings().handsFree ?? true
-            let handsFree = HandsFreeGroup()
-            func wrapped(_ key: PushToTalkTrigger, _ tag: String) -> PushToTalkTrigger { handsFreeOn ? handsFree.wrap(key, tag: tag) : key }
-            let trigger: PushToTalkTrigger
-            if let dictateSpec {
-                trigger = ModeTrigger([(VoiceMode.listen, wrapped(listenTrigger, VoiceMode.listen)), (VoiceMode.dictate, wrapped(try makeTrigger(dictateSpec), VoiceMode.dictate))])
-            } else {
-                trigger = wrapped(listenTrigger, VoiceMode.listen)
-            }
-            // `ScreenFlow` のトリガーは、このループの間、保持する（外れると、キーを受けなくなる）
-            var screenTriggers: [any PushToTalkTrigger] = []
-            if let shotSpec {
-                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ダブルタップなら、話し終わるまで聞きます" : "")
-                let key = try makeTrigger(shotSpec)
-                key.onPress = { Task { @MainActor in ScreenFlow.captureForVoice(next: next, chip: shotSpec.displayName) } }
-                screenTriggers.append(key)
-            }
-            ScreenshotStore.clear()   // 前の実行の画像は、使わない
+            let triggers = VoiceTriggers.make(keys, handsFreeEnabled: handsFreeOn)
+            let handsFree = triggers.handsFree
+            // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
+            let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
             defer { withExtendedLifetime(screenTriggers) {} }
             let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip]
             let paste = ClipboardPaste()
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
             let loop = VoiceLoop(
-                trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
+                trigger: triggers.trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
                     if tag == VoiceMode.dictate {
                         await DictateCommand.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)

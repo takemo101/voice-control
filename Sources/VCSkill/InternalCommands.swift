@@ -41,24 +41,51 @@ struct InternalCommands {
     var vision: @Sendable (_ image: URL, _ question: String, _ engine: Engine, _ cancel: CancelToken?) -> Result<String, ToolFailure> = { VisionModel.ask(image: $0, question: $1, engine: $2, cancel: $3) }
     var images = ImageEditing()
 
-    static func handles(_ argv: [String]) -> Bool { argv.count >= 2 && argv[0] == "vc" && ["find", "pick", "see", "image"].contains(argv[1]) }
-
-    /// 実行する。成功は出力の文、失敗は `ToolFailure`。
-    func execute(_ argv: [String]) -> Result<String, ToolFailure> {
-        let arguments = Array(argv.dropFirst(2))
-        switch argv[1] {
-        case "see": return see(arguments)
-        case "image": return images.run(arguments)
-        default: break
-        }
-        return Result { try argv[1] == "find" ? find(arguments) : pick(arguments) }.mapError { $0 as? ToolFailure ?? ToolFailure(exitCode: 1, message: "\($0)") }
+    /// 自分で処理するコマンドの名前（`vc <名前>`）。
+    enum Name: String {
+        case find, pick, see, image
     }
 
-    /// 終了コードと、モデルへ返す文（失敗は、`error: …` で始める）。
-    func run(_ argv: [String]) -> (exitCode: Int32, output: String) {
+    /// 実行の結果：終了コードと、モデルへ返す文（失敗は、`error: …` で始める）。**言語モデルに写させない成果物**（`vc see` の答え・`vc image` が保存した画像）は、別に持つ（呼び出し側が、ウィンドウ・パネルに出す）。
+    struct Output {
+        let exitCode: Int32
+        let text: String
+        /// `vc see` の答え（Markdown）。
+        var document: String?
+        /// `vc image` が保存した画像。
+        var image: URL?
+    }
+
+    static func name(of argv: [String]) -> Name? {
+        argv.count >= 2 && argv[0] == "vc" ? Name(rawValue: argv[1]) : nil
+    }
+
+    static func handles(_ argv: [String]) -> Bool { name(of: argv) != nil }
+
+    /// 実行する。成功は出力の文、失敗は `ToolFailure`。`argv` は、`handles` が true のもの。
+    func execute(_ argv: [String]) -> Result<String, ToolFailure> {
+        let arguments = Array(argv.dropFirst(2))
+        switch Self.name(of: argv) {
+        case .see: return see(arguments)
+        case .image: return images.run(arguments)
+        case .find: return Result { try find(arguments) }.mapError(Self.failure)
+        case .pick: return Result { try pick(arguments) }.mapError(Self.failure)
+        case nil: return .failure(ToolFailure(exitCode: 2, message: "unknown vc command"))
+        }
+    }
+
+    private static func failure(_ error: Error) -> ToolFailure { error as? ToolFailure ?? ToolFailure(exitCode: 1, message: "\(error)") }
+
+    func run(_ argv: [String]) -> Output {
         switch execute(argv) {
-        case let .success(text): return (0, text)
-        case let .failure(failure): return (failure.exitCode, "error: \(failure.message)")
+        case let .success(text):
+            switch Self.name(of: argv) {
+            case .see: return Output(exitCode: 0, text: text, document: text)
+            case .image: return Output(exitCode: 0, text: text, image: ImageEditing.savedPath(in: text).map { URL(fileURLWithPath: $0) })
+            default: return Output(exitCode: 0, text: text)
+            }
+        case let .failure(failure):
+            return Output(exitCode: failure.exitCode, text: "error: \(failure.message)")
         }
     }
 

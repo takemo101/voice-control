@@ -799,6 +799,22 @@ PC 操作（SPEC F7）を廃止し（`VCPCControl`・`plan`・`act`・`eval`・`
 
 **未確認**：実際の声・雑音での止まり方・HUD の案内の替わり方・**普段のタイピング中の Shift で、誤って始まらないか**（合成した、他のキーなしの Shift の 2 回だけで確認。大文字を打つ Shift は、他のキーが押されるのでタップにならない作り）・`vc dictate` での手放し。
 
+### リファクタリング（スクリーンショット・手放しを足したあと。2026-11-08。利用者の依頼）
+
+[リファクタリングの観点](refactoring.md)で、新しく増えた部分（スクリーンショット・画像のパネル・手放し・`vc see`/`vc image`）を、直接読んで見直した。**動作を変えない**。
+
+| 観点 | 根拠（直す前） | 判断・対応 |
+|---|---|---|
+| 責務・抽象の見合い | `CommandSession.execute` が、`argv[1] == "see"`／`"image"` の**文字列**で、答え・保存先を取り出していた（`InternalCommands.handles` の名前の一覧・`switch` と、3 か所に散っていた） | **直した**：`InternalCommands.Name`（列挙）と `Output`（終了コード・文・**答え**・**保存した画像**）。`CommandSession` は、成果物があれば受け取るだけ。テストを足した |
+| 古い経路・重複 | `Process()` を起こす処理が、`DocumentWindow` と `ImagePanel` に、ほぼ同じ形で 2 つ。PNG にする処理も、`ImagePanel` と `vc preview` に重複（失敗の理由は、`try?` で、捨てていた） | **直した**：`DetachedChild.launch`・`ImageOps.pngData(contentsOf:)`（理由つきの失敗。PNG は、再び符号化しない）。テストを足した |
+| 責務（長さ） | `ScreenSelector.swift` 500 行（流れ・パネル・面が 1 つ）・`ImageWindow.swift` 518 行（窓・状態・SwiftUI が 1 つ）・`Listen.runVoiceLoop` が、キーの検査・トリガーの組み立て・ショートカットの登録・ループ・表示を、1 つの関数で | **直した**：`SelectorView.swift`・`ImageCard.swift` に分けた（移すだけ）。`VoiceTriggers`（手放しで包む・`ModeTrigger` にまとめる。`vc dictate` と共通）・`KeyConflicts`（純粋な検査。テストを足した）・`ScreenFlow.install` を取り出した |
+| 抽象の見合い（差し込み） | 結果の見せ先（ウィンドウ・パネル）の既定が、`HUDReporter` と `TerminalReporter` の 2 か所に同じ形で。**どちらも、見せ先へ渡ることを確かめるテストがなかった** | **直した**：`ResultPresenters`。見せ先へ渡る・起こせなかった理由が標準エラーに出る、を確かめるテストを足した |
+| 古い経路の残り | `ScreenSelector.cancel()`（どこからも呼ばれない）・不要な `nonisolated(unsafe)`（メインアクターの型の `static var`）・`Int(timeToLive / 60)` の重複・`ScreenText` の認識の設定が、本番と準備で 2 か所 | **直した**（消した・まとめた） |
+| 実行環境の差 | CI で、**全テストが 37 分止まった**（Vision・HEIC を使うテスト）。手元では、動く | **直した**：`RunEnvironment.isCI` で、CI では動かさない・テストの手順に 15 分の上限（PR #67）。[構成説明](architecture.md)に残した |
+| 見送った | `Hotkey` コマンドの `set`・`set-dictate`・`set-shot` が、似た手順（解釈・重なりの検査・保存・表示）を 3 回書く。`VisionModel` の同期の待ち（`Task.detached` ＋ セマフォ） | 手順が、少しずつ違い（検査の相手・表示）、まとめると、引数の多い抽象になる。**増えたら**、直す（YAGNI）。同期の待ちは、呼び出し側（`CommandSession.execute`）が同期のため。変える理由がない |
+
+確認：単体テスト全通過（`vc` 97・`VCSpeech` 121・`VCSkill` 181・`VCDecision` 8・`VCCore` 26）・リリースビルドの警告 0・**実際の起動**：`vc listen --hotkey --dry-run` と `vc dictate --dry-run` が、同じ表示で起動する（トリガーの組み立てを替えたため）・`vc preview`・`vc show` が、別のプロセスでパネルを出す（起こし方を共通にしたため）。**未確認**：実際のキー入力・声での、手放しの動き（組み立てを替えたが、中身は変えていない）。
+
 ## 人間の確認が要るもの（AI は合格にしない）
 
 - 録音中の消音：音楽を流しながら `vc listen --hotkey`（と、Enter モード）を使い、録音の間だけ消え、離す・Esc・Ctrl+C のあと、戻ること。Bluetooth・HDMI・USB など、出力の種類ごと（SPEC A19）。

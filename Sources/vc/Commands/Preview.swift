@@ -24,10 +24,7 @@ struct PreviewCommand: Command {
         var saved = savedAt
         if let path = arguments.positionals.first {
             let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
-            guard let data = FileManager.default.contents(atPath: url.path), let image = try? ImageOps.load(url) else { fail("画像を読めません: \(path)") }   // try?: 読めなければ、下で理由を示して終わる
-            if url.pathExtension.lowercased() == "png" { png = data }
-            else if let converted = try? ImageOps.pngData(image) { png = converted }
-            else { fail("画像を読めません: \(path)") }
+            do { png = try ImageOps.pngData(contentsOf: url) } catch { fail("画像を読めません: \(path)（\(error)）") }
             saved = url
         } else if isatty(STDIN_FILENO) == 0 {
             png = FileHandle.standardInput.readDataToEndOfFile()

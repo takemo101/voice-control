@@ -27,7 +27,7 @@ struct ShotCommand: Command {
         switch ScreenSelector.runStandalone({ await ScreenCapture.captureForVoice() }) {
         case let .captured(width, height):
             ScreenFlow.showPreview()
-            print(Style.green("✓") + " 撮りました（\(width)×\(height)）。\(Int(ScreenshotStore.timeToLive / 60)) 分以内に、声で指示してください（vc listen --hotkey）")
+            print(Style.green("✓") + " 撮りました（\(width)×\(height)）。\(ScreenshotStore.timeToLiveMinutes) 分以内に、声で指示してください（vc listen --hotkey）")
         case .cancelled: print(Style.dim("取りやめました"))
         case let .failed(reason): fail(reason)
         }

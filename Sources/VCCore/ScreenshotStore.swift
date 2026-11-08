@@ -6,6 +6,8 @@ import Foundation
 public enum ScreenshotStore {
     /// 撮ってから、使える時間（秒）。過ぎたら、「古い」として、使わない（撮り直す）。
     public static let timeToLive: TimeInterval = 180
+    /// 案内に書く、分。
+    public static var timeToLiveMinutes: Int { Int(timeToLive / 60) }
 
     public static var directory: URL { VoiceControlHome.root.appendingPathComponent("shot") }
     public static var currentFile: URL { directory.appendingPathComponent("current.png") }

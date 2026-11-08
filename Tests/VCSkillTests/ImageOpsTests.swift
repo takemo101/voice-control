@@ -8,7 +8,7 @@ import Testing
 /// 画像の加工：向き・大きさ・範囲が、正しいか（左上が赤・右下が青の、4 色の画像で確かめる）。
 @Suite struct ImageOpsTests {
     /// 幅 40・高さ 20：左半分が赤・右半分が青（上下は同じ）。
-    private func sample() throws -> CGImage {
+    fileprivate func sample() throws -> CGImage {
         let context = CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
         context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)); context.fill(CGRect(x: 20, y: 0, width: 20, height: 20))
@@ -90,5 +90,23 @@ import Testing
         let small = try ImageOps.downscaledPNG(dir.appendingPathComponent("big.png"), maxSide: 5000)   // 縮めない
         let kept = try #require(CGImageSourceCreateWithData(small as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
         #expect(kept.width == 4000)
+    }
+}
+
+extension ImageOpsTests {
+    /// パネルへ渡す PNG：PNG は、そのまま（再び符号化しない）。JPEG は、PNG になる。画像でないものは、失敗。
+    @Test func aFileBecomesPNGDataForThePanel() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("io-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let image = try sample()
+        let png = dir.appendingPathComponent("a.png"), jpg = dir.appendingPathComponent("a.jpg"), text = dir.appendingPathComponent("a.txt")
+        try ImageOps.write(image, to: png, format: .png)
+        try ImageOps.write(image, to: jpg, format: .jpg)
+        try Data("not an image".utf8).write(to: text)
+        #expect(try ImageOps.pngData(contentsOf: png) == Data(contentsOf: png))
+        let converted = try ImageOps.pngData(contentsOf: jpg)
+        #expect(converted.prefix(4) == Data([0x89, 0x50, 0x4E, 0x47]))   // PNG の署名
+        #expect(throws: ImageOps.Failure.self) { try ImageOps.pngData(contentsOf: text) }
     }
 }

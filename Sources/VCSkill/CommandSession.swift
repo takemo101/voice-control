@@ -102,16 +102,14 @@ final class CommandSession: @unchecked Sendable {
             var commands = InternalCommands(request: current, scorer: scorer, memory: memory, spotlight: spotlight)
             commands.engine = engine; commands.cancel = cancel
             let result = commands.run(argv)
-            display.onResult(result.exitCode, result.output)
+            display.onResult(result.exitCode, result.text)
+            if let saved = result.image { lock.lock(); image = saved; lock.unlock() }
             // `vc see` の答えは、ウィンドウに出すので、言語モデルには、短い知らせだけ返す（長い文を、写させない）
-            if argv[1] == "see", result.exitCode == 0 {
-                lock.lock(); document = result.output; lock.unlock()
-                return "exit 0\nThe answer (\(result.output.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"
+            if let answer = result.document {
+                lock.lock(); document = answer; lock.unlock()
+                return "exit 0\nThe answer (\(answer.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"
             }
-            if argv[1] == "image", result.exitCode == 0, let path = ImageEditing.savedPath(in: result.output) {
-                lock.lock(); image = URL(fileURLWithPath: path); lock.unlock()
-            }
-            return "exit \(result.exitCode)\n\(result.output)"
+            return "exit \(result.exitCode)\n\(result.text)"
         }
         let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
