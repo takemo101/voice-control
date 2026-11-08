@@ -36,7 +36,7 @@ struct TerminalReporter: RunReporter {
             case .voice: out("  " + Style.dim("→ 実行しない（\(reason)）"))
             }
         case let .confirmRequired(skill, reason):
-            ConfirmImagePanel.show(for: skill)
+            if layout == .command { ConfirmImagePanel.show(for: skill) }   // 声の流れは、画面の上のパネルに、画像が出る（`HUDImage`）
             switch layout {
             case .command: out(noticeText(reason + "。"))
             case .voice: out(noticeText("確認待ち：パネルの\(ConfirmGuide.howToAnswer)（\(reason)）"))

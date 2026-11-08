@@ -24,6 +24,8 @@ struct HUDContent: Sendable {
     /// 使うスキルの名前（タイトルの横のバッジ）。
     var skill: String?
     var steps: [Step] = []
+    /// 使う画像（画像を使うスキルのとき：サムネイルと、大きさ・外へ送るか）。
+    var image: HUDImage?
     /// 言語モデルの返事。
     var reply: String?
     /// 「実行する」「やめる」のボタンを出す（確認の問いかけ。声の「はい」と、どちらでも答えられる）。出している間だけ、パネルは、クリックを受ける。
