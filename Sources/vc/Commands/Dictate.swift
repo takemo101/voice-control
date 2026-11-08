@@ -82,7 +82,7 @@ struct DictateCommand: Command {
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す
             let handsFree = HandsFreeGroup()
             let key = try makeTrigger(spec)
-            // 手放し：ちょっと押すと、黙るまで録音して、入力する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+            // 手放し：ダブルタップで、黙るまで録音して、入力する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
             let trigger: PushToTalkTrigger = (context.currentSettings().handsFree ?? true) ? handsFree.wrap(key, tag: VoiceMode.dictate) : key
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」

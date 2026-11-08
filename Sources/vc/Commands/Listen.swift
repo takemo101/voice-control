@@ -94,7 +94,7 @@ struct ListenCommand: Command {
             if let shotSpec, let why = ScreenKeys.problem(shotSpec, taken: taken) { fail("スクリーンショットのキー（\(shotSpec.description)）: \(why)（vc hotkey で直す）") }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let listenTrigger = try makeTrigger(spec)
-            // 手放し：ちょっと押すと、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+            // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
             let handsFreeOn = context.currentSettings().handsFree ?? true
             let handsFree = HandsFreeGroup()
             func wrapped(_ key: PushToTalkTrigger, _ tag: String) -> PushToTalkTrigger { handsFreeOn ? handsFree.wrap(key, tag: tag) : key }
@@ -107,7 +107,7 @@ struct ListenCommand: Command {
             // `ScreenFlow` のトリガーは、このループの間、保持する（外れると、キーを受けなくなる）
             var screenTriggers: [any PushToTalkTrigger] = []
             if let shotSpec {
-                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ちょっと押すだけなら、話し終わるまで聞きます" : "")
+                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ダブルタップなら、話し終わるまで聞きます" : "")
                 let key = try makeTrigger(shotSpec)
                 key.onPress = { Task { @MainActor in ScreenFlow.captureForVoice(next: next, chip: shotSpec.displayName) } }
                 screenTriggers.append(key)
