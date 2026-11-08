@@ -14,6 +14,7 @@ const SITES = {
   rakuten: { label: "楽天市場", url: (q) => `https://search.rakuten.co.jp/search/mall/${q}/`, names: ["rakuten", "楽天", "楽天市場", "らくてん"] },
   yahoo: { label: "Yahoo! JAPAN", url: (q) => `https://search.yahoo.co.jp/search?p=${q}`, names: ["yahoo", "ヤフー", "やふー", "yahoo!"] },
   wikipedia: { label: "Wikipedia", url: (q) => `https://ja.wikipedia.org/w/index.php?search=${q}`, names: ["wikipedia", "ウィキペディア", "ウィキ", "wiki"] },
+  x: { label: "X（旧 Twitter）", url: (q) => `https://x.com/search?q=${q}&src=typed_query`, names: ["x", "twitter", "ツイッター", "ついったー", "エックス", "えっくす", "ツイート", "ポスト"] },
   maps: { label: "Google マップ", url: (q) => `https://www.google.com/maps/search/${q}`, names: ["maps", "map", "マップ", "地図", "googleマップ", "グーグルマップ"] },
 };
 

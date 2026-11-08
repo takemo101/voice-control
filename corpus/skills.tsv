@@ -23,6 +23,10 @@ web-search	has	^node web-search\.mjs youtube "ピアノ	YouTubeでピアノの�
 web-search	exact	node web-search.mjs wikipedia "Swift"	ウィキペディアでSwiftを調べて
 web-search	exact	node web-search.mjs rakuten "加湿器"	楽天で加湿器を検索して
 web-search	exact	node web-search.mjs maps "東京駅"	地図で東京駅を探して
+web-search	has	^node web-search\.mjs (x|twitter|ツイッター) "SwiftUI	ツイッターでSwiftUIを検索して
+web-search	has	^node web-search\.mjs (x|twitter|ツイッター) "台風	Xで台風の情報を探して
+web-search	has	^node web-search\.mjs (x|twitter|ツイッター) "今話題のニュース	エックスで今話題のニュースを検索して
+web-search	has	^node web-search\.mjs (x|twitter|ツイッター) "MacBook	Xの投稿でMacBookの感想を調べて
 ask-agent	exact	node ask-agent.mjs "SwiftUI"	SwiftUIについて調べて
 ask-agent	exact	node ask-agent.mjs "量子コンピュータとは何か"	量子コンピュータとは何か教えて
 ask-agent	exact	node ask-agent.mjs claude "Rustの所有権"	クロードでRustの所有権を調べて
