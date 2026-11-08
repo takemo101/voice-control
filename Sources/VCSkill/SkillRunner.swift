@@ -106,7 +106,7 @@ public struct SkillRunner: Sendable {
         switch selection {
         case let .forced(forced):
             skill = forced
-            confirmReason = forced.needsConfirmation(for: request) ? forced.confirmReason(for: request) : nil
+            confirmReason = forced.confirm ? SkillResolver.confirmReason(for: forced) : nil
             reporter.report(.forced(forced))
         case let .resolve(skills, scorer, gate):
             let t0 = Date()
@@ -124,7 +124,6 @@ public struct SkillRunner: Sendable {
             }
         }
 
-        var confirmed = false
         if let reason = confirmReason {
             reporter.report(.confirmRequired(skill, reason: reason))
             guard try await confirm() else {
@@ -132,7 +131,6 @@ public struct SkillRunner: Sendable {
                 return .notConfirmed
             }
             reporter.report(.confirmed)
-            confirmed = true
         }
 
         reporter.report(.started)
@@ -140,7 +138,6 @@ public struct SkillRunner: Sendable {
             onCommand: { reporter.report(.command($0)) },
             onResult: { reporter.report(.result(exitCode: $0, output: $1)) },
             onDenied: { reporter.report(.denied(command: $0, reason: $1)) }), cancel)
-        if confirmed { executor.markConfirmed() }   // 確認を通った：スクリプトに、環境変数で伝わる（`CommandSession`）
         let t1 = Date()
         do {
             // 確認の待ちの間に取りやめられていたら、実行者を呼ばない

@@ -48,11 +48,7 @@ extension SkillStore {
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
         skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
-        if let when = fields["confirm-when"]?.scalar, !when.isEmpty {
-            guard when.count <= 300, (try? NSRegularExpression(pattern: when)) != nil else { return .failure(ParseError(reason: "confirm-when「\(when.prefix(40))」は、正規表現として読めません（300 文字まで）")) }
-            skill.confirmWhen = when
-        }
-        if let sends = fields["confirm-sends"]?.scalar, !sends.isEmpty { skill.confirmSends = sends }
+        skill.image = (fields["image"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         skill.commandTimeout = commandTimeout
         skill.acceptsPrevious = (fields["accepts-previous"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         return .success(skill)

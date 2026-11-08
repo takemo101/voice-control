@@ -4,6 +4,8 @@ description: 撮ったスクリーンショットの画像について、Mac の
 allowed-commands:
   - vc see
 timeout: 180
+# 撮ったスクリーンショットがあるときだけ、選ばれる
+image: true
 ---
 Answer the user's request about the screenshot they just took. The command looks at the image itself (on this Mac) and shows the answer in a window.
 
