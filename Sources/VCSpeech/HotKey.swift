@@ -56,12 +56,14 @@ import os
 /// 修飾キー（Shift など）だけを押し続ける間、押している扱いにする。通常の入力（大文字を打つための Shift）で、誤って始まらないよう：
 /// - 他のキーなしで、`holdDelay` 秒（既定 0.35）押し続けたときだけ、「押した」。
 /// - それまでに他のキーが押されたら、取りやめ。
+/// - **他のキーなしで、`holdDelay` より短く押して離した**ときは、「タップ」（`onTap`。ダブルタップの検出に使う）。ほかの修飾キーを足した・他のキーを押したときは、タップではない。
 /// 全体のキー入力を見る（`NSEvent` のグローバルモニタ）ので、**アクセシビリティの許可**が要る（`AXIsProcessTrusted`）。許可がなければ、何も届かない。
 /// アプリのイベントループ（`NSApplication.run()`）が回っているときだけ届く。
 /// メインスレッド専用：`NSEvent` のグローバルモニタと、遅延（`DispatchQueue.main`）は、メインスレッドで届く（`assumeIsolated` で入る）。
 @MainActor public final class ModifierHold {
     public var onPress: (@Sendable () -> Void)?
     public var onRelease: (@Sendable () -> Void)?
+    public var onTap: (@Sendable () -> Void)?
     private let modifier: NSEvent.ModifierFlags
     private let side: HotKeySpec.Side
     private let holdDelay: TimeInterval
@@ -98,7 +100,11 @@ import os
             pending = item
             DispatchQueue.main.asyncAfter(deadline: .now() + holdDelay, execute: item)
         } else {
+            // 待っている間（`holdDelay` より前）に、修飾キーを離した＝タップ。ほかの修飾キーが足されただけ（まだ押している）なら、タップではない
+            let wasPending = pending != nil
+            let stillDown = event.modifierFlags.intersection([.shift, .control, .option, .command]).contains(modifier)
             cancelPending()
+            if wasPending, !stillDown { onTap?() }
             if active { active = false; onRelease?() }
         }
     }
@@ -131,5 +137,10 @@ import os
     var onPress: (@Sendable () -> Void)? { get set }
     var onRelease: (@Sendable () -> Void)? { get set }
 }
+/// 短く押して離した（タップ）も、知らせるトリガー（修飾キーだけのトリガー：短い押しは、「押した」にならない）。
+@MainActor public protocol TapReporting: PushToTalkTrigger {
+    var onTap: (@Sendable () -> Void)? { get set }
+}
 extension HotKey: PushToTalkTrigger {}
 extension ModifierHold: PushToTalkTrigger {}
+extension ModifierHold: TapReporting {}
