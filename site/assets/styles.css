@@ -160,7 +160,7 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.92em; }
 /* ───── features: bento ───── */
 .bento { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
 @media (min-width: 40rem) { .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 64rem) { .bento { grid-template-columns: repeat(6, minmax(0, 1fr)); } .b-wide { grid-column: span 4; } .b-third { grid-column: span 2; } .b-tall { grid-row: span 3; } }
+@media (min-width: 64rem) { .bento { grid-template-columns: repeat(6, minmax(0, 1fr)); } .b-wide { grid-column: span 4; } .b-third { grid-column: span 2; } .b-tall { grid-row: span 3; } .b-tall-2 { grid-row: span 2; } }
 .card { position: relative; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-glass); overflow: hidden; transition: border-color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out); }
 .card:hover { border-color: var(--color-line-strong); background: var(--color-glass-strong); }
 .card h3 { font-size: var(--text-xl); line-height: 1.35; }

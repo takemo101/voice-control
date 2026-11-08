@@ -134,6 +134,8 @@
     { say: "Amazonでマウスを検索して", lines: [["skill", "web-search", "99.2%（0.1 秒）"], ["cmd", `node ${SK}web-search/web-search.mjs amazon "マウス"`]] },
     { say: "クロードでRustの所有権を調べて", lines: [["skill", "ask-agent", "98.9%（0.1 秒）"], ["cmd", `node ${SK}ask-agent/ask-agent.mjs claude "Rustの所有権"`]] },
     { say: "コピーした文章を要約して", lines: [["skill", "clipboard-note", "100.0%（0.1 秒）"], ["cmd", "pbpaste"]] },
+    { say: "この画像の文字を書き出して", lines: [["skill", "screen-ask", "99.6%（0.1 秒）"], ["cmd", "vc see"]] },
+    { say: "右半分を切り抜いて", lines: [["skill", "image-edit", "94.3%（0.1 秒）"], ["cmd", "vc image crop right-half"]] },
     { say: "Safariを開いて", lines: [["dim", "Tiny-Jev  どのスキルでもない → 既定スキル default（0.4 秒）"], ["cmd", "open -a Safari"]] },
     { say: "クロードでRustの所有権を調べて、そのあとSpotifyで次の曲にして", label: "調べて、そのあと次の曲（続けて頼む）", lines: [
       ["dim", "手順  2 つに分けました"], ["dim", "  1. クロードでRustの所有権を調べて"], ["dim", "  2. Spotifyで次の曲にして"],
