@@ -33,3 +33,33 @@ import Testing
         #expect(reporter.kinds == ["forced", "started", "reply"])
     }
 }
+
+/// 実行の途中でできた文書（`vc see` の答え）：返事（言語モデルの短い言い換え）ではなく、文書が、ウィンドウに出る。スキルの `result` に関わらない。失敗の返事・dry-run は、出さない。
+@Suite struct ProducedDocumentTests {
+    private final class SeeExecutor: SkillExecuting, @unchecked Sendable {
+        let executedCommands = ["vc see"]
+        let reply: String
+        init(reply: String) { self.reply = reply }
+        var producedDocument: String? { "# 画像の文字\n\n請求書" }
+        func run(request: String) async throws -> String { reply }
+    }
+
+    private func run(reply: String, dryRun: Bool = false) async throws -> Recorder {
+        let reporter = Recorder()
+        _ = try await SkillRunner(selection: .forced(skill("see", "x")), dryRun: dryRun, makeExecutor: { _, _, _, _ in SeeExecutor(reply: reply) }).run("x", reporter: reporter, confirm: { false })
+        return reporter
+    }
+
+    @Test func theProducedDocumentIsShownNotTheModelsReply() async throws {
+        let reporter = try await run(reply: "done: 文字を書き出しました。請求書です")
+        #expect(reporter.kinds == ["forced", "started", "document", "reply"])
+        guard case let .document(markdown) = reporter.events[2], case let .reply(reply, _, _) = reporter.events[3] else { Issue.record("順序が違う"); return }
+        #expect(markdown == "# 画像の文字\n\n請求書")
+        #expect(reply == "done: 結果をウィンドウに表示しました")
+    }
+
+    @Test func aFailedReplyAndADryRunDoNotShowIt() async throws {
+        #expect(try await run(reply: "failed: だめでした").kinds == ["forced", "started", "reply"])
+        #expect(try await run(reply: "done: x", dryRun: true).kinds == ["forced", "started", "reply"])
+    }
+}

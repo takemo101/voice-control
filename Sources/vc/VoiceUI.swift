@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 import VCSpeech
 
 /// 声の流れ（`vc listen --hotkey`・`vc dictate`）に共通の、画面の上と端末の表示・終了の後始末・録音の開始の音。
@@ -75,7 +76,7 @@ enum VoiceUI {
         [SIGINT, SIGTERM, SIGHUP].map { sig in
             signal(sig, SIG_IGN)   // 既定の動作（そのまま終わる）を、止める
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            source.setEventHandler { muter.restore(); speech.close(); exit(128 + sig) }   // 音声認識のモデルは、開いたまま exit すると abort する
+            source.setEventHandler { muter.restore(); speech.close(); ScreenshotStore.clear(); exit(128 + sig) }   // 撮ったスクリーンショットも、消す   // 音声認識のモデルは、開いたまま exit すると abort する
             source.resume()
             return source
         }

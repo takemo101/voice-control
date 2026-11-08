@@ -87,18 +87,37 @@ struct ListenCommand: Command {
             if let dictateSpec, dictateSpec.overlaps(spec) {
                 fail("声で頼むトリガー（\(spec.description)）と、音声入力のトリガー（\(dictateSpec.description)）が、重なります。vc hotkey set-dictate で、別のキーにしてください")
             }
+            // スクリーンショットのショートカット：キーの組み合わせ。ほかのキーと重ならないこと
+            let shotSpec = context.resolveShotHotKey()
+            var taken: [(name: String, spec: HotKeySpec)] = [("声で頼む", spec)]
+            if let dictateSpec { taken.append(("音声入力", dictateSpec)) }
+            if let shotSpec, let why = ScreenKeys.problem(shotSpec, taken: taken) { fail("スクリーンショットのキー（\(shotSpec.description)）: \(why)（vc hotkey で直す）") }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             let listenTrigger = try makeTrigger(spec)
+            // 手放し：ちょっと押すと、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+            let handsFreeOn = context.currentSettings().handsFree ?? true
+            let handsFree = HandsFreeGroup()
+            func wrapped(_ key: PushToTalkTrigger, _ tag: String) -> PushToTalkTrigger { handsFreeOn ? handsFree.wrap(key, tag: tag) : key }
             let trigger: PushToTalkTrigger
             if let dictateSpec {
-                trigger = ModeTrigger([(VoiceMode.listen, listenTrigger), (VoiceMode.dictate, try makeTrigger(dictateSpec))])
+                trigger = ModeTrigger([(VoiceMode.listen, wrapped(listenTrigger, VoiceMode.listen)), (VoiceMode.dictate, wrapped(try makeTrigger(dictateSpec), VoiceMode.dictate))])
             } else {
-                trigger = listenTrigger
+                trigger = wrapped(listenTrigger, VoiceMode.listen)
             }
+            // `ScreenFlow` のトリガーは、このループの間、保持する（外れると、キーを受けなくなる）
+            var screenTriggers: [any PushToTalkTrigger] = []
+            if let shotSpec {
+                let next = "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(Int(ScreenshotStore.timeToLive / 60)) 分以内）" + (handsFreeOn ? "。ちょっと押すだけなら、話し終わるまで聞きます" : "")
+                let key = try makeTrigger(shotSpec)
+                key.onPress = { Task { @MainActor in ScreenFlow.captureForVoice(next: next, chip: shotSpec.displayName) } }
+                screenTriggers.append(key)
+            }
+            ScreenshotStore.clear()   // 前の実行の画像は、使わない
+            defer { withExtendedLifetime(screenTriggers) {} }
             let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip]
             let paste = ClipboardPaste()
             let session = RecordingSession()
-            session.setLevelHandler { HUD.shared.pushLevel($0) }   // 録音中の波形
+            session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
             let loop = VoiceLoop(
                 trigger: trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
@@ -108,13 +127,20 @@ struct ListenCommand: Command {
                         await listen(utterance, token, next, tag)
                     }
                 },
-                onEvent: { event, tag in VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate) })
+                onEvent: { event, tag in
+                    if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
+                    VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate)
+                })
+            handsFree.onHandsFree = { tag in
+                HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
+            }
             loop.run {
                 print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
                 kv("音声認識", speech.choice.title, width: 8)
                 kv("実行", context.engineText ?? "apple", width: 8)
                 kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
                 if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
+                if let shotSpec { kv("画面撮影", "\(shotSpec.description) を押して範囲を選び、そのあと声で頼む") }
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
                 fflush(stdout)
                 // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。

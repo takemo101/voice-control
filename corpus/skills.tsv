@@ -47,3 +47,48 @@ default	has	^open -a "?Safari"?$	Safariを開いて
 default	has	^open -a "Google Chrome"$	Chromeを開いて
 default	has	^open -a "?Finder"?$	Finderを開いて
 default	has	^date$	今日の日付を教えて
+screen-ask	exact	vc see	この画像の文字を書き出して
+screen-ask	exact	vc see	画像の文字起こしをして
+screen-ask	exact	vc see	これは何？
+screen-ask	exact	vc see	この画面を説明して
+screen-ask	exact	vc see	この表をマークダウンにして
+screen-ask	exact	vc see	画像に何て書いてある？
+screen-ask	exact	vc see	スクリーンショットの内容を要約して
+screen-ask	exact	vc see	この画像の中のエラーメッセージを教えて
+screen-ask	exact	vc see	ここに書いてあることを日本語に訳して
+screen-ask	exact	vc see	この図は何を表していますか
+screen-ask	exact	vc see	画像の文字を読んで、箇条書きにして
+screen-ask	exact	vc see	この画面で、押すべきボタンはどれ？
+image-edit	exact	vc image crop right-half	右半分を切り抜いて
+image-edit	exact	vc image crop right-half	画像の右半分だけにして
+image-edit	exact	vc image crop left-half	左半分を切り抜いて
+image-edit	exact	vc image crop left-half	左の半分だけ残して
+image-edit	exact	vc image crop top-half	上半分を切り抜いて
+image-edit	exact	vc image crop bottom-half	下半分を切り抜いて
+image-edit	exact	vc image crop bottom-half	下の半分をトリミングして
+image-edit	exact	vc image crop center	真ん中を切り抜いて
+image-edit	exact	vc image crop center	中央だけにトリミングして
+image-edit	exact	vc image resize --width 800	横幅を800にして
+image-edit	exact	vc image resize --width 1200	幅を1200ピクセルにリサイズして
+image-edit	exact	vc image resize --width 640	横を640にして
+image-edit	exact	vc image resize --percent 50	半分の大きさにして
+image-edit	exact	vc image resize --percent 50	サイズを半分に縮小して
+image-edit	exact	vc image resize --percent 200	2倍の大きさにして
+image-edit	exact	vc image resize --percent 25	4分の1に小さくして
+image-edit	exact	vc image rotate 90	右に回転して
+image-edit	exact	vc image rotate 90	時計回りに90度回して
+image-edit	exact	vc image rotate 270	左に回転して
+image-edit	exact	vc image rotate 180	上下逆さまにして
+image-edit	exact	vc image convert jpg	JPEGに変換して
+image-edit	exact	vc image convert jpg	ジェイペグにして
+image-edit	exact	vc image convert png	PNGにして
+image-edit	exact	vc image convert heic	HEICに変換して
+screen-ask	exact	vc see	この領域の英語を日本語にしてください
+image-edit	exact	vc image crop top-half	画像の上の半分だけ残して
+image-edit	exact	vc image crop right-half	右側の半分をトリミングして
+image-edit	exact	vc image rotate 90	画像を右へ回して
+image-edit	exact	vc image rotate 270	反時計回りに回転させて
+image-edit	exact	vc image convert jpg	JPGで保存し直して
+image-edit	exact	vc image convert png	ピーエヌジーに変換して
+image-edit	exact	vc image resize --width 1000	幅1000ピクセルに変えて
+image-edit	exact	vc image resize --percent 75	75パーセントに縮小して

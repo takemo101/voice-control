@@ -7,11 +7,13 @@ import VCDecision
 /// 持つのは、不変の `session` だけ（可変な状態は、`CommandSession` が、ロックで守る）。
 final class SkillAgent: SkillExecuting {
     private let session: CommandSession
-    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil) {
-        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer)
+    init(skill: Skill, dryRun: Bool, display: ExecutionDisplay, cancel: CancelToken? = nil, scorer: (@Sendable () -> OptionScorer?)? = nil, engine: Engine = .apple) {
+        session = CommandSession(skill: skill, dryRun: dryRun, display: display, cancel: cancel, scorer: scorer, engine: engine)
     }
 
     var executedCommands: [String] { session.executedCommands }
+    var producedDocument: String? { session.producedDocument }
+    var producedImage: URL? { session.producedImage }
 
     /// 返事（`done: …` / `failed: …`。`result: markdown-note` のスキルは、メモを開いたあとの `done: …`）。
     func run(request: String) async throws -> String {

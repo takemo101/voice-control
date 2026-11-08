@@ -93,9 +93,9 @@ import SwiftUI
 }
 
 /// 触れると明るくなるボタンの、触れているかの状態。
-@MainActor private final class HoverState: ObservableObject { @Published var on = false }
+@MainActor final class HoverState: ObservableObject { @Published var on = false }
 
-private enum Palette {
+enum DocumentPalette {
     static let accent = Color(red: 0.40, green: 0.82, blue: 1.0)
 }
 
@@ -124,16 +124,16 @@ private struct DocumentView: View {
             Rule()
             footer
         }
-        .glassEffect(.regular.tint(Palette.accent.opacity(0.06)), in: shape)
-        .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), Palette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
+        .glassEffect(.regular.tint(DocumentPalette.accent.opacity(0.06)), in: shape)
+        .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), DocumentPalette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
         .clipShape(shape)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(Palette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                Image(systemName: "doc.text.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.accent)
+                Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
+                Image(systemName: "doc.text.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
             }
             Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
@@ -160,22 +160,24 @@ private struct DocumentView: View {
 }
 
 /// つかんで、ウィンドウを動かせる面（見出しの行・下の行の、ボタンの外）。SwiftUI の面は、ウィンドウの背景のドラッグを受けないので、明示する。
-private struct DragArea: View {
+struct DragArea: View {
     var body: some View { Color.clear.contentShape(Rectangle()).gesture(WindowDragGesture()) }
 }
 
 /// 端で薄れる、細い仕切り線。
-private struct Rule: View {
+struct Rule: View {
     var body: some View {
         Rectangle().fill(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.18), .white.opacity(0)], startPoint: .leading, endPoint: .trailing)).frame(height: 0.7)
     }
 }
 
 /// 丸いボタン（薄い白の面。触れると、少し明るくなる。押したあと、少しの間、「コピーしました」）。
-private struct PillButton: View {
+struct PillButton: View {
     let title: String
     let symbol: String
     let flashed: Bool
+    /// 押したあと、少しの間、出す文字。
+    var doneTitle = "コピーしました"
     var cancel = false
     let action: () -> Void
     @StateObject private var hover = HoverState()
@@ -184,9 +186,9 @@ private struct PillButton: View {
         let button = Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: flashed ? "checkmark" : symbol).font(.system(size: 12, weight: .semibold))
-                Text(flashed ? "コピーしました" : title).font(.system(size: 13, weight: .semibold))
+                Text(flashed ? doneTitle : title).font(.system(size: 13, weight: .semibold))
             }
-            .foregroundStyle(flashed ? Palette.accent : .white.opacity(0.92))
+            .foregroundStyle(flashed ? DocumentPalette.accent : .white.opacity(0.92))
             .padding(.horizontal, 14).padding(.vertical, 8)
             .background(Capsule().fill(.white.opacity(hover.on ? 0.22 : 0.12)))
             .overlay(Capsule().strokeBorder(.white.opacity(hover.on ? 0.28 : 0.16), lineWidth: 0.7))
