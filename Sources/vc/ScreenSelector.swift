@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 import SwiftUI
 
-/// 範囲を選んで撮る画面（ショートカット・`vc shot`・`vc ocr`）。**撮り始める前の静止画**（`ScreenGrab`）を、ディスプレイごとの全面のパネルに暗くして見せ、そこから選ぶ。
+/// 範囲を選んで撮る画面（ショートカット・`vc shot`）。**撮り始める前の静止画**（`ScreenGrab`）を、ディスプレイごとの全面のパネルに暗くして見せ、そこから選ぶ。
 /// 操作：
 /// - ドラッグ：範囲。**⇧** 正方形・**⌥** 始点が中心・**Space を押しながら** 動かす
 /// - 範囲の大きさを、ピクセルで（「1000 × 300」）出す
@@ -45,7 +45,7 @@ import SwiftUI
         }
     }
 
-    /// 単独のコマンド（`vc shot`・`vc ocr`）：イベントのループを回して、`work` を実行し、終わったら、ループを止める。
+    /// 単独のコマンド（`vc shot`）：イベントのループを回して、`work` を実行し、終わったら、ループを止める。
     static func runStandalone<T>(_ work: @escaping @MainActor () async -> T) -> T {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)

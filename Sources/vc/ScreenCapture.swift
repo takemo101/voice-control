@@ -48,18 +48,5 @@ import VCSkill
         }
         return outcome
     }
-
-    /// 範囲を選んで撮り、文字を読み取る（画像は、読み取ったら、すぐ消す）。取りやめは `nil`。文字がなければ、空の文字列。
-    static func recognizeRegion() async -> Result<String?, ScreenCaptureFailure> {
-        let file = ScreenshotStore.directory.appendingPathComponent("ocr-\(UUID().uuidString).png")
-        defer { try? FileManager.default.removeItem(at: file) }   // try?: 後片付け
-        switch await capture(to: file) {
-        case .cancelled: return .success(nil)
-        case let .failed(reason): return .failure(ScreenCaptureFailure(message: reason))
-        case .captured:
-            do { return .success(try ScreenText.recognize(file)) } catch { return .failure(ScreenCaptureFailure(message: "\(error)")) }
-        }
-    }
 }
 
-struct ScreenCaptureFailure: Error { let message: String }

@@ -4,7 +4,7 @@ import ImageIO
 import Vision
 
 /// 画像の中の文字を読み取る（Apple の Vision フレームワークの文字認識。**この Mac の中だけ**で動く。言語モデルを通さない：速く、写し間違い・補足をしない）。
-/// 画像のパネルの「文字起こし」と、`vc ocr`（標準出力へ出す）が使う。
+/// 画像のパネルの「文字起こし」と、`vc see`（質問に添える文字）が使う。
 public enum ScreenText {
     public struct Failure: Error, CustomStringConvertible, Equatable {
         public let message: String
