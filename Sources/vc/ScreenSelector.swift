@@ -146,7 +146,8 @@ import SwiftUI
         case 6 where plain: toggleLoupe()   // Z
         case 8 where plain: panelUnderMouse()?.selectorView.copyColorUnderPointer()   // C
         case 15 where plain: repeatLastRegion()   // R
-        case 123, 124, 125, 126 where plain && loupeOn:
+        case 123, 124, 125, 126:   // 矢印：拡大鏡が出ているときだけ（`where` は、最後の 1 つにしか効かないので、中で確かめる）
+            guard plain, loupeOn else { return false }
             nudgePointer(keyCode: event.keyCode, fast: event.modifierFlags.contains(.shift))
         default: return false
         }
