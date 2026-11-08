@@ -106,7 +106,7 @@ public struct SkillRunner: Sendable {
         switch selection {
         case let .forced(forced):
             skill = forced
-            confirmReason = forced.confirm ? SkillResolver.confirmRequiredReason : nil
+            confirmReason = forced.confirm ? SkillResolver.confirmReason(for: forced) : nil
             reporter.report(.forced(forced))
         case let .resolve(skills, scorer, gate):
             let t0 = Date()

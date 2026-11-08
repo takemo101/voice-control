@@ -48,6 +48,11 @@ extension SkillStore {
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
         skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
+        if let sends = fields["sends"]?.scalar, !sends.isEmpty { skill.sends = sends }
+        if let trigger = fields["trigger"]?.scalar, !trigger.isEmpty {
+            guard trigger.count <= 300, (try? NSRegularExpression(pattern: trigger)) != nil else { return .failure(ParseError(reason: "trigger「\(trigger.prefix(40))」は、正規表現として読めません（300 文字まで）")) }
+            skill.trigger = trigger
+        }
         skill.commandTimeout = commandTimeout
         skill.acceptsPrevious = (fields["accepts-previous"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         return .success(skill)

@@ -89,7 +89,8 @@ struct SkillsCommand: Command {
         kv("説明", s.description, width: 6)
         kv("許可", s.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", s.confirm ? "必須" : "なし", width: 6)
-        if let external = s.external { kv("外へ送る", Style.yellow("発話を、\(external) へ送ります"), width: 6) }
+        if let notice = s.externalNotice { kv("外へ送る", Style.yellow(notice), width: 6) }
+        if let trigger = s.trigger { kv("条件", "依頼が、次の正規表現に合うときだけ、選ばれる：\(trigger)", width: 6) }
         if s.commandTimeout != CommandRunner.defaultTimeout { kv("時間", "コマンド 1 つあたり \(Int(s.commandTimeout)) 秒まで", width: 6) }
         kv("置き場所", Self.scopeName(s.scope) + (s.scope == .project && catalog.loaded.overridden.contains(s.name) ? Style.dim("（同名のグローバルを上書き）") : ""), width: 6)
         if s.scope != .builtin { kv("場所", s.file.path, width: 6) }
@@ -176,7 +177,7 @@ struct SkillsCommand: Command {
         // 発話を、この Mac の外へ送るスキルを、入れたときは、見えるように（`vc` の基本は、外へ出さない：入れた人だけの例外）
         if !external.isEmpty {
             print("")
-            notice("次のスキルは、**使うと、発話を、この Mac の外へ送ります**：" + external.map { "\($0.name)（\($0.external ?? "")）" }.joined(separator: "、") + "。要らなければ、`vc skills disable <name>`（選ばれなくなる）か、ディレクトリを消してください")
+            notice("次のスキルは、**使うと、発話や画面の画像を、この Mac の外へ送ります**：" + external.map { "\($0.name)（\($0.externalNotice ?? "")）" }.joined(separator: "、") + "。要らなければ、`vc skills disable <name>`（選ばれなくなる）か、ディレクトリを消してください")
         }
         if failures > 0 { fail("\(failures) 件、インストールできませんでした") }
         print("\n  グローバルのスキルは、どこで起動しても、いつも読み込まれます。一覧：vc skills")
@@ -205,7 +206,7 @@ struct SkillsCommand: Command {
         print(Style.green("✓") + " " + Style.bold(installed.name) + (installed.overwritten ? " を置き換えました" : " をインストールしました") + Style.dim("  → \(installed.destination.path)"))
         kv("許可", installed.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", installed.confirm ? "必須" : "なし", width: 6)
-        if let external = installed.external { kv("外へ送る", Style.yellow("発話を、\(external) へ送ります"), width: 6) }
+        if let notice = installed.externalNotice { kv("外へ送る", Style.yellow(notice), width: 6) }
         if installed.usesProjectRelativePath { notice("SKILL.md が、プロジェクトからの相対パス（.voice-control/skills/…）を使っています。グローバルでは、起動した場所によって見つからないので、${SKILL_DIR} に直してください（docs/skills.md）") }
     }
 
