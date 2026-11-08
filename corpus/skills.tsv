@@ -92,3 +92,26 @@ image-edit	exact	vc image convert jpg	JPGで保存し直して
 image-edit	exact	vc image convert png	ピーエヌジーに変換して
 image-edit	exact	vc image resize --width 1000	幅1000ピクセルに変えて
 image-edit	exact	vc image resize --percent 75	75パーセントに縮小して
+ask-agent-image	first	node ask-agent-image.mjs codex	この画面をコーデックスに見せて、エラーの意味を聞いて
+ask-agent-image	first	node ask-agent-image.mjs codex	コーデックスにこの画像を見せて、何が写っているか聞いて
+ask-agent-image	first	node ask-agent-image.mjs codex	この画像をコーデックスに見てもらって
+ask-agent-image	first	node ask-agent-image.mjs pi	この画面をパイに見せて、何のグラフか聞いて
+ask-agent-image	first	node ask-agent-image.mjs pi	パイにこのスクショについて聞きたい。表の合計は？
+ask-agent-image	first	node ask-agent-image.mjs opencode	オープンコードにこの画面を見せて、要約してもらって
+ask-agent-image	first	node ask-agent-image.mjs opencode	この画像をオープンコードに聞いて
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	この画面を外のAIに見せて、要約してもらって
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	この画像を外のAIエージェントに見せて、エラーの原因を聞いて
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	スクショをAIエージェントに見せて、説明してもらって
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	この画面を、外のエージェントに見せて、何のアプリか聞いて
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	撮った画像をAIに見せて、内容を教えてもらって
+ask-agent-image	first	node ask-agent-image.mjs codex	この画面をコーデックスに見せて、何のエラーか聞いて
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	画面のスクショを外のAIに送って、どこが間違いか聞いて
+ask-agent-image	has	^node ask-agent-image\.mjs auto "[^"]+"$	この画像を外部のAIに見せて、何て書いてあるか教えてもらって
+ask-agent-image	first	node ask-agent-image.mjs pi	パイにこの画面を見てもらって、グラフの傾向を聞いて
+ask-agent-image	first	node ask-agent-image.mjs claude	クロードにこの画面を見せて、何のアプリか聞いて
+ask-agent-image	first	node ask-agent-image.mjs claude	この画像をクロードに見てもらって、エラーの意味を聞いて
+ask-agent-image	first	node ask-agent-image.mjs claude	スクショをクロードに送って、どこが違うか聞いて
+ask-agent-image	first	node ask-agent-image.mjs agy	アンチグラビティにこの画面を見せて、何のアプリか聞いて
+ask-agent-image	first	node ask-agent-image.mjs agy	この画像をアンチグラビティに見てもらって
+ask-agent-image	first	node ask-agent-image.mjs grok	グロックにこのスクショを見せて、エラーの意味を聞いて
+ask-agent-image	first	node ask-agent-image.mjs grok	この画面をグロックに聞いて、何が写っているか教えて

@@ -15,6 +15,17 @@ import Testing
         #expect(parse("external:\n")?.external == nil)
     }
 
+    /// 外へ送るものの断り書き：既定は「発話」。`sends` で、画像などに替えられる。確認の理由は、何を・どこへ送るかを言う。外へ送らないスキルは、従来どおり。
+    @Test func theNoticeSaysWhatIsSentWhere() throws {
+        #expect(parse("external: Google（agy）\n")?.externalNotice == "発話を、Google（agy） へ送ります")
+        let image = try #require(parse("external: OpenAI（codex）\nsends: 撮った画面の画像\nconfirm: true\n"))
+        #expect(image.externalNotice == "撮った画面の画像を、OpenAI（codex） へ送ります")
+        #expect(SkillResolver.confirmReason(for: image) == "撮った画面の画像を、OpenAI（codex） へ送ります。実行の前に確認します")
+        #expect(parse("sends: 画像\n")?.externalNotice == nil)   // 送り先がなければ、何も送らない
+        let local = try #require(parse("confirm: true\n"))
+        #expect(SkillResolver.confirmReason(for: local) == SkillResolver.confirmRequiredReason)
+    }
+
     /// 偽のリポジトリ：スキル 2 つ（`alpha`・`beta`〔external つき〕）と、読めないもの（`broken`）。
     private final class Repo: @unchecked Sendable {
         private let lock = NSLock(); private(set) var refs: [String] = []
@@ -59,5 +70,30 @@ import Testing
         _ = try await RemoteInstall.install(names: ["alpha"], explicitRef: "main", defaultRef: "main", overwrite: false, to: dir, fetch: repo.fetch)
         let (report, _) = try await RemoteInstall.installAll(explicitRef: nil, defaultRef: "main", overwrite: false, to: dir, fetch: repo.fetch)
         guard case .failure(.alreadyInstalled("alpha")) = report.outcomes[0].result, case .success = report.outcomes[1].result else { Issue.record("結果が違う"); return }
+    }
+}
+
+/// `trigger`：依頼の文が、条件に合わないとき、そのスキルは、選択肢に入らない（コードが決める）。
+@Suite struct SkillTriggerTests {
+    private func parse(_ front: String) -> Result<Skill, SkillStore.ParseError> {
+        SkillStore.parse("---\nname: demo\ndescription: x\nallowed-commands: echo\n\(front)---\nbody", directoryName: "demo", file: URL(fileURLWithPath: "/tmp/demo/SKILL.md"))
+    }
+
+    @Test func aSkillWithoutATriggerIsAlwaysACandidate() throws {
+        #expect(try parse("").get().isCandidate(for: "なんでも"))
+    }
+
+    @Test func theTriggerDecidesAndIsCaseInsensitiveOnlyWhereTheRegexSaysSo() throws {
+        let skill = try parse("trigger: 外|コーデックス|(?i:codex|claude)|\\bpi\\b\n").get()
+        #expect(skill.isCandidate(for: "この画面を外のAIに見せて"))
+        #expect(skill.isCandidate(for: "コーデックスに聞いて"))
+        #expect(skill.isCandidate(for: "ask Codex about it") && skill.isCandidate(for: "CLAUDE に聞いて"))
+        #expect(skill.isCandidate(for: "pi に聞いて") && !skill.isCandidate(for: "spill the beans"))   // 単語の一部は、合わない
+        #expect(!skill.isCandidate(for: "この画像は何ですか") && !skill.isCandidate(for: "この画面を説明して"))
+    }
+
+    @Test func anUnreadableTriggerFailsToLoadWithAReason() {
+        guard case let .failure(error) = parse("trigger: (\n") else { Issue.record("読み込みに失敗するはず"); return }
+        #expect(error.reason.contains("trigger"))
     }
 }

@@ -22,6 +22,8 @@ public enum SkillInstaller {
         public let confirm: Bool
         /// 発話を、この Mac の外へ送る先（スキルの `external`）。送らなければ nil。
         public let external: String?
+        /// 外へ送る断り書き（`Skill.externalNotice`）。送らなければ nil。
+        public let externalNotice: String?
         public let destination: URL
         public let overwritten: Bool
         /// SKILL.md が、プロジェクトの相対パス（`.voice-control/skills/…`）でスクリプトを指している：グローバルでは、起動した場所によって、見つからない（`${SKILL_DIR}` に直す）。
@@ -56,7 +58,7 @@ public enum SkillInstaller {
 
         // 置いた場所での姿（`${SKILL_DIR}` は、置き先の絶対パスになる）
         let installed = SkillStore.load(directory: destination).skills.first { $0.name == name }
-        return Installed(name: name, allowedCommands: installed?.allowedCommands ?? skill.allowedCommands, confirm: skill.confirm, external: skill.external,
+        return Installed(name: name, allowedCommands: installed?.allowedCommands ?? skill.allowedCommands, confirm: skill.confirm, external: skill.external, externalNotice: skill.externalNotice,
                          destination: target, overwritten: exists, usesProjectRelativePath: rawText.contains(".voice-control/skills/"))
     }
 

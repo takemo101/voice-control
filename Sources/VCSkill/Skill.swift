@@ -29,6 +29,19 @@ public struct Skill: Sendable, Equatable {
     /// このスキルが、利用者の発話を、**この Mac の外へ送る**とき、その送り先（フロントマター `external`。例：`Google（agy）`）。書かなければ、送らない。
     /// 一覧・インストールの結果に出し、`--all` のインストールのあとに、注意を出す（`vc` の基本：発話を、この Mac の外へ出さない、の例外を、見えるようにする）。
     public var external: String?
+    /// 外へ送るもの（フロントマター `sends`。既定は「発話」。画面の画像を送るスキルは「撮った画面の画像」と書く）。`external` を書いたときだけ、意味がある。
+    public var sends = "発話"
+    /// 選ばれる条件（フロントマター `trigger`。正規表現）。**依頼の文が、これに合わないとき、このスキルは、Tiny-Jev の選択肢に入らない**（コードが決める：説明の言い回しの、近さだけでは、選ばれない）。
+    /// 外へ送るスキルが、「外の AI に」と言っていない依頼に、選ばれないための歯止め。`--skill` で指定したときは、使わない。書かなければ、いつでも選択肢。
+    public var trigger: String?
+
+    /// 依頼の文が、選ばれる条件に合うか（条件がなければ、いつも）。
+    public func isCandidate(for request: String) -> Bool {
+        guard let trigger, let regex = try? NSRegularExpression(pattern: trigger) else { return true }   // try?: 書き方は、読み込みで、検査済み（読めないスキルは、ここへ来ない）
+        return regex.firstMatch(in: request, range: NSRange(request.startIndex..., in: request)) != nil
+    }
+    /// 外へ送ることの、断り書き（「発話を、Google（agy） へ送ります」）。送らなければ nil。一覧・確認で、同じ文を使う。
+    public var externalNotice: String? { external.map { "\(sends)を、\($0) へ送ります" } }
     /// 複数ステップの依頼で、**前のステップの結果**（返事）を、受け取ってよいか（フロントマター `accepts-previous`。既定は false）。
     /// 結果は、信頼しないデータ（`PreviousResult`）。外の内容を含みうるので、受け取る（宣言する）スキルは、そのデータで、危ない動作をしないものだけ。
     public var acceptsPrevious: Bool = false
