@@ -4,9 +4,9 @@ import Foundation
 struct HudPreviewCommand: Command {
     static let info = CommandInfo(
         name: "hud-preview", group: .evaluation, summary: "画面の上の表示の見本を出す（マイク・実行なし。見た目の確認用）",
-        usage: ["vc hud-preview [--stage recording|working|confirm|success|failure|denied] [--seconds <秒>]"],
+        usage: ["vc hud-preview [--stage recording|working|confirm|image|image-confirm|success|failure|denied] [--image <ファイル>] [--seconds <秒>]"],
         details: ["--stage がなければ、順に、すべて出す。1 つの段階を出す秒数は、既定 3。内容は、作り物の見本。"],
-        options: [("--stage <名前>", "この段階だけを出す"), ("--seconds <秒>", "1 段階あたりの秒数（既定 3）")],
+        options: [("--stage <名前>", "この段階だけを出す（recording・thinking・working・confirm・image・image-confirm・success・failure・denied・long）"), ("--image <ファイル>", "image 段階に出す画像（なければ、作り物の絵）"), ("--seconds <秒>", "1 段階あたりの秒数（既定 3）")],
         examples: ["vc hud-preview", "vc hud-preview --stage success --seconds 8"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -16,6 +16,17 @@ struct HudPreviewCommand: Command {
         let seconds = arguments.option("--seconds").flatMap(Double.init) ?? 3
         let only = arguments.option("--stage")
         let chip = context.resolveHotKey().spec.displayName
+        // 画像の見本：--image <ファイル>（自分で用意した画像）。なければ、作り物の絵
+        let imageFile = arguments.option("--image").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        func sampleImage(sendsOut: Bool) -> HUDImage? {
+            if let imageFile { return HUDImage.load(imageFile, sendsOut: sendsOut) }
+            let size = NSSize(width: 480, height: 300)
+            let drawn = NSImage(size: size, flipped: false) { rect in
+                NSGradient(colors: [NSColor(calibratedRed: 0.16, green: 0.36, blue: 0.86, alpha: 1), NSColor(calibratedRed: 0.55, green: 0.25, blue: 0.85, alpha: 1)])?.draw(in: rect, angle: 35)
+                return true
+            }
+            return HUDImage(thumbnail: drawn, pixelSize: CGSize(width: 1520, height: 950), sendsOut: sendsOut)
+        }
         func sample(_ stage: String) -> HUDContent? {
             switch stage {
             case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
@@ -45,6 +56,18 @@ struct HudPreviewCommand: Command {
                 c.steps = (1...14).map { .init(command: "ls -la /Applications/Example\($0).app", status: .ok, output: "total \($0 * 8)") }
                 c.reply = "done: 14 件のコマンドを実行して、すべて終わりました。長い返事は、5 行まで出して、それより長ければ、切ります。長い返事は、5 行まで出して、それより長ければ、切ります。"
                 return c
+            case "image":
+                // 画像のスキル（Mac の中だけ）：どの画像が使われるかを、サムネイルで見せる
+                var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "この画像の文字を書き出して", skill: "screen-ask")
+                c.image = sampleImage(sendsOut: false)
+                c.steps = [.init(command: "vc see")]
+                return c
+            case "image-confirm":
+                // 画像を外へ送るスキルの確認：送る画像を、大きく見せる
+                var c = HUDContent(phase: .confirm, title: "実行しますか？", hint: "撮った画面の画像と質問を、OpenAI（codex） へ送ります。実行の前に確認します。" + ConfirmGuide.howToAnswer, chip: chip, heard: "コーデックスにこの画面を見せて、何のエラーか聞いて", skill: "ask-agent-image")
+                c.image = sampleImage(sendsOut: true)
+                c.choices = true
+                return c
             case "denied":
                 var c = HUDContent(phase: .info, title: "実行しませんでした", chip: chip, heard: "ターミナルで ls を実行して", skill: "open-app")
                 c.steps = [.init(command: "ls", status: .denied, output: "許可されていないコマンドです（open だけ許可）")]
@@ -52,7 +75,7 @@ struct HudPreviewCommand: Command {
             default: return nil
             }
         }
-        let stages = ["recording", "thinking", "working", "confirm", "success", "failure", "denied", "long"]
+        let stages = ["recording", "thinking", "working", "confirm", "image", "image-confirm", "success", "failure", "denied", "long"]
         if let only { guard sample(only) != nil else { usageError("hud-preview", "知らない --stage: \(only)（\(stages.joined(separator: "・"))）") } }
         for (i, stage) in (only.map { [$0] } ?? stages).enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * seconds) {

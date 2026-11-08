@@ -262,6 +262,7 @@ private struct FullCard: View {
         GlassCard(tint: tint, radius: 24, width: hudCardWidth) {
             VStack(alignment: .leading, spacing: 10) {
                 header(tint: tint)
+                if let image = content.image { ImageRow(image: image, large: content.choices && image.sendsOut) }
                 if hasBody { bodyContent }
                 if content.choices { choices }
             }
@@ -324,6 +325,37 @@ private struct FullCard: View {
             ChoiceButton(title: "やめる", tint: .white, prominent: false, focused: model.focusedChoice == 1) { answer(false) }
         }
         .padding(.top, 2)
+    }
+}
+
+/// 使う画像：サムネイルと、大きさ・どこで処理するか。見た目は、画像のパネル（`ImageCardView`）に合わせる（角丸 12・細い縁・影・カプセルのチップ）。
+/// 外へ送る画像が、確認に出ているときは、大きく見せる（何を送るのかを、見分けるため）。
+private struct ImageRow: View {
+    let image: HUDImage
+    let large: Bool
+
+    /// 画像の縦横の比を保って、枠（普通は 120 × 68・確認のときは 260 × 150）に収めた大きさ（枠を、画像にぴったり合わせる：縁と影が、画像の形になる）。
+    private var fitted: CGSize {
+        let box = large ? CGSize(width: 260, height: 150) : CGSize(width: 120, height: 68)
+        let scale = min(box.width / max(image.pixelSize.width, 1), box.height / max(image.pixelSize.height, 1))
+        return CGSize(width: (image.pixelSize.width * scale).rounded(), height: (image.pixelSize.height * scale).rounded())
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        HStack(alignment: .center, spacing: 12) {
+            Image(nsImage: image.thumbnail).resizable()
+                .frame(width: fitted.width, height: fitted.height)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(.white.opacity(0.16), lineWidth: 0.8))
+                .shadow(color: .black.opacity(0.38), radius: 8, y: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Pill(text: "\(Int(image.pixelSize.width)) × \(Int(image.pixelSize.height))")
+                if image.sendsOut { Pill(text: "外へ送る画像", tint: Palette.warn) } else { Pill(text: "この Mac の中だけ", tint: Palette.ok) }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
     }
 }
 
