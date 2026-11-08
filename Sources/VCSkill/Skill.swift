@@ -33,8 +33,11 @@ public struct Skill: Sendable, Equatable {
     /// 画像を使わない依頼が、画像のスキルに振り分けられない（画像を、外へ送るスキルと、取り違えない）。
     public var image = false
 
+    /// 撮った画面の画像を、外へ送るスキルか（`image: true` と `external`）。確認のとき、送る画像を見せる。
+    public var sendsScreenshot: Bool { image && external != nil }
+
     /// 外へ送ることの、断り書き（「撮った画面の画像と質問を、OpenAI（codex） へ送ります」）。送らなければ nil。確認の文・一覧・インストールの結果で使う。
-    public var externalNotice: String? { external.map { "\(image ? "撮った画面の画像と質問" : "発話")を、\($0) へ送ります" } }
+    public var externalNotice: String? { external.map { "\(sendsScreenshot ? "撮った画面の画像と質問" : "発話")を、\($0) へ送ります" } }
     /// 複数ステップの依頼で、**前のステップの結果**（返事）を、受け取ってよいか（フロントマター `accepts-previous`。既定は false）。
     /// 結果は、信頼しないデータ（`PreviousResult`）。外の内容を含みうるので、受け取る（宣言する）スキルは、そのデータで、危ない動作をしないものだけ。
     public var acceptsPrevious: Bool = false

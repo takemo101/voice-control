@@ -16,6 +16,8 @@ struct ImageCardView: View {
     let image: NSImage
     let byteCount: Int
     let savedPath: String?
+    /// 撮ったスクリーンショットが、声で使えなくなる時刻（撮ったばかりの画像のパネルだけ。ほかは nil）。
+    let expiresAt: Date?
     @ObservedObject var state: ImageState
     let copyImage: () -> Void
     let copyPath: () -> Void
@@ -36,6 +38,7 @@ struct ImageCardView: View {
             VStack(spacing: 12) {
                 stage
                 metaRow
+                if let expiresAt { expiryRow(expiresAt) }
             }
             .padding(.top, 16).padding(.bottom, 14).padding(.horizontal, 24)
             if state.paneOpen {
@@ -110,6 +113,18 @@ struct ImageCardView: View {
                 Chip(text: "未保存（右上の リンク／フォルダ で保存）", dot: Tone.amber, truncates: true)
             }
             Spacer(minLength: 0)
+        }
+        .frame(width: display.width)
+    }
+
+    /// 声で使える残り時間（1 秒ごとに更新）。過ぎたら、撮り直しを促す。
+    private func expiryRow(_ expiresAt: Date) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = expiresAt.timeIntervalSince(context.date)
+            HStack(spacing: 8) {
+                Chip(text: ImageExpiry.text(remaining: remaining), dot: remaining <= 0 ? .red : (remaining <= ImageExpiry.warningSeconds ? Tone.amber : Tone.green))
+                Spacer(minLength: 0)
+            }
         }
         .frame(width: display.width)
     }

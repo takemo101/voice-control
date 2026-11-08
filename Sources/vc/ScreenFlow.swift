@@ -47,6 +47,7 @@ import VCSpeech
     /// 撮った画像を、パネルに出す（画像のコピー・パスのコピー）。画像は、パネルのプロセスへ渡す（ファイルには、残さない）。
     static func showPreview() {
         guard let data = try? Data(contentsOf: ScreenshotStore.currentFile) else { return }   // try?: 読めなければ、パネルを出さないだけ（声の流れは、続く）
-        if let why = ImagePanel.present(png: data, title: "スクリーンショット") { eprint("パネルを出せません: \(why)") }
+        let expiresAt = (try? FileManager.default.attributesOfItem(atPath: ScreenshotStore.currentFile.path)[.modificationDate] as? Date).flatMap { $0 }.map { $0.addingTimeInterval(ScreenshotStore.timeToLive) }   // try?: 取れなければ、残り時間を出さないだけ
+        if let why = ImagePanel.present(png: data, title: "スクリーンショット", expiresAt: expiresAt) { eprint("パネルを出せません: \(why)") }
     }
 }

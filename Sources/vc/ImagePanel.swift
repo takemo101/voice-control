@@ -10,16 +10,23 @@ enum ImagePanel {
 
     /// 起こせなければ、理由を返す。`savedAt`：すでに保存してある画像のパス（「パスをコピー」が、そのパスを使う）。
     @discardableResult
-    static func present(png: Data, title: String, savedAt: URL? = nil) -> String? {
+    static func present(png: Data, title: String, savedAt: URL? = nil, expiresAt: Date? = nil) -> String? {
         lock.lock(); let previous = current; lock.unlock()
         previous?.terminate()
-        switch DetachedChild.launch(arguments: ["preview", "--wait", "--title", title] + (savedAt.map { ["--saved-at", $0.path] } ?? []), input: png) {
+        let arguments = ["preview", "--wait", "--title", title] + (savedAt.map { ["--saved-at", $0.path] } ?? []) + (expiresAt.map { ["--expires", String(Int($0.timeIntervalSince1970))] } ?? [])
+        switch DetachedChild.launch(arguments: arguments, input: png) {
         case let .success(process):
             lock.lock(); current = process; lock.unlock()
             return nil
         case let .failure(failure):
             return failure.reason
         }
+    }
+
+    /// いま出しているパネルを、閉じる（なければ、何もしない）。
+    static func dismiss() {
+        lock.lock(); let previous = current; current = nil; lock.unlock()
+        previous?.terminate()
     }
 
     /// ファイルの画像を見せる（`image-edit` の結果：保存済みなので、そのパスを使う）。

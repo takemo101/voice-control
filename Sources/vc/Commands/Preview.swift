@@ -12,7 +12,7 @@ struct PreviewCommand: Command {
             "既定では、パネルを出して、すぐ戻る（パネルは、別のプロセスで、閉じるまで残る）。--wait を付けると、閉じるまで戻らない。",
             "撮ったスクリーンショット（vc shot・ショートカット）と、image-edit スキルの結果は、自動で、このパネルに出る。",
         ],
-        options: [("--title <題名>", "パネルの題名（既定：画像）"), ("--saved-at <パス>", "保存済みの画像のパス（内部用）"), ("--wait", "閉じるまで戻らない")],
+        options: [("--title <題名>", "パネルの題名（既定：画像）"), ("--saved-at <パス>", "保存済みの画像のパス（内部用）"), ("--expires <UNIX 秒>", "声で使えなくなる時刻（内部用。撮ったばかりの画像の、残り時間の表示）"), ("--wait", "閉じるまで戻らない")],
         examples: ["vc preview ~/Pictures/voice-control/shot.png", "cat shot.png | vc preview --wait"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -20,6 +20,7 @@ struct PreviewCommand: Command {
         let wait = arguments.flag("--wait")
         let title = arguments.option("--title") ?? "画像"
         let savedAt = arguments.option("--saved-at").map { URL(fileURLWithPath: $0) }
+        let expiresAt = arguments.option("--expires").flatMap { TimeInterval($0) }.map { Date(timeIntervalSince1970: $0) }
         let png: Data
         var saved = savedAt
         if let path = arguments.positionals.first {
@@ -33,7 +34,7 @@ struct PreviewCommand: Command {
         }
         guard !png.isEmpty else { fail("画像が空です") }
         guard png.count <= 100_000_000 else { fail("画像が大きすぎます（100 MB まで）") }
-        if wait { ImageWindow.runUntilClosed(png: png, savedURL: saved, title: title) }
-        if let why = ImagePanel.present(png: png, title: title, savedAt: saved) { fail(why) }
+        if wait { ImageWindow.runUntilClosed(png: png, savedURL: saved, title: title, expiresAt: expiresAt) }
+        if let why = ImagePanel.present(png: png, title: title, savedAt: saved, expiresAt: expiresAt) { fail(why) }
     }
 }
