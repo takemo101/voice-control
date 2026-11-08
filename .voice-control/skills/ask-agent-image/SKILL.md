@@ -1,6 +1,6 @@
 ---
 name: ask-agent-image
-description: 外のAI（コーデックス・クロード・グロックなど）に、撮ったものを見せて聞く：「コーデックスに見せて」「クロードに送って聞いて」「外のAIに見せて」
+description: 撮ったスクリーンショット・画像を、外のAIエージェント（アンチグラビティ・クロード・コーデックス・グロック・オープンコード・パイ）に見せて聞く：「今スクショした画像についてアンチグラビティで説明して」「この画面をコーデックスに見せて」
 allowed-commands:
   - node ${SKILL_DIR}/ask-agent-image.mjs
 confirm: true
