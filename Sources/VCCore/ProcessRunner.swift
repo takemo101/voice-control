@@ -38,8 +38,7 @@ public enum ProcessRunner {
         arguments: [String] = [],
         mergeStderr: Bool,
         timeout: TimeInterval?,
-        cancel: CancelToken? = nil,
-        environment: [String: String] = [:]
+        cancel: CancelToken? = nil
     ) -> ProcessResult {
         if cancel?.isCancelled == true {
             return ProcessResult(exitCode: cancelledExitCode, output: Data(), timedOut: false, cancelled: true, launchError: nil)
@@ -47,7 +46,6 @@ public enum ProcessRunner {
         let p = Process()
         p.executableURL = launcher
         p.arguments = [executable] + arguments
-        if !environment.isEmpty { p.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new } }   // 呼び出し元の環境に、足す（同じ名前は、渡したほうが勝つ）
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = mergeStderr ? pipe : FileHandle.nullDevice

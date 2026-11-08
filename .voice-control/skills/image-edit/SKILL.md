@@ -3,6 +3,8 @@ name: image-edit
 description: 撮ったスクリーンショットの画像を加工して保存する：「右半分を切り抜いて」「横幅を800にして」「半分の大きさにして」「右に回転して」「JPEGに変換して」「PNGにして」
 allowed-commands:
   - vc image
+# 撮ったスクリーンショットがあるときだけ、選ばれる
+image: true
 ---
 Edit the screenshot the user just took and save the result as a file. Run EXACTLY ONE command that starts with `vc image`.
 

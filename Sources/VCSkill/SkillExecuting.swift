@@ -10,14 +10,11 @@ protocol SkillExecuting: Sendable {
     var producedDocument: String? { get }
     /// 実行の途中で、保存した画像（`vc image` の結果）。あれば、パネルに出す。
     var producedImage: URL? { get }
-    /// 実行の前に、確認を通った（利用者が、承認した）。コマンドの環境変数 `VC_CONFIRMED=1` で、スクリプトへ伝わる。実行の前に、1 回呼ぶ。
-    func markConfirmed()
 }
 
 extension SkillExecuting {
     var producedDocument: String? { nil }
     var producedImage: URL? { nil }
-    func markConfirmed() {}
 }
 
 /// 実行者が、コマンド・結果・拒否を知らせる先。どのスレッドからも呼ばれる。

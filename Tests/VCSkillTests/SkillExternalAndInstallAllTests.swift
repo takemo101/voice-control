@@ -2,6 +2,8 @@ import Foundation
 import TestSupport
 import Testing
 @testable import VCSkill
+import VCCore
+import VCDecision
 
 /// スキルの `external`（発話を、この Mac の外へ送る先）と、`vc skills install --all`（リポジトリの、すべてのスキルを置く）。
 @Suite struct SkillExternalAndInstallAllTests {
@@ -16,10 +18,15 @@ import Testing
         #expect(parse("external:\n")?.external == nil)
     }
 
-    /// 外へ送る断り書き：発話を、送り先へ。送り先がなければ、何も送らない（nil）。
-    @Test func theNoticeSaysWhatIsSentWhere() {
+    /// 外へ送るものの断り書き：既定は「発話」。画像のスキル（`image: true`）は「撮った画面の画像と質問」。確認の理由は、何を・どこへ送るかを言う。外へ送らないスキルは、従来どおり。
+    @Test func theNoticeSaysWhatIsSentWhere() throws {
         #expect(parse("external: Google（agy）\n")?.externalNotice == "発話を、Google（agy） へ送ります")
-        #expect(parse("")?.externalNotice == nil)
+        let image = try #require(parse("external: OpenAI（codex）\nimage: true\nconfirm: true\n"))
+        #expect(image.externalNotice == "撮った画面の画像と質問を、OpenAI（codex） へ送ります")
+        #expect(SkillResolver.confirmReason(for: image) == "撮った画面の画像と質問を、OpenAI（codex） へ送ります。実行の前に確認します")
+        #expect(parse("image: true\n")?.externalNotice == nil)   // 送り先がなければ、何も送らない
+        let local = try #require(parse("confirm: true\n"))
+        #expect(SkillResolver.confirmReason(for: local) == SkillResolver.confirmRequiredReason)
     }
 
     /// 偽のリポジトリ：スキル 2 つ（`alpha`・`beta`〔external つき〕）と、読めないもの（`broken`）。
@@ -69,59 +76,37 @@ import Testing
     }
 }
 
-/// `confirm-when`：依頼の文が、条件に合うときだけ、確認する（コードが決める）。合わなければ、確認しない。確認の文は、何を・どこへ送るかを言う。
-@Suite struct ConfirmWhenTests {
+/// `image: true`：撮ったスクリーンショットがあるときだけ、選択肢に入る（コードが決める）。撮っていないときに、画像のスキルが選ばれそうなら、撮り方を案内する。
+@Suite struct ImageSkillTests {
+    private static func imageSkill() -> Skill { var s = skill("see", "画像を見る"); s.image = true; return s }
+    private static let present: @Sendable () -> Result<URL, ScreenshotStore.Missing> = { .success(URL(fileURLWithPath: "/tmp/current.png")) }
+    private static let missing: @Sendable () -> Result<URL, ScreenshotStore.Missing> = { .failure(.none) }
+
     private func parse(_ front: String) -> Result<Skill, SkillStore.ParseError> {
         SkillStore.parse("---\nname: demo\ndescription: x\nallowed-commands: echo\n\(front)---\nbody", directoryName: "demo", file: URL(fileURLWithPath: "/tmp/demo/SKILL.md"))
     }
 
-    @Test func onlyMatchingRequestsNeedAConfirmation() throws {
-        let skill = try parse("confirm-when: 画面|画像|(?i:screenshot)\nconfirm-sends: 撮った画面の画像と質問\nexternal: OpenAI（codex）\n").get()
-        #expect(skill.needsConfirmation(for: "この画面をコーデックスに見せて") && skill.needsConfirmation(for: "see this Screenshot"))
-        #expect(!skill.needsConfirmation(for: "Rust の所有権を調べて"))
-        #expect(skill.confirmReason(for: "この画面を見せて") == "撮った画面の画像と質問を、OpenAI（codex） へ送ります。実行の前に確認します")
+    @Test func theKeyIsReadFromTheFrontMatter() throws {
+        #expect(try parse("image: true\n").get().image)
+        #expect(try !parse("").get().image && !parse("image: false\n").get().image)
     }
 
-    @Test func confirmTrueAlwaysConfirmsAndSaysUtterance() throws {
-        let skill = try parse("confirm: true\nconfirm-when: 画面\nconfirm-sends: 画像\nexternal: どこか\n").get()
-        #expect(skill.needsConfirmation(for: "なんでも"))
-        #expect(skill.confirmReason(for: "なんでも") == "発話を、どこか へ送ります。実行の前に確認します")   // いつも確認するスキルは、発話を送る前提の文
-        let local = try parse("confirm: true\n").get()
-        #expect(local.confirmReason(for: "x") == SkillResolver.confirmRequiredReason)
-        #expect(try !parse("").get().needsConfirmation(for: "画面"))
+    @Test func withAScreenshotTheImageSkillIsChosen() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), screenshot: Self.present)
+        guard case let .resolved(r) = try resolver.resolve("この画像を説明して") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "see")
     }
 
-    @Test func anUnreadableRegexFailsToLoadWithAReason() {
-        guard case let .failure(error) = parse("confirm-when: (\n") else { Issue.record("読み込みに失敗するはず"); return }
-        #expect(error.reason.contains("confirm-when"))
+    /// 撮り忘れ：画像のスキルが選ばれそうな依頼は、既定のスキルに回さず、撮り方を案内して、止める。
+    @Test func forgettingToCaptureIsTurnedIntoAHintNotADefaultRun() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), screenshot: Self.missing)
+        guard case let .declined(reason, fallbackAvailable) = try resolver.resolve("この画像を説明して") else { Issue.record("resolved"); return }
+        #expect(reason.contains("スクリーンショットがありません") && !fallbackAvailable)
     }
 
-    /// 実行の流れ：条件に合う依頼は、確認を挟み、承認されたときだけ、実行者に「確認を通った」と伝わる。断られたら、実行者を作らない。合わない依頼は、確認なし・伝えない。
-    @Test func theRunnerAsksOnlyForMatchingRequestsAndTellsTheExecutor() async throws {
-        var s = skill("ask", "調べる"); s.confirmWhen = "画面"; s.external = "どこか"; s.confirmSends = "画像"
-        func run(_ request: String, approve: Bool) async throws -> (reasons: [String], factory: Factory, outcome: RunOutcome) {
-            let factory = Factory(), reporter = Recorder()
-            let outcome = try await SkillRunner(selection: .forced(s), dryRun: false, makeExecutor: factory.factory).run(request, reporter: reporter, confirm: { approve })
-            return (reporter.events.compactMap { if case let .confirmRequired(_, reason) = $0 { reason } else { nil } }, factory, outcome)
-        }
-        let yes = try await run("この画面を見せて", approve: true)
-        #expect(yes.reasons == ["画像を、どこか へ送ります。実行の前に確認します"] && yes.factory.made.first?.executor.wasConfirmed == true)
-        let no = try await run("この画面を見せて", approve: false)
-        #expect(no.factory.count == 0)
-        let plain = try await run("Rust を調べて", approve: true)
-        #expect(plain.reasons.isEmpty && plain.factory.made.first?.executor.wasConfirmed == false)
-    }
-
-    /// 外のコマンドが受ける環境変数：確認を通ったかを、コードが伝える（言語モデルは、渡せない）。
-    @Test func theCommandSeesWhetherTheRunWasConfirmed() {
-        let s = Skill(name: "env", description: "x", allowedCommands: ["printenv"], confirm: false, body: "x", file: URL(fileURLWithPath: "/tmp/env/SKILL.md"))
-        func output(confirmed: Bool) -> String {
-            let box = Collected<String>()
-            let session = CommandSession(skill: s, dryRun: false, display: ExecutionDisplay(onCommand: { _ in }, onResult: { _, text in box.add(text) }, onDenied: { _, _ in }), cancel: nil)
-            if confirmed { session.markConfirmed() }
-            _ = session.execute("printenv VC_CONFIRMED")
-            return box.values.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        }
-        #expect(output(confirmed: false) == "0" && output(confirmed: true) == "1")
+    @Test func otherRequestsAreUnaffectedWithoutAScreenshot() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: nil), skills: [DefaultSkill.skill, skill("spotify", "Spotify の操作"), Self.imageSkill()], gate: Gate(), screenshot: Self.missing)
+        guard case let .resolved(r) = try resolver.resolve("電卓を開いて") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "default")
     }
 }
