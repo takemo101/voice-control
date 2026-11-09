@@ -168,7 +168,23 @@ import VCDecision
         #expect(!ClipboardImage.hasImage(board))
         board.clearContents(); board.setString("文章", forType: .string)
         #expect(!ClipboardImage.hasImage(board))
-        #expect(ClipboardImage.export(board, directory: dir) == .failure(.clipboardEmpty))
+        guard case let .failure(why) = ClipboardImage.export(board, directory: dir), case .clipboardNotAnImage = why else { Issue.record("画像ではない、と返すはず"); return }
+        #expect(why.description.contains("画像ではありません") && why.description.contains("public.utf8-plain-text"))   // 何がコピーされているか、形式の名前で分かる（中身は、出さない）
+        #expect(!why.description.contains("文章"))
+    }
+
+    @Test func otherImageFormatsAppKitUnderstandsAreExportedToo() throws {
+        let dir = try workDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 16, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        board.clearContents(); board.setData(try #require(rep.representation(using: .gif, properties: [:])), forType: NSPasteboard.PasteboardType("com.compuserve.gif"))
+        #expect(ClipboardImage.hasImage(board))
+        #expect((try? ClipboardImage.export(board, directory: dir).get()) != nil)
+    }
+
+    @Test func anEmptyPasteboardIsReportedAsEmpty() throws {
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        #expect(ClipboardImage.missing(board) == .clipboardEmpty)
     }
 
     @Test func brokenImageDataIsReportedNotExported() throws {

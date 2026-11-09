@@ -21,6 +21,8 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable {
     public enum Missing: Error, Equatable, CustomStringConvertible, Sendable {
         case screenshot(ScreenshotStore.Missing)
         case clipboardEmpty
+        /// コピーしてあるものが、画像ではない（形式の名前だけ持つ：中身は、持たない）。
+        case clipboardNotAnImage(formats: [String])
         case clipboardUnreadable
         case clipboardTooLarge
 
@@ -28,6 +30,7 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable {
             switch self {
             case let .screenshot(missing): return "\(missing)"
             case .clipboardEmpty: return "クリップボードに画像がありません。画像をコピーしてから、頼んでください"
+            case let .clipboardNotAnImage(formats): return "クリップボードにあるのは、画像ではありません（形式：\(formats.prefix(6).map { String($0.prefix(60)) }.joined(separator: "・"))）。画像をコピーしてから、頼んでください"
             case .clipboardUnreadable: return "クリップボードの画像を読めません"
             case .clipboardTooLarge: return "クリップボードの画像が大きすぎます（\(ImageSource.maxClipboardMegabytes) MB まで）"
             }
@@ -42,7 +45,7 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable {
         case .screenshot:
             if case let .failure(why) = ScreenshotStore.current() { return .screenshot(why) } else { return nil }
         case .clipboard:
-            return ClipboardImage.hasImage(NSPasteboard.general) ? nil : .clipboardEmpty
+            return ClipboardImage.missing(NSPasteboard.general)
         }
     }
 
@@ -75,12 +78,19 @@ enum ClipboardImage {
         UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
     }
 
-    /// 画像があるか（型だけ見る：ファイルを読まない）。
+    /// 画像があるか（型だけ見る：ファイルを読まない）。**AppKit が画像と見るもの**（`NSImage.canInit`：PNG・TIFF・JPEG・GIF・PDF など）と、Finder でコピーした画像ファイル（1 つ）。
     static func hasImage(_ pasteboard: NSPasteboard) -> Bool {
         let types = pasteboard.types ?? []
-        if imageTypes.contains(where: types.contains) { return true }
+        if imageTypes.contains(where: types.contains) || NSImage.canInit(with: pasteboard) { return true }
         let urls = fileURLs(pasteboard)
         return urls.count == 1 && isImageFile(urls[0])   // Finder で、画像のファイルを 1 つだけコピーした
+    }
+
+    /// 使えない理由（使えるなら nil）。コピーしてあるものが画像でないときは、**形式の名前**を添える（何がコピーされているか、分かるように：中身は、出さない）。
+    static func missing(_ pasteboard: NSPasteboard) -> ImageSource.Missing? {
+        if hasImage(pasteboard) { return nil }
+        let formats = (pasteboard.types ?? []).map(\.rawValue)
+        return formats.isEmpty ? .clipboardEmpty : .clipboardNotAnImage(formats: formats)
     }
 
     /// PNG にして、書き出す（大きさの上限つき）。
@@ -93,7 +103,8 @@ enum ClipboardImage {
             if let size = (try? urls[0].resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size > limit { return .failure(.clipboardTooLarge) }   // try?: 読めなければ、あとの読み込みで、失敗にする
             raw = try? Data(contentsOf: urls[0])   // try?: 読めなければ、nil（読めない画像として、扱う）
         }
-        guard let raw else { return .failure(.clipboardEmpty) }
+        if raw == nil, NSImage.canInit(with: pasteboard) { raw = NSImage(pasteboard: pasteboard)?.tiffRepresentation }   // GIF・PDF など：AppKit に、画像にしてもらう
+        guard let raw else { return .failure(missing(pasteboard) ?? .clipboardEmpty) }
         guard raw.count <= limit else { return .failure(.clipboardTooLarge) }
         guard let source = CGImageSourceCreateWithData(raw as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
               let png = try? ImageOps.pngData(image)   // try?: 変換できなければ、読めない画像として、扱う
