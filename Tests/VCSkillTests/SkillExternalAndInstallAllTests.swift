@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import TestSupport
 import Testing
@@ -76,37 +77,105 @@ import VCDecision
     }
 }
 
-/// `image: true`：撮ったスクリーンショットがあるときだけ、選択肢に入る（コードが決める）。撮っていないときに、画像のスキルが選ばれそうなら、撮り方を案内する。
+/// `image:`：その画像（撮ったスクリーンショット・コピーした画像）があるときだけ、選択肢に入る（コードが決める）。画像の出し忘れは、用意の仕方を案内する。
 @Suite struct ImageSkillTests {
-    private static func imageSkill() -> Skill { var s = skill("see", "画像を見る"); s.image = true; return s }
-    private static let present: @Sendable () -> Result<URL, ScreenshotStore.Missing> = { .success(URL(fileURLWithPath: "/tmp/current.png")) }
-    private static let missing: @Sendable () -> Result<URL, ScreenshotStore.Missing> = { .failure(.none) }
+    private static func imageSkill(_ source: ImageSource = .screenshot, _ description: String = "画像を見る") -> Skill { var s = skill("see-\(source.rawValue)", description); s.imageSource = source; return s }
+    private static let allThere: @Sendable (ImageSource) -> ImageSource.Missing? = { _ in nil }
+    private static let noScreenshot: @Sendable (ImageSource) -> ImageSource.Missing? = { $0 == .screenshot ? .screenshot(.none) : nil }
+    private static let noClipboard: @Sendable (ImageSource) -> ImageSource.Missing? = { $0 == .clipboard ? .clipboardEmpty : nil }
 
     private func parse(_ front: String) -> Result<Skill, SkillStore.ParseError> {
         SkillStore.parse("---\nname: demo\ndescription: x\nallowed-commands: echo\n\(front)---\nbody", directoryName: "demo", file: URL(fileURLWithPath: "/tmp/demo/SKILL.md"))
     }
 
     @Test func theKeyIsReadFromTheFrontMatter() throws {
-        #expect(try parse("image: true\n").get().image)
-        #expect(try !parse("").get().image && !parse("image: false\n").get().image)
+        #expect(try parse("image: true\n").get().imageSource == .screenshot)
+        #expect(try parse("image: screenshot\n").get().imageSource == .screenshot)
+        #expect(try parse("image: Clipboard\n").get().imageSource == .clipboard)
+        #expect(try parse("").get().imageSource == nil && parse("image: false\n").get().imageSource == nil)
     }
 
-    @Test func withAScreenshotTheImageSkillIsChosen() throws {
-        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), screenshot: Self.present)
+    @Test func anUnknownSourceFailsToLoadWithAReason() {
+        guard case let .failure(error) = parse("image: file\n") else { Issue.record("読み込みに失敗するはず"); return }
+        #expect(error.reason.contains("clipboard"))
+    }
+
+    @Test func withTheImageTheImageSkillIsChosen() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), imageMissing: Self.allThere)
         guard case let .resolved(r) = try resolver.resolve("この画像を説明して") else { Issue.record("not resolved"); return }
-        #expect(r.skill.name == "see")
+        #expect(r.skill.name == "see-screenshot")
     }
 
-    /// 撮り忘れ：画像のスキルが選ばれそうな依頼は、既定のスキルに回さず、撮り方を案内して、止める。
-    @Test func forgettingToCaptureIsTurnedIntoAHintNotADefaultRun() throws {
-        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), screenshot: Self.missing)
-        guard case let .declined(reason, fallbackAvailable) = try resolver.resolve("この画像を説明して") else { Issue.record("resolved"); return }
+    /// 画像の出し忘れ：その画像のスキルが選ばれそうな依頼は、既定のスキルに回さず、用意の仕方を案内して、止める（画像の取り先ごとの案内）。
+    @Test func forgettingTheImageIsTurnedIntoAHintNotADefaultRun() throws {
+        let screenshot = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill()], gate: Gate(), imageMissing: Self.noScreenshot)
+        guard case let .declined(reason, fallbackAvailable) = try screenshot.resolve("この画像を説明して") else { Issue.record("resolved"); return }
         #expect(reason.contains("スクリーンショットがありません") && !fallbackAvailable)
+        let clipboard = SkillResolver(scorer: SkillScorer(routedDescription: "コピー画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill(.clipboard, "コピー画像を見る")], gate: Gate(), imageMissing: Self.noClipboard)
+        guard case let .declined(reason2, _) = try clipboard.resolve("コピーした画像を要約して") else { Issue.record("resolved"); return }
+        #expect(reason2.contains("クリップボードに画像がありません"))
     }
 
-    @Test func otherRequestsAreUnaffectedWithoutAScreenshot() throws {
-        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: nil), skills: [DefaultSkill.skill, skill("spotify", "Spotify の操作"), Self.imageSkill()], gate: Gate(), screenshot: Self.missing)
+    /// 取り先ごとに、独立：スクリーンショットがなくても、コピーした画像のスキルは、選ばれる。
+    @Test func eachSourceIsIndependent() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "コピー画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill(.screenshot), Self.imageSkill(.clipboard, "コピー画像を見る")], gate: Gate(), imageMissing: Self.noScreenshot)
+        guard case let .resolved(r) = try resolver.resolve("コピーした画像を要約して") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "see-clipboard")
+    }
+
+    @Test func otherRequestsAreUnaffectedWithoutAnImage() throws {
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: nil), skills: [DefaultSkill.skill, skill("spotify", "Spotify の操作"), Self.imageSkill()], gate: Gate(), imageMissing: Self.noScreenshot)
         guard case let .resolved(r) = try resolver.resolve("電卓を開いて") else { Issue.record("not resolved"); return }
         #expect(r.skill.name == "default")
+    }
+}
+
+/// コピーした画像（クリップボード）：画像のデータも、Finder でコピーした画像ファイルも読める。画像でないものは、「ない」。
+@Suite struct ClipboardImageTests {
+    private func pngData(_ width: Int, _ height: Int) throws -> Data {
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        return try #require(rep.representation(using: .png, properties: [:]))
+    }
+
+    private func workDirectory() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("clip-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    @Test func anImageOnThePasteboardIsExportedAsAPrivatePNG() throws {
+        let dir = try workDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        board.clearContents(); board.setData(try pngData(40, 30), forType: .png)
+        #expect(ClipboardImage.hasImage(board))
+        let url = try ClipboardImage.export(board, directory: dir).get()
+        #expect(url.lastPathComponent == "clipboard.png" && (try? ImageOps.pngData(contentsOf: url)) != nil)
+        #expect(((try FileManager.default.attributesOfItem(atPath: url.path))[.posixPermissions] as? Int) == 0o600)
+    }
+
+    @Test func aCopiedImageFileIsReadToo() throws {
+        let dir = try workDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("copied.png"); try pngData(20, 20).write(to: file)
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        board.clearContents(); board.writeObjects([file as NSURL])
+        #expect(ClipboardImage.hasImage(board))
+        #expect((try? ClipboardImage.export(board, directory: dir).get()) != nil)
+    }
+
+    @Test func textOrNothingIsNotAnImage() throws {
+        let dir = try workDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        #expect(!ClipboardImage.hasImage(board))
+        board.clearContents(); board.setString("文章", forType: .string)
+        #expect(!ClipboardImage.hasImage(board))
+        #expect(ClipboardImage.export(board, directory: dir) == .failure(.clipboardEmpty))
+    }
+
+    @Test func brokenImageDataIsReportedNotExported() throws {
+        let dir = try workDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let board = NSPasteboard.withUniqueName(); defer { board.releaseGlobally() }
+        board.clearContents(); board.setData(Data("not a png".utf8), forType: .png)
+        #expect(ClipboardImage.export(board, directory: dir) == .failure(.clipboardUnreadable))
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("clipboard.png").path))
     }
 }

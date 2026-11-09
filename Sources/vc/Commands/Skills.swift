@@ -90,7 +90,11 @@ struct SkillsCommand: Command {
         kv("許可", s.allowedCommands.joined(separator: "、"), width: 6)
         kv("確認", s.confirm ? "必須" : "なし", width: 6)
         if let notice = s.externalNotice { kv("外へ送る", Style.yellow(notice), width: 6) }
-        if s.image { kv("画像", "撮ったスクリーンショットがあるときだけ、選ばれる（撮ってから \(ScreenshotStore.timeToLiveMinutes) 分）", width: 6) }
+        switch s.imageSource {
+        case .screenshot: kv("画像", "撮ったスクリーンショットがあるときだけ、選ばれる（撮ってから \(ScreenshotStore.timeToLiveMinutes) 分）", width: 6)
+        case .clipboard: kv("画像", "コピーした画像（クリップボード）があるときだけ、選ばれる", width: 6)
+        case nil: break
+        }
         if s.commandTimeout != CommandRunner.defaultTimeout { kv("時間", "コマンド 1 つあたり \(Int(s.commandTimeout)) 秒まで", width: 6) }
         kv("置き場所", Self.scopeName(s.scope) + (s.scope == .project && catalog.loaded.overridden.contains(s.name) ? Style.dim("（同名のグローバルを上書き）") : ""), width: 6)
         if s.scope != .builtin { kv("場所", s.file.path, width: 6) }

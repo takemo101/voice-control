@@ -4,7 +4,7 @@ import VCCore
 import VCSkill
 
 /// 画面の上のパネル（HUD）に出す、画像のサムネイル（画像を使うスキルが選ばれたとき）。**どの画像が使われるのか**を、見せる（F49）。
-/// 画像は、作ったあと変えない（`@unchecked Sendable` の理由）。サムネイルだけ持つ（大きな画像を、HUD に持たない）。
+/// 画像の取り先は、スキルの `image:`（撮ったスクリーンショット・コピーした画像）。画像は、作ったあと変えない（`@unchecked Sendable` の理由）。サムネイルだけ持つ（大きな画像を、HUD に持たない）。
 struct HUDImage: @unchecked Sendable {
     let thumbnail: NSImage
     /// 元の画像の大きさ（ピクセル）。
@@ -17,7 +17,8 @@ struct HUDImage: @unchecked Sendable {
 
     /// 画像を使うスキルのとき、いまのスクリーンショットから作る（画像のスキルでない・撮っていない・読めなければ nil）。
     static func current(for skill: Skill) -> HUDImage? {
-        guard skill.image, case let .success(url) = ScreenshotStore.current() else { return nil }
+        guard let source = skill.imageSource, case let .success(url) = source.materialize() else { return nil }
+        defer { source.discard() }   // コピーした画像の書き出しは、サムネイルを作ったら、消す
         return load(url, sendsOut: skill.sendsScreenshot)
     }
 

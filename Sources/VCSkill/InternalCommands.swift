@@ -107,15 +107,27 @@ struct InternalCommands {
 
     // MARK: vc see
 
-    /// `vc see`：いまのスクリーンショットを見て、利用者の依頼（文字を書き出す・説明する・質問に答える）に、Markdown で答える。**引数なしが基本**（依頼の文を、そのまま使う：小さなモデルが、言い換えて、ずらさない）。`vc see "<指示>"` で、指示を、別に渡すこともできる。
+    /// `vc see [--from screenshot|clipboard]`：撮ったスクリーンショット（または、コピーした画像）を見て、利用者の依頼（文字を書き出す・説明する・質問に答える）に、Markdown で答える。**引数なしが基本**（依頼の文を、そのまま使う：小さなモデルが、言い換えて、ずらさない）。`vc see "<指示>"` で、指示を、別に渡すこともできる。
     private func see(_ arguments: [String]) -> Result<String, ToolFailure> {
+        // `--from screenshot|clipboard`（見る画像の取り先。既定は、撮ったスクリーンショット）。取り先は、この 2 つだけ：パスも、ファイルも、渡せない
+        var arguments = arguments
+        var source = ImageSource.screenshot
+        if let flag = arguments.firstIndex(of: "--from") {
+            guard flag + 1 < arguments.count, let chosen = ImageSource(rawValue: arguments[flag + 1].lowercased()) else {
+                return .failure(ToolFailure(exitCode: 2, message: "usage: vc see --from screenshot|clipboard   (the image to look at: the screenshot the user took, or the image the user copied)"))
+            }
+            source = chosen
+            arguments.removeSubrange(flag...(flag + 1))
+        }
         let question = arguments.isEmpty ? request : arguments[0]
         guard arguments.count <= 1, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .failure(ToolFailure(exitCode: 2, message: "usage: vc see   (no arguments: it uses the user's request), or vc see \"<instruction>\" (one quoted argument)"))
         }
         guard question.count <= Self.maxQuestion else { return .failure(ToolFailure(exitCode: 2, message: "the instruction is too long (\(Self.maxQuestion) characters at most)")) }
-        switch ScreenshotStore.current() {
-        case let .success(url): return vision(url, question, engine, cancel)
+        switch source.materialize() {
+        case let .success(url):
+            defer { source.discard() }   // コピーした画像の書き出しは、見終わったら、消す
+            return vision(url, question, engine, cancel)
         case let .failure(missing): return .failure(ToolFailure(exitCode: 1, message: "\(missing)"))
         }
     }
