@@ -58,7 +58,7 @@ struct HudPreviewCommand: Command {
                 return c
             case "image":
                 // 画像のスキル（Mac の中だけ）：どの画像が使われるかを、サムネイルで見せる
-                var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "この画像の文字を書き出して", skill: "screen-ask")
+                var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "この画像の文字を書き出して", skill: "image-ask")
                 c.image = sampleImage(sendsOut: false)
                 c.steps = [.init(command: "vc see")]
                 return c

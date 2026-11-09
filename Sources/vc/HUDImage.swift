@@ -16,8 +16,9 @@ struct HUDImage: @unchecked Sendable {
     static let maxPixel = 520
 
     /// 画像を使うスキルのとき、いまのスクリーンショットから作る（画像のスキルでない・撮っていない・読めなければ nil）。
-    static func current(for skill: Skill) -> HUDImage? {
-        guard let source = skill.imageSource, case let .success(url) = source.materialize() else { return nil }
+    static func current(for skill: Skill, request: String = "") -> HUDImage? {
+        // `any` は、`vc see` と同じ決め方（`resolve`）：パネルに出す画像と、見る画像が、同じになる
+        guard let source = skill.imageSource?.resolve(for: request), case let .success(url) = source.materialize() else { return nil }
         defer { source.discard() }   // コピーした画像の書き出しは、サムネイルを作ったら、消す
         return load(url, sendsOut: skill.sendsScreenshot)
     }
