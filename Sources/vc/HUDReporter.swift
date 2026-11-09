@@ -50,7 +50,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     /// スキルが決まったら、画面の上の表示を、実行中で始める。
     private func begin(_ skill: Skill) {
         var content = HUDContent(phase: .working, title: workingTitle, chip: chip, heard: utterance, skill: skill.name)
-        content.image = HUDImage.current(for: skill)   // 画像のスキル：どの画像が使われるかを、見せる
+        content.image = HUDImage.current(for: skill, request: utterance)   // 画像のスキル：どの画像が使われるかを、見せる
         let hud = HUDSession(content, present: present)
         lock.lock(); session = hud; lock.unlock()
         hud.update()

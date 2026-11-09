@@ -51,18 +51,18 @@ default	has	^open -a "?Safari"?$	Safariを開いて
 default	has	^open -a "Google Chrome"$	Chromeを開いて
 default	has	^open -a "?Finder"?$	Finderを開いて
 default	has	^date$	今日の日付を教えて
-screen-ask	exact	vc see	この画像の文字を書き出して
-screen-ask	exact	vc see	画像の文字起こしをして
-screen-ask	exact	vc see	これは何？
-screen-ask	exact	vc see	この画面を説明して
-screen-ask	exact	vc see	この表をマークダウンにして
-screen-ask	exact	vc see	画像に何て書いてある？
-screen-ask	exact	vc see	スクリーンショットの内容を要約して
-screen-ask	exact	vc see	この画像の中のエラーメッセージを教えて
-screen-ask	exact	vc see	ここに書いてあることを日本語に訳して
-screen-ask	exact	vc see	この図は何を表していますか
-screen-ask	exact	vc see	画像の文字を読んで、箇条書きにして
-screen-ask	exact	vc see	この画面で、押すべきボタンはどれ？
+image-ask	exact	vc see	この画像の文字を書き出して
+image-ask	exact	vc see	画像の文字起こしをして
+image-ask	exact	vc see	これは何？
+image-ask	exact	vc see	この画面を説明して
+image-ask	exact	vc see	この表をマークダウンにして
+image-ask	exact	vc see	画像に何て書いてある？
+image-ask	exact	vc see	スクリーンショットの内容を要約して
+image-ask	exact	vc see	この画像の中のエラーメッセージを教えて
+image-ask	exact	vc see	ここに書いてあることを日本語に訳して
+image-ask	exact	vc see	この図は何を表していますか
+image-ask	exact	vc see	画像の文字を読んで、箇条書きにして
+image-ask	exact	vc see	この画面で、押すべきボタンはどれ？
 image-edit	exact	vc image crop right-half	右半分を切り抜いて
 image-edit	exact	vc image crop right-half	画像の右半分だけにして
 image-edit	exact	vc image crop left-half	左半分を切り抜いて
@@ -87,7 +87,7 @@ image-edit	exact	vc image convert jpg	JPEGに変換して
 image-edit	exact	vc image convert jpg	ジェイペグにして
 image-edit	exact	vc image convert png	PNGにして
 image-edit	exact	vc image convert heic	HEICに変換して
-screen-ask	exact	vc see	この領域の英語を日本語にしてください
+image-ask	exact	vc see	この領域の英語を日本語にしてください
 image-edit	exact	vc image crop top-half	画像の上の半分だけ残して
 image-edit	exact	vc image crop right-half	右側の半分をトリミングして
 image-edit	exact	vc image rotate 90	画像を右へ回して
@@ -119,13 +119,13 @@ ask-agent-image	first	node ask-agent-image.mjs agy	アンチグラビティに�
 ask-agent-image	first	node ask-agent-image.mjs agy	この画像をアンチグラビティに見てもらって
 ask-agent-image	first	node ask-agent-image.mjs grok	グロックにこのスクショを見せて、エラーの意味を聞いて
 ask-agent-image	first	node ask-agent-image.mjs grok	この画面をグロックに聞いて、何が写っているか教えて
-clipboard-image	exact	vc see --from clipboard	コピーした画像の文字を書き出して
-clipboard-image	exact	vc see --from clipboard	コピーした画像を要約して
-clipboard-image	exact	vc see --from clipboard	コピーした画像を日本語にして
-clipboard-image	exact	vc see --from clipboard	コピーした図を説明して
-clipboard-image	exact	vc see --from clipboard	コピーした画像に何て書いてある？
-clipboard-image	exact	vc see --from clipboard	コピーした画像の表をマークダウンにして
-clipboard-image	exact	vc see --from clipboard	コピーした画像を整理して
-clipboard-image	exact	vc see --from clipboard	コピーした画像のエラーメッセージを教えて
-clipboard-image	exact	vc see --from clipboard	クリップボードの画像の文字を読んで
-clipboard-image	exact	vc see --from clipboard	いまコピーした画像は何？
+image-ask	exact	vc see	コピーした画像の文字を書き出して
+image-ask	exact	vc see	コピーした画像を要約して
+image-ask	exact	vc see	コピーした画像を日本語にして
+image-ask	exact	vc see	コピーした図を説明して
+image-ask	exact	vc see	コピーした画像に何て書いてある？
+image-ask	exact	vc see	コピーした画像の表をマークダウンにして
+image-ask	exact	vc see	コピーした画像を整理して
+image-ask	exact	vc see	コピーした画像のエラーメッセージを教えて
+image-ask	exact	vc see	クリップボードの画像の文字を読んで
+image-ask	exact	vc see	いまコピーした画像は何？

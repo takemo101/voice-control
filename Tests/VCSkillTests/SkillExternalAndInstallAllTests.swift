@@ -95,6 +95,22 @@ import VCDecision
         #expect(try parse("").get().imageSource == nil && parse("image: false\n").get().imageSource == nil)
     }
 
+    @Test func anyIsReadAndChosenByTheCodeNotTheModel() throws {
+        #expect(try parse("image: any\n").get().imageSource == .any)
+        let both: (ImageSource) -> ImageSource.Missing? = { _ in nil }
+        let onlyClipboard: (ImageSource) -> ImageSource.Missing? = { $0 == .screenshot ? .screenshot(.none) : nil }
+        let neither: (ImageSource) -> ImageSource.Missing? = { $0 == .screenshot ? .screenshot(.none) : .clipboardEmpty }
+        #expect(ImageSource.any.resolve(for: "この画像の文字を書き出して", unavailable: both) == .screenshot)   // 言葉がなければ、撮ったスクリーンショットが先
+        #expect(ImageSource.any.resolve(for: "この画像の文字を書き出して", unavailable: onlyClipboard) == .clipboard)   // スクリーンショットがなければ、コピーした画像
+        #expect(ImageSource.any.resolve(for: "コピーした画像を要約して", unavailable: both) == .clipboard)
+        #expect(ImageSource.any.resolve(for: "クリップボードの画像を読んで", unavailable: both) == .clipboard)
+        // 「コピー」と言ったのに、コピーした画像がないときは、スクリーンショットで代わりにしない（案内が出る）
+        let onlyScreenshot: (ImageSource) -> ImageSource.Missing? = { $0 == .clipboard ? .clipboardEmpty : nil }
+        #expect(ImageSource.any.resolve(for: "コピーした画像を要約して", unavailable: onlyScreenshot) == .clipboard)
+        #expect(ImageSource.any.resolve(for: "なんでも", unavailable: neither) == .screenshot)   // どちらもない：案内は、`missing`
+        #expect(ImageSource.screenshot.resolve(for: "コピーした画像", unavailable: both) == .screenshot && ImageSource.clipboard.resolve(for: "この画面", unavailable: both) == .clipboard)   // 決まった取り先は、そのまま
+    }
+
     @Test func anUnknownSourceFailsToLoadWithAReason() {
         guard case let .failure(error) = parse("image: file\n") else { Issue.record("読み込みに失敗するはず"); return }
         #expect(error.reason.contains("clipboard"))
@@ -114,6 +130,16 @@ import VCDecision
         let clipboard = SkillResolver(scorer: SkillScorer(routedDescription: "コピー画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill(.clipboard, "コピー画像を見る")], gate: Gate(), imageMissing: Self.noClipboard)
         guard case let .declined(reason2, _) = try clipboard.resolve("コピーした画像を要約して") else { Issue.record("resolved"); return }
         #expect(reason2.contains("クリップボードに画像がありません"))
+    }
+
+    @Test func anAnySkillIsHintedOnlyWhenNeitherImageExists() throws {
+        let neither: @Sendable (ImageSource) -> ImageSource.Missing? = { _ in .noImage }
+        let resolver = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill(.any)], gate: Gate(), imageMissing: neither)
+        guard case let .declined(reason, fallbackAvailable) = try resolver.resolve("この画像を説明して") else { Issue.record("resolved"); return }
+        #expect(reason.contains("スクリーンショットも、コピーした画像も") && !fallbackAvailable)
+        let one = SkillResolver(scorer: SkillScorer(routedDescription: "画像を見る"), skills: [DefaultSkill.skill, Self.imageSkill(.any)], gate: Gate(), imageMissing: Self.allThere)
+        guard case let .resolved(r) = try one.resolve("この画像を説明して") else { Issue.record("not resolved"); return }
+        #expect(r.skill.name == "see-any")
     }
 
     /// 取り先ごとに、独立：スクリーンショットがなくても、コピーした画像のスキルは、選ばれる。

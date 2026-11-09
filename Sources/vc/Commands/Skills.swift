@@ -93,6 +93,7 @@ struct SkillsCommand: Command {
         switch s.imageSource {
         case .screenshot: kv("画像", "撮ったスクリーンショットがあるときだけ、選ばれる（撮ってから \(ScreenshotStore.timeToLiveMinutes) 分）", width: 6)
         case .clipboard: kv("画像", "コピーした画像（クリップボード）があるときだけ、選ばれる", width: 6)
+        case .any: kv("画像", "撮ったスクリーンショットか、コピーした画像があるときだけ、選ばれる", width: 6)
         case nil: break
         }
         if s.commandTimeout != CommandRunner.defaultTimeout { kv("時間", "コマンド 1 つあたり \(Int(s.commandTimeout)) 秒まで", width: 6) }

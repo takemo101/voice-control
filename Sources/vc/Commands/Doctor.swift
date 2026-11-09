@@ -36,8 +36,8 @@ struct DoctorCommand: Command {
         checks.append(ScreenCapture.isAllowed
             ? .ok("画面収録", "許可されています（スクリーンショット：vc shot・ショートカット）")
             : .warn("画面収録", "許可されていません（スクリーンショットを使うときだけ要ります）", fix: ScreenCapture.permissionHint))
-        // コピーした画像（clipboard-image）：いまのクリップボードの様子（形式の名前だけ：中身は、読まない）。「コピーしたのに選ばれない」を、切り分けるため
-        checks.append(ImageSource.clipboard.missing.map { .ok("クリップボード", "画像は、ありません（\($0)）") } ?? .ok("クリップボード", "画像が、あります（clipboard-image が使えます）"))
+        // コピーした画像（image-ask）：いまのクリップボードの様子（形式の名前だけ：中身は、読まない）。「コピーしたのに選ばれない」を、切り分けるため
+        checks.append(ImageSource.clipboard.missing.map { .ok("クリップボード", "画像は、ありません（\($0)）") } ?? .ok("クリップボード", "画像が、あります（image-ask が使えます）"))
         checks.append(Self.microphoneCheck(MicRecorder.permission))
         checks.append(Self.speechCheck(context))
         let (_, problem) = Settings.loadOrDefault()
