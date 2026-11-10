@@ -8,6 +8,7 @@ import VCCore
 /// - `resize --width N` / `resize --percent N`：サイズ変更（比を保つ）
 /// - `rotate 90|180|270`：時計回りの回転
 /// - `convert png|jpg|heic`：形式の変換
+/// - `remove-background`：背景を消す（主役だけ残して、まわりを透明にする。PNG で保存。Vision の前景マスク：F51・実験）
 /// 結果は、新しいファイルとして、保存先（`~/Pictures/voice-control`。決まった場所：モデルは、場所・名前を決められない）へ書く。**いまのスクリーンショットも、結果に置き換える**（続けて、サイズ変更などができる）。元の画像は、変えない（古い版は、残らない）。
 struct ImageEditing {
     /// 切り抜きの部分（割合）。
@@ -35,7 +36,7 @@ struct ImageEditing {
     private func usageError(_ text: String) -> ToolFailure { ToolFailure(exitCode: 2, message: text) }
 
     private func apply(_ arguments: [String]) throws -> String {
-        guard let operation = arguments.first else { throw usageError("operation needed: crop | resize | rotate | convert") }
+        guard let operation = arguments.first else { throw usageError("operation needed: crop | resize | rotate | convert | remove-background") }
         let rest = Array(arguments.dropFirst())
         let source: URL
         switch ScreenshotStore.current(now: now, directory: storeDirectory) {
@@ -71,9 +72,14 @@ struct ImageEditing {
                 let name = rest[0].lowercased() == "jpeg" ? "jpg" : rest[0].lowercased()
                 guard let chosen = ImageOps.Format(rawValue: name) else { throw usageError("format must be png, jpg or heic") }
                 format = chosen
-            default: throw usageError("unknown operation \(operation) (crop, resize, rotate, convert)")
+            case "remove-background":
+                guard rest.isEmpty else { throw usageError("remove-background takes no arguments") }
+                image = try BackgroundRemoval.remove(from: image)
+                format = .png   // 透明を持てる形式
+            default: throw usageError("unknown operation \(operation) (crop, resize, rotate, convert, remove-background)")
             }
         } catch let failure as ImageOps.Failure { throw ToolFailure(exitCode: 2, message: failure.message) }
+        catch let failure as BackgroundRemoval.Failure { throw ToolFailure(exitCode: 1, message: failure.message) }
 
         let saved = try save(image, format: format)
         // いまのスクリーンショットを、結果（PNG）に置き換える

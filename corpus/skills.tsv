@@ -39,7 +39,6 @@ ask-agent	exact	node ask-agent.mjs "ブロックチェーンとは何か"	ブロ
 ask-agent	exact	node ask-agent.mjs "TCPとUDPの違い"	TCPとUDPの違いを調べて
 ask-agent	exact	node ask-agent.mjs "OAuth"	OAuthについてまとめて
 clipboard-note	first	pbpaste	コピーした文章を要約して
-clipboard-note	first	pbpaste	コピーした文章を英語に翻訳して
 clipboard-note	first	pbpaste	コピーした文章を整えて
 file-search	first	vc find	請求書のPDFを開いて
 file-search	first	vc find	先月の議事録を開いて
@@ -129,3 +128,17 @@ image-ask	exact	vc see	コピーした画像を整理して
 image-ask	exact	vc see	コピーした画像のエラーメッセージを教えて
 image-ask	exact	vc see	クリップボードの画像の文字を読んで
 image-ask	exact	vc see	いまコピーした画像は何？
+image-edit	exact	vc image remove-background	背景を消して
+image-edit	exact	vc image remove-background	背景を透明にして
+image-edit	exact	vc image remove-background	この画像の背景を削除して
+image-edit	exact	vc image remove-background	人物だけ切り抜いて
+image-edit	exact	vc image remove-background	被写体だけ残して背景を消して
+image-edit	exact	vc image crop right-half	右半分だけ切り抜いて
+translate	exact	vc translate	コピーした文章を英語に翻訳して
+translate	exact	vc translate	これを日本語に訳して
+translate	exact	vc translate	コピーしたものを中国語にして
+translate	exact	vc translate	英訳して
+translate	exact	vc translate	コピーした文章を翻訳して
+translate	exact	vc translate	クリップボードの文章をフランス語に翻訳して
+translate	exact	vc translate	コピーした英語の文章を日本語にして
+translate	exact	vc translate	韓国語に翻訳してください

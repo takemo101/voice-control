@@ -25,7 +25,7 @@ final class OptionMemory: @unchecked Sendable {
     }
 }
 
-/// スキルの実行の中で、`vc` 自身が処理するコマンド：`vc find`（ファイルの検索）・`vc pick`（Tiny-Jev での選択）・`vc see`（スクリーンショットを見て答える）・`vc image`（スクリーンショットの加工）。モデルが呼ぶ（スキルの `allowed-commands` に書く。許可の照合は、ほかのコマンドと同じ）。
+/// スキルの実行の中で、`vc` 自身が処理するコマンド：`vc translate`（コピーした文章の翻訳）・`vc find`（ファイルの検索）・`vc pick`（Tiny-Jev での選択）・`vc see`（スクリーンショットを見て答える）・`vc image`（スクリーンショットの加工）。モデルが呼ぶ（スキルの `allowed-commands` に書く。許可の照合は、ほかのコマンドと同じ）。
 /// **外のプロセスは起こさない**（`vc` の実行ファイルを、呼び直さない：Tiny-Jev を、読み直さずに済み、検索の引数は、決まった形で受ける）。
 struct InternalCommands {
     /// 依頼の文（`vc pick` が、何を選ぶかの、既定）。
@@ -40,10 +40,14 @@ struct InternalCommands {
     /// 画像を見る関数（テストで、偽物に替える）。
     var vision: @Sendable (_ image: URL, _ question: String, _ engine: Engine, _ cancel: CancelToken?) -> Result<String, ToolFailure> = { VisionModel.ask(image: $0, question: $1, engine: $2, cancel: $3) }
     var images = ImageEditing()
+    /// コピーした文章（`vc translate`。テストで、偽物に替える）。
+    var clipboardText: @Sendable () -> String? = { TextTranslation.clipboardText() }
+    /// 翻訳する関数（テストで、偽物に替える）。
+    var translator: @Sendable (_ text: String, _ request: String) throws -> TextTranslation.Translated = { try TextTranslation.translate($0, request: $1) }
 
     /// 自分で処理するコマンドの名前（`vc <名前>`）。
     enum Name: String {
-        case find, pick, see, image
+        case find, pick, see, image, translate
     }
 
     /// 実行の結果：終了コードと、モデルへ返す文（失敗は、`error: …` で始める）。**言語モデルに写させない成果物**（`vc see` の答え・`vc image` が保存した画像）は、別に持つ（呼び出し側が、ウィンドウ・パネルに出す）。
@@ -67,6 +71,7 @@ struct InternalCommands {
         let arguments = Array(argv.dropFirst(2))
         switch Self.name(of: argv) {
         case .see: return see(arguments)
+        case .translate: return translate(arguments)
         case .image: return images.run(arguments)
         case .find: return Result { try find(arguments) }.mapError(Self.failure)
         case .pick: return Result { try pick(arguments) }.mapError(Self.failure)
@@ -80,7 +85,7 @@ struct InternalCommands {
         switch execute(argv) {
         case let .success(text):
             switch Self.name(of: argv) {
-            case .see: return Output(exitCode: 0, text: text, document: text)
+            case .see, .translate: return Output(exitCode: 0, text: text, document: text)
             case .image: return Output(exitCode: 0, text: text, image: ImageEditing.savedPath(in: text).map { URL(fileURLWithPath: $0) })
             default: return Output(exitCode: 0, text: text)
             }
@@ -134,6 +139,22 @@ struct InternalCommands {
     }
 
     static let maxQuestion = 1000
+
+    // MARK: vc translate
+
+    /// `vc translate`：コピーした文章を、翻訳する（オンデバイス：Apple の Translation）。**引数はない**：翻訳する文章は、クリップボード（コードが読む）、翻訳先は、依頼の文から、コードが決める（言語モデルは、文章も、言語も、渡さない）。答えは、ウィンドウに出す。F52（実験）。
+    private func translate(_ arguments: [String]) -> Result<String, ToolFailure> {
+        guard arguments.isEmpty else { return .failure(ToolFailure(exitCode: 2, message: "usage: vc translate   (no arguments: it translates the text the user copied, into the language the user asked for)")) }
+        guard let text = clipboardText() else { return .failure(ToolFailure(exitCode: 1, message: "コピーした文章がありません。翻訳したい文章をコピーしてから、頼んでください")) }
+        do {
+            let result = try translator(text, request)
+            return .success("> \(result.sourceName) → \(result.targetName)（Mac の中で翻訳）\n\n\(result.text)")
+        } catch let failure as TextTranslation.Failure {
+            return .failure(ToolFailure(exitCode: 1, message: failure.message))
+        } catch {
+            return .failure(ToolFailure(exitCode: 1, message: "翻訳できませんでした（\(error.localizedDescription)）"))
+        }
+    }
 
     // MARK: vc pick
 
