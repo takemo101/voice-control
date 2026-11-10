@@ -1,12 +1,13 @@
 import CoreGraphics
 import Foundation
+import TestSupport
 import Testing
 import VCCore
 @testable import VCSkill
 
 /// `vc image` / `vc see`：画像の操作が、保存先・いまのスクリーンショット・引数の検査を守る。
 @Suite struct ImageEditingTests {
-    fileprivate struct Sandbox {
+    struct Sandbox {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ie-\(UUID().uuidString)")
         var store: URL { root.appendingPathComponent("store") }
         var out: URL { root.appendingPathComponent("out") }
@@ -122,5 +123,60 @@ extension ImageEditingTests {
         let failed = commands.run(["vc", "image", "rotate", "45"])
         #expect(failed.exitCode == 2 && failed.image == nil && failed.text.hasPrefix("error: "))
         #expect(InternalCommands.name(of: ["vc", "see"]) == .see && InternalCommands.name(of: ["vc", "show"]) == nil && InternalCommands.name(of: ["ls", "find"]) == nil)
+    }
+}
+
+/// `vc image remove-background`（F51。実験）：主役を残して背景を透明にする。Vision は CI の VM では動かない（`RunEnvironment.isCI`）。
+@Suite struct RemoveBackgroundTests {
+    private static let stock = URL(fileURLWithPath: "/Library/User Pictures/Animals/Penguin.heic")   // macOS に入っている、写真（個人のものではない）
+
+    @Test func takesNoArguments() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        guard case let .failure(failure) = box.editing().run(["remove-background", "--all"]) else { Issue.record("引数があるときは、失敗するはず"); return }
+        #expect(failure.exitCode == 2)
+    }
+
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)"))
+    func aPictureWithoutASubjectIsReportedNotSavedAsIs() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()   // 無地の黄色：主役がない
+        guard case let .failure(failure) = box.editing().run(["remove-background"]) else { Issue.record("主役がないときは、失敗するはず"); return }
+        #expect(failure.exitCode == 1 && failure.message.contains("主役"))
+        #expect(!FileManager.default.fileExists(atPath: box.out.path) || ((try? FileManager.default.contentsOfDirectory(atPath: box.out.path)) ?? []).isEmpty)   // 何も保存しない
+    }
+
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)"), .enabled(if: FileManager.default.fileExists(atPath: Self.stock.path), "macOS の標準の画像がない"))
+    func theBackgroundBecomesTransparentAndTheSubjectStays() throws {
+        let image = try ImageOps.load(Self.stock)
+        let cut = try BackgroundRemoval.remove(from: image)
+        #expect(cut.width == image.width && cut.height == image.height)
+        #expect(cut.alphaInfo != .none && cut.alphaInfo != .noneSkipFirst && cut.alphaInfo != .noneSkipLast)
+        // 角（背景）は透明・中心（主役）は不透明
+        func alpha(_ x: Int, _ y: Int) -> UInt8 {
+            var pixel = [UInt8](repeating: 0, count: 4)
+            let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.draw(cut, in: CGRect(x: -x, y: -(cut.height - 1 - y), width: cut.width, height: cut.height))
+            return pixel[3]
+        }
+        #expect(alpha(2, 2) == 0 && alpha(cut.width / 2, cut.height / 2) == 255)
+    }
+
+    /// コマンドとして：標準の画像を、いまのスクリーンショットにして、背景を消す → PNG（透明つき）で保存され、続けて加工できる。
+    @Test(.disabled(if: RunEnvironment.isCI, "\(RunEnvironment.platformMediaReason)"), .enabled(if: FileManager.default.fileExists(atPath: Self.stock.path), "macOS の標準の画像がない"))
+    func theCommandSavesATransparentPNGAndKeepsTheResultAsTheCurrentShot() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try FileManager.default.createDirectory(at: box.root, withIntermediateDirectories: true)
+        let source = box.root.appendingPathComponent("stock.png")
+        try ImageOps.write(try ImageOps.load(Self.stock), to: source, format: .png)
+        try ScreenshotStore.replace(with: source, directory: box.store)
+        let text = try box.editing().run(["remove-background"]).get()
+        #expect(text.hasPrefix("saved: \(box.out.path)/shot-") && text.hasSuffix(", png)"))
+        let saved = try FileManager.default.contentsOfDirectory(atPath: box.out.path)
+        #expect(saved.count == 1 && saved[0].hasSuffix(".png"))
+        let result = try ImageOps.load(box.out.appendingPathComponent(saved[0]))
+        #expect(result.alphaInfo != .none && result.alphaInfo != .noneSkipLast && result.alphaInfo != .noneSkipFirst)
+        let size = try box.currentSize()
+        #expect(size.width == result.width && size.height == result.height)   // 続けて、加工できる
     }
 }
