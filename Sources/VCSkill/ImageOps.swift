@@ -37,6 +37,14 @@ public enum ImageOps {
         return cropped
     }
 
+    /// 真四角に切り抜く：短いほうの辺を一辺とする、真ん中の正方形（端の余りは、左右・上下に、半分ずつ）。
+    public static func centerSquare(_ image: CGImage) throws -> CGImage {
+        let side = min(image.width, image.height)
+        let rect = CGRect(x: (image.width - side) / 2, y: (image.height - side) / 2, width: side, height: side)
+        guard let cropped = image.cropping(to: rect) else { throw Failure(message: "切り抜けません") }
+        return cropped
+    }
+
     /// サイズ変更：横を `width` ピクセルにする（縦は、比を保つ）。
     public static func resize(_ image: CGImage, width: Int) throws -> CGImage {
         guard (16...maxSide).contains(width) else { throw Failure(message: "横は、16〜\(maxSide) ピクセルにしてください") }
