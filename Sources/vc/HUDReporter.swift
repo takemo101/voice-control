@@ -13,6 +13,8 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
     private let present: @Sendable (HUDContent, TimeInterval?) -> Void
     private let speak: @Sendable (String) -> Void
     private let presenters: ResultPresenters
+    /// 結果（短い返事）を、声で読み上げるか（`vc speak on`）。
+    private let speakResults: Bool
     private let lock = NSLock()
     private var session: HUDSession?
     /// 複数ステップの依頼で、いま何番目か（なければ、ステップに分けていない）。
@@ -24,7 +26,9 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
          terminal: TerminalReporter? = nil,
          present: @escaping @Sendable (HUDContent, TimeInterval?) -> Void = { HUD.shared.show($0, hideAfter: $1) },
          speak: @escaping @Sendable (String) -> Void = { say($0) },
-         presenters: ResultPresenters = .live) {
+         presenters: ResultPresenters = .live,
+         speakResults: Bool = false) {
+        self.speakResults = speakResults
         self.chip = chip
         self.utterance = utterance
         self.dryRun = dryRun
@@ -115,9 +119,11 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
                     $0.reply = reply
                 }
             }
+            if speakResults, !dryRun, !intermediate, let line = SpokenReply.success(reply) { speak(line) }
         case let .failed(message):
             terminal.report(event)
             update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
+            if speakResults { speak(SpokenReply.failure(message)) }
         case let .planned(steps):
             terminal.report(.planned(steps: steps))
         case let .stepStarted(index, total, _):
