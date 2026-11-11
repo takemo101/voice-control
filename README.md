@@ -401,6 +401,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc engine [show\|set <エンジン>\|reset]` | スキルを実行するモデル（分析・実行の言語モデル）を、常にこれにする（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`） |
 | `vc fillers [show\|on\|off\|add\|remove\|reset]` | 音声入力で消す、つなぎ言葉（えーと・um など）の辞書の確認・足し引き・オン／オフ（既定は off） |
 | `vc plan [show\|on\|off\|reset]` | 1 つの依頼を、複数のステップに分けて実行するか（既定 on。分け方は言語モデルが決める） |
+| `vc caption [show\|on\|off\|reset]` | 録音中に、聞こえている文字を、上のパネルに出すか（既定 on。実験） |
 | `vc speak [show\|on\|off\|voices\|voice\|test]` | 読み上げの声（入っている中で、品質がいちばん高い日本語の声を自動で）と、結果を読み上げるか（既定 off。実験） |
 | `vc recheck [show\|on\|off\|reset]` | 聞き取りに自信がないとき、実行の前に、聞こえた文を確かめる（既定 on。実験） |
 | `vc handsfree [show\|on\|off\|reset]` | ダブルタップで、黙るまで録音する（手放し。既定 on）か、押している間だけか |
@@ -438,7 +439,7 @@ flowchart TB
 |---|---|
 | **中核** | スキルの選択と実行・許可と確認の判断・`vc run`・`vc listen`（声で頼む）・スキルの管理 |
 | **任意** | 音声入力・スクリーンショットと画像のスキル・結果のウィンドウ・ファイル検索・スキルのインストール |
-| **実験**（予告なく変わります） | 外へ送るスキル（`ask-agent`・`ask-agent-image`・`web-search`）・手放し（ダブルタップ）・複数ステップの依頼・ローカルのサーバーのモデル（`--engine`）・画像の背景除去（「背景を消して」）・聞き取りの確認（`vc recheck`）・結果の読み上げ（`vc speak`） |
+| **実験**（予告なく変わります） | 外へ送るスキル（`ask-agent`・`ask-agent-image`・`web-search`）・手放し（ダブルタップ）・複数ステップの依頼・ローカルのサーバーのモデル（`--engine`）・画像の背景除去（「背景を消して」）・聞き取りの確認（`vc recheck`）・結果の読み上げ（`vc speak`）・録音中の文字の表示（`vc caption`） |
 
 ## いまの状況
 

@@ -12,6 +12,8 @@ import SwiftUI
     /// 録音を始めた時刻（経過時間）。
     var recordingStart = Date()
     var waveform = WaveformState()
+    /// 録音中に聞こえている文字（途中経過。`LiveCaptioner`）。なければ、案内の文を出す。録音の段階だけ。
+    @Published var liveText: String?
     /// 本文が、高さの上限を超えたか（超えたら、スクロールのために、クリックを受ける）。
     var onBodyOverflow: ((Bool) -> Void)?
 
@@ -136,7 +138,10 @@ private struct CompactCard: View {
         GlassCard(tint: Palette.tint(content), radius: 30, width: hudCompactWidth) {
             VStack(alignment: .leading, spacing: 6) {
                 if content.phase == .recording { recording } else { thinking }
-                if let hint = content.hint {
+                if let live = model.liveText, content.phase == .recording, !live.isEmpty {
+                    // 録音中に聞こえている文字：新しい言葉が見えるように、先頭を切る
+                    Text("“\(live)”").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.9)).lineLimit(1).truncationMode(.head)
+                } else if let hint = content.hint {
                     Text(hint).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).lineLimit(1).truncationMode(.tail)
                 }
             }

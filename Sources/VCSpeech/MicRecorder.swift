@@ -15,6 +15,7 @@ public final class MicRecorder: @unchecked Sendable {
     private var writeError: String?
     /// 録音中の音量（0〜1。約 23 ミリ秒ごと。**音声のスレッドから呼ばれる**）。画面の波形用。音声そのものは、渡さない。
     private var levelHandler: (@Sendable (Float) -> Void)?
+    private var bufferHandler: (@Sendable (AVAudioPCMBuffer) -> Void)?
 
     public init() {}
 
@@ -66,6 +67,9 @@ public final class MicRecorder: @unchecked Sendable {
         }
     }
 
+    /// 録音中の音（マイクの入力の塊）を、そのまま受け取る（録音中の文字の表示用：`LiveCaptioner`）。次の `start` から効く。音声のスレッドから呼ばれる：すぐ戻ること。
+    public func setBufferHandler(_ handler: (@Sendable (AVAudioPCMBuffer) -> Void)?) { lock.withLock { bufferHandler = handler } }
+
     public func start(to url: URL) throws {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -74,10 +78,11 @@ public final class MicRecorder: @unchecked Sendable {
         lock.withLock { file = newFile }
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
-            let handler: (@Sendable (Float) -> Void)? = lock.withLock {
+            let (handler, bufferHandler): ((@Sendable (Float) -> Void)?, (@Sendable (AVAudioPCMBuffer) -> Void)?) = lock.withLock {
                 do { try self.file?.write(from: buffer) } catch { self.writeError = "\(error)" }
-                return self.levelHandler
+                return (self.levelHandler, self.bufferHandler)
             }
+            bufferHandler?(buffer)
             if let handler, let channel = buffer.floatChannelData?[0] {
                 handler(Self.level(from: UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength))))
             }
@@ -101,11 +106,15 @@ public final class RecordingSession: @unchecked Sendable {
     private var file: URL?
     private var startError: Error?
     private var levelHandler: (@Sendable (Float) -> Void)?
+    private var bufferHandler: (@Sendable (AVAudioPCMBuffer) -> Void)?
 
     public init() {}
 
     /// 録音中の音量（0〜1）を受け取る（画面の波形用）。次の `start()` から効く。音声のスレッドから呼ばれる。
     public func setLevelHandler(_ handler: (@Sendable (Float) -> Void)?) { lock.lock(); levelHandler = handler; lock.unlock() }
+
+    /// 録音中の音（入力の塊）を受け取る（録音中の文字の表示用）。次の `start()` から効く。音声のスレッドから呼ばれる。
+    public func setBufferHandler(_ handler: (@Sendable (AVAudioPCMBuffer) -> Void)?) { lock.lock(); bufferHandler = handler; lock.unlock() }
 
     public func start() {
         lock.lock(); defer { lock.unlock() }
@@ -113,6 +122,7 @@ public final class RecordingSession: @unchecked Sendable {
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vc-\(UUID().uuidString).caf")
         let r = MicRecorder()
         r.setLevelHandler(levelHandler)
+        r.setBufferHandler(bufferHandler)
         do { try r.start(to: url); recorder = r; file = url; startError = nil } catch { startError = error }
     }
 

@@ -9,6 +9,7 @@ import Foundation
 /// - `recheck`：聞き取りに自信がないとき（認識の確信度が低いとき）、実行の前に、聞こえた文を確かめるか。なければ、確かめる（`vc recheck off` で、確かめない。実験）。
 /// - `speakResults`：実行の結果（「完了：〇〇」）を、声で読み上げるか。なければ、読み上げない（確認の問いかけは、いつも読み上げる）。`vc speak on|off`。
 /// - `voice`：読み上げの声（識別子か名前）。なければ、入っている日本語の声のうち、品質がいちばん高いもの。`vc speak voice`。
+/// - `liveCaption`：録音中に聞こえている文字（途中経過）を、画面の上のパネルに出すか。なければ、出す（`vc caption off` で、出さない。実験）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -25,6 +26,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var handsFree: Bool?
     public var recheck: Bool?
     public var speakResults: Bool?
+    public var liveCaption: Bool?
     public var voice: String?
     public var mute: Bool?
     public var removeFillers: Bool?
@@ -46,6 +48,7 @@ public struct Settings: Codable, Sendable, Equatable {
         handsFree = try c.decodeIfPresent(Bool.self, forKey: .handsFree)
         recheck = try c.decodeIfPresent(Bool.self, forKey: .recheck)
         speakResults = try c.decodeIfPresent(Bool.self, forKey: .speakResults)
+        liveCaption = try c.decodeIfPresent(Bool.self, forKey: .liveCaption)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)

@@ -31,7 +31,7 @@ enum Commands {
     static let all: [any Command.Type] = [
         SkillsCommand.self, RunCommand.self, ListenCommand.self, DictateCommand.self, ShowCommand.self, ShotCommand.self, PreviewCommand.self, FindCommand.self, PickCommand.self, TranscribeCommand.self,
         HotkeyCheckCommand.self, HudPreviewCommand.self, EvalGateCommand.self, EvalPlanCommand.self,
-        DoctorCommand.self, ModelCommand.self, HotkeyCommand.self, SttCommand.self, MuteCommand.self, HandsFreeCommand.self, RecheckCommand.self, SpeakCommand.self, FillersCommand.self, PlanCommand.self, EngineCommand.self,
+        DoctorCommand.self, ModelCommand.self, HotkeyCommand.self, SttCommand.self, MuteCommand.self, HandsFreeCommand.self, RecheckCommand.self, SpeakCommand.self, CaptionCommand.self, FillersCommand.self, PlanCommand.self, EngineCommand.self,
     ]
 
     static func find(_ name: String) -> (any Command.Type)? { all.first { $0.info.name == name } }
