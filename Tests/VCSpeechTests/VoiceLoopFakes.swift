@@ -71,6 +71,10 @@ final class FakeTranscriber: Transcribing, @unchecked Sendable {
     private let lock = NSLock()
     private var gates: [String: Gate] = [:]
     private var failing: Set<String> = []
+    private var confidences: [String: Double] = [:]
+
+    /// このファイルの認識の確信度（なければ、確信度なし）。
+    func confidence(_ name: String, _ value: Double) { lock.lock(); confidences[name] = value; lock.unlock() }
 
     /// このファイルの認識を、`gate` が開くまで止める。
     func hold(_ name: String, _ gate: Gate) { lock.lock(); gates[name] = gate; lock.unlock() }
@@ -88,6 +92,12 @@ final class FakeTranscriber: Transcribing, @unchecked Sendable {
         if let gate { await gate.wait() }
         if fails { throw RecorderFailure() }
         return "text-" + name
+    }
+
+    func transcribeWithConfidence(file url: URL) async throws -> Transcription {
+        let text = try await transcribe(file: url)
+        lock.lock(); let value = confidences[url.lastPathComponent]; lock.unlock()
+        return Transcription(text: text, confidence: value)
     }
 }
 

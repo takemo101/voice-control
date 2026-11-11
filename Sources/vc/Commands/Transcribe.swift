@@ -20,9 +20,11 @@ struct TranscribeCommand: Command {
         defer { engine.close() }
         let t0 = Date()
         do {
-            let text = try await engine.transcriber.transcribe(file: url)
-            eprint(Style.dim(String(format: "%@・%.2f 秒", engine.choice.id, Date().timeIntervalSince(t0))))
-            print(text.isEmpty ? Style.dim("（声が聞こえませんでした）") : text)
+            let heard = try await engine.transcriber.transcribeWithConfidence(file: url)
+            // 確信度（Apple の認識だけ）：しきい値（`vc recheck`）の見当をつけるため、標準エラーに出す
+            let confidence = heard.confidence.map { String(format: "・確信度 %.0f%%%@", $0 * 100, $0 < Recheck.threshold ? "（しきい値 \(Int(Recheck.threshold * 100))% 未満：声で頼むなら、確認が出る）" : "") } ?? ""
+            eprint(Style.dim(String(format: "%@・%.2f 秒", engine.choice.id, Date().timeIntervalSince(t0)) + confidence))
+            print(heard.text.isEmpty ? Style.dim("（声が聞こえませんでした）") : heard.text)
         } catch { fail("\(error)") }
     }
 }
