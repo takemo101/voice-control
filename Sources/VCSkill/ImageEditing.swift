@@ -3,7 +3,7 @@ import Foundation
 import VCCore
 
 /// `vc image [--from screenshot|clipboard] <操作>`：いまのスクリーンショット（または、コピーした画像：`request` に「コピー」とあるとき）を加工して、保存する（言語モデルが呼ぶ。引数の形は、ここで一度だけ検査する）。
-/// - `crop <部分>`：切り抜き。部分は `left-half`・`right-half`・`top-half`・`bottom-half`・`center`（言語モデルが、数を間違えない形）
+/// - `crop <部分>`：切り抜き。部分は `left-half`・`right-half`・`top-half`・`bottom-half`・`center`・`square`（真四角：短いほうの辺で、真ん中。言語モデルが、数を間違えない形）
 /// - `crop [--left F] [--top F] [--width F] [--height F]`：切り抜き（割合 0〜1。省略は、左上から全体）
 /// - `resize --width N` / `resize --percent N`：サイズ変更（比を保つ）
 /// - `rotate 90|180|270`：時計回りの回転
@@ -34,9 +34,12 @@ struct ImageEditing {
     var clipboardMissing: () -> ImageSource.Missing? = { ImageSource.clipboard.missing }
     /// コピーした画像の書き出しを、消す（使い終わったとき）。
     var discardClipboard: () -> Void = { ImageSource.clipboard.discard() }
+    /// **1 回のスキルの実行の中で、加工中の画像**（前の `vc image` の結果）。「背景を消して、真四角にして」のように、続けて加工するとき、2 つ目は、**1 つ目の結果**を使う（コピーした画像のときも、元の画像に、戻らない）。`--from` で、取り先を指定したときは、それが勝つ。
+    var working = WorkingImage()
 
     /// 加工する画像のファイルと、使い終わったときの後片付け（コピーした画像の書き出しを、消す）。
     private func sourceImage(_ from: ImageSource) throws -> (url: URL, cleanup: () -> Void) {
+        if from == .any, let url = working.url, FileManager.default.fileExists(atPath: url.path) { return (url, {}) }   // 続けての加工：前の結果
         let chosen = from.resolve(for: request) { source in
             switch source {
             case .clipboard: return clipboardMissing()
@@ -85,8 +88,10 @@ struct ImageEditing {
         do {
             switch operation {
             case "crop":
-                if rest.count == 1, !rest[0].hasPrefix("--") {
-                    guard let part = Self.cropParts[rest[0]] else { throw usageError("unknown part \(rest[0]) (\(Self.cropParts.keys.sorted().joined(separator: ", ")))") }
+                if rest == ["square"] {
+                    image = try ImageOps.centerSquare(image)
+                } else if rest.count == 1, !rest[0].hasPrefix("--") {
+                    guard let part = Self.cropParts[rest[0]] else { throw usageError("unknown part \(rest[0]) (\((Self.cropParts.keys.sorted() + ["square"]).joined(separator: ", ")))") }
                     image = try ImageOps.crop(image, left: part.left, top: part.top, width: part.width, height: part.height)
                 } else {
                     let o = try Options(rest, numbers: ["--left", "--top", "--width", "--height"])
@@ -119,6 +124,7 @@ struct ImageEditing {
         catch let failure as BackgroundRemoval.Failure { throw ToolFailure(exitCode: 1, message: failure.message) }
 
         let saved = try save(image, format: format)
+        working.url = saved
         // いまのスクリーンショットを、結果（PNG）に置き換える
         let temporary = storeDirectory.appendingPathComponent("next-\(UUID().uuidString).png")
         try ScreenshotStore.prepare(directory: storeDirectory)
@@ -153,5 +159,15 @@ struct ImageEditing {
             }
         }
         func number(_ flag: String) -> Double? { values[flag] }
+    }
+}
+
+/// 1 回のスキルの実行の中で、加工中の画像のファイル（`CommandSession` が持つ：実行ごとに新しい）。
+final class WorkingImage: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: URL?
+    var url: URL? {
+        get { lock.lock(); defer { lock.unlock() }; return current }
+        set { lock.lock(); current = newValue; lock.unlock() }
     }
 }

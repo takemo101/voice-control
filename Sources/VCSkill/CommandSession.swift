@@ -18,6 +18,8 @@ final class CommandSession: @unchecked Sendable {
     let aliases = RefAliases()
     /// この実行の、直前の候補（`vc find`・`vc pick` が使う）。
     let memory = OptionMemory()
+    /// この実行の中で、加工中の画像（`vc image` が、続けて加工できるように）。
+    private let working = WorkingImage()
     /// Tiny-Jev（使うときまで、読み込まない）。`vc pick` が使う。
     private let scorer: (@Sendable () -> OptionScorer?)?
     /// 画像を見るモデル（`vc see`）：実行しているスキルと、同じエンジン。
@@ -101,6 +103,7 @@ final class CommandSession: @unchecked Sendable {
             lock.lock(); let current = request; lock.unlock()
             var commands = InternalCommands(request: current, scorer: scorer, memory: memory, spotlight: spotlight)
             commands.engine = engine; commands.cancel = cancel
+            commands.images.working = working
             let result = commands.run(argv)
             display.onResult(result.exitCode, result.text)
             if let saved = result.image { lock.lock(); image = saved; lock.unlock() }

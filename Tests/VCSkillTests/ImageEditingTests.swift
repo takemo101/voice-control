@@ -143,6 +143,7 @@ extension ImageEditingTests {
         if clipboard {
             let context = CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
             context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+            try? FileManager.default.removeItem(at: file)   // 同じテストで、何度も作る
             try ImageOps.write(context.makeImage()!, to: file, format: .png)
             e.clipboardImage = { .success(file) }
             e.clipboardMissing = { nil }
@@ -216,6 +217,33 @@ extension ImageEditingTests {
         try box.putShot()
         guard case let .failure(failure) = try editing(box, request: "x", clipboard: false).run(["--from", "clipboard", "rotate", "90"]) else { Issue.record("失敗するはず"); return }
         #expect(failure.message.contains("クリップボードに画像がありません"))
+    }
+
+    /// 続けての加工：同じ実行の中の 2 つ目は、**1 つ目の結果**を使う（「コピー」と言っていても、元のコピーした画像に、戻らない）。
+    @Test func aSecondCommandInTheSameRunBuildsOnTheFirstResult() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try FileManager.default.createDirectory(at: box.root, withIntermediateDirectories: true)
+        let e = try editing(box, request: "コピーした画像の右半分を切り抜いて、さらに右半分に", clipboard: true)
+        #expect(try e.run(["crop", "right-half"]).get().contains("20x20"))   // 40×20 の右半分
+        #expect(try e.run(["crop", "right-half"]).get().contains("10x20"))   // その結果（20×20）の右半分：元の 40×20 に、戻らない
+        // 実行が違えば（新しい ImageEditing）、また、コピーした画像から
+        #expect(try editing(box, request: "コピーした画像の右半分を切り抜いて", clipboard: true).run(["crop", "right-half"]).get().contains("20x20"))
+    }
+
+    @Test func fromStillWinsOverTheWorkingImage() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        let e = try editing(box, request: "x", clipboard: true)
+        #expect(try e.run(["--from", "clipboard", "crop", "right-half"]).get().contains("20x20"))   // 加工中の画像：20×20
+        try box.putShot()   // スクリーンショットを、100×50 に戻す
+        #expect(try e.run(["--from", "screenshot", "crop", "right-half"]).get().contains("50x50"))   // 加工中の画像（20×20 → 10x20）ではなく、スクリーンショット
+    }
+
+    @Test func squareCropsTheShorterSideAroundTheCenter() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()   // 100×50
+        let text = try editing(box, request: "真四角にくり抜いて", clipboard: false).run(["crop", "square"]).get()
+        #expect(text.contains("50x50"))
     }
 
     @Test func neitherImageGivesAHint() throws {

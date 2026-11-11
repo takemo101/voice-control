@@ -47,6 +47,8 @@ def commands(output):
 def judge(mode, expected, got):
     if mode == "exact":
         return got == [expected]
+    if mode == "seq":   # 複数のコマンド：期待は、「 ; 」で区切って、順番も含めて、すべて一致
+        return got == expected.split(" ; ")
     if mode == "first":
         return bool(got) and got[0].startswith(expected)
     if mode == "has":

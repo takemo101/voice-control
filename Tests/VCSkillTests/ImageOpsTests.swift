@@ -33,6 +33,14 @@ import Testing
         #expect(topHalf.width == 40 && topHalf.height == 10 && pixel(topHalf, 5, 5) == "R")
     }
 
+    @Test func centerSquareTakesTheShorterSideFromTheMiddle() throws {
+        let square = try ImageOps.centerSquare(sample())   // 40×20 → x = 10〜30（赤の右半分と、青の左半分）
+        #expect(square.width == 20 && square.height == 20)
+        #expect(pixel(square, 2, 10) == "R" && pixel(square, 17, 10) == "B")
+        let tall = try ImageOps.centerSquare(ImageOps.rotate(sample(), degrees: 90))   // 20×40 → 縦の真ん中
+        #expect(tall.width == 20 && tall.height == 20)
+    }
+
     @Test func badCropsAreRefused() throws {
         let image = try sample()
         for (l, t, w, h) in [(0.6, 0.0, 0.5, 1.0), (-0.1, 0.0, 0.5, 1.0), (0.0, 0.0, 0.0, 1.0), (0.0, 0.5, 1.0, 0.6), (0.0, 0.0, 1.0, -1.0)] {

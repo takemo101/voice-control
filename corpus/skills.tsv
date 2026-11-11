@@ -1,5 +1,5 @@
 # スキルごとに、依頼から、正しいコマンドが出るかを測る（scripts/eval-skills.py。--dry-run：実行しない）。自作・少数。
-# 形：スキル<TAB>照合（exact＝出たコマンドが、これ 1 つだけ／first＝最初のコマンドが、これで始まる／has＝どれかが、この正規表現に合う）<TAB>期待<TAB>依頼
+# 形：スキル<TAB>照合（exact＝出たコマンドが、これ 1 つだけ／seq＝出たコマンドが、「 ; 」で区切った並びと、順番も含めて同じ／first＝最初のコマンドが、これで始まる／has＝どれかが、この正規表現に合う）<TAB>期待<TAB>依頼
 # has の期待は、正規表現（検索の言葉に「動画」が付いても、よい、など）。
 # コマンドは、スキルのディレクトリの部分（.../skills/<名前>/）を除いた形で比べる。
 spotify	exact	osascript spotify.applescript volume 50	音量を50にして
@@ -140,3 +140,9 @@ image-edit	exact	vc image remove-background	コピーした画像の背景を消
 image-edit	exact	vc image resize --percent 50	コピーした画像を半分の大きさにして
 image-edit	exact	vc image convert jpg	コピーした画像をJPEGに変換して
 image-edit	exact	vc image rotate 90	コピーした画像を右に回転して
+image-edit	exact	vc image crop square	真四角にくり抜いて
+image-edit	exact	vc image crop square	正方形に切り抜いて
+image-edit	seq	vc image remove-background ; vc image crop square	背景を消して、真四角にして
+image-edit	seq	vc image remove-background ; vc image crop square	コピーした画像の背景を除去して、真四角にくり抜いて
+image-edit	seq	vc image crop right-half ; vc image convert jpg	右半分を切り抜いて、JPEGに変換して
+image-edit	seq	vc image resize --percent 50 ; vc image rotate 90	半分の大きさにして、右に回転して
