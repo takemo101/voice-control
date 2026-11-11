@@ -1,12 +1,12 @@
 ---
 name: image-edit
-description: 撮ったスクリーンショットの画像を加工して保存する：「右半分を切り抜いて」「横幅を800にして」「半分の大きさにして」「右に回転して」「JPEGに変換して」「背景を消して」
+description: 撮ったスクリーンショットや、コピーした画像を加工して保存する：「右半分を切り抜いて」「横幅を800にして」「半分の大きさにして」「右に回転して」「JPEGに変換して」「背景を消して」「コピーした画像を回転して」
 allowed-commands:
   - vc image
-# 撮ったスクリーンショットがあるときだけ、選ばれる
-image: true
+# 撮ったスクリーンショットか、コピーした画像があるときだけ、選ばれる（どちらを加工するかは、コードが決める）
+image: any
 ---
-Edit the screenshot the user just took and save the result as a file. Run EXACTLY ONE command that starts with `vc image`.
+Edit an image and save the result as a file: the screenshot the user just took, or the image they copied (the command chooses which one by itself; you never name it). Run EXACTLY ONE command that starts with `vc image`.
 
 1. Pick the operation from the request and write the whole command:
    - cut out part (切り抜き・トリミング): `vc image crop <part>` where part is ONE of these words:
