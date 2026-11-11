@@ -11,7 +11,14 @@ import VCCore
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ie-\(UUID().uuidString)")
         var store: URL { root.appendingPathComponent("store") }
         var out: URL { root.appendingPathComponent("out") }
-        func editing() -> ImageEditing { ImageEditing(storeDirectory: store, outputDirectory: out, now: Date()) }
+        /// 既定では、**クリップボードは空**（テストが、利用者の実際のクリップボードを、読まないため）。コピーした画像を使うテストは、`ImageEditingFromClipboardTests` が、差し替える。
+        func editing() -> ImageEditing {
+            var e = ImageEditing(storeDirectory: store, outputDirectory: out, now: Date())
+            e.clipboardImage = { .failure(.clipboardEmpty) }
+            e.clipboardMissing = { .clipboardEmpty }
+            e.discardClipboard = {}
+            return e
+        }
         /// 幅 100・高さ 50 の画像を、いまのスクリーンショットにする。
         func putShot() throws {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -123,6 +130,98 @@ extension ImageEditingTests {
         let failed = commands.run(["vc", "image", "rotate", "45"])
         #expect(failed.exitCode == 2 && failed.image == nil && failed.text.hasPrefix("error: "))
         #expect(InternalCommands.name(of: ["vc", "see"]) == .see && InternalCommands.name(of: ["vc", "show"]) == nil && InternalCommands.name(of: ["ls", "find"]) == nil)
+    }
+}
+
+/// `vc image` が、コピーした画像にも使える：**どちらを加工するかは、コードが決める**（`vc see` と同じ。「コピー」とあれば、コピーした画像／なければ、撮ったスクリーンショットが先）。
+@Suite struct ImageEditingFromClipboardTests {
+    /// 幅 40・高さ 20 の画像を、「コピーした画像」にする（撮ったスクリーンショットは、幅 100・高さ 50）。
+    private func editing(_ box: ImageEditingTests.Sandbox, request: String, clipboard: Bool, discards: Collected<Bool>? = nil) throws -> ImageEditing {
+        var e = box.editing()
+        e.request = request
+        let file = box.root.appendingPathComponent("clipboard.png")
+        if clipboard {
+            let context = CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+            try ImageOps.write(context.makeImage()!, to: file, format: .png)
+            e.clipboardImage = { .success(file) }
+            e.clipboardMissing = { nil }
+        } else {
+            e.clipboardImage = { .failure(.clipboardEmpty) }
+            e.clipboardMissing = { .clipboardEmpty }
+        }
+        e.discardClipboard = { discards?.add(true) }
+        return e
+    }
+
+    @Test func saysCopyAndTheCopiedImageIsEdited() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        let discards = Collected<Bool>()
+        let text = try editing(box, request: "コピーした画像の右半分を切り抜いて", clipboard: true, discards: discards).run(["crop", "right-half"]).get()
+        #expect(text.contains("20x20"))   // 40×20 の右半分（撮ったスクリーンショット 100×50 なら、50x50）
+        #expect(discards.values.count == 1)   // 書き出しは、使い終わったら、消す
+        let size = try box.currentSize()
+        #expect(size.width == 20 && size.height == 20)   // 結果が、いまの画像になる：続けて、加工できる
+    }
+
+    @Test func withoutTheWordCopyTheScreenshotComesFirst() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        let discards = Collected<Bool>()
+        let text = try editing(box, request: "右半分を切り抜いて", clipboard: true, discards: discards).run(["crop", "right-half"]).get()
+        #expect(text.contains("50x50") && discards.values.isEmpty)
+    }
+
+    @Test func withoutAScreenshotTheCopiedImageIsUsed() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try FileManager.default.createDirectory(at: box.root, withIntermediateDirectories: true)
+        let text = try editing(box, request: "右半分を切り抜いて", clipboard: true).run(["crop", "right-half"]).get()
+        #expect(text.contains("20x20"))
+    }
+
+    /// 「コピー」と言ったのに、コピーした画像がないときは、スクリーンショットで、代わりにしない（案内が出る）。
+    @Test func saysCopyButNothingIsCopiedIsReportedNotSubstituted() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        guard case let .failure(failure) = try editing(box, request: "コピーした画像を回転して", clipboard: false).run(["rotate", "90"]) else { Issue.record("失敗するはず"); return }
+        #expect(failure.message.contains("クリップボードに画像がありません"))
+        #expect(try box.currentSize().width == 100)   // スクリーンショットは、そのまま
+    }
+
+    /// `--from`：取り先を、はっきり指定する（依頼の文に、「コピー」があっても、なくても、指定が勝つ）。
+    @Test func fromOverridesTheWordsInTheRequest() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        let copied = try editing(box, request: "右半分を切り抜いて", clipboard: true).run(["--from", "clipboard", "crop", "right-half"]).get()
+        #expect(copied.contains("20x20"))   // 「コピー」と言っていなくても、コピーした画像
+        try box.putShot()
+        let shot = try editing(box, request: "コピーした画像の右半分を切り抜いて", clipboard: true).run(["crop", "right-half", "--from", "screenshot"]).get()
+        #expect(shot.contains("50x50"))   // 「コピー」と言っても、スクリーンショット（位置は、どこでもよい）
+    }
+
+    @Test func fromRefusesUnknownSourcesAndMissingValues() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        for arguments in [["--from", "file", "crop", "right-half"], ["--from", "any", "crop", "right-half"], ["crop", "right-half", "--from"]] {
+            guard case let .failure(failure) = try editing(box, request: "x", clipboard: true).run(arguments) else { Issue.record("\(arguments) は、失敗するはず"); return }
+            #expect(failure.exitCode == 2 && failure.message.contains("--from"))
+        }
+        #expect(try box.currentSize().width == 100)   // 何も加工しない
+    }
+
+    /// `--from clipboard` で、コピーした画像がないときは、スクリーンショットで、代わりにしない。
+    @Test func fromClipboardWithNothingCopiedIsReported() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        try box.putShot()
+        guard case let .failure(failure) = try editing(box, request: "x", clipboard: false).run(["--from", "clipboard", "rotate", "90"]) else { Issue.record("失敗するはず"); return }
+        #expect(failure.message.contains("クリップボードに画像がありません"))
+    }
+
+    @Test func neitherImageGivesAHint() throws {
+        let box = ImageEditingTests.Sandbox(); defer { try? FileManager.default.removeItem(at: box.root) }
+        guard case let .failure(failure) = try editing(box, request: "回転して", clipboard: false).run(["rotate", "90"]) else { Issue.record("失敗するはず"); return }
+        #expect(failure.exitCode == 1 && !failure.message.isEmpty)
     }
 }
 

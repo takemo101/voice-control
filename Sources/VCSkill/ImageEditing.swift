@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import VCCore
 
-/// `vc image <操作>`：いまのスクリーンショットを加工して、保存する（言語モデルが呼ぶ。引数の形は、ここで一度だけ検査する）。
+/// `vc image [--from screenshot|clipboard] <操作>`：いまのスクリーンショット（または、コピーした画像：`request` に「コピー」とあるとき）を加工して、保存する（言語モデルが呼ぶ。引数の形は、ここで一度だけ検査する）。
 /// - `crop <部分>`：切り抜き。部分は `left-half`・`right-half`・`top-half`・`bottom-half`・`center`（言語モデルが、数を間違えない形）
 /// - `crop [--left F] [--top F] [--width F] [--height F]`：切り抜き（割合 0〜1。省略は、左上から全体）
 /// - `resize --width N` / `resize --percent N`：サイズ変更（比を保つ）
@@ -26,6 +26,36 @@ struct ImageEditing {
     var storeDirectory: URL = ScreenshotStore.directory
     var outputDirectory: URL = ShotOutput.directory
     var now: Date = Date()
+    /// 依頼の文：**どの画像を加工するかを、コードが決める**（`ImageSource.any`：「コピー」とあればコピーした画像／なければ撮ったスクリーンショットが先／なければコピーした画像。`vc see` と、同じ決め方）。
+    var request = ""
+    /// コピーした画像（なければ、理由）。テストで、偽物に替える。
+    var clipboardImage: () -> Result<URL, ImageSource.Missing> = { ImageSource.clipboard.materialize() }
+    /// コピーした画像が、いま使えないか（使えるなら nil）。
+    var clipboardMissing: () -> ImageSource.Missing? = { ImageSource.clipboard.missing }
+    /// コピーした画像の書き出しを、消す（使い終わったとき）。
+    var discardClipboard: () -> Void = { ImageSource.clipboard.discard() }
+
+    /// 加工する画像のファイルと、使い終わったときの後片付け（コピーした画像の書き出しを、消す）。
+    private func sourceImage(_ from: ImageSource) throws -> (url: URL, cleanup: () -> Void) {
+        let chosen = from.resolve(for: request) { source in
+            switch source {
+            case .clipboard: return clipboardMissing()
+            default: if case let .failure(why) = ScreenshotStore.current(now: now, directory: storeDirectory) { return .screenshot(why) } else { return nil }
+            }
+        }
+        switch chosen {
+        case .clipboard:
+            switch clipboardImage() {
+            case let .success(url): return (url, discardClipboard)
+            case let .failure(missing): throw ToolFailure(exitCode: 1, message: "\(missing)")
+            }
+        default:
+            switch ScreenshotStore.current(now: now, directory: storeDirectory) {
+            case let .success(url): return (url, {})
+            case let .failure(missing): throw ToolFailure(exitCode: 1, message: "\(missing)")
+            }
+        }
+    }
 
     func run(_ arguments: [String]) -> Result<String, ToolFailure> {
         do { return .success(try apply(arguments)) }
@@ -36,14 +66,21 @@ struct ImageEditing {
     private func usageError(_ text: String) -> ToolFailure { ToolFailure(exitCode: 2, message: text) }
 
     private func apply(_ arguments: [String]) throws -> String {
+        // `--from screenshot|clipboard`（加工する画像の取り先。なければ、コードが決める：`ImageSource.any`）。`vc see --from` と同じ
+        var arguments = arguments
+        var from = ImageSource.any
+        if let flag = arguments.firstIndex(of: "--from") {
+            guard flag + 1 < arguments.count, let chosen = ImageSource(rawValue: arguments[flag + 1].lowercased()), chosen != .any else {
+                throw usageError("usage: vc image [--from screenshot|clipboard] <operation>   (the image to edit: the screenshot the user took, or the image the user copied. Without --from, the command decides)")
+            }
+            from = chosen
+            arguments.removeSubrange(flag...(flag + 1))
+        }
         guard let operation = arguments.first else { throw usageError("operation needed: crop | resize | rotate | convert | remove-background") }
         let rest = Array(arguments.dropFirst())
-        let source: URL
-        switch ScreenshotStore.current(now: now, directory: storeDirectory) {
-        case let .success(url): source = url
-        case let .failure(missing): throw ToolFailure(exitCode: 1, message: "\(missing)")
-        }
-        var image = try loadImage(source)
+        let source = try sourceImage(from)
+        defer { source.cleanup() }
+        var image = try loadImage(source.url)
         var format = ImageOps.Format.png
         do {
             switch operation {

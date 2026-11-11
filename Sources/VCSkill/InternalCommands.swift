@@ -67,7 +67,10 @@ struct InternalCommands {
         let arguments = Array(argv.dropFirst(2))
         switch Self.name(of: argv) {
         case .see: return see(arguments)
-        case .image: return images.run(arguments)
+        case .image:
+            var editing = images
+            editing.request = request
+            return editing.run(arguments)
         case .find: return Result { try find(arguments) }.mapError(Self.failure)
         case .pick: return Result { try pick(arguments) }.mapError(Self.failure)
         case nil: return .failure(ToolFailure(exitCode: 2, message: "unknown vc command"))

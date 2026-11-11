@@ -135,3 +135,8 @@ image-edit	exact	vc image remove-background	この画像の背景を削除して
 image-edit	exact	vc image remove-background	人物だけ切り抜いて
 image-edit	exact	vc image remove-background	被写体だけ残して背景を消して
 image-edit	exact	vc image crop right-half	右半分だけ切り抜いて
+image-edit	exact	vc image crop right-half	コピーした画像の右半分を切り抜いて
+image-edit	exact	vc image remove-background	コピーした画像の背景を消して
+image-edit	exact	vc image resize --percent 50	コピーした画像を半分の大きさにして
+image-edit	exact	vc image convert jpg	コピーした画像をJPEGに変換して
+image-edit	exact	vc image rotate 90	コピーした画像を右に回転して
