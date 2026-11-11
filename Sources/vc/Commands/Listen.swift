@@ -170,6 +170,8 @@ struct ListenCommand: Command {
     /// 1 回の発話の処理：スキル（`SkillRunner`＋`HUDReporter`）。当てはまるスキルがなく、既定スキルも使えなければ、実行しない（`HUDReporter` が、そう出す）。確認の返事は、`next` で待つ。
     private static func utteranceHandler(_ context: CommandContext, jev: TinyJev, chip: String) -> UtteranceHandler {
         let confirmation = Confirmation(scorer: jev)
+        let speakResults = context.currentSettings().speakResults ?? false   // 結果の読み上げ（`vc speak on`）
+        SaySpeaker.shared.prefer(context.currentSettings().voice)   // 読み上げの声（なければ、自動）
         return { utterance, token, next, _ in
             do {
                 guard !utterance.isEmpty else {
@@ -180,7 +182,7 @@ struct ListenCommand: Command {
                 let skills = context.loadSkills()
                 skills.reportProblems()
                 let skillRunner = SkillRunner(selection: .resolve(skills: skills.enabled, scorer: jev, gate: context.gate), dryRun: context.options.dryRun, cancel: token, engine: context.engine, scorer: context.scorerProvider(loaded: jev))
-                let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun, isSuperseded: { token.isSuperseded })
+                let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun, isSuperseded: { token.isSuperseded }, speakResults: speakResults)
                 let planner = context.makePlanner(skills: skills.enabled)
                 _ = try await PlanRunner(runner: skillRunner, planner: planner, dryRun: context.options.dryRun, cancel: token).run(utterance, reporter: reporter, confirm: {
                     try await Self.askByPanelOrVoice(confirmation: confirmation, next: next)

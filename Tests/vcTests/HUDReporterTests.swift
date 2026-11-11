@@ -7,12 +7,32 @@ import VCSkill
 @Suite struct HUDReporterTests {
     private struct Shown { let content: HUDContent; let hideAfter: TimeInterval? }
 
-    private func reporter(dryRun: Bool = false) -> (reporter: HUDReporter, shown: Collected<Shown>, spoken: Collected<String>, out: Collected<String>) {
+    private func reporter(dryRun: Bool = false, speakResults: Bool = false) -> (reporter: HUDReporter, shown: Collected<Shown>, spoken: Collected<String>, out: Collected<String>) {
         let shown = Collected<Shown>(), spoken = Collected<String>(), out = Collected<String>()
         let terminal = TerminalReporter(layout: .voice, dryRun: dryRun, out: { out.add(plain($0)) }, err: { _ in })
         let reporter = HUDReporter(chip: "shift", utterance: "テスト", dryRun: dryRun, terminal: terminal,
-                                   present: { shown.add(Shown(content: $0, hideAfter: $1)) }, speak: { spoken.add($0) })
+                                   present: { shown.add(Shown(content: $0, hideAfter: $1)) }, speak: { spoken.add($0) }, speakResults: speakResults)
         return (reporter, shown, spoken, out)
+    }
+
+    /// 結果の読み上げ（`vc speak on`）：短い「完了：〇〇」だけ、読む。切っていれば、読まない（確認の問いかけは、別）。
+    @Test func resultsAreSpokenOnlyWhenTheSettingIsOnAndTheReplyIsShort() {
+        let events: [RunEvent] = [.matched(sample, probability: 0.9, elapsed: 0), .started, .reply("done: 音量を五十にしました", commandCount: 1, elapsed: 0.1)]
+        let on = reporter(speakResults: true); events.forEach(on.reporter.report)
+        #expect(on.spoken.values == ["音量を五十にしました"])
+        let off = reporter(); events.forEach(off.reporter.report)
+        #expect(off.spoken.values.isEmpty)   // 読み上げない（確認の問いかけは、この流れにない）
+        let long = reporter(speakResults: true)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .started, .reply("# 見出し\n長い文章……", commandCount: 0, elapsed: 0.1)].forEach(long.reporter.report)
+        #expect(long.spoken.values.isEmpty)   // ウィンドウに出す長い文章は、読まない
+        let dry = reporter(dryRun: true, speakResults: true); events.forEach(dry.reporter.report)
+        #expect(dry.spoken.values.isEmpty)    // 実行していないときは、読まない
+    }
+
+    @Test func aFailureIsSpokenBriefly() {
+        let r = reporter(speakResults: true)
+        [RunEvent.matched(sample, probability: 0.9, elapsed: 0), .started, .failed("Spotify が応答しません。もう一度試してください")].forEach(r.reporter.report)
+        #expect(r.spoken.values == ["失敗しました。Spotify が応答しません"])
     }
 
     /// 新しい発話に取って代わられて中断したときは、「取りやめました」を出さない（新しい発話の表示を、上書きしない）。Esc の取りやめは、出す。
