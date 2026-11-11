@@ -1,6 +1,6 @@
 ---
 name: clipboard-note
-description: コピーした文章（テキスト）に、言われたとおりの処理（整理・編集・要約・解説など）をして、メモで開く
+description: コピーした文章（テキスト）に、言われたとおりの処理（整理・編集・要約・翻訳・解説など）をして、メモで開く
 allowed-commands:
   - pbpaste
 result: markdown-window
