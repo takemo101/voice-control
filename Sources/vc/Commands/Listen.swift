@@ -113,6 +113,7 @@ struct ListenCommand: Command {
                     if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
                     VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate)
                 })
+            loop.uncertainty = Self.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
             handsFree.onHandsFree = { tag in
                 HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
             }
@@ -135,6 +136,37 @@ struct ListenCommand: Command {
         } catch { fail("ホットキーを登録できません: \(error)") }
     }
 
+    /// 確認の答え：パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）。
+    @MainActor private static func askByPanelOrVoice(confirmation: Confirmation, next: @escaping NextUtterance) async throws -> Bool {
+        let panel = PanelAnswer()
+        HUD.shared.answers.set { panel.resolve($0) }
+        defer { HUD.shared.answers.set(nil) }
+        return try await ConfirmationRace.decide(panel: panel) {
+            guard let answer = try await next() else { return false }
+            return try confirmation.isYes(answer)
+        }
+    }
+
+    /// **聞き取りに自信がないとき**の確認（`vc recheck`）：聞こえた文と確信度を出して、実行するかを聞く。声で頼む以外（音声入力）は、確認しない。
+    private static func uncertainty(_ context: CommandContext, jev: TinyJev, chips: [String: String], fallbackChip: String) -> Uncertainty? {
+        guard context.currentSettings().recheck ?? true else { return nil }
+        let confirmation = Confirmation(scorer: jev)
+        return Uncertainty(threshold: Recheck.threshold) { text, confidence, _, next, tag in
+            if tag == VoiceMode.dictate { return true }
+            let chip = chips[tag] ?? fallbackChip
+            say("聞き間違いかもしれません。\(text)でよいですか")
+            var content = HUDContent(phase: .confirm, title: "聞き間違いかもしれません", hint: "確信度 \(Int((confidence * 100).rounded()))%。この内容で実行しますか？" + ConfirmGuide.howToAnswer, chip: chip, heard: text)
+            content.choices = true
+            HUD.shared.show(content)
+            notice("聞き取りに自信がありません（\(Int((confidence * 100).rounded()))%）。確認待ち：パネルの\(ConfirmGuide.howToAnswer)")
+            do {
+                let yes = try await askByPanelOrVoice(confirmation: confirmation, next: next)
+                if !yes { HUD.shared.show(HUDContent(phase: .info, title: "やめました", chip: chip), hideAfter: 2.5) }
+                return yes
+            } catch { return false }
+        }
+    }
+
     /// 1 回の発話の処理：スキル（`SkillRunner`＋`HUDReporter`）。当てはまるスキルがなく、既定スキルも使えなければ、実行しない（`HUDReporter` が、そう出す）。確認の返事は、`next` で待つ。
     private static func utteranceHandler(_ context: CommandContext, jev: TinyJev, chip: String) -> UtteranceHandler {
         let confirmation = Confirmation(scorer: jev)
@@ -151,14 +183,7 @@ struct ListenCommand: Command {
                 let reporter = HUDReporter(chip: chip, utterance: utterance, dryRun: context.options.dryRun, isSuperseded: { token.isSuperseded })
                 let planner = context.makePlanner(skills: skills.enabled)
                 _ = try await PlanRunner(runner: skillRunner, planner: planner, dryRun: context.options.dryRun, cancel: token).run(utterance, reporter: reporter, confirm: {
-                    // パネルのボタンと、声の返事の、先に答えたほうが決まる（もう一方は、取りやめる）
-                    let panel = PanelAnswer()
-                    HUD.shared.answers.set { panel.resolve($0) }
-                    defer { HUD.shared.answers.set(nil) }
-                    return try await ConfirmationRace.decide(panel: panel) {
-                        guard let answer = try await next() else { return false }
-                        return try confirmation.isYes(answer)
-                    }
+                    try await Self.askByPanelOrVoice(confirmation: confirmation, next: next)
                 })
             } catch {
                 if token.isSuperseded { return }   // 新しい発話に、取って代わられた：何も出さない

@@ -8,6 +8,28 @@ import VCCore
 /// 音声ファイルを文字にする。実装は `FileTranscriber`。
 public protocol Transcribing: Sendable {
     func transcribe(file url: URL) async throws -> String
+    /// 文字と、**認識の確信度**（0〜1。分からなければ nil）。確信度のない実装（Whisper など）は、既定の実装（nil）のまま。
+    func transcribeWithConfidence(file url: URL) async throws -> Transcription
+}
+
+extension Transcribing {
+    public func transcribeWithConfidence(file url: URL) async throws -> Transcription {
+        Transcription(text: try await transcribe(file: url), confidence: nil)
+    }
+}
+
+/// 認識の結果：文字と、確信度（`Apple の SpeechTranscriber` が付ける。文字ごとの確信度を、文字数で重みづけて平均した値）。
+public struct Transcription: Sendable, Equatable {
+    public let text: String
+    public let confidence: Double?
+    public init(text: String, confidence: Double?) { self.text = text; self.confidence = confidence }
+
+    /// 文字ごとの確信度（文字数と確信度）の、文字数で重みづけた平均。何もなければ nil。
+    public static func meanConfidence(_ runs: [(characters: Int, confidence: Double)]) -> Double? {
+        let total = runs.reduce(0) { $0 + $1.characters }
+        guard total > 0 else { return nil }
+        return runs.reduce(0.0) { $0 + $1.confidence * Double($1.characters) } / Double(total)
+    }
 }
 
 extension FileTranscriber: Transcribing {}
@@ -68,6 +90,15 @@ public typealias NextUtterance = @MainActor @Sendable () async throws -> String?
 /// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。`vc listen --hotkey` が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
 public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Void
 
+/// **聞き取りに自信がないとき**（認識の確信度が `threshold` 未満）、実行の前に、聞こえた文を確かめる（`vc recheck`。実験）。
+/// `confirm` が false を返したら、その発話は、処理しない。声で頼む以外（音声入力など）は、`confirm` の側で、true を返してよい。
+public struct Uncertainty: Sendable {
+    public typealias Confirm = @MainActor @Sendable (_ text: String, _ confidence: Double, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Bool
+    public let threshold: Double
+    public let confirm: Confirm
+    public init(threshold: Double, confirm: @escaping Confirm) { self.threshold = threshold; self.confirm = confirm }
+}
+
 /// 録音を始めたトリガーを、見分けられるトリガー（複数のトリガーを 1 つにまとめた `ModeTrigger`）。録音の間と、離した直後は、その印を返す。
 @MainActor public protocol TaggedTrigger: PushToTalkTrigger {
     var tag: String { get }
@@ -118,6 +149,8 @@ public final class VoiceLoop {
     private let rearmDelays: [TimeInterval]
     private let activity = VoiceActivity()
     private let queue = VoiceInputQueue()
+    /// 自信がないときの確認（なければ、確認しない）。`run` の前に、決める。
+    public var uncertainty: Uncertainty?
 
     /// - `onEvent`：表示のための出来事（`VoiceLoopEvent`）。
     public convenience init(trigger: PushToTalkTrigger, escape: EscapeSource, recorder: Recording, transcriber: Transcribing,
@@ -222,8 +255,15 @@ public final class VoiceLoop {
 
     @MainActor private func process(_ file: URL, _ token: CancelToken, _ tag: String) async {
         do {
-            guard let utterance = try await transcribe(file, token, tag) else { if !token.isSuperseded { emit(.recognitionCancelled, tag) }; return }
-            await handler(utterance, token, { [self] in try await nextUtterance(token, tag) }, tag)
+            guard let heard = try await transcribe(file, token, tag) else { if !token.isSuperseded { emit(.recognitionCancelled, tag) }; return }
+            let next: NextUtterance = { [self] in try await nextUtterance(token, tag) }
+            // 聞き取りに自信がない：実行の前に、聞こえた文を確かめる（空の文は、確かめない：「聞き取れなかった」が、先に出る）
+            if let uncertainty, let confidence = heard.confidence, confidence < uncertainty.threshold, !heard.text.isEmpty {
+                let proceed = await uncertainty.confirm(heard.text, confidence, token, next, tag)
+                if token.isCancelled || token.isSuperseded { return }
+                if !proceed { return }
+            }
+            await handler(heard.text, token, next, tag)
         } catch {
             if token.isSuperseded { return }   // 新しい発話に、取って代わられた：何も出さない（新しい発話の表示を、上書きしない）
             emit(token.isCancelled || error is CancellationError ? .recognitionCancelled : .recognitionFailed(error), tag)
@@ -231,15 +271,15 @@ public final class VoiceLoop {
     }
 
     /// 列から取り出した音声を、文字にする。取りやめられていれば nil。
-    @MainActor private func transcribe(_ file: URL, _ token: CancelToken, _ tag: String) async throws -> String? {
+    @MainActor private func transcribe(_ file: URL, _ token: CancelToken, _ tag: String) async throws -> Transcription? {
         activity.consumedAudio()
         // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
         defer { try? FileManager.default.removeItem(at: file) }
         if token.isCancelled { return nil }
-        let text = try await transcriber.transcribe(file: file)
+        let heard = try await transcriber.transcribeWithConfidence(file: file)
         if token.isCancelled { return nil }
-        emit(.recognized(text), tag)
-        return text
+        emit(.recognized(heard.text), tag)
+        return heard
     }
 
     /// 次の発話（確認の返事にも使う）。取りやめられたら nil。
@@ -250,7 +290,7 @@ public final class VoiceLoop {
         while true {
             switch await queue.next() {
             case .cancel: if token.isCancelled || Task.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる。この待ち自体が取りやめられたら（ボタンが先に答えた）、やめる
-            case let .audio(file): return try await transcribe(file, token, tags.pop())
+            case let .audio(file): return try await transcribe(file, token, tags.pop())?.text   // 確認の返事は、確信度を見ない
             }
         }
     }

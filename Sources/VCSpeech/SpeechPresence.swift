@@ -62,4 +62,9 @@ public struct GatedTranscriber: Transcribing {
         guard try SpeechPresence.analyze(file: url).hasSpeech else { return "" }
         return try await base.transcribe(file: url)
     }
+
+    public func transcribeWithConfidence(file url: URL) async throws -> Transcription {
+        guard try SpeechPresence.analyze(file: url).hasSpeech else { return Transcription(text: "", confidence: nil) }
+        return try await base.transcribeWithConfidence(file: url)
+    }
 }

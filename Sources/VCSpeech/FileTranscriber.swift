@@ -51,7 +51,10 @@ public struct FileTranscriber: Sendable {
     }
 
     /// 確定した認識結果をつないだ文字。何も聞き取れなければ空。
-    public func transcribe(file url: URL) async throws -> String {
+    public func transcribe(file url: URL) async throws -> String { try await transcribeWithConfidence(file: url).text }
+
+    /// 文字と、確信度（文字ごとの確信度の、文字数で重みづけた平均）。
+    public func transcribeWithConfidence(file url: URL) async throws -> Transcription {
         let wanted = locale.identifier(.bcp47)
         func open() throws -> AVAudioFile {
             do { return try AVAudioFile(forReading: url) } catch { throw TranscriptionError.unreadableAudio(url.lastPathComponent) }
@@ -63,8 +66,8 @@ public struct FileTranscriber: Sendable {
             Self.prepared.insert(wanted)
         }
         // 認識が止まったときは、1 回だけ、やり直す（新しい認識器で。2 回目も止まれば、止まったことを伝える）
-        func attempt(_ file: AVAudioFile) async throws -> String {
-            let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
+        func attempt(_ file: AVAudioFile) async throws -> Transcription {
+            let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [.transcriptionConfidence])
             return try await withDeadline(seconds: seconds) { try await Self.analyze(file, with: transcriber) }
         }
         do {
@@ -98,12 +101,14 @@ public struct FileTranscriber: Sendable {
     }
 
     /// 1 回分の録音を、文字にする。取りやめられたら、認識を止める（止まったままで応えなくても、呼び出し側は、待たない）。
-    private static func analyze(_ file: AVAudioFile, with transcriber: SpeechTranscriber) async throws -> String {
+    private static func analyze(_ file: AVAudioFile, with transcriber: SpeechTranscriber) async throws -> Transcription {
         let analyzer = SpeechAnalyzer(modules: [transcriber])
-        let reader = Task { () -> String in
-            var text = ""
-            for try await result in transcriber.results where result.isFinal { text += String(result.text.characters) }
-            return text
+        let reader = Task { () -> Transcription in
+            var all = AttributedString()
+            for try await result in transcriber.results where result.isFinal { all += result.text }
+            var runs: [(characters: Int, confidence: Double)] = []
+            for run in all.runs { if let confidence = run.transcriptionConfidence { runs.append((all[run.range].characters.count, confidence)) } }
+            return Transcription(text: String(all.characters), confidence: Transcription.meanConfidence(runs))
         }
         return try await withTaskCancellationHandler {
             do {
@@ -113,7 +118,8 @@ public struct FileTranscriber: Sendable {
                     await analyzer.cancelAndFinishNow()
                 }
                 // 文末の句読点は、操作の判断に要らない（認識は「…して。」のように付ける）。
-                return try await reader.value.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "。．.！？!?、")))
+                let result = try await reader.value
+                return Transcription(text: result.text.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "。．.！？!?、"))), confidence: result.confidence)
             } catch {
                 reader.cancel()
                 if error is CancellationError { throw error }
