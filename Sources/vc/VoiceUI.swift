@@ -27,19 +27,24 @@ enum VoiceUI {
     static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false) {
         switch event {
         case .recordingStarted:
+            LiveCaption.shared.begin()   // 録音中の文字（途中経過）
             HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）", chip: chip))
         case .recordingDiscarded:
+            LiveCaption.shared.end()
             muter.restore()
             print("  " + Style.yellow("録音を取りやめました（Esc）"))
             HUD.shared.show(HUDContent(phase: .info, title: "録音を取りやめました", chip: chip), hideAfter: 1.5)
         case .recognizing:
+            LiveCaption.shared.end()
             muter.restore()   // 認識の合図（Tink）を、聞こえるように、先に戻す
             NSSound(named: "Tink")?.play()
             HUD.shared.show(HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip))
         case .recordingEmpty:
+            LiveCaption.shared.end()
             muter.restore()
             HUD.shared.hide()
         case let .recordingFailed(error):
+            LiveCaption.shared.end()
             muter.restore()
             print("録音に失敗: \(error)")
             HUD.shared.show(HUDContent(phase: .failure, title: "録音に失敗しました", reply: "\(error)"), hideAfter: 4)

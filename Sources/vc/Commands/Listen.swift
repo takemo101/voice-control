@@ -100,6 +100,8 @@ struct ListenCommand: Command {
             let paste = ClipboardPaste()
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
+            LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（`vc caption`）
+            session.setBufferHandler { LiveCaption.shared.feed($0) }
             let loop = VoiceLoop(
                 trigger: triggers.trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
                 handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in

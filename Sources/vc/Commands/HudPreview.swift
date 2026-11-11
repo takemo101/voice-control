@@ -4,9 +4,9 @@ import Foundation
 struct HudPreviewCommand: Command {
     static let info = CommandInfo(
         name: "hud-preview", group: .evaluation, summary: "画面の上の表示の見本を出す（マイク・実行なし。見た目の確認用）",
-        usage: ["vc hud-preview [--stage recording|working|confirm|image|image-confirm|success|failure|denied] [--image <ファイル>] [--seconds <秒>]"],
+        usage: ["vc hud-preview [--stage recording|caption|working|confirm|image|image-confirm|success|failure|denied] [--image <ファイル>] [--seconds <秒>]"],
         details: ["--stage がなければ、順に、すべて出す。1 つの段階を出す秒数は、既定 3。内容は、作り物の見本。"],
-        options: [("--stage <名前>", "この段階だけを出す（recording・thinking・working・confirm・image・image-confirm・success・failure・denied・long）"), ("--image <ファイル>", "image 段階に出す画像（なければ、作り物の絵）"), ("--seconds <秒>", "1 段階あたりの秒数（既定 3）")],
+        options: [("--stage <名前>", "この段階だけを出す（recording・caption・thinking・working・confirm・image・image-confirm・success・failure・denied・long）"), ("--image <ファイル>", "image 段階に出す画像（なければ、作り物の絵）"), ("--seconds <秒>", "1 段階あたりの秒数（既定 3）")],
         examples: ["vc hud-preview", "vc hud-preview --stage success --seconds 8"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -30,6 +30,7 @@ struct HudPreviewCommand: Command {
         func sample(_ stage: String) -> HUDContent? {
             switch stage {
             case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
+            case "caption": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
             case "thinking": return HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip)
             case "working":
                 var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "音量を50にして", skill: "spotify")
@@ -75,12 +76,18 @@ struct HudPreviewCommand: Command {
             default: return nil
             }
         }
-        let stages = ["recording", "thinking", "working", "confirm", "image", "image-confirm", "success", "failure", "denied", "long"]
+        let stages = ["recording", "caption", "thinking", "working", "confirm", "image", "image-confirm", "success", "failure", "denied", "long"]
         if let only { guard sample(only) != nil else { usageError("hud-preview", "知らない --stage: \(only)（\(stages.joined(separator: "・"))）") } }
         for (i, stage) in (only.map { [$0] } ?? stages).enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * seconds) {
                 HUD.shared.show(sample(stage)!)
                 // 確認のボタン：押した答えを、端末へ出す（見た目と、クリックの確認用）
+                // 録音中の文字（途中経過）の見本：文字が、少しずつ増える
+                if stage == "caption" {
+                    let words = ["コーデックスに", "この画面を", "見せて、", "エラーの意味を", "聞いて"]
+                    var text = ""
+                    for (k, word) in words.enumerated() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 + Double(k) * 0.5) { text += word; HUD.shared.pushLiveText(text) } }
+                }
                 if stage == "confirm" { HUD.shared.answers.set { print("答え: " + ($0 ? "実行する" : "やめる")); fflush(stdout) } }
             }
         }

@@ -47,6 +47,11 @@ import SwiftUI
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { model.waveform.push(level) } }
     }
 
+    /// 録音中に聞こえている文字（途中経過）を出す（録音のカプセルの 1 行）。録音の段階でなければ、何もしない。どのスレッドから呼んでもよい。
+    nonisolated func pushLiveText(_ text: String?) {
+        DispatchQueue.main.async { [self] in MainActor.assumeIsolated { if previousPhase == .recording || text == nil { model.liveText = text } } }
+    }
+
     nonisolated func hide() {
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { fadeOut() } }
     }
@@ -58,7 +63,8 @@ import SwiftUI
         guard let panel, let host else { return }
         pendingHide?.cancel()
         generation += 1
-        if content.phase == .recording, previousPhase != .recording { model.beginRecording() }
+        if content.phase == .recording, previousPhase != .recording { model.beginRecording(); model.liveText = nil }
+        if content.phase != .recording { model.liveText = nil }
         previousPhase = content.phase
         showingChoices = content.choices
         bodyOverflows = false

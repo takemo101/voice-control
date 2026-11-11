@@ -84,6 +84,8 @@ struct DictateCommand: Command {
             let triggers = VoiceTriggers.make([(VoiceMode.dictate, try makeTrigger(spec))], handsFreeEnabled: context.currentSettings().handsFree ?? true)
             let handsFree = triggers.handsFree
             let session = RecordingSession()
+            LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（`vc caption`）
+            session.setBufferHandler { LiveCaption.shared.feed($0) }
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
             let paste = ClipboardPaste()
             let loop = VoiceLoop(
