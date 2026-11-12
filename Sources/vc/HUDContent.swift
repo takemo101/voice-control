@@ -24,6 +24,8 @@ struct HUDContent: Sendable {
     /// 使うスキルの名前（タイトルの横のバッジ）。
     var skill: String?
     var steps: [Step] = []
+    /// 録音中の文字（途中経過）の欄を、最初から出す（`vc caption` が on のとき：欄の高さを、決めておく。文字が来るまでは、案内を出す）。
+    var captionSlot = false
     /// 使う画像（画像を使うスキルのとき：サムネイルと、大きさ・外へ送るか）。
     var image: HUDImage?
     /// 言語モデルの返事。

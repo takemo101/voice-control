@@ -25,7 +25,7 @@ private final class Seen: @unchecked Sendable {
         let file = try speechFile("コーデックスにこの画面を見せて、エラーの意味を聞いて")
         defer { try? FileManager.default.removeItem(at: file) }
         let seen = Seen()
-        let captioner = LiveCaptioner { seen.add($0) }
+        let captioner = LiveCaptioner { seen.add($0.text) }
         captioner.start()
         var waited = 0
         while !captioner.isReady && waited < 400 { try await Task.sleep(nanoseconds: 50_000_000); waited += 1 }   // 準備を待つ（最大 20 秒）

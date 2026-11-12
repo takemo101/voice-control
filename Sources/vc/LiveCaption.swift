@@ -14,12 +14,15 @@ final class LiveCaption: @unchecked Sendable {
     /// 使うか（設定 `liveCaption`。聞き始める前に、決める）。
     func enable(_ on: Bool) { lock.withLock { isEnabled = on } }
 
+    /// いま使っているか（録音のカプセルに、文字の欄を出すか）。
+    var enabled: Bool { lock.withLock { isEnabled } }
+
     /// 録音の始まり：認識を始める（前のものが残っていれば、終える）。
     func begin() {
         let (enabled, old): (Bool, LiveCaptioner?) = lock.withLock { (isEnabled, captioner) }
         old?.finish()
         guard enabled else { lock.withLock { captioner = nil }; return }
-        let next = LiveCaptioner { text in HUD.shared.pushLiveText(text) }
+        let next = LiveCaptioner { caption in HUD.shared.pushLiveText(LiveCaptionText(confirmed: caption.confirmed, tentative: caption.tentative)) }
         lock.withLock { captioner = next }
         next.start()
     }
