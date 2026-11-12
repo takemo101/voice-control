@@ -48,7 +48,7 @@ import SwiftUI
     }
 
     /// 録音中に聞こえている文字（途中経過）を出す（録音のカプセルの 1 行）。録音の段階でなければ、何もしない。どのスレッドから呼んでもよい。
-    nonisolated func pushLiveText(_ text: String?) {
+    nonisolated func pushLiveText(_ text: LiveCaptionText?) {
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { if previousPhase == .recording || text == nil { model.liveText = text } } }
     }
 

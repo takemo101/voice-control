@@ -30,7 +30,7 @@ struct HudPreviewCommand: Command {
         func sample(_ stage: String) -> HUDContent? {
             switch stage {
             case "recording": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
-            case "caption": return HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
+            case "caption": return { var c = HUDContent(phase: .recording, title: "録音中", hint: "離すと、認識して実行します（Esc で取りやめ）", chip: chip); c.captionSlot = true; return c }()
             case "thinking": return HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip)
             case "working":
                 var c = HUDContent(phase: .working, title: "実行中", chip: chip, heard: "音量を50にして", skill: "spotify")
@@ -84,9 +84,15 @@ struct HudPreviewCommand: Command {
                 // 確認のボタン：押した答えを、端末へ出す（見た目と、クリックの確認用）
                 // 録音中の文字（途中経過）の見本：文字が、少しずつ増える
                 if stage == "caption" {
-                    let words = ["コーデックスに", "この画面を", "見せて、", "エラーの意味を", "聞いて"]
-                    var text = ""
-                    for (k, word) in words.enumerated() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 + Double(k) * 0.5) { text += word; HUD.shared.pushLiveText(text) } }
+                    // 確定した文字は、だんだん増え、末尾は、確定前（薄い）。最後は、2 行を超えて、先頭が切れる
+                    let words = ["コーデックスに", "この画面を", "見せて、", "エラーの意味を", "聞いて。", "それから、", "背景を除去して、", "真四角に", "くり抜いて"]
+                    var confirmed = ""
+                    for (k, word) in words.enumerated() {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8 + Double(k) * 0.55) {
+                            HUD.shared.pushLiveText(LiveCaptionText(confirmed: confirmed, tentative: word))   // 確定前
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { confirmed += word; HUD.shared.pushLiveText(LiveCaptionText(confirmed: confirmed, tentative: "")) }   // 確定
+                        }
+                    }
                 }
                 if stage == "confirm" { HUD.shared.answers.set { print("答え: " + ($0 ? "実行する" : "やめる")); fflush(stdout) } }
             }

@@ -13,7 +13,7 @@ import SwiftUI
     var recordingStart = Date()
     var waveform = WaveformState()
     /// 録音中に聞こえている文字（途中経過。`LiveCaptioner`）。なければ、案内の文を出す。録音の段階だけ。
-    @Published var liveText: String?
+    @Published var liveText: LiveCaptionText?
     /// 本文が、高さの上限を超えたか（超えたら、スクロールのために、クリックを受ける）。
     var onBodyOverflow: ((Bool) -> Void)?
 
@@ -135,12 +135,12 @@ private struct CompactCard: View {
     @ObservedObject var model: HUDModel
 
     var body: some View {
-        GlassCard(tint: Palette.tint(content), radius: 30, width: hudCompactWidth) {
-            VStack(alignment: .leading, spacing: 6) {
+        let captioned = content.phase == .recording && content.captionSlot   // 録音中の文字の欄を出す（`vc caption`）
+        GlassCard(tint: Palette.tint(content), radius: captioned ? 28 : 30, width: captioned ? hudCardWidth : hudCompactWidth) {
+            VStack(alignment: .leading, spacing: captioned ? 12 : 6) {
                 if content.phase == .recording { recording } else { thinking }
-                if let live = model.liveText, content.phase == .recording, !live.isEmpty {
-                    // 録音中に聞こえている文字：新しい言葉が見えるように、先頭を切る
-                    Text("“\(live)”").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.9)).lineLimit(1).truncationMode(.head)
+                if captioned {
+                    CaptionPlate(live: model.liveText, hint: content.hint)
                 } else if let hint = content.hint {
                     Text(hint).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).lineLimit(1).truncationMode(.tail)
                 }
@@ -172,6 +172,46 @@ private struct CompactCard: View {
             Spacer(minLength: 4)
             if let chip = content.chip { Pill(text: chip) }
         }
+    }
+}
+
+/// 録音中に聞こえている文字の欄（字幕のような板）：確定した文字は白く、確定前の文字は薄く。末尾に、点滅するカーソル。2 行まで（新しい言葉が見えるように、先頭から切る）。
+/// 文字が来るまでは、案内の文を、薄く出す。欄の高さは、いつも 2 行分（文字が増えても、パネルの大きさが、変わらない）。
+private struct CaptionPlate: View {
+    let live: LiveCaptionText?
+    let hint: String?
+    /// 1 行に収まる文字数の目安（欄の幅 約 400pt・15.5pt の字）。2 行分。
+    private let maxCharacters = 50
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        HStack(alignment: .top, spacing: 10) {
+            Capsule().fill(LinearGradient(colors: [Palette.rec2, Palette.rec1], startPoint: .top, endPoint: .bottom)).frame(width: 3)
+                .opacity(live?.isEmpty == false ? 0.95 : 0.35)
+            if let live, !live.isEmpty {
+                TimelineView(.periodic(from: .now, by: 0.5)) { tl in
+                    let caretOn = Int(tl.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
+                    captionText(live, caretOn: caretOn)
+                }
+            } else {
+                Text(hint ?? "話してください…").font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
+        .background(shape.fill(LinearGradient(colors: [Palette.rec1.opacity(0.10), .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.7))
+        .animation(.easeOut(duration: 0.18), value: live)
+    }
+
+    private func captionText(_ live: LiveCaptionText, caretOn: Bool) -> some View {
+        let t = live.tail(maxCharacters: maxCharacters)
+        let text = Text(t.truncated ? "…" : "").foregroundStyle(Color.white.opacity(0.4))
+            + Text(t.confirmed).foregroundStyle(Color.white)
+            + Text(t.tentative).foregroundStyle(Color.white.opacity(0.55))
+            + Text("▎").foregroundStyle(caretOn ? Palette.rec2 : Color.clear)
+        return text.font(.system(size: 15.5, weight: .medium)).lineSpacing(4).lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

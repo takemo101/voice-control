@@ -6,8 +6,16 @@ import Speech
 /// 最終の文字は、いつもどおり、録音したファイルを認識した結果（`FileTranscriber`）：この認識は、**表示だけ**（結果・実行には使わない）。失敗しても、何も起きない（表示が出ないだけ）。音声は、この Mac の外へ出さない。
 /// `@unchecked Sendable` の理由：可変な状態は、すべて `lock` で守る。`feed` は、音声のスレッドから呼ばれる。
 public final class LiveCaptioner: @unchecked Sendable {
+    /// いま聞こえている文字：**確定した文字**と、**確定前の文字**（あとで変わりうる）。
+    public struct Caption: Sendable, Equatable {
+        public let confirmed: String
+        public let tentative: String
+        public init(confirmed: String, tentative: String) { self.confirmed = confirmed; self.tentative = tentative }
+        public var text: String { confirmed + tentative }
+    }
+
     private let locale: Locale
-    private let onText: @Sendable (String) -> Void
+    private let onText: @Sendable (Caption) -> Void
     private let lock = NSLock()
     private var continuation: AsyncStream<AnalyzerInput>.Continuation?
     private var converter: AVAudioConverter?
@@ -16,8 +24,8 @@ public final class LiveCaptioner: @unchecked Sendable {
     private var task: Task<Void, Never>?
     private var finished = false
 
-    /// `onText`：いまの文字（確定した文字 + 確定前の文字）。どのスレッドからでも呼ばれる。
-    public init(locale: Locale = Locale(identifier: "ja-JP"), onText: @escaping @Sendable (String) -> Void) {
+    /// `onText`：いまの文字（確定した文字と、確定前の文字）。どのスレッドからでも呼ばれる。
+    public init(locale: Locale = Locale(identifier: "ja-JP"), onText: @escaping @Sendable (Caption) -> Void) {
         self.locale = locale
         self.onText = onText
     }
@@ -45,7 +53,7 @@ public final class LiveCaptioner: @unchecked Sendable {
             do {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters)
-                    if result.isFinal { confirmed += text; onText(confirmed) } else { onText(confirmed + text) }
+                    if result.isFinal { confirmed += text; onText(Caption(confirmed: confirmed, tentative: "")) } else { onText(Caption(confirmed: confirmed, tentative: text)) }
                 }
             } catch {}   // 表示だけの認識：止まったら、表示が止まるだけ
         }

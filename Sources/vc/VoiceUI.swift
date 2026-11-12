@@ -28,7 +28,9 @@ enum VoiceUI {
         switch event {
         case .recordingStarted:
             LiveCaption.shared.begin()   // 録音中の文字（途中経過）
-            HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）", chip: chip))
+            var content = HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）", chip: chip)
+            content.captionSlot = LiveCaption.shared.enabled   // 録音中の文字の欄（`vc caption`）
+            HUD.shared.show(content)
         case .recordingDiscarded:
             LiveCaption.shared.end()
             muter.restore()
