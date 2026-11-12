@@ -9,12 +9,12 @@ import Testing
 
     private var kyoko: SpeechVoice.Info { voice("com.apple.voice.compact.ja-JP.Kyoko", "Kyoko", 1) }
     private var eddy: SpeechVoice.Info { voice("com.apple.eloquence.ja-JP.Eddy", "Eddy", 1) }
-    private var oren: SpeechVoice.Info { voice("com.apple.voice.premium.ja-JP.Oren", "O-ren", 3) }
-    private var hattori: SpeechVoice.Info { voice("com.apple.voice.enhanced.ja-JP.Hattori", "Hattori", 2) }
+    private var otoya: SpeechVoice.Info { voice("com.apple.voice.premium.ja-JP.Otoya", "Otoya", 3) }
+    private var kyokoEnhanced: SpeechVoice.Info { voice("com.apple.voice.enhanced.ja-JP.Kyoko", "Kyoko（拡張）", 2) }
 
     @Test func theHighestQualityVoiceWins() {
-        #expect(SpeechVoice.best([kyoko, hattori, oren])?.name == "O-ren")
-        #expect(SpeechVoice.best([kyoko, hattori])?.name == "Hattori")
+        #expect(SpeechVoice.best([kyoko, kyokoEnhanced, otoya])?.name == "Otoya")
+        #expect(SpeechVoice.best([kyoko, kyokoEnhanced])?.name == "Kyoko（拡張）")
     }
 
     @Test func noveltyVoicesLoseToNormalOnesOfTheSameQuality() {
@@ -28,16 +28,16 @@ import Testing
     }
 
     @Test func aPreferredVoiceWinsByNameOrIdentifierCaseInsensitively() {
-        let all = [kyoko, hattori, oren]
+        let all = [kyoko, kyokoEnhanced, otoya]
         #expect(SpeechVoice.resolve(preferred: "kyoko", voices: all)?.name == "Kyoko")
-        #expect(SpeechVoice.resolve(preferred: "COM.APPLE.VOICE.ENHANCED.JA-JP.HATTORI", voices: all)?.name == "Hattori")
+        #expect(SpeechVoice.resolve(preferred: "COM.APPLE.VOICE.ENHANCED.JA-JP.KYOKO", voices: all)?.name == "Kyoko（拡張）")
     }
 
     @Test func aMissingOrAutoPreferenceFallsBackToTheBest() {
-        let all = [kyoko, oren]
-        #expect(SpeechVoice.resolve(preferred: nil, voices: all)?.name == "O-ren")
-        #expect(SpeechVoice.resolve(preferred: "auto", voices: all)?.name == "O-ren")
-        #expect(SpeechVoice.resolve(preferred: "Sakura", voices: all)?.name == "O-ren")   // 消えた声は、自動に
-        #expect(SpeechVoice.resolve(preferred: "", voices: all)?.name == "O-ren")
+        let all = [kyoko, otoya]
+        #expect(SpeechVoice.resolve(preferred: nil, voices: all)?.name == "Otoya")
+        #expect(SpeechVoice.resolve(preferred: "auto", voices: all)?.name == "Otoya")
+        #expect(SpeechVoice.resolve(preferred: "Nobody", voices: all)?.name == "Otoya")   // 消えた声は、自動に
+        #expect(SpeechVoice.resolve(preferred: "", voices: all)?.name == "Otoya")
     }
 }

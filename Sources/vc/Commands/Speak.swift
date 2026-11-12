@@ -9,12 +9,12 @@ struct SpeakCommand: Command {
         usage: ["vc speak [show]", "vc speak on|off", "vc speak voice <名前|識別子|auto>", "vc speak voices", "vc speak test [文]", "vc speak reset"],
         details: [
             "設定は ~/.voice-control/settings.json の speakResults（結果を読み上げるか。既定 off）と voice（声。既定は auto）。",
-            "**声は、入っている日本語の声のうち、品質がいちばん高いものを、自動で使う**（高品質＞拡張＞標準。面白い声は、選ばない）。より自然な声にするには、システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 の「声を管理…」で、日本語の「高品質」の声（Hattori・Hiro・O-ren・Sakura など）を、ダウンロードする。そのあと、vc speak voices で、入ったことを確かめる。",
+            "**声は、入っている日本語の声のうち、品質がいちばん高いものを、自動で使う**（高品質＞拡張＞標準。面白い声は、選ばない）。より自然な声にするには、システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 の「声を管理…」で、日本語の「拡張」の声（Kyoko・Otoya。この Mac の Apple のカタログにある、日本語の声は、この 2 つ）を、ダウンロードする。そのあと、vc speak voices で、入ったことを確かめる。",
             "on にすると、**短い結果**（「完了：〇〇」「失敗：〇〇」）を、声で読み上げる。長い文章（ウィンドウに出す結果）は、読まない。確認の問いかけは、on・off に関わらず、読み上げる。",
             "voices：入っている日本語の声と品質。test：いまの声で、短い文を、実際に鳴らす（音が出る）。",
         ],
         options: [],
-        examples: ["vc speak", "vc speak on", "vc speak voices", "vc speak voice O-ren", "vc speak test"])
+        examples: ["vc speak", "vc speak on", "vc speak voices", "vc speak voice Otoya", "vc speak test"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         let sub = arguments.positionals.first ?? "show"
@@ -28,7 +28,7 @@ struct SpeakCommand: Command {
             kv("声", Style.bold(using?.title ?? "（日本語の声がありません）") + Style.dim(settings.voice.map { "（指定：\($0)）" } ?? "（自動）"), width: 14)
             if let using, using.quality < 3 {
                 print("")
-                notice("より自然な声：システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 > 声を管理… で、日本語の「高品質」の声をダウンロード（vc speak voices で確認）")
+                notice("より自然な声：システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 > 声を管理… で、日本語の「拡張」の声（Kyoko・Otoya）をダウンロード（vc speak voices で確認）")
             }
         case "on", "off":
             settings.speakResults = sub == "on"
@@ -45,9 +45,9 @@ struct SpeakCommand: Command {
                 kv(voice.name, voice.qualityTitle + Style.dim("  \(voice.identifier)") + (voice.identifier == using?.identifier ? Style.green("  ← 使っている") : ""), width: 10)
             }
             print("")
-            notice("高品質の声が、1 つもなければ、システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 > 声を管理… で、日本語の声をダウンロード")
+            notice("拡張・高品質の声が、1 つもなければ、システム設定 > アクセシビリティ > 読み上げコンテンツ > システムの声 > 声を管理… で、日本語の声をダウンロード")
         case "voice":
-            guard let value = arguments.positionals.dropFirst().first else { usageError("speak", "声の名前か識別子を渡してください（例: vc speak voice O-ren。自動に戻す：vc speak voice auto）") }
+            guard let value = arguments.positionals.dropFirst().first else { usageError("speak", "声の名前か識別子を渡してください（例: vc speak voice Otoya。自動に戻す：vc speak voice auto）") }
             if value.lowercased() == "auto" { settings.voice = nil } else {
                 guard SpeechVoice.resolve(preferred: value, voices: SpeechVoice.installed())?.matches(value) == true else { fail("その声は入っていません: \(value)（入っている声：vc speak voices）") }
                 settings.voice = value
