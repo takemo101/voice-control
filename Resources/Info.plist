@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>voice-control</string>
+	<key>CFBundleExecutable</key>
+	<string>vc</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.takemo101.voice-control</string>
+	<key>CFBundleName</key>
+	<string>voice-control</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>声の入力（キーを押している間の録音）に、マイクを使います。音声は、この Mac の外へ出しません。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>録音した声を文字にするために、音声認識を使います（この Mac の中で動きます）。</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>声で頼まれた操作（アプリを開く・Spotify を操作するなど）のために、ほかのアプリを動かします。</string>
+</dict>
+</plist>

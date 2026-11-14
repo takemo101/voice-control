@@ -27,8 +27,17 @@ public struct HostApp: Equatable, Sendable {
         return result
     }
 
+    /// アプリとして起動されたか（親が launchd で、実行ファイルが `.app` の中）。そうなら、自分自身。
+    static func ownApp() -> HostApp? {
+        guard getppid() == 1, Bundle.main.bundlePath.hasSuffix(".app") else { return nil }
+        let name = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? ((Bundle.main.bundlePath as NSString).lastPathComponent as NSString).deletingPathExtension
+        return HostApp(name: name, bundleIdentifier: Bundle.main.bundleIdentifier)
+    }
+
     /// このプロセスの親をたどって、`.app` の候補（内側が先）を返す。見つからなければ空（`ssh`・常駐の `tmux` の中など）。
     public static func candidates() -> [HostApp] {
+        // vc.app として（Finder・ログイン項目から）起動されたなら、許可の持ち主は、vc.app 自身
+        if let own = ownApp() { return [own] }
         var paths: [String] = []
         var pid = getppid()
         var steps = 0

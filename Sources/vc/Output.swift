@@ -52,9 +52,15 @@ func seconds(elapsed: TimeInterval) -> String { String(format: "%.1f 秒", elaps
 /// 標準エラーへ（エラー・進行の通知）。
 func eprint(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
 
+/// アプリ（`vc app`・vc.app）のとき、エラーを、端末ではなく、**ダイアログ**で出す（アプリには、端末がない：標準エラーは、誰にも見えない）。
+enum FailurePresenter {
+    nonisolated(unsafe) static var show: ((String) -> Void)?
+}
+
 /// エラーを出して終了（終了コード 1）。
 func fail(_ message: String) -> Never {
     eprint(Style.errRed("エラー:") + " " + message)
+    FailurePresenter.show?(message)
     exit(1)
 }
 

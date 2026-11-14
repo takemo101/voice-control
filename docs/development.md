@@ -37,6 +37,8 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
 | `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
+| `just app` | `build/VoiceControl.app`（メニューバーのアプリ。ad-hoc 署名。指定要件は bundle ID だけ）を作る。アプリの中の `Contents/MacOS/vc` は、CLI の `vc` と同じ実行ファイル（引数なし＝アプリ・引数あり＝CLI。`AppLaunch`） |
+| `just dmg` | `dist/vc-<版>-macos-arm64.dmg` と SHA-256 を作り、`scripts/verify-dmg.sh` で検査する（dmg の整合・中身・Info.plist・arm64・OS 標準のライブラリだけ・署名の整合と指定要件・`--version`・`vc show --help`） |
 | `just install` | ソースからビルドした `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がそろっているもの）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
 | `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
 | `vc eval-plan corpus/plan.tsv --set dev\|test` | 依頼を複数のステップに分ける判断（言語モデル）と、各ステップのスキルの選び方の当たり率。dev は調整用・test は最後に 1 回（Tiny-Jev のモデルと、言語モデルが要る。実行はしない） |

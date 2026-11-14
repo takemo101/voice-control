@@ -22,6 +22,15 @@ package:
     ./scripts/package.sh
     ./scripts/verify-package.sh dist/vc-*-macos-arm64.tar.gz "$(.build/release/vc --version | awk '{print $2}')"
 
+# build/VoiceControl.app（メニューバーのアプリ。Apple silicon、ad-hoc 署名）を作る
+app:
+    ./scripts/build-app.sh
+
+# dist/vc-<版>-macos-arm64.dmg を作って、検査する（アプリの中の vc は、CLI の vc と同じもの）
+dmg:
+    ./scripts/dmg.sh
+    ./scripts/verify-dmg.sh dist/vc-*-macos-arm64.dmg "$(.build/release/vc --version | awk '{print $2}')"
+
 # 開発用に、vc を ~/.local/bin へ入れる（BIN_DIR で場所）。このリポジトリの models/ があれば、~/.voice-control/models/tiny-jev-0.6b から、そこへリンクする。なければ、vc model download で取得
 install: build
     ./scripts/install.sh
