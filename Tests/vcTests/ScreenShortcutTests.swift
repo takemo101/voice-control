@@ -30,9 +30,9 @@ import VCSpeech
         #expect(KeyConflicts.message(listen: spec("shift"), dictate: nil, shot: nil) == nil)
     }
 
-    @Test func dictateOverlappingListenIsExplainedWithTheFix() {
+    @Test func dictateOverlappingListenIsReportedWithBothKeys() {
         let message = KeyConflicts.message(listen: spec("shift"), dictate: spec("rshift"), shot: nil)   // 右 Shift は、左右どちらも指す Shift と重なる
-        #expect(message?.contains("vc hotkey set-dictate") == true)
+        #expect(message?.contains("声で頼む") == true && message?.contains("音声入力") == true)
     }
 
     @Test func aShotKeyThatClashesOrIsAHoldIsRefused() {

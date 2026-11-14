@@ -22,15 +22,15 @@ enum KeyConflicts {
         var taken: [(name: String, spec: HotKeySpec)] = [("声で頼む", listen)]
         if let chat {
             if let clash = [("声で頼む", listen)].first(where: { $0.1.overlaps(chat) }) ?? dictate.flatMap({ $0.overlaps(chat) ? ("音声入力", $0) : nil }) {
-                return "会話のトリガー（\(chat.description)）が、\(clash.0)のトリガー（\(clash.1.description)）と、重なります。vc hotkey set-chat で別のキーにするか、vc hotkey reset-chat で外してください"
+                return "会話のトリガー（\(chat.description)）が、\(clash.0)のトリガー（\(clash.1.description)）と、重なります。別のキーにするか、外してください"
             }
             taken.append(("会話", chat))
         }
         if let dictate {
-            if dictate.overlaps(listen) { return "声で頼むトリガー（\(listen.description)）と、音声入力のトリガー（\(dictate.description)）が、重なります。vc hotkey set-dictate で、別のキーにしてください" }
+            if dictate.overlaps(listen) { return "声で頼むトリガー（\(listen.description)）と、音声入力のトリガー（\(dictate.description)）が、重なります。別のキーにしてください" }
             taken.append(("音声入力", dictate))
         }
-        if let shot, let why = ScreenKeys.problem(shot, taken: taken) { return "スクリーンショットのキー（\(shot.description)）: \(why)（vc hotkey で直す）" }
+        if let shot, let why = ScreenKeys.problem(shot, taken: taken) { return "スクリーンショットのキー（\(shot.description)）: \(why)" }
         return nil
     }
 }
