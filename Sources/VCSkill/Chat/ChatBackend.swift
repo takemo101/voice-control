@@ -5,6 +5,12 @@ import FoundationModels
 public protocol ChatBackend: Sendable {
     /// `instructions`：指示（要約を含む）。`turns`：過去の往復。`user`：いまの発言。答えの文字。
     func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String
+    /// この答える側に合う、会話の長さの決まり（文脈の大きさで違う）。
+    var budget: ChatBudget { get }
+}
+
+extension ChatBackend {
+    public var budget: ChatBudget { .standard }
 }
 
 public enum ConversationError: Error, CustomStringConvertible, Equatable {

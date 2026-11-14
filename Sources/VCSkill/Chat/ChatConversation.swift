@@ -46,8 +46,8 @@ public actor ChatConversation {
     public private(set) var stats = Stats()
 
     /// - `idleLimit`：これだけ話さなかったら、前の会話は、終わる（秒）。
-    public init(backend: ChatBackend = AppleChatBackend(), budget: ChatBudget = .standard, idleLimit: TimeInterval = 300, now: @escaping @Sendable () -> Date = { Date() }) {
-        self.backend = backend; self.budget = budget; self.idleLimit = idleLimit; self.now = now
+    public init(backend: ChatBackend = AppleChatBackend(), budget: ChatBudget? = nil, idleLimit: TimeInterval = 300, now: @escaping @Sendable () -> Date = { Date() }) {
+        self.backend = backend; self.budget = budget ?? backend.budget; self.idleLimit = idleLimit; self.now = now
     }
 
     /// 会話を終える（記録を、すべて消す）。

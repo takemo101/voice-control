@@ -86,6 +86,8 @@ struct ListenCommand: Command {
             let dictateSpec = context.resolveDictateHotKey()?.spec
             let shotSpec = context.resolveShotHotKey()
             let chatSpec = context.resolveChatHotKey()
+            let chatAgent = context.resolveChatAgent()
+            if chatSpec != nil { ChatMode.shared.configure(agent: chatAgent) }
             if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
@@ -128,7 +130,7 @@ struct ListenCommand: Command {
                 kv("音声認識", speech.choice.title, width: 8)
                 kv("実行", context.engineText ?? "apple", width: 8)
                 kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
-                if let chatSpec { kv("会話", "\(holdInstruction(chatSpec))ている間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）", width: 8) }
+                if let chatSpec { kv("会話", "\(holdInstruction(chatSpec))ている間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）" + (chatAgent.isExternal ? "。エージェント：\(chatAgent.rawValue)（発話が、この Mac の外へ送られる）" : ""), width: 8) }
                 if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
                 if let shotSpec { kv("画面撮影", "\(shotSpec.description) を押して範囲を選び、そのあと声で頼む") }
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
