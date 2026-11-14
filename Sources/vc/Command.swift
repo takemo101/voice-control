@@ -30,7 +30,7 @@ protocol Command {
 enum Commands {
     static let all: [any Command.Type] = [
         SkillsCommand.self, RunCommand.self, ListenCommand.self, ChatCommand.self, ChatAgentCommand.self, DictateCommand.self, ShowCommand.self, ShotCommand.self, PreviewCommand.self, FindCommand.self, PickCommand.self, TranscribeCommand.self,
-        HotkeyCheckCommand.self, HudPreviewCommand.self, EvalGateCommand.self, EvalPlanCommand.self,
+        HotkeyCheckCommand.self, HudPreviewCommand.self, SettingsPreviewCommand.self, EvalGateCommand.self, EvalPlanCommand.self,
         DoctorCommand.self, ModelCommand.self, HotkeyCommand.self, SttCommand.self, MuteCommand.self, HandsFreeCommand.self, RecheckCommand.self, SpeakCommand.self, CaptionCommand.self, FillersCommand.self, PlanCommand.self, EngineCommand.self,
     ]
 

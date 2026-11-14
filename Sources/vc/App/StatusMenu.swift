@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 import VCCore
 
 /// メニューバーの項目。メニューは、開くたびに、状態から作り直す。
@@ -48,7 +47,7 @@ import VCCore
         }
         menu.addItem(.separator())
         menu.addItem(action("診断を見る（vc doctor）", #selector(showDoctor)))
-        menu.addItem(action("設定ファイルを開く", #selector(openSettings)))
+        menu.addItem(action("設定…", #selector(openSettings), key: ","))
         menu.addItem(action("データのフォルダを開く（スキル・設定）", #selector(openDataFolder)))
         menu.addItem(loginItem())
         menu.addItem(commandItem())
@@ -70,7 +69,7 @@ import VCCore
 
     private func loginItem() -> NSMenuItem {
         let item = action("ログイン時に起動", #selector(toggleLogin))
-        item.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        item.state = AppActions.loginItemEnabled ? .on : .off
         return item
     }
 
@@ -93,34 +92,17 @@ import VCCore
 
     @objc private func retry() { runtime.start() }
 
-    @objc private func showDoctor() {
-        guard let executable = Bundle.main.executablePath else { return }
-        // 診断は、別のスレッドで動かす（メニューを止めない）。アプリ自身が動かすので、許可の状態は、このアプリのもの
-        Task.detached {
-            let result = ProcessRunner.run(executable: executable, arguments: ["doctor"], mergeStderr: true, timeout: 30)
-            await MainActor.run {
-                if let why = DocumentWindow.present(markdown: "```\n" + result.text + "\n```", title: "vc doctor") { AppAlerts.show(title: "診断を出せません", message: why, style: .warning) }
-            }
-        }
-    }
+    @objc private func showDoctor() { AppActions.showDoctor() }
 
-    @objc private func openSettings() {
-        let file = VoiceControlHome.settingsFile
-        if FileManager.default.fileExists(atPath: file.path) { NSWorkspace.shared.open(file) } else { NSWorkspace.shared.open(VoiceControlHome.root) }
-    }
+    @objc private func openSettings() { SettingsWindow.shared.show() }
 
-    @objc private func openDataFolder() { NSWorkspace.shared.open(VoiceControlHome.root) }
+    @objc private func openDataFolder() { AppActions.openDataFolder() }
 
     @objc private func toggleLogin() {
-        let service = SMAppService.mainApp
-        do { if service.status == .enabled { try service.unregister() } else { try service.register() } } catch {
-            AppAlerts.show(title: "ログイン時の起動を変えられません", message: error.localizedDescription, style: .warning)
-        }
+        if let problem = AppActions.toggleLoginItem() { AppAlerts.show(title: "ログイン時の起動を変えられません", message: problem, style: .warning) }
     }
 
     @objc private func toggleCommand() {
-        let tool = CommandLineTool()
-        let problem = tool.state == .installed ? tool.uninstall() : tool.install()
-        if let problem { AppAlerts.show(title: "コマンドを変えられません", message: problem, style: .warning) }
+        if let problem = AppActions.toggleCommandLine() { AppAlerts.show(title: "コマンドを変えられません", message: problem, style: .warning) }
     }
 }
