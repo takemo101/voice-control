@@ -27,7 +27,7 @@ struct DictateCommand: Command {
         // **ここから `VoiceLoop.run` まで、`await` を挟まない**（`vc listen --hotkey` と同じ。`NSApplication.run()` の前の `await` は、画面の表示・長押しの判定を止める）。
         var arguments = arguments
         let muter = VoiceUI.muter(&arguments, context, command: "dictate")
-        guard MicRecorder.authorize() else { fail("マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）") }
+        guard MicRecorder.authorize() else { fail(MicRecorder.deniedMessage()) }
         let speech = context.makeSpeechEngine()
         defer { speech.close() }
         let signals = VoiceUI.restoreOnSignals(muter, speech)
