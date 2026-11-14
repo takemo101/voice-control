@@ -36,6 +36,17 @@ extension CommandContext {
     }
 }
 
+extension CommandContext {
+    /// 会話のトリガー：設定（`vc hotkey set-chat`）。なければ `nil`（会話はない）。書き方が違えば、理由を示して終わる。
+    func resolveChatHotKey() -> HotKeySpec? {
+        guard let text = currentSettings().chatHotkey else { return nil }
+        switch HotKeySpec.parse(text) {
+        case let .success(spec): return spec
+        case let .failure(f): fail("settings.json の chatHotkey「\(text)」: \(f.reason)（vc hotkey set-chat で直す）")
+        }
+    }
+}
+
 /// 押している間だけ聞く入り口。長押し（修飾キーだけ）には、アクセシビリティの許可が要る。
 @MainActor func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
     if spec.isHold && !ModifierHold.isTrusted {
