@@ -85,10 +85,12 @@ struct ListenCommand: Command {
             // 音声入力のトリガーがあれば、トリガーで、声で頼む／音声入力を切り替える（Shift の長押し＝声で頼む、Ctrl の長押し＝音声入力、など）
             let dictateSpec = context.resolveDictateHotKey()?.spec
             let shotSpec = context.resolveShotHotKey()
-            if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec) { fail(message) }
+            let chatSpec = context.resolveChatHotKey()
+            if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
             HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
             var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
             if let dictateSpec { keys.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }
+            if let chatSpec { keys.append((VoiceMode.chat, try makeTrigger(chatSpec))) }
             // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
             let handsFreeOn = context.currentSettings().handsFree ?? true
             let triggers = VoiceTriggers.make(keys, handsFreeEnabled: handsFreeOn)
@@ -96,7 +98,7 @@ struct ListenCommand: Command {
             // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
             let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
             defer { withExtendedLifetime(screenTriggers) {} }
-            let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip]
+            let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip, VoiceMode.chat: chatSpec?.displayName ?? chip]
             let paste = ClipboardPaste()
             let session = RecordingSession()
             session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
@@ -107,13 +109,15 @@ struct ListenCommand: Command {
                 handler: { [listen = Self.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
                     if tag == VoiceMode.dictate {
                         await DictateCommand.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
+                    } else if tag == VoiceMode.chat {
+                        await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false)
                     } else {
                         await listen(utterance, token, next, tag)
                     }
                 },
                 onEvent: { event, tag in
                     if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
-                    VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate)
+                    VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate, chat: tag == VoiceMode.chat)
                 })
             loop.uncertainty = Self.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
             handsFree.onHandsFree = { tag in
@@ -124,6 +128,7 @@ struct ListenCommand: Command {
                 kv("音声認識", speech.choice.title, width: 8)
                 kv("実行", context.engineText ?? "apple", width: 8)
                 kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
+                if let chatSpec { kv("会話", "\(holdInstruction(chatSpec))ている間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）", width: 8) }
                 if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
                 if let shotSpec { kv("画面撮影", "\(shotSpec.description) を押して範囲を選び、そのあと声で頼む") }
                 kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
@@ -155,9 +160,10 @@ struct ListenCommand: Command {
         let confirmation = Confirmation(scorer: jev)
         return Uncertainty(threshold: Recheck.threshold) { text, confidence, _, next, tag in
             if tag == VoiceMode.dictate { return true }
+            let isChat = tag == VoiceMode.chat
             let chip = chips[tag] ?? fallbackChip
             say("聞き間違いかもしれません。\(text)でよいですか")
-            var content = HUDContent(phase: .confirm, title: "聞き間違いかもしれません", hint: "確信度 \(Int((confidence * 100).rounded()))%。この内容で実行しますか？" + ConfirmGuide.howToAnswer, chip: chip, heard: text)
+            var content = HUDContent(phase: .confirm, title: "聞き間違いかもしれません", hint: "確信度 \(Int((confidence * 100).rounded()))%。この内容で\(isChat ? "質問" : "実行")しますか？" + ConfirmGuide.howToAnswer, chip: chip, heard: text)
             content.choices = true
             HUD.shared.show(content)
             notice("聞き取りに自信がありません（\(Int((confidence * 100).rounded()))%）。確認待ち：パネルの\(ConfirmGuide.howToAnswer)")

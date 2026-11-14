@@ -4,7 +4,7 @@ import VCSpeech
 struct HotkeyCommand: Command {
     static let info = CommandInfo(
         name: "hotkey", group: .settings, summary: "押している間だけ聞くトリガー（ホットキー）の確認・変更",
-        usage: ["vc hotkey [show]", "vc hotkey set <キー>", "vc hotkey reset", "vc hotkey set-dictate <キー>", "vc hotkey reset-dictate", "vc hotkey set-shot <キー>", "vc hotkey reset-shot"],
+        usage: ["vc hotkey [show]", "vc hotkey set <キー>", "vc hotkey reset", "vc hotkey set-dictate <キー>", "vc hotkey reset-dictate", "vc hotkey set-shot <キー>", "vc hotkey set-chat <キー>", "vc hotkey reset-chat", "vc hotkey reset-shot"],
         details: [
             "設定は ~/.voice-control/settings.json の hotkey。既定は shift の長押し。",
             "書き方：修飾キー（ctrl・opt・shift・cmd）を + でつなぐ。修飾キーだけ（shift・ctrl+opt）は長押し（他のキーなしで 0.35 秒以上。アクセシビリティの許可が要る）。修飾キー + キー（ctrl+opt+space・cmd+shift+r）は、キーの組み合わせ（許可は要らない）。f1〜f12 だけは、単独でもよい。",
@@ -33,6 +33,11 @@ struct HotkeyCommand: Command {
             } else {
                 kv("音声入力", Style.dim("別のキーはなし（vc dictate は、上のキーを使う）。別のキーにする：vc hotkey set-dictate <キー>"))
             }
+            if let chat = context.resolveChatHotKey() {
+                kv("会話", Style.bold(chat.description) + Style.dim("（\(chat.displayName)。vc listen --hotkey の中で、スキルを選ばずに、会話として質問）"), width: 10)
+            } else {
+                kv("会話", Style.dim("なし。決める：vc hotkey set-chat <キー>"), width: 10)
+            }
             if let key = context.resolveShotHotKey() {
                 kv("画面を撮る", Style.bold(key.description) + Style.dim("（\(key.displayName)。vc listen --hotkey の中で動く。画面収録の許可が要る）"), width: 10)
             } else {
@@ -51,6 +56,7 @@ struct HotkeyCommand: Command {
                 if let dictateText = settings.dictateHotkey, case let .success(dictate) = HotKeySpec.parse(dictateText), dictate.overlaps(spec) {
                     fail("音声入力のキー（\(dictate.description)）と、重なります（\(spec.description)）。先に vc hotkey reset-dictate するか、別のキーにしてください")
                 }
+                if let t = settings.chatHotkey, case let .success(k) = HotKeySpec.parse(t), k.overlaps(spec) { fail("会話のキー（\(k.description)）と、重なります（\(spec.description)）。先に vc hotkey reset-chat するか、別のキーにしてください") }
                 settings.hotkey = spec.description
                 do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
                 heading("ホットキー")
@@ -67,6 +73,7 @@ struct HotkeyCommand: Command {
                 if case let .success(listen) = settings.hotkeySpec, listen.overlaps(spec) {
                     fail("声で頼むキー（\(listen.description)）と、重なります（\(spec.description)）。別のキーにしてください（rshift と shift のように、左右の指定が重なる場合も、重なる）")
                 }
+                if let t = settings.chatHotkey, case let .success(k) = HotKeySpec.parse(t), k.overlaps(spec) { fail("会話のキー（\(k.description)）と、重なります（\(spec.description)）。先に vc hotkey reset-chat するか、別のキーにしてください") }
                 settings.dictateHotkey = spec.description
                 do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
                 heading("音声入力のキー")
@@ -93,6 +100,27 @@ struct HotkeyCommand: Command {
                 kv("設定した", Style.bold(spec.description) + Style.dim("（\(spec.displayName)）"))
                 notice("次の vc listen --hotkey から有効。画面収録の許可が要ります（\(ScreenCapture.isAllowed ? "いまは、許可されています" : "いまは、未許可：" + ScreenCapture.permissionHint)）")
             }
+        case "set-chat":
+            guard positionals.count >= 2 else { usageError("hotkey", "キーを渡してください（例: vc hotkey set-chat ropt）") }
+            let text = positionals.dropFirst().joined(separator: "+")
+            switch HotKeySpec.parse(text) {
+            case let .failure(f): fail("\(text): \(f.reason)")
+            case let .success(spec):
+                var taken: [(name: String, spec: HotKeySpec)] = []
+                if case let .success(listen) = settings.hotkeySpec { taken.append(("声で頼む", listen)) }
+                if let t = settings.dictateHotkey, case let .success(k) = HotKeySpec.parse(t) { taken.append(("音声入力", k)) }
+                if let clash = taken.first(where: { $0.spec.overlaps(spec) }) { fail("\(text): \(clash.name)のキー（\(clash.spec.description)）と、重なります。別のキーにしてください") }
+                if let t = settings.shotHotkey, case let .success(k) = HotKeySpec.parse(t), k.overlaps(spec) { fail("\(text): スクリーンショットのキー（\(k.description)）と、重なります") }
+                settings.chatHotkey = spec.description
+                do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+                heading("会話のキー")
+                kv("設定した", Style.bold(spec.description) + Style.dim("（\(spec.displayName)）"))
+                notice("次の vc listen --hotkey から有効。このキーを押して話すと、スキルを選ばずに、会話として質問できる（実験）")
+            }
+        case "reset-chat":
+            settings.chatHotkey = nil
+            do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
+            print(Style.green("✓") + " 会話のキーを外しました")
         case "reset-shot":
             settings.shotHotkey = nil
             do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
@@ -102,7 +130,7 @@ struct HotkeyCommand: Command {
             do { try settings.save() } catch { fail("設定を保存できません: \(error)") }
             print(Style.green("✓") + " 既定（shift の長押し）に戻しました")
         default:
-            usageError("hotkey", "知らないサブコマンド: \(sub)（show・set・reset・set-dictate・reset-dictate・set-shot・reset-shot）")
+            usageError("hotkey", "知らないサブコマンド: \(sub)（show・set・reset・set-dictate・reset-dictate・set-shot・reset-shot・set-chat・reset-chat）")
         }
     }
 }
