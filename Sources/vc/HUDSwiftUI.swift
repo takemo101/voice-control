@@ -206,10 +206,12 @@ private struct CaptionPlate: View {
 
     private func captionText(_ live: LiveCaptionText, caretOn: Bool) -> some View {
         let t = live.tail(maxCharacters: maxCharacters)
-        let text = Text(t.truncated ? "…" : "").foregroundStyle(Color.white.opacity(0.4))
-            + Text(t.confirmed).foregroundStyle(Color.white)
-            + Text(t.tentative).foregroundStyle(Color.white.opacity(0.55))
-            + Text("▎").foregroundStyle(caretOn ? Palette.rec2 : Color.clear)
+        // Text 同士の `+` は、macOS 26 で非推奨：文字列補間で、つなぐ（色は、それぞれの部分に付いたまま。描いた結果は、`+` と、画素まで同じ）
+        let head = Text(t.truncated ? "…" : "").foregroundStyle(Color.white.opacity(0.4))
+        let confirmed = Text(t.confirmed).foregroundStyle(Color.white)
+        let tentative = Text(t.tentative).foregroundStyle(Color.white.opacity(0.55))
+        let caret = Text("▎").foregroundStyle(caretOn ? Palette.rec2 : Color.clear)
+        let text = Text("\(head)\(confirmed)\(tentative)\(caret)")
         return text.font(.system(size: 15.5, weight: .medium)).lineSpacing(4).lineLimit(2)
             .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
     }
