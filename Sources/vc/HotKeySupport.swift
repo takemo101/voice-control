@@ -3,46 +3,34 @@ import VCCore
 import VCSpeech
 
 extension CommandContext {
-    /// トリガー（押している間だけ聞く）：`--trigger` → `~/.voice-control/settings.json` の `hotkey` → 既定（`shift` の長押し）。書き方は `HotKeySpec`。
+    /// トリガー（押している間だけ聞く）：設定（`hotkey`）→ 既定（`shift` の長押し）。書き方は `HotKeySpec`。
     func resolveHotKey() -> (spec: HotKeySpec, source: String) {
-        if let trigger = options.trigger {
-            switch HotKeySpec.parse(trigger) {
-            case let .success(spec): return (spec, "--trigger")
-            case let .failure(f): fail("--trigger \(trigger): \(f.reason)")
-            }
-        }
         let settings = currentSettings()
         switch settings.hotkeySpec {
         case let .success(spec): return (spec, settings.hotkey == nil ? "既定" : "設定")
-        case let .failure(f): fail("settings.json の hotkey「\(settings.hotkey ?? "")」: \(f.reason)（vc hotkey set で直す）")
+        case let .failure(f): fail("設定の「声で頼む」のキー「\(settings.hotkey ?? "")」: \(f.reason)（設定ウィンドウ > キー で直す）")
         }
     }
 }
 
 extension CommandContext {
-    /// 音声入力のトリガー：`--dictate-trigger` → 設定（`vc hotkey set-dictate`）。なければ `nil`。書き方が違えば、理由を示して終わる。
+    /// 音声入力のトリガー：設定。なければ `nil`。書き方が違えば、理由を示して終わる。
     func resolveDictateHotKey() -> (spec: HotKeySpec, source: String)? {
-        if let text = options.dictateTrigger {
-            switch HotKeySpec.parse(text) {
-            case let .success(spec): return (spec, "--dictate-trigger")
-            case let .failure(f): fail("--dictate-trigger \(text): \(f.reason)")
-            }
-        }
         guard let text = currentSettings().dictateHotkey else { return nil }
         switch HotKeySpec.parse(text) {
         case let .success(spec): return (spec, "設定")
-        case let .failure(f): fail("settings.json の dictateHotkey「\(text)」: \(f.reason)（vc hotkey set-dictate で直す）")
+        case let .failure(f): fail("設定の「音声入力」のキー「\(text)」: \(f.reason)（設定ウィンドウ > キー で直す）")
         }
     }
 }
 
 extension CommandContext {
-    /// 会話のトリガー：設定（`vc hotkey set-chat`）。なければ `nil`（会話はない）。書き方が違えば、理由を示して終わる。
+    /// 会話のトリガー：設定（設定ウィンドウ > キー）。なければ `nil`（会話はない）。書き方が違えば、理由を示して終わる。
     func resolveChatHotKey() -> HotKeySpec? {
         guard let text = currentSettings().chatHotkey else { return nil }
         switch HotKeySpec.parse(text) {
         case let .success(spec): return spec
-        case let .failure(f): fail("settings.json の chatHotkey「\(text)」: \(f.reason)（vc hotkey set-chat で直す）")
+        case let .failure(f): fail("設定の「会話」のキー「\(text)」: \(f.reason)（設定ウィンドウ > キー で直す）")
         }
     }
 }
@@ -51,7 +39,7 @@ extension CommandContext {
 @MainActor func makeTrigger(_ spec: HotKeySpec) throws -> PushToTalkTrigger {
     if spec.isHold && !ModifierHold.isTrusted {
         notice("\(spec.displayName) の長押しの検出には、アクセシビリティの許可が要ります。許可がないと、何も届きません")
-        notice("システム設定 > プライバシーとセキュリティ > アクセシビリティで、vc を動かしているターミナルを許可し、そのターミナルを開き直す。許可なしで使うなら、vc hotkey set ctrl+opt+space")
+        notice("システム設定 > プライバシーとセキュリティ > アクセシビリティで、このアプリを許可してください。許可なしで使うなら、設定ウィンドウ > キー で、ctrl+opt+space のような組み合わせにします")
     }
     return try spec.makeTrigger()
 }
@@ -77,7 +65,7 @@ extension CommandContext {
         guard let text = currentSettings()[keyPath: keyPath] else { return nil }
         switch HotKeySpec.parse(text) {
         case let .success(spec): return spec
-        case let .failure(f): fail("settings.json の「\(text)」: \(f.reason)（vc hotkey \(command) で直す）")
+        case let .failure(f): fail("設定のキー「\(text)」: \(f.reason)（設定ウィンドウ > キー で直す）")
         }
     }
     func resolveShotHotKey() -> HotKeySpec? { resolveScreenKey(\.shotHotkey, command: "set-shot") }

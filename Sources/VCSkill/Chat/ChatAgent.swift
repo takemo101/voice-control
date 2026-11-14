@@ -2,7 +2,7 @@ import Foundation
 import VCCore
 
 /// 会話に使うエージェント（答えを作る側）。**既定は、この Mac の Apple のモデル**（外へ出さない）。
-/// `agy`・`claude`・`codex`・`grok`・`opencode`・`pi`（コーディングエージェントの CLI）を選ぶと、**会話の発話が、その提供元へ送られる**：`ask-agent` と同じ、「この Mac の外へ出さない」の例外（SPEC N1）。利用者が `vc chat-agent set` で選んだときだけ。
+/// `agy`・`claude`・`codex`・`grok`・`opencode`・`pi`（コーディングエージェントの CLI）を選ぶと、**会話の発話が、その提供元へ送られる**：`ask-agent` と同じ、「この Mac の外へ出さない」の例外（SPEC N1）。利用者が `設定ウィンドウ > モデル set` で選んだときだけ。
 public enum ChatAgent: String, CaseIterable, Sendable {
     case apple, agy, claude, codex, grok, opencode, pi
 

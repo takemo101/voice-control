@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import VCSpeech
 
-/// 録音中の文字（途中経過）を、画面の上のパネルに出す（`vc caption`。実験。F54）。録音の始まりで、リアルタイムの認識（`LiveCaptioner`）を始め、認識の段階・取りやめで、終える。
+/// 録音中の文字（途中経過）を、画面の上のパネルに出す（録音中の文字の表示。実験。F54）。録音の始まりで、リアルタイムの認識（`LiveCaptioner`）を始め、認識の段階・取りやめで、終える。
 /// **表示だけ**：最終の文字・実行は、いつもどおり、録音したファイルの認識（`FileTranscriber`）。失敗しても、表示が出ないだけ。
 /// `@unchecked Sendable` の理由：可変な状態は、すべて `lock` で守る。`feed` は、音声のスレッドから呼ばれる。
 final class LiveCaption: @unchecked Sendable {

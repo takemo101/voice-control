@@ -163,7 +163,7 @@ struct InternalCommands {
         let entries = options.isEmpty ? memory.all : options.map { OptionMemory.Entry(line: $0, detail: nil) }
         guard !entries.isEmpty else { throw ToolFailure(exitCode: 1, message: "no options. Give --option <text> (repeatable), or run a command that prints candidates first (for example: vc find).") }
         guard !query.isEmpty else { throw ToolFailure(exitCode: 2, message: "no query (--query <text>)") }
-        guard let scorer = scorer?() else { throw ToolFailure(exitCode: 1, message: "Tiny-Jev is not available (vc model download)") }
+        guard let scorer = scorer?() else { throw ToolFailure(exitCode: 1, message: "Tiny-Jev is not available (設定ウィンドウ > モデル で取得)") }
         let result: Picker.Result
         do { result = try Picker.pick(query: query, options: entries.map(\.line), threshold: threshold, scorer: scorer) } catch { throw ToolFailure(exitCode: 1, message: "\(error)") }
         var text = Picker.format(result, options: entries.map(\.line), top: top)

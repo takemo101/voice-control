@@ -5,7 +5,7 @@ import VCSkill
 
 /// 範囲を選んで、スクリーンショットを撮る（`ScreenSelector`：静止画を暗くして、ドラッグ・ウィンドウのクリック・全画面で選ぶ）。
 /// 撮った画像は、この Mac の中だけに置く（`ScreenshotStore`）。**画面収録の許可**が要る（ターミナルなど、`vc` を動かしているアプリに）。
-/// イベントのループ（`NSApplication.run()`）が回っているときに呼ぶ（`vc listen --hotkey`。単独のコマンドは、`ScreenSelector.runStandalone`）。
+/// イベントのループ（`NSApplication.run()`）が回っているときに呼ぶ（声の入力。単独のコマンドは、`ScreenSelector.runStandalone`）。
 @MainActor enum ScreenCapture {
     enum Outcome {
         case captured(width: Int, height: Int)

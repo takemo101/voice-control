@@ -5,8 +5,8 @@ import VCDecision
 import VCSkill
 import VCSpeech
 
-/// 声の入力の 1 式（トリガー・録音・認識・発話の処理・画面の表示）。**`vc listen --hotkey`（端末）と、メニューバーのアプリが、同じものを使う**。
-/// 違いは、イベントループを、だれが回すか：端末の `vc listen` は `loop.run`（`NSApplication.run()` まで）、アプリは、アプリ自身のループの上で `loop.begin`。
+/// 声の入力の 1 式（トリガー・録音・認識・発話の処理・画面の表示）。**声の入力（端末）と、メニューバーのアプリが、同じものを使う**。
+/// 違いは、イベントループを、だれが回すか：端末の 声の入力 は `loop.run`（`NSApplication.run()` まで）、アプリは、アプリ自身のループの上で `loop.begin`。
 /// 同期の関数：`await` を挟まない（`VoiceLoop.run` の不変条件 1）。
 @MainActor final class VoiceSession {
     let loop: VoiceLoop
@@ -35,7 +35,7 @@ import VCSpeech
         var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
         if let dictateSpec { keys.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }
         if let chatSpec { keys.append((VoiceMode.chat, try makeTrigger(chatSpec))) }
-        // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+        // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`設定ウィンドウ > キー`）
         let handsFreeOn = context.currentSettings().handsFree ?? true
         let triggers = VoiceTriggers.make(keys, handsFreeEnabled: handsFreeOn)
         let handsFree = triggers.handsFree
@@ -45,13 +45,13 @@ import VCSpeech
         let paste = ClipboardPaste()
         let session = RecordingSession()
         session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
-        LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（`vc caption`）
+        LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（録音中の文字の表示）
         session.setBufferHandler { LiveCaption.shared.feed($0) }
         let loop = VoiceLoop(
             trigger: triggers.trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
-            handler: { [listen = ListenCommand.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
+            handler: { [listen = VoiceHandlers.utterance(context, jev: jev, chip: chip)] utterance, token, next, tag in
                 if tag == VoiceMode.dictate {
-                    await DictateCommand.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
+                    await DictationFlow.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
                 } else if tag == VoiceMode.chat {
                     await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false)
                 } else {
@@ -62,7 +62,7 @@ import VCSpeech
                 if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
                 VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate, chat: tag == VoiceMode.chat)
             })
-        loop.uncertainty = ListenCommand.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
+        loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
             HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
         }
@@ -78,7 +78,7 @@ import VCSpeech
             fflush(stdout)
             // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
             if spec.isHold && !ModifierHold.isTrusted {
-                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このターミナルを許可して、開き直してください。許可なしなら vc hotkey set ctrl+opt+space", chip: chip), hideAfter: 15)
+                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このアプリを許可して、開き直してください。許可なしなら、設定ウィンドウ > キー で、ctrl+opt+space のような組み合わせにします", chip: chip), hideAfter: 15)
             } else {
                 HUD.shared.show(HUDContent(phase: .info, title: "準備できました", hint: "\(holdInstruction(spec))ている間だけ聞きます", chip: chip), hideAfter: 3.5)
             }

@@ -36,11 +36,11 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 |---|---|
 | `just build` | リリースビルド（`.build/release/vc`・`Fixture`）。Command Line Tools だけの環境で出る、リンカの `search path … not found` の警告（無害）は、表示しない |
 | `just test` | 単体テスト（Swift Testing）。画面・音声・モデルは使わない |
-| `just package` | 配布用の tar.gz と SHA-256 を `dist/` に作り、検査する（リリースのワークフローと同じ手順） |
 | `just app` | `build/VoiceControl.app`（メニューバーのアプリ。ad-hoc 署名。指定要件は bundle ID だけ）を作る。アプリの中の `Contents/MacOS/vc` は、CLI の `vc` と同じ実行ファイル（引数なし＝アプリ・引数あり＝CLI。`AppLaunch`） |
 | `just dmg` | `dist/vc-<版>-macos-arm64.dmg` と SHA-256 を作り、`scripts/verify-dmg.sh` で検査する（dmg の整合・中身・Info.plist・arm64・OS 標準のライブラリだけ・署名の整合と指定要件・`--version`・`vc show --help`） |
-| `just install` | ソースからビルドした `vc` を `~/.local/bin` へコピー（`BIN_DIR` で場所）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がそろっているもの）があり、`~/.voice-control/models/tiny-jev-0.6b` がなければ、複製せず、そこへシンボリックリンクを張る（1.2 GB を取り直さない）。以前の `~/Library/Application Support/voice-control/models` に、この script が張ったリンクがあれば、取り除く |
-| `just uninstall` | `vc` とモデルのリンクを取り除く。モデルの本体・各種の許可には触れない |
+| `just install` | `just app` で作ったアプリを `~/Applications` へ入れて起動する（`INSTALL_DIR` で場所・`NO_OPEN=1` で起動なし・`RESET_PERMISSIONS=1` で許可を取り消してから）。コマンド `vc` は `~/.local/bin` へリンク（`BIN_DIR`）。リポジトリの `models/tiny-jev-0.6b`（開発用。`tokenizer.json` と `model.safetensors` がある）があれば、`~/.voice-control/models/tiny-jev-0.6b` へリンク（複製しない） |
+| `just uninstall` | アプリ・コマンド `vc` のリンク・モデルのリンクを取り除く（既定の場所なら、許可も取り消す）。モデルの本体・スキル・設定には触れない |
+| `just reset-permissions` | このアプリの許可（マイク・アクセシビリティ・画面収録）を取り消す（設定ではオンなのに「許可されていません」と出るとき） |
 | `vc eval-plan corpus/plan.tsv --set dev\|test` | 依頼を複数のステップに分ける判断（言語モデル）と、各ステップのスキルの選び方の当たり率。dev は調整用・test は最後に 1 回（Tiny-Jev のモデルと、言語モデルが要る。実行はしない） |
 | `scripts/eval-skills.py [--engine apple\|ollama:<モデル>] [--rounds N] [--skill <名前>]` | **全スキルを、言語モデルで動かし、依頼から、正しいコマンドが出るか**を数える（`corpus/skills.tsv`。`--dry-run`：実行しない。一時の `VC_HOME` で、利用者の設定・クリップボードには触れない。Tiny-Jev は使わず、スキルを指定する）。スキルの本文・実行者を変えたら、これで、エンジンごとに測る |
 | `just eval` | 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（`vc eval-gate corpus/gate.tsv`。Tiny-Jev のモデルが要る。実機は操作しない） |
@@ -56,7 +56,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 - CI のツールチェーンは、ローカルと違うことがある：この記録の時点で、ローカルは Swift 6.4（macOS 27）、CI は Xcode 26.6・Swift 6.3.3（macOS 26.6.2。2026-11-03 の CI のログ）。CI のログに、警告が出たことがある（`SaySpeaker` の `nonisolated(unsafe)` が不要・`SkillRunnerTests` の `NSLock` を async の文脈で使っている、の 2 種。直したあとの CI のログは、警告 0）。変更のあとは、CI のログの `warning:` も見る。
 - `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
 - 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。
-- モデルの取得は `vc model download`（`~/.voice-control/models/tiny-jev-0.6b`。版を固定・SHA-256 の検証・再開）。確認は `vc model status [--verify]`。
+- モデルの取得は 設定ウィンドウ > モデル（`~/.voice-control/models/tiny-jev-0.6b`。版を固定・SHA-256 の検証・再開）。確認は 設定ウィンドウ > モデル。
 - モデルの探し方：`--model`、`VC_MODEL_DIR`、`~/.voice-control/models/tiny-jev-0.6b`、`./models/tiny-jev-0.6b`（開発用）の順。
 
 ## コマンドの足し方
@@ -66,7 +66,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 1. `Sources/vc/Commands/<Name>.swift` に、`Command` を実装した型を置く：`static let info`（名前・グループ・使い方・説明・オプション・例。`vc --help`・`vc <name> --help` は、ここから作られる）と、`run(_ arguments: Arguments, _ context: CommandContext)`。`run` の中では、自分のオプションを `var arguments = arguments` に写して `option`・`flag` で取り除き、位置引数は `arguments.positionals`（コマンド名を除く）、共通のオプション（`--model`・`--floor`・`--yes` など）は `context.options`、モデルは `context.loadJev()`、設定は `context.currentSettings()`、スキルは `context.loadSkills()` から使う。失敗は `fail`（終了コード 1）、使い方の誤りは `usageError`（2）。Tiny-Jev のモデルを読むコマンドは、`Help.modelUsers` に名前を足す（共通のオプションを案内する）。
 2. `Commands.all`（`Sources/vc/Command.swift`）に、型を足す。**この並びが、`vc --help` の表示順**（グループの中）になる。
    - モデルを使うコマンドなら、`Help.modelUsers`（`Sources/vc/Help.swift`）に名前を足す（`vc <name> --help` に、共通のオプションが出る）。
-3. テストを足す：引数の読み方に関わるなら `Tests/vcTests/ArgumentsTests.swift`（共通のオプションは `CommonOptionsTests.swift`）。コマンドの一覧とヘルプは `CommandRegistryTests.swift` が確かめる（名前の重複・グループごとの表示）。スキルの実行の流れ（判断）は `Tests/VCSkillTests/SkillRunnerTests.swift`、その出来事の表示（`TerminalReporter`・`HUDReporter`）は `Tests/vcTests/TerminalReporterTests.swift`・`HUDReporterTests.swift`。声の流れ（`vc listen --hotkey` の調整：Esc・待ち行列・録音）は `Tests/VCSpeechTests/VoiceLoopTests.swift`（録音・文字起こし・トリガー・Esc の偽物は `VoiceLoopFakes.swift`。マイク・音声認識は使わない）。出力は、変更の前後の `vc` を、`NO_COLOR=1`・一時の `VC_HOME` で動かして、比べる。
+3. テストを足す：引数の読み方に関わるなら `Tests/vcTests/ArgumentsTests.swift`（共通のオプションは `CommonOptionsTests.swift`）。コマンドの一覧とヘルプは `CommandRegistryTests.swift` が確かめる（名前の重複・グループごとの表示）。スキルの実行の流れ（判断）は `Tests/VCSkillTests/SkillRunnerTests.swift`、その出来事の表示（`TerminalReporter`・`HUDReporter`）は `Tests/vcTests/TerminalReporterTests.swift`・`HUDReporterTests.swift`。声の流れ（声の入力（メニューバーのアプリ） の調整：Esc・待ち行列・録音）は `Tests/VCSpeechTests/VoiceLoopTests.swift`（録音・文字起こし・トリガー・Esc の偽物は `VoiceLoopFakes.swift`。マイク・音声認識は使わない）。出力は、変更の前後の `vc` を、`NO_COLOR=1`・一時の `VC_HOME` で動かして、比べる。
 
 ## 変更の進め方
 
@@ -124,23 +124,22 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 ## リリース
 
-配布は **GitHub Releases**（バイナリの tar.gz と SHA-256）。タグ `vX.Y.Z` の push で、[release.yml](../.github/workflows/release.yml) が、macOS 26 のランナー（Xcode 26）でビルドして、Release に添付する。リリースは、**利用者の依頼があるときだけ**行う。
+配布は **GitHub Releases**（**dmg** と SHA-256）。タグ `vX.Y.Z` の push で、[release.yml](../.github/workflows/release.yml) が、macOS 26 のランナー（Xcode 26）でビルドして、Release に添付する。リリースは、**利用者の依頼があるときだけ**行う。
 
-配布物：`vc-<版>-macos-arm64.tar.gz`（中身：`vc`・`LICENSE`・`README.md`・`skills/voice-control-skill-author/`）と、`.sha256`。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が `vc model download` で取得する）。署名は ad-hoc（Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから）。
+配布物：`vc-<版>-macos-arm64.dmg`（中身：`VoiceControl.app`・「アプリケーション」へのリンク）と、`.sha256`。アプリの中に、`vc` の実行ファイル（`Contents/MacOS/vc`）・`LICENSE`・`THIRD_PARTY_NOTICES.md`・`skills/voice-control-skill-author/` が入る。**Tiny-Jev のモデルは含めない**（ライセンスの条件が未確認。利用者が、アプリの設定 > モデル で取得する）。署名は ad-hoc だが、**指定要件を bundle ID だけ**にする（更新で、許可が無効にならないように。meeting-analyzer と同じ。この Mac で、更新後も許可が残ることは未確認）。Developer ID の署名・公証は、利用者の判断で、secrets と手順を決めてから。
 
-**利用者向けの入れ方**：リポジトリ直下の [install.sh](../install.sh)（`curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash`）。最新の Release（`/releases/latest` の転送先のタグ）の tar.gz と `.sha256` を取得して照合し、取り出した `vc` を実行して版を確かめ（通らなければ、いまの `vc` を置き換えない）、`~/.local/bin` へ置き、`vc model download` を実行する。https だけで取得する。`--no-model`・`--version <版>`・`--bin-dir <場所>`。変更したら、**Release を作ったあとの版で**、一時の `--bin-dir` に入れて確かめる（`VC_RELEASE_BASE_URL` で取得元を差し替えて、SHA-256 の不一致も試せる）。`main` の install.sh が、最新の Release を入れるので、Release の tar.gz の構成（`vc-<版>-macos-arm64/vc`）を変えるときは、一緒に直す。
+**利用者向けの入れ方**：Release の dmg を開き、`VoiceControl.app` を「アプリケーション」へ入れる。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine /Applications/VoiceControl.app`。CLI の `vc` は、アプリの設定 > 一般 の「コマンド vc」で、`/usr/local/bin/vc` へのリンクを張る（以前の tar.gz 版・`install.sh` は、やめた。古い `~/.local/bin/vc` が PATH で先に当たると、古い方が動く）。
 
 **手順**
 
 1. `Sources/vc/Version.swift` の版を、新しい版へ上げて、PR で `main` に入れる。`but pull` で同期する（[PR の merge 後の同期](#gitgithubgitbutler)）。
 2. `main` の commit にタグを付けて、push する：`git tag vX.Y.Z <mainのcommit> && git push origin vX.Y.Z`（タグは、`main` が `origin/main` と同期している状態で付ける）。
-3. ワークフローは、タグの push のとき、**タグの commit が `main` に含まれること**を最初に確かめ、単体テスト → ビルドと tar.gz・`.sha256` の作成（`scripts/package.sh`）→ **ビルドした `vc --version` がタグと一致すること** → 検査（`verify-package.sh`）→ アップロード、と進む。別のジョブが、`.sha256` を照合してから、Release を作る。どれかが失敗したら、Release は作らない。
+3. ワークフローは、タグの push のとき、**タグの commit が `main` に含まれること**を最初に確かめ、単体テスト → ビルドと dmg・`.sha256` の作成（`scripts/dmg.sh`：`scripts/build-app.sh` で `.app` を作る）→ **ビルドした `vc --version` がタグと一致すること** → 検査（`verify-dmg.sh`）→ アップロード、と進む。別のジョブが、`.sha256` を照合してから、Release を作る。
 4. 変更点は、Release の自動生成の説明（`--generate-notes`）。必要なもの・インストール手順・Gatekeeper の回避・注意の定型文が、その前に付く。
 
 **確認**
 
-- Release を作らない確認：Pull Request（リリースに関わるファイルを変えたとき）または Actions タブ → release → Run workflow。tar.gz をアーティファクトに残し、ダウンロードして SHA-256 を照合するところまで確かめる。
-- ローカルで同じ配布物を作る：`just package`（`dist/` に tar.gz と `.sha256`。作ったものを `verify-package.sh` で検査する）。
-- 検査の内容：SHA-256・中身・arm64・署名（`codesign --verify --strict`。署名は ad-hoc）・OS 標準以外のライブラリに依存していないこと・`vc --version`・`vc --help`・`vc run --help`・モデルなしで動く `vc skills`・`vc model status`・`vc hotkey set`（と、`vc hotkey` が設定を返すこと）。
-- **ワークフローの実行環境（macOS 26）には、Apple Intelligence も Tiny-Jev のモデルもない**。そこで確認できるのは、ビルド・単体テスト・モデルを使わないコマンドまで。`vc run`・`just eval` は、人間が実機で確かめる（[検証手順と記録](verification.md)）。
-- **macOS ランナーの容量の都合で、ジョブが始まらないことがある**：ステップが 1 つも始まらずに `cancelled` になり、注記に `The job was not acquired by Runner of type hosted even after multiple attempts`（と、macOS arm64 のランナーは、容量の制約で待ちが長くなることがある、という知らせ）が出る（2026-11-03 の `workflow_dispatch` の 1 件で確認）。コードの失敗ではなく、インフラの都合なので、Actions タブ → release → Run workflow で、もう一度起動する。ステップが失敗している（`Unit tests` など）場合は、別の問題として、ログを読む。
+- Release を作らない確認：Pull Request（リリースに関わるファイルを変えたとき）または Actions タブ → release → Run workflow。dmg をアーティファクトに残し、ダウンロードして SHA-256 を照合するところまで確かめる。
+- ローカルで同じ配布物を作る：`just dmg`（`dist/` に dmg と `.sha256`。作ったものを `verify-dmg.sh` で検査する）。
+- 検査の内容：dmg の整合・中身・Info.plist（使用目的の説明・`LSUIElement`）・版・arm64・OS 標準以外のライブラリに依存していないこと・署名（`codesign --verify --deep --strict`・指定要件が bundle ID だけ）・アプリの中の `vc --version` と `vc show --help`。
+- **ワークフローの実行環境（macOS 26）には、Apple Intelligence も Tiny-Jev のモデルもない**。そこで確認できるのは、ビルド・単体テスト・モデルを使わないコマンドまで。アプリの起動・許可・`vc run`・`just eval` は、人間が実機で確かめる（[検証手順と記録](verification.md)）。

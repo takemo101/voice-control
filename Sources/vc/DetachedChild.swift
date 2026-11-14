@@ -1,7 +1,7 @@
 import Foundation
 
 /// 画面に残る別ウィンドウを、**別のプロセス**で起こす（`vc show --wait`・`vc preview --wait`）。標準入力で本文（Markdown・PNG）を渡して、**待たない**：
-/// `vc run`（画面のループがない）でも、`vc listen`（パネルと同じプロセス）でも、同じに使え、ウィンドウは、呼び出し元が終わっても、閉じるまで残る。
+/// `vc run`（画面のループがない）でも、声の入力（パネルと同じプロセス）でも、同じに使え、ウィンドウは、呼び出し元が終わっても、閉じるまで残る。
 /// `Process` を直接使う場所（`ProcessRunner` は、終わるまで待つので使えない）。ほかは `SaySpeaker`（読み上げ）。
 enum DetachedChild {
     struct Failure: Error { let reason: String }

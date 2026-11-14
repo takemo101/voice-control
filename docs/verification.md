@@ -1080,6 +1080,18 @@ SPEC F56。**きっかけ**：`vc listen --hotkey` が「マイクが許可さ�
 | 単体テスト（設定の規則） | キーの書き方・重なり（声で頼む・音声入力・会話・画面撮影）・画面撮影は長押し不可・空は問題なし・エンジンの組み立てと、クラウドの拒否 |
 | **未確認** | **設定ウィンドウを、実際に開いて操作すること**（入力・「適用」・再起動の反映・モデルの取得・スキルの切り替え）。**アプリの実際の起動（メニューバーのアイコン・許可の確認がアプリ自身で出ること）は、許可に関わる操作なので、AI は動かしていない**（人間の確認待ち）。Tern の中から動くか・更新後も許可が残るか（指定要件を bundle ID だけにしても、macOS がそう扱うか）・`/usr/local/bin/vc` のインストール・ログイン時の起動。アイコンは、まだ無い |
 
+### CLI を、スキルが使うコマンドに絞る（2026-11-15。利用者の依頼：vc listen などは、dmg のアプリの方に寄せる）
+
+SPEC F56。**方針**：CLI（`vc`）で使えるのは、スキルが使うコマンドと診断だけ（`skills`・`run`・`show`・`preview`・`find`・`pick`・`doctor`。開発用に `transcribe`・`hotkey-check`・`hud-preview`・`settings-preview`・`eval-gate`・`eval-plan`・`chat`）。`listen`・`dictate`・`shot`・`hotkey`・`stt`・`model`・`engine`・`plan`・`mute`・`handsfree`・`recheck`・`speak`・`caption`・`fillers`・`chat-agent` は、CLI から外し、アプリの設定ウィンドウへ移した。**これ以前の記録（このファイルの上の節）には、これらのコマンドが出てくる**（当時の実際の操作の記録なので、書き換えない）。
+
+| 項目 | 結果 |
+|---|---|
+| 作り | `ListenCommand`・`DictateCommand` の、発話ごとの処理を `VoiceHandlers`・`DictationFlow` へ移した（`VoiceSession` が使う）。共通のオプション `--hotkey`・`--trigger`・`--dictate-trigger` をなくした（`hotkey-check` だけ、自分の `--trigger`）。Enter で録音する `vc listen`（試作の入口）は、やめた |
+| 配布 | リリースは dmg（`scripts/dmg.sh`・`verify-dmg.sh`）。tar.gz・`scripts/package.sh`・`verify-package.sh`・リポジトリ直下の `install.sh`（`curl … \| bash`）は、やめた。`just install` は、アプリを `~/Applications` へ入れる。`install-lib.sh`・`reset-permissions.sh` は、meeting-analyzer を移した |
+| **途中の失敗（直した）** | メッセージの置き換えを、正規表現で一括したとき、**改行まで食う貪欲なパターン**が、`TinyJev.swift` の宣言（`public`）と改行を消した（ビルドで見つかった。HEAD から戻して直した）。ほかにも、括弧が欠けた文（`ModelStore`）・「約」が欠けた文（`Doctor`）が出た：行数の差と、置き換えた語の周りを目で見て、直した |
+| 単体テスト | `env -u CI` で全通過（文言を固定していたテスト 2 件〔`KeyConflicts` に `vc hotkey set-dictate` を要求・音声認識に `vc model download <id>` を要求〕は、固定をやめて、キーの名前・モデルの名前を確かめるものに替えた） |
+| **未確認** | **リリースの dmg の実際の公開**（まだ、Release を作っていない：README・製品ページ・`install.sh` の削除は、dmg を含む Release が出るまで、`main` と、公開済みの版〔tar.gz〕が食い違う）。アプリの起動・許可・設定ウィンドウの操作（上の節）。古い `~/.local/bin/vc`（tar.gz 版）が PATH で先に当たる問題 |
+
 ## 人間の確認が要るもの（AI は合格にしない）
 
 SPEC §6 の「一部確認・未確認」の債務（58 件中 35 件。2026-11-09 の時点）は、**実マイク・実際の声・実アプリ・利用者のクリップボード・許可ダイアログ・複数のディスプレイ**が要るものに、集まっている。AI は、これらを、**利用者の環境を変えずには**、確かめられない。そこで、**同じ操作で、複数の条件を閉じられるように、確認の「場面」にまとめた**。優先順位は、**中核に近い順・1 回の確認で閉じる条件が多い順**。

@@ -11,8 +11,9 @@ import VCSpeech
     private let model = SettingsModel()
     private var window: NSWindow?
 
-    func show() {
+    func show(page: SettingsPage? = nil) {
         model.reload()
+        if let page { model.page = page }
         if window == nil {
             let hosting = NSHostingController(rootView: SettingsView(model: model))
             let window = NSWindow(contentViewController: hosting)

@@ -27,7 +27,7 @@ extension CommandContext {
     }
 }
 
-/// 端末での確認：`--yes` なら聞かずに承認。そうでなければ `[y/N]` を聞く（`vc run`・Enter で録音する `vc listen`）。
+/// 端末での確認：`--yes` なら聞かずに承認。そうでなければ `[y/N]` を聞く（`vc run`・Enter で録音する 声の入力）。
 func askOnTerminal(yes: Bool) -> Bool {
     if yes { return true }
     print("  実行しますか？ [y/N] ", terminator: "")
@@ -35,7 +35,7 @@ func askOnTerminal(yes: Bool) -> Bool {
 }
 
 /// Apple の言語モデル（スキルの実行に使う）が使えないとき、理由と直す手順を示して終わる（実行の途中で、失敗させない。Tiny-Jev のモデルがないとき、
-/// `vc model download` を案内するのと同じ）。`vc doctor` で、ほかの項目も確かめられる。
+/// 設定ウィンドウ > モデル での取得を案内するのと同じ）。`vc doctor` で、ほかの項目も確かめられる。
 /// スキルを実行するモデルが Apple のときだけ、Apple Intelligence が要る（Ollama などのローカルのサーバーのモデルを使うなら、要らない）。
 func requireAppleIntelligence(for engine: Engine) {
     guard engine == .apple else { return }

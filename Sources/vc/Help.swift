@@ -2,19 +2,19 @@ import Foundation
 
 enum Help {
     /// Tiny-Jev のモデルを読むコマンド（共通のオプションを案内する）。
-    static let modelUsers: Set<String> = ["run", "listen"]
+    static let modelUsers: Set<String> = ["run"]
 
     /// `vc help` の説明。実際の処理は、`handle` が、コマンドを探す前に済ませる（コマンドではない）。
     static let helpInfo = CommandInfo(
-        name: "help", group: .settings, summary: "ヘルプを表示する",
+        name: "help", group: .skills, summary: "ヘルプを表示する",
         usage: ["vc help [コマンド]", "vc --help", "vc <コマンド> --help"], details: [], options: [], examples: ["vc help run"])
 
     static let common: [(flag: String, text: String)] = [
-        ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：vc model download）"),
+        ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：アプリの設定 > モデル）"),
         ("--length <トークン数>", "Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）"),
         ("--floor <0〜1>", "確信度の下限（既定 0.40。未満は実行しない）"),
         ("--engine <エンジン>", "スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら vc engine set）"),
-        ("--stt <音声認識>", "使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：vc model download <ID>。常にそうするなら vc stt set）"),
+        ("--stt <音声認識>", "使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：設定ウィンドウ > モデル。常にそうするなら 設定ウィンドウ > モデル > 音声認識）"),
         ("-h, --help", "このヘルプを表示"),
         ("-V, --version", "版を表示"),
     ]
@@ -26,8 +26,8 @@ enum Help {
 
     static func overview() -> String {
         var lines: [String] = []
-        lines.append(Style.bold("vc") + " " + AppInfo.version + " — Mac を依頼文・声で操作する試作")
-        lines.append(Style.dim("Tiny-Jev がスキルを選び、Apple の言語モデルが、許可されたコマンドを実行する。"))
+        lines.append(Style.bold("vc") + " " + AppInfo.version + " — スキルが使うコマンドと、診断")
+        lines.append(Style.dim("声の入力・設定は、メニューバーのアプリ（VoiceControl.app。引数なしで vc を動かすと、起動する）。"))
         lines.append("")
         lines.append(Style.bold("使い方") + ": vc <コマンド> [引数] [オプション]")
         for group in CommandGroup.allCases {
@@ -47,7 +47,7 @@ enum Help {
         lines.append("  " + pad("NO_COLOR", to: 24) + "設定すると、色を使わない")
         lines.append("")
         lines.append("コマンドごとの説明: " + Style.bold("vc <コマンド> --help"))
-        lines.append("例: vc skills / vc run \"Safariを開いて\" --dry-run")
+        lines.append("例: vc skills / vc run \"Safariを開いて\" --dry-run / vc doctor")
         return lines.joined(separator: "\n")
     }
 

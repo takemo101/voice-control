@@ -3,7 +3,7 @@ import Foundation
 import VCSpeech
 
 /// 読み上げ（確認の問いかけ・結果）。**入っている日本語の声のうち、品質がいちばん高いもの**を使う（`SpeechVoice`。利用者が決めた声があれば、それ）。
-/// `AVSpeechSynthesizer` は、メインスレッドで使う（声で頼む `vc listen --hotkey` は、メインのイベントのループが回っている）。取りやめたときは、止める。
+/// `AVSpeechSynthesizer` は、メインスレッドで使う（声で頼む 声の入力 は、メインのイベントのループが回っている）。取りやめたときは、止める。
 /// `@unchecked Sendable` の理由：`synthesizer` は、メインスレッドだけで触る。`preferred` は、`lock` で守る。
 final class SaySpeaker: @unchecked Sendable {
     static let shared = SaySpeaker()

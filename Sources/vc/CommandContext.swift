@@ -49,10 +49,10 @@ struct CommandContext {
     /// スキルを実行するモデル（`--engine` → 設定 → 既定の Apple のモデル）。書き方が違えば、理由を示して終わる。
     var engine: Engine {
         guard let text = engineText else { return .apple }
-        do { return try Engine.parse(text) } catch { fail("\(options.engine == nil ? "settings.json の engine: " : "")\(error)\(options.engine == nil ? "（vc engine set で直す）" : "")") }
+        do { return try Engine.parse(text) } catch { fail("\(options.engine == nil ? "settings.json の engine: " : "")\(error)\(options.engine == nil ? "（設定ウィンドウ > モデル > エンジン で直す）" : "")") }
     }
 
-    /// 使うエンジンの書き方：`--engine` → 設定（`vc engine set`）→ なし（Apple）。
+    /// 使うエンジンの書き方：`--engine` → 設定（設定ウィンドウ > モデル > エンジン）→ なし（Apple）。
     var engineText: String? { options.engine ?? currentSettings().engine }
 
     /// 依頼を、複数のステップに分けるもの（設定 `multiStep` が off なら nil：1 依頼 = 1 スキル）。分け方を決めるのは、言語モデル（`engine`）。
@@ -61,7 +61,7 @@ struct CommandContext {
         return LLMPlanner(engine: engine, skills: skills)
     }
 
-    /// 使う音声認識：`--stt` → 設定（`vc stt set`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
+    /// 使う音声認識：`--stt` → 設定（`設定ウィンドウ > モデル > 音声認識`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
     var speechChoice: SpeechChoice {
         if let text = options.stt {
             switch SpeechChoice.parse(text) {
@@ -71,7 +71,7 @@ struct CommandContext {
         }
         switch currentSettings().speechChoice {
         case let .success(choice): return choice
-        case let .failure(error): fail("settings.json の stt: \(error)（vc stt set で直す）")
+        case let .failure(error): fail("settings.json の stt: \(error)（設定ウィンドウ > モデル > 音声認識 で直す）")
         }
     }
 
@@ -80,10 +80,10 @@ struct CommandContext {
         do { return try SpeechEngine.make(speechChoice) } catch { fail("\(error)") }
     }
 
-    /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（`vc model download` の置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
+    /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（設定ウィンドウ > モデル で取得した置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
     /// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
     func resolveModelDir() -> URL {
-        guard let found = findModelDirectory() else { fail("モデルが見つかりません（探した場所: \(modelCandidates.joined(separator: ", "))）。vc model download で取得") }
+        guard let found = findModelDirectory() else { fail("モデルが見つかりません（探した場所: \(modelCandidates.joined(separator: ", "))）。設定ウィンドウ > モデル で取得") }
         return found
     }
 
@@ -98,7 +98,7 @@ struct CommandContext {
     }
 
     func loadJev() -> TinyJev {
-        do { return try tryLoadJev() } catch { fail("モデルを読めません: \(error)（vc model download で取得）") }
+        do { return try tryLoadJev() } catch { fail("モデルを読めません: \(error)（設定ウィンドウ > モデル で取得）") }
     }
 
     /// `loadJev` の、`fail` しない版（アプリは、起動できない理由を、ダイアログとメニューに出す）。

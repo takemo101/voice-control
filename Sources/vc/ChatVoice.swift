@@ -2,7 +2,7 @@ import Foundation
 import VCCore
 import VCSkill
 
-/// 声の流れ（`vc listen --hotkey` の会話のトリガー）で、1 回の発話を、会話として処理する：上のパネルに、考えている様子と、答えを出す。
+/// 声の流れ（声の入力 の会話のトリガー）で、1 回の発話を、会話として処理する：上のパネルに、考えている様子と、答えを出す。
 @MainActor enum ChatVoice {
     static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool) async {
         guard !utterance.isEmpty else {

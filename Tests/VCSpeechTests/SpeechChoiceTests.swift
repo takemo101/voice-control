@@ -29,7 +29,7 @@ import VCCore
         return SpeechModel(id: name, name: name, summary: "", spec: spec)
     }
 
-    /// 取得していないモデルは、黙って Apple に切り替えずに、失敗する（理由は、取得の手順を含む）。
+    /// 取得していないモデルは、黙って Apple に切り替えずに、失敗する（理由は、どのモデルかを含む）。
     @Test func anUninstalledModelFailsToOpen() {
         let missing = model(named: "missing-\(UUID().uuidString)")
         do {
@@ -37,7 +37,7 @@ import VCCore
             Issue.record("取得していないモデルを開けてしまった")
         } catch let failure as SpeechEngine.Failure {
             guard case .modelMissing = failure else { Issue.record("別の失敗: \(failure)"); return }
-            #expect("\(failure)".contains("vc model download \(missing.id)"))
+            #expect("\(failure)".contains(missing.name))   // どのモデルが、取得されていないか
         } catch { Issue.record("別のエラー: \(error)") }
     }
 

@@ -6,7 +6,7 @@ import VCSpeech
 
 struct DoctorCommand: Command {
     static let info = CommandInfo(
-        name: "doctor", group: .settings, summary: "動かすのに必要なものが、そろっているかを確かめる",
+        name: "doctor", group: .skills, summary: "動かすのに必要なものが、そろっているかを確かめる",
         usage: ["vc doctor [--engine <エンジン>]"],
         details: [
             "Apple Intelligence（スキルの実行に使う言語モデル）・Tiny-Jev のモデル（スキルの選択）が使えるかを確かめ、使えないものは、直す手順を示す。",
@@ -18,7 +18,7 @@ struct DoctorCommand: Command {
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var checks: [DoctorCheck] = []
 
-        // --- 必須：スキルの実行（vc run・vc listen）に要る ---
+        // --- 必須：スキルの実行（vc run・声の入力）に要る ---
         checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current(), required: context.engine == .apple))
         checks.append(Self.tinyJevCheck(context))
         // --engine か設定で、Apple 以外を選んでいるときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
@@ -34,7 +34,7 @@ struct DoctorCommand: Command {
             : .warn("アクセシビリティ", "許可されていません",
                     fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
         checks.append(ScreenCapture.isAllowed
-            ? .ok("画面収録", "許可されています（スクリーンショット：vc shot・ショートカット）")
+            ? .ok("画面収録", "許可されています（スクリーンショット：スクリーンショットのショートカット）")
             : .warn("画面収録", "許可されていません（スクリーンショットを使うときだけ要ります）", fix: ScreenCapture.permissionHint))
         // コピーした画像（image-ask）：いまのクリップボードの様子（形式の名前だけ：中身は、読まない）。「コピーしたのに選ばれない」を、切り分けるため
         checks.append(ImageSource.clipboard.missing.map { .ok("クリップボード", "画像は、ありません（\($0)）") } ?? .ok("クリップボード", "画像が、あります（image-ask が使えます）"))
@@ -64,16 +64,16 @@ struct DoctorCommand: Command {
     static func microphoneCheck(_ permission: MicRecorder.Permission, hosts: [HostApp] = HostApp.candidates()) -> DoctorCheck {
         switch permission {
         case .granted: return .ok("マイク", "許可されています")
-        case .notDetermined: return .warn("マイク", "まだ許可を聞いていません", fix: "最初の vc listen で、macOS が確認を出します（声の入力を使うとき）")
+        case .notDetermined: return .warn("マイク", "まだ許可を聞いていません", fix: "アプリ（VoiceControl.app）を起動すると、macOS が確認を出します")
         case .denied: return .warn("マイク", "許可されていません", fix: "システム設定 > プライバシーとセキュリティ > マイク で、vc を動かしている端末アプリ" + (hosts.first.map { "「\($0.name)」" } ?? "") + "を許可してください（許可は、vc ではなく、動かしているアプリに付きます" + (hosts.count > 1 ? "。候補：" + hosts.map(\.name).joined(separator: "・") : "") + "）")
         }
     }
 
     static func tinyJevCheck(_ context: CommandContext) -> DoctorCheck {
-        let fix = "vc model download（約 1.2 GB。SHA-256 を検証して \(TinyJevModel.defaultDirectory.path) に置く）"
+        let fix = "設定ウィンドウ > モデル で取得（約 1.2 GB。SHA-256 を検証して \(TinyJevModel.defaultDirectory.path) に置く）"
         guard let dir = context.findModelDirectory() else { return .fail("Tiny-Jev", "モデルが見つかりません", fix: fix) }
         guard TinyJevModel.isInstalled(in: dir) else {
-            // 使う場所が、既定の置き場所ではない（--model・VC_MODEL_DIR・./models）と、vc model download では、直らない
+            // 使う場所が、既定の置き場所ではない（--model・VC_MODEL_DIR・./models）と、設定ウィンドウでの取得では、直らない
             let custom = dir.standardizedFileURL.path != TinyJevModel.defaultDirectory.standardizedFileURL.path
             return .fail("Tiny-Jev", "モデルのファイルが、そろっていません（\(dir.path)）",
                          fix: custom ? "\(dir.path) を直すか、--model・VC_MODEL_DIR を外して、\(fix)" : fix)
@@ -81,18 +81,18 @@ struct DoctorCommand: Command {
         return .ok("Tiny-Jev", "あります（\(dir.path)）")
     }
 
-    /// 使う音声認識（`--stt`・`vc stt set`）。ダウンロードしたモデルを選んでいるのに、取得していなければ、失敗（`vc listen` は、黙って Apple に切り替えずに、止まる）。
+    /// 使う音声認識（`--stt`・`設定ウィンドウ > モデル > 音声認識`）。ダウンロードしたモデルを選んでいるのに、取得していなければ、失敗（声の入力 は、黙って Apple に切り替えずに、止まる）。
     static func speechCheck(_ context: CommandContext) -> DoctorCheck {
         let choice: SpeechChoice
         if let text = context.options.stt {
             switch SpeechChoice.parse(text) {
             case let .success(c): choice = c
-            case let .failure(error): return .fail("音声認識", "\(error)", fix: "vc stt set <apple|ID>")
+            case let .failure(error): return .fail("音声認識", "\(error)", fix: "設定ウィンドウ > モデル > 音声認識")
             }
         } else {
             switch context.currentSettings().speechChoice {
             case let .success(c): choice = c
-            case let .failure(error): return .fail("音声認識", "settings.json の stt: \(error)", fix: "vc stt set <apple|ID>（既定に戻す：vc stt reset）")
+            case let .failure(error): return .fail("音声認識", "settings.json の stt: \(error)", fix: "設定ウィンドウ > モデル > 音声認識")
             }
         }
         switch choice {
@@ -100,7 +100,7 @@ struct DoctorCommand: Command {
         case let .local(model):
             return model.isInstalled
                 ? .ok("音声認識", "\(model.name)（\(model.fileURL.path)）")
-                : .fail("音声認識", "\(model.name) を選んでいますが、取得していません", fix: "vc model download \(model.id)（Apple に戻す：vc stt reset）")
+                : .fail("音声認識", "\(model.name) を選んでいますが、取得していません", fix: "設定ウィンドウ > モデル（Apple に戻す：設定ウィンドウ > モデル > 音声認識）")
         }
     }
 

@@ -8,7 +8,7 @@ import VCSkill
 import VCSpeech
 
 /// メニューバーのアプリの本体：声の入力（`VoiceSession`）を、アプリのイベントループの上で動かす。
-/// **端末の `vc listen --hotkey` とは別に、許可の持ち主が、アプリ自身になる**（マイク・アクセシビリティ）。起動できない理由は、ダイアログとメニューに出す（アプリには、端末がない）。
+/// **端末の 声の入力 とは別に、許可の持ち主が、アプリ自身になる**（マイク・アクセシビリティ）。起動できない理由は、ダイアログとメニューに出す（アプリには、端末がない）。
 @MainActor final class AppRuntime {
     static let shared = AppRuntime()
 
@@ -30,7 +30,7 @@ import VCSpeech
     func start() {
         state = .starting
         FailurePresenter.show = { message in AppAlerts.show(title: "vc を続けられません", message: message, style: .critical) }
-        var arguments = Arguments(["--hotkey"])
+        var arguments = Arguments([])
         let options = CommonOptions(consuming: &arguments)
         let context = CommandContext(options: options)
         do {
@@ -50,6 +50,8 @@ import VCSpeech
             let reason = "\(error)"
             state = .stopped(reason: reason)
             AppAlerts.show(title: "声の入力を始められません", message: reason, style: .warning)
+            // 直せる場所を、開く（モデルがなければ「モデル」・許可がなければ「一般」）
+            if let page = (error as? StartupProblem)?.page { SettingsWindow.shared.show(page: page) }
         }
     }
 
@@ -58,15 +60,17 @@ import VCSpeech
         if context.engine == .apple, case let .unavailable(reason) = AppleIntelligence.current() {
             throw StartupProblem("\(reason.summary)。\(reason.remedy)")
         }
-        guard MicRecorder.authorize() else { throw StartupProblem(MicRecorder.deniedMessage()) }
+        guard MicRecorder.authorize() else { throw StartupProblem(MicRecorder.deniedMessage(), page: .general) }
         do { return try context.tryLoadJev() } catch let missing as CommandContext.ModelMissing {
-            throw StartupProblem("\(missing)。取得：メニューの「コマンド vc をインストール」のあと、端末で vc model download")
+            throw StartupProblem("\(missing)。設定ウィンドウ > モデル の「Tiny-Jev」を取得してください（約 1.2 GB。取得だけが、外部との通信です）", page: .models)
         } catch { throw StartupProblem("Tiny-Jev のモデルを読めません: \(error)") }
     }
 
     struct StartupProblem: Error, CustomStringConvertible {
         let description: String
-        init(_ text: String) { description = text }
+        /// 直せる設定のページ。
+        let page: SettingsPage?
+        init(_ text: String, page: SettingsPage? = nil) { description = text; self.page = page }
     }
 
     /// 終了の後始末（消音を戻す・認識を閉じる・撮ったスクリーンショットを消す）。

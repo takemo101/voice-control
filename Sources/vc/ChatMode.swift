@@ -3,7 +3,7 @@ import Foundation
 import VCCore
 import VCSkill
 
-/// 会話（`vc listen --hotkey` の会話のトリガー・`vc chat`）：**スキルを選ばずに、会話として質問できる**。古い往復は、要約して、続けられる（`ChatConversation`）。
+/// 会話（声の入力 の会話のトリガー・`vc chat`）：**スキルを選ばずに、会話として質問できる**。古い往復は、要約して、続けられる（`ChatConversation`）。
 /// 会話の記録は、**メモリだけ**（ファイル・ログに残さない）。`vc` を終えるか、「会話を終わって」と言うか、しばらく話さないと、消える。
 @MainActor final class ChatMode {
     static let shared = ChatMode()
@@ -22,7 +22,7 @@ import VCSkill
         return ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"].contains(text)
     }
 
-    /// 使うエージェントを決める（`vc listen`・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
+    /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
     func configure(agent: ChatAgent) {
         guard agent != self.agent else { return }
         self.agent = agent
@@ -47,7 +47,7 @@ import VCSkill
         let wants = ChatAttachments.wants(utterance)
         if agent.isExternal && (wants.image || wants.text) {
             // 外へ出さない決まり：画像・コピーした文章は、この Mac の中のモデルにだけ渡す
-            notes.append("\(agent.rawValue) には、画像・コピーした文章を渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます：vc chat-agent reset）")
+            notes.append("\(agent.rawValue) には、画像・コピーした文章を渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます：設定ウィンドウ > モデル reset）")
         } else if wants.image {
             let source = ImageSource.any.resolve(for: utterance)
             switch source.materialize(for: utterance) {
@@ -89,11 +89,11 @@ enum TextClipboard {
 }
 
 extension CommandContext {
-    /// 会話に使うエージェント：設定（`vc chat-agent`）。なければ Apple。書き方が違えば、理由を示して終わる。
+    /// 会話に使うエージェント：設定（設定ウィンドウ > モデル）。なければ Apple。書き方が違えば、理由を示して終わる。
     func resolveChatAgent() -> ChatAgent {
         guard let text = currentSettings().chatAgent else { return .apple }
         guard let agent = ChatAgent.parse(text) else {
-            fail("settings.json の chatAgent「\(text)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）。vc chat-agent で直す")
+            fail("settings.json の chatAgent「\(text)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）。設定ウィンドウ > モデル で直す")
         }
         return agent
     }

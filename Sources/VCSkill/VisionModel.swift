@@ -38,7 +38,7 @@ enum VisionModel {
         switch engine {
         case .apple: return askApple(png: png, question: question, cancel: cancel, workDirectory: workDirectory)
         case let .ollama(model): return askOllama(png: png, question: question, model: model)
-        case .openAI: return .failure(ToolFailure(exitCode: 1, message: "OpenAI 互換のエンジンは、画像に未対応です。apple か ollama:<画像に対応したモデル> にしてください（vc engine set）"))
+        case .openAI: return .failure(ToolFailure(exitCode: 1, message: "OpenAI 互換のエンジンは、画像に未対応です。apple か ollama:<画像に対応したモデル> にしてください（設定ウィンドウ > モデル > エンジン）"))
         }
     }
 
@@ -60,11 +60,11 @@ enum VisionModel {
     static func appleReply(exitCode: Int32, output: String, timedOut: Bool) -> Result<String, ToolFailure> {
         if timedOut { return .failure(ToolFailure(exitCode: 1, message: "画像を読むのに、\(Int(timeout)) 秒以上かかりました")) }
         let text = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        if exitCode == 127 { return .failure(ToolFailure(exitCode: 1, message: "fm コマンドがありません。この Mac では、Apple のモデルで画像を読めません。Ollama の画像対応モデルにしてください（vc engine set ollama:qwen3.5:4b）")) }
+        if exitCode == 127 { return .failure(ToolFailure(exitCode: 1, message: "fm コマンドがありません。この Mac では、Apple のモデルで画像を読めません。Ollama の画像対応モデルにしてください（設定ウィンドウ > モデル > エンジン）")) }
         if exitCode != 0 {
             let unsupported = text.contains("--image") && (text.lowercased().contains("unknown") || text.lowercased().contains("unexpected") || text.lowercased().contains("unrecognized"))
             let reason = unsupported
-                ? "この Mac の Apple のモデルは、画像に対応していません（macOS 27 以降）。Ollama の画像対応モデルにしてください（vc engine set ollama:qwen3.5:4b）"
+                ? "この Mac の Apple のモデルは、画像に対応していません（macOS 27 以降）。Ollama の画像対応モデルにしてください（設定ウィンドウ > モデル > エンジン）"
                 : "Apple のモデルが、画像を読めませんでした（\(String(text.prefix(200)))）"
             return .failure(ToolFailure(exitCode: 1, message: reason))
         }
@@ -105,7 +105,7 @@ enum VisionModel {
         if status == 404 { return .failure(ToolFailure(exitCode: 1, message: "モデル \(model) がありません（ollama pull \(model)）")) }
         guard status == 200 else {
             let notVision = body.lowercased().contains("image") && (body.lowercased().contains("support") || body.lowercased().contains("vision"))
-            let reason = notVision ? "モデル \(model) は、画像に対応していません。画像対応のモデルにしてください（vc engine set ollama:qwen3.5:4b）" : "Ollama がエラーを返しました（\(status)：\(String(body.prefix(200)))）"
+            let reason = notVision ? "モデル \(model) は、画像に対応していません。画像対応のモデルにしてください（設定ウィンドウ > モデル > エンジン）" : "Ollama がエラーを返しました（\(status)：\(String(body.prefix(200)))）"
             return .failure(ToolFailure(exitCode: 1, message: reason))
         }
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let message = root["message"] as? [String: Any],

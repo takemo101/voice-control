@@ -6,7 +6,7 @@ struct TranscribeCommand: Command {
         name: "transcribe", group: .evaluation, summary: "音声ファイルを文字にする（音声認識の確認用）",
         usage: ["vc transcribe <音声ファイル> [--stt <apple|ID>]"],
         details: [
-            "選んだ音声認識（--stt → vc stt set → 既定の Apple）で、音声ファイルを文字にして、画面に出す。認識の前に、声のない録音は、捨てる（空になる）。",
+            "選んだ音声認識（--stt → 設定ウィンドウ > モデル > 音声認識 → 既定の Apple）で、音声ファイルを文字にして、画面に出す。認識の前に、声のない録音は、捨てる（空になる）。",
             "文字は、画面だけに出す（ファイル・ログに残さない）。音声は、この Mac の外へ出さない。",
         ],
         options: [],
@@ -21,7 +21,7 @@ struct TranscribeCommand: Command {
         let t0 = Date()
         do {
             let heard = try await engine.transcriber.transcribeWithConfidence(file: url)
-            // 確信度（Apple の認識だけ）：しきい値（`vc recheck`）の見当をつけるため、標準エラーに出す
+            // 確信度（Apple の認識だけ）：しきい値（聞き取りの確認）の見当をつけるため、標準エラーに出す
             let confidence = heard.confidence.map { String(format: "・確信度 %.0f%%%@", $0 * 100, $0 < Recheck.threshold ? "（しきい値 \(Int(Recheck.threshold * 100))% 未満：声で頼むなら、確認が出る）" : "") } ?? ""
             eprint(Style.dim(String(format: "%@・%.2f 秒", engine.choice.id, Date().timeIntervalSince(t0)) + confidence))
             print(heard.text.isEmpty ? Style.dim("（声が聞こえませんでした）") : heard.text)

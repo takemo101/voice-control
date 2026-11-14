@@ -15,7 +15,7 @@ voice-control の補助文書の入口。製品要件・受け入れ条件・対
 | [参考にした設計原則](references.md) | どの設計原則を選び、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
 | [リファクタリングの観点](refactoring.md) | 動作を変えずに見直すときの観点と進め方 | 製品要件・実施権限・スコア化 |
 | [検証手順と記録](verification.md) | 条件をどう観測し、何をいつ確認したか、何が人間の確認待ちか | 新しい合格条件・未実施の成功 |
-| [スキル](skills.md) | スキルの書き方・`allowed-commands` の仕様・コマンド・表示・声の入力（`vc listen`）・安全 | 製品要件（正本は SPEC F1〜F6・F8・F12） |
+| [スキル](skills.md) | スキルの書き方・`allowed-commands` の仕様・コマンド・表示・声の入力（声の入力（メニューバーのアプリ））・安全 | 製品要件（正本は SPEC F1〜F6・F8・F12） |
 | [製品ページ](../site/index.html)（公開：GitHub Pages） | 利用者向けの、インストール・使い方・注意点の説明ページ（動きと動画つき）。作り方・更新・公開は、[開発手順](development.md#製品ページsite) | 製品要件・測定の数値 |
 | [スキルを作るスキル](../skills/voice-control-skill-author/SKILL.md) | エージェントが、`~/.voice-control/skills` のスキルを、正しい形で作る手順 | スキルの形の要件（正本は SPEC F1） |
 
@@ -38,9 +38,10 @@ README.md              概要・使い方
 SPEC.md                製品要件・受け入れ条件（実装の状態つき）・対象外・未決事項
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
-install.sh             コマンド 1 つで、最新の Release の vc を入れる（`curl … | bash`。SHA-256 を照合し、`vc model download` と `vc doctor` まで）
+Resources/
+  Info.plist           アプリの Info.plist（bundle ID・使用目的の説明・LSUIElement。版は、build-app.sh が入れる）
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
-justfile               開発用コマンド（build・test・package・install・uninstall・eval・fixture・vc）
+justfile               開発用コマンド（build・test・app・dmg・install・uninstall・reset-permissions・eval・fixture・vc）
 Sources/
   vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`doctor`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
   Fixture/             検証用の自作ウィンドウ
@@ -59,11 +60,14 @@ skills/
   skills/spotify/      このプロジェクトのスキルの例（Spotify の操作。AppleScript）
   skills/clipboard-note/  コピーした文章に、言われたとおりの処理をして、Markdown のウィンドウに表示する（pbpaste だけを許可）
 scripts/
-  install.sh           ソースからビルドした vc を ~/.local/bin へ入れる（開発用。`just install`）
-  uninstall.sh         入れた vc とモデルのリンクを取り除く
+  build-app.sh         build/VoiceControl.app を作る（Resources/Info.plist・指定要件を bundle ID だけにする署名）
+  dmg.sh               配布用の dmg と SHA-256 を dist/ に作る
+  verify-dmg.sh        dmg を検査する
+  install.sh           アプリを ~/Applications へ入れて起動する（開発用。`just install`）
+  install-lib.sh       install・uninstall・reset-permissions の共通部分
+  uninstall.sh         入れたアプリ・コマンドのリンク・モデルのリンクを取り除く
+  reset-permissions.sh このアプリの許可を取り消す
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
-  package.sh           配布用の tar.gz と SHA-256 を dist/ に作る
-  verify-package.sh    tar.gz を展開して検査する
 .github/workflows/
   release.yml          タグ vX.Y.Z の push で、vc をビルドして GitHub Release に添付する
 docs/
@@ -74,10 +78,10 @@ docs/
   references.md        参考にした設計原則・調べた外部の機能
   refactoring.md       リファクタリングの観点と進め方
   verification.md      検証手順・記録・人間の確認待ち
-  skills.md            スキルの書き方と仕様・声の入力（`vc listen`）
+  skills.md            スキルの書き方と仕様・声の入力（声の入力（メニューバーのアプリ））
 ```
 
-`models/`（開発用に、Tiny-Jev の重みを置いてもよい場所。約 1.2 GB）と `.build/`・`dist/` は Git 対象外。`~/.voice-control/` は、利用者のスキル・設定・モデル（`vc model download`）で、リポジトリの外。
+`models/`（開発用に、Tiny-Jev の重みを置いてもよい場所。約 1.2 GB）と `.build/`・`dist/` は Git 対象外。`~/.voice-control/` は、利用者のスキル・設定・モデル（設定ウィンドウ > モデル）で、リポジトリの外。
 
 ## 更新時の扱い
 

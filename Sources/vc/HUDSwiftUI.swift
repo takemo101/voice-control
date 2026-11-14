@@ -135,7 +135,7 @@ private struct CompactCard: View {
     @ObservedObject var model: HUDModel
 
     var body: some View {
-        let captioned = content.phase == .recording && content.captionSlot   // 録音中の文字の欄を出す（`vc caption`）
+        let captioned = content.phase == .recording && content.captionSlot   // 録音中の文字の欄を出す（録音中の文字の表示）
         GlassCard(tint: Palette.tint(content), radius: captioned ? 28 : 30, width: captioned ? hudCardWidth : hudCompactWidth) {
             VStack(alignment: .leading, spacing: captioned ? 12 : 6) {
                 if content.phase == .recording { recording } else { thinking }

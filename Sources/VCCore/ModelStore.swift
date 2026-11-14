@@ -23,7 +23,7 @@ public enum ModelStoreError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case let .http(status, file): return "\(file) の取得に失敗しました（HTTP \(status)）"
-        case let .checksumMismatch(file): return "\(file) の SHA-256 が一致しません（壊れているか、版が違います。もう一度 vc model download）"
+        case let .checksumMismatch(file): return "\(file) の SHA-256 が一致しません（壊れているか、版が違います。もう一度、設定ウィンドウ > モデル で取得してください）"
         }
     }
 }

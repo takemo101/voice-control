@@ -87,10 +87,10 @@ public typealias NextUtterance = @MainActor @Sendable () async throws -> String?
 /// - `cancel`：Esc で取りやめられる。実行中の処理は、これを見て止まる（処理の `Task` も取りやめられる）。
 /// - `next`：確認の返事など、次の発話を待つ。
 /// 処理の中の失敗・取りやめの表示は、ハンドラの仕事（文字にする段階のものは、`VoiceLoopEvent`）。
-/// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。`vc listen --hotkey` が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
+/// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。声の入力 が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
 public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Void
 
-/// **聞き取りに自信がないとき**（認識の確信度が `threshold` 未満）、実行の前に、聞こえた文を確かめる（`vc recheck`。実験）。
+/// **聞き取りに自信がないとき**（認識の確信度が `threshold` 未満）、実行の前に、聞こえた文を確かめる（聞き取りの確認。実験）。
 /// `confirm` が false を返したら、その発話は、処理しない。声で頼む以外（音声入力など）は、`confirm` の側で、true を返してよい。
 public struct Uncertainty: Sendable {
     public typealias Confirm = @MainActor @Sendable (_ text: String, _ confidence: Double, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Bool
@@ -115,12 +115,12 @@ final class TagQueue: @unchecked Sendable {
 
 // MARK: - VoiceLoop
 
-/// 声の流れ（`vc listen --hotkey`）の**調整**：トリガー（押した・離した）・録音・Esc・認識の待ち行列・発話ごとの処理の `Task`。
+/// 声の流れ（声の入力）の**調整**：トリガー（押した・離した）・録音・Esc・認識の待ち行列・発話ごとの処理の `Task`。
 /// 状態の遷移は `VoiceActivity`、入力の列は `VoiceInputQueue`。スキル・画面の表示は、知らない（`UtteranceHandler`・`VoiceLoopEvent` の向こう側）。
 ///
 /// **守る不変条件**（実際に起きた不具合）：
 /// 1. **`run(onReady:)` は同期**で、`NSApplication.run()` の前に `await` を挟まない。`await` のあとの処理は、メインキューのブロックの中で動き、
-///    そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が動かない。呼ぶ側（`vc listen`）も、`run` の前に `await` しない
+///    そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が動かない。呼ぶ側（声の入力）も、`run` の前に `await` しない
 ///    （マイクの許可は同期の `MicRecorder.authorize()`）。
 /// 2. **トリガーと Esc は、`run()` の間、手放さない**（`withExtendedLifetime`）。最適化で、最後の使用のあとに解放されると、ホットキーが死ぬ。
 /// 3. **修飾キーを押している間は、Esc の Carbon ホットキーを登録しない**（登録すると、そのあとの Esc が届かない：実測）。それを守るのは `EscapeKey.setActive(true)` で、

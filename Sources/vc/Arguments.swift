@@ -43,8 +43,6 @@ struct CommonOptions {
     var model: String?
     var length: Int
     var yes: Bool
-    var hotkey: Bool
-    var trigger: String?
     /// 取り除かない（`vc run` は、自分の `--dry-run` を、あとで取り除く）。
     var dryRun: Bool
     var floor: Double?
@@ -52,20 +50,15 @@ struct CommonOptions {
     var engine: String?
     /// 使う音声認識（`apple` か、ダウンロードしたモデルの ID）。解釈は `CommandContext.speechChoice`。
     var stt: String?
-    /// 音声入力のトリガー（`vc listen --hotkey` で、声で頼むのとは別のトリガーで、音声入力を切り替える。`vc hotkey set-dictate` で、常にそうする）。
-    var dictateTrigger: String?
 
     /// 数にならない `--length`・`--floor` の値も、取り除く（既定の値を使う）。
     init(consuming arguments: inout Arguments) {
         model = arguments.option("--model")
         length = arguments.option("--length").flatMap(Int.init) ?? 1024
         yes = arguments.flag("--yes")
-        hotkey = arguments.flag("--hotkey")
-        trigger = arguments.option("--trigger")
         dryRun = arguments.contains("--dry-run")
         floor = arguments.option("--floor").flatMap(Double.init)
         engine = arguments.option("--engine")
         stt = arguments.option("--stt")
-        dictateTrigger = arguments.option("--dictate-trigger")
     }
 }

@@ -57,10 +57,9 @@
         <a class="btn btn-primary" href="#install">インストールする</a>
         <a class="btn" href="#how">どう動くか見る</a>
       </div>
-      <p class="cmd-label">ターミナルに貼り付けて実行します</p>
-      <div class="cmd">
-        <pre><code id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre>
-        <button class="copy" type="button" data-copy-from="hero-cmd">コピー</button>
+      <p class="cmd-label">Mac 用のアプリ（dmg）をダウンロードして、「アプリケーション」へドラッグします</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/takemo101/voice-control/releases/latest" rel="noopener">最新の dmg をダウンロード</a>
       </div>
     </div>
     <figure class="hero-media reveal">
@@ -103,7 +102,7 @@
         <p class="how-note">画面は、<code>vc hud-preview</code> の見本（中身は作り物）を実機で撮ったものです。</p>
       </div>
       <ol class="steps" role="tablist" aria-label="声で頼むときの流れ">
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>Shift を押している間、録音します</h3><p>離すまでは、何も実行されません。押すキーは <code>vc hotkey set</code> で変えられます。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>Shift を押している間、録音します</h3><p>離すまでは、何も実行されません。押すキーは、設定の「キー」で変えられます。</p><span class="step-bar"></span></button></li>
         <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="1"><span class="step-n">2</span><h3>離すと、話した内容が文字になります</h3><p>Apple の音声認識を使います。Whisper に切り替えることもできます。音声は Mac の外に出ません。</p><span class="step-bar"></span></button></li>
         <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="2"><span class="step-n">3</span><h3>合うスキルが選ばれて、実行されます</h3><p>小さな選択モデル（Tiny-Jev）が、約 0.1 秒でスキルを選びます。実行できるのは、そのスキルが許可したコマンドだけです。</p><span class="step-bar"></span></button></li>
         <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="3"><span class="step-n">4</span><h3>危ない操作は、先に確認します</h3><p>削除や送信など、取り消しにくい操作は、実行する前に確認します。ボタン、キー、声の「はい」で答えられます。</p><span class="step-bar"></span></button></li>
@@ -143,7 +142,7 @@
         <h3>声で頼む</h3>
         <p>Shift を押している間だけ話して、離すと実行します。Esc で取り消せます。実行中にもう一度話すと、前の処理を止めて、新しい依頼を実行します（確認の返事を待っているときは、返事として扱います）。</p>
         <div class="keys" aria-hidden="true"><span class="kbd">Shift</span> を押す<span class="arrow">→</span>話す<span class="arrow">→</span>離す<span class="arrow">→</span>実行<span class="sep">／</span><span class="kbd">Esc</span> で取り消し</div>
-        <code class="mini">vc listen --hotkey</code>
+        <code class="mini">メニューバーのアプリ</code>
       </article>
       <article class="card spotlight b-third b-tall reveal" style="--d:80ms">
         <h3>結果を見やすく表示</h3>
@@ -158,12 +157,12 @@
       <article class="card spotlight b-third reveal">
         <h3>声で文字を入力</h3>
         <p>話した言葉を、いま使っているアプリにそのまま入力します。「えーと」などのつなぎ言葉は、辞書を使って消せます（初期設定はオフ）。</p>
-        <code class="mini">vc dictate</code>
+        <code class="mini">設定 &gt; キー &gt; 音声入力</code>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>続けて頼む</h3>
         <p>「Claude で調べて、そのあと Spotify で次の曲」のように、続けて頼めます。依頼を順番に分けて、1 つずつ実行し、途中で失敗したらそこで止まります。</p>
-        <div class="mini-row"><code class="mini">vc plan off</code><span class="mini-note">で無効にできます</span></div>
+        <div class="mini-row"><code class="mini">設定 &gt; モデル</code><span class="mini-note">で無効にできます</span></div>
       </article>
       <article class="card spotlight b-third reveal">
         <h3>スキルを足せる</h3>
@@ -173,7 +172,7 @@
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>AI モデルを選べる</h3>
         <p>初期設定は Apple のモデルです。Ollama や LM Studio など、自分の Mac 上のモデルにも切り替えられます。クラウドのモデルは指定できません。</p>
-        <code class="mini">vc engine set ollama:qwen3.5:4b</code>
+        <code class="mini">設定 &gt; モデル &gt; エンジン</code>
       </article>
     </div>
 
@@ -189,7 +188,7 @@
         <div class="card-media is-inset">
           <img src="assets/img/capture-drag.jpg" width="1500" height="850" alt="暗くなった画面で範囲をドラッグしている様子。範囲だけが明るく、大きさ「1200 × 500」と縦横比が表示され、下に操作の案内が出ている" loading="lazy">
         </div>
-        <div class="mini-row"><code class="mini">vc hotkey set-shot ctrl+opt+s</code></div>
+        <div class="mini-row"><code class="mini">設定 &gt; キー &gt; 画面撮影</code></div>
       </article>
       <article class="card spotlight b-third b-tall-2 reveal">
         <h3>撮った画像のパネル</h3>
@@ -201,7 +200,7 @@
       <article class="card spotlight b-third reveal">
         <h3>ダブルタップで、話し終わるまで</h3>
         <p>Shift を押している間だけ話す代わりに、<strong>2 回タップ</strong>すると、手を離しても録音が続きます。<strong>黙ると</strong>認識を始め、もう一度タップすると、すぐ始めます。押し続ける使い方は、そのままです。</p>
-        <div class="mini-row"><code class="mini">vc handsfree off</code><span class="mini-note">で、押している間だけに戻せます</span></div>
+        <div class="mini-row"><code class="mini">設定 &gt; キー</code><span class="mini-note">で、押している間だけに戻せます</span></div>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>撮った画像を、ほかのツールへ</h3>
@@ -290,20 +289,18 @@
       </li>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">3</span><div><h3>vc をインストールする</h3><p class="tl-what">vc 本体と、スキルを選ぶ小さなモデル（約 1.2 GB）をダウンロードします。</p></div></div>
+        <div class="tl-head"><span class="tl-n">3</span><div><h3>アプリを入れる</h3><p class="tl-what">dmg を開いて、voice-control.app を「アプリケーション」へドラッグします。</p></div></div>
         <div class="tl-body">
-          <p class="cmd-label">ターミナルで実行</p>
-          <div class="cmd"><pre><code id="c-install">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre><button class="copy" type="button" data-copy-from="c-install">コピー</button></div>
-          <p class="tl-result"><b>結果：</b><code>~/.local/bin/vc</code> に置かれます。ダウンロードしたファイルは、SHA-256 を照合してから使います。<code>~/.local/bin</code> が PATH に入っていないときは、そう表示されます。</p>
+          <p class="cmd-label">ブラウザでダウンロードして、macOS に止められたとき（署名は ad-hoc です）、ターミナルで実行</p>
+          <div class="cmd"><pre><code id="c-install">xattr -dr com.apple.quarantine /Applications/VoiceControl.app</code></pre><button class="copy" type="button" data-copy-from="c-install">コピー</button></div>
+          <p class="tl-result"><b>結果：</b>アプリを開くと、メニューバーにマイクのアイコンが出ます（Dock には出ません）。メニューの「設定…」 &gt; モデル で、スキルを選ぶ小さなモデル（約 1.2 GB。SHA-256 を検証）を取得します。マイクとアクセシビリティの許可は、<strong>アプリ自身</strong>に付きます（ターミナルには、よりません）。</p>
         </div>
       </li>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">4</span><div><h3>足りない設定がないか確認する</h3><p class="tl-what">必要な許可や設定が、そろっているかを調べます。</p></div></div>
+        <div class="tl-head"><span class="tl-n">4</span><div><h3>足りない設定がないか確認する</h3><p class="tl-what">必要な許可や設定が、そろっているかを調べます。メニューバーのアイコン &gt; 「診断を見る」。</p></div></div>
         <div class="tl-body">
-          <p class="cmd-label">ターミナルで実行</p>
-          <div class="cmd"><pre><code id="c-doctor">vc doctor</code></pre><button class="copy" type="button" data-copy-from="c-doctor">コピー</button></div>
-          <p class="tl-result"><b>結果：</b>足りないものがあれば、直し方が表示されます。主に次の許可が必要です。</p>
+          <p class="tl-result"><b>結果：</b>足りないものがあれば、直し方が表示されます（設定の「一般」でも、許可の状態を確認できます）。主に次の許可が必要です。</p>
           <div class="perms">
             <div class="perm"><b>アクセシビリティ</b>キーの長押しの検出と、アプリの操作に使います。</div>
             <div class="perm"><b>マイク</b>声で頼むときと、声で文字を入力するときに使います。</div>
@@ -315,36 +312,27 @@
       <li class="tl-step reveal">
         <div class="tl-head"><span class="tl-n">5</span><div><h3>スキルを入れて、試す</h3><p class="tl-what">まず実行しない設定で試して、次に声で頼みます。</p></div></div>
         <div class="tl-body">
-          <p class="cmd-label"><b>5-1</b> 同梱のスキルを入れる</p>
+          <p class="cmd-label"><b>5-1</b> 同梱のスキルを入れる（設定の「一般」で、コマンド vc を入れてから、ターミナルで）</p>
           <div class="cmd"><pre><code id="c-skills">vc skills install --all</code></pre><button class="copy" type="button" data-copy-from="c-skills">コピー</button></div>
           <p class="cmd-label"><b>5-2</b> 実行しないで、何をするかだけ見る</p>
           <div class="cmd"><pre><code id="c-dry">vc run "音量を50にして" --dry-run</code></pre><button class="copy" type="button" data-copy-from="c-dry">コピー</button></div>
           <pre class="out" aria-label="実行結果の例">Tiny-Jev  spotify  90.2%（0.1 秒）
 $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
           <p class="tl-result"><b>結果：</b>どのスキルが選ばれたかと、実行しようとするコマンドが表示されます。実際には何も実行されません。</p>
-          <p class="cmd-label"><b>5-3</b> 声で頼む</p>
-          <div class="cmd"><pre><code id="c-listen">vc listen --hotkey</code></pre><button class="copy" type="button" data-copy-from="c-listen">コピー</button></div>
+          <p class="cmd-label"><b>5-3</b> 声で頼む（アプリを起動していれば、すぐ使えます）</p>
           <p class="tl-result"><b>使い方：</b>Shift を押している間だけ話して、離すと実行されます。<strong>Shift を 2 回タップ</strong>すると、話し終わるまで聞きます。初回は、マイクとアクセシビリティの許可を求められます。</p>
-          <p class="cmd-label"><b>5-4</b> 画面を撮って頼む（任意）</p>
-          <div class="cmd"><pre><code id="c-shot">vc hotkey set-shot ctrl+opt+s</code></pre><button class="copy" type="button" data-copy-from="c-shot">コピー</button></div>
-          <p class="tl-result"><b>使い方：</b><code>vc listen --hotkey</code> を動かしたまま <code>ctrl+opt+s</code> を押し、範囲を選びます。そのあと、「この画像の文字を書き出して」のように頼みます。初回は、画面収録の許可を求められます。</p>
+          <p class="cmd-label"><b>5-4</b> 画面を撮って頼む（任意。設定 &gt; キー の「画面撮影」に <code>ctrl+opt+s</code> を決めます）</p>
+          <p class="tl-result"><b>使い方：</b>アプリを動かしたまま <code>ctrl+opt+s</code> を押し、範囲を選びます。そのあと、「この画像の文字を書き出して」のように頼みます。初回は、画面収録の許可を求められます。</p>
         </div>
       </li>
     </ol>
 
     <details class="more reveal">
-      <summary>手動でインストールする・ソースから入れる・削除する</summary>
+      <summary>ソースから入れる・削除する・許可のやり直し</summary>
       <div class="body">
-        <p><strong>手動でインストールする</strong>（ダウンロードしたファイルを自分で照合します）</p>
-        <div class="cmd is-block"><pre><code id="c-manual">V=0.4.6
-curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
-curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
-shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256
-tar -xzf vc-$V-macos-arm64.tar.gz
-mkdir -p ~/.local/bin &amp;&amp; install -m 755 vc-$V-macos-arm64/vc ~/.local/bin/vc
-vc model download</code></pre><button class="copy" type="button" data-copy-from="c-manual">コピー</button></div>
-        <p><strong>ソースから入れる</strong>　リポジトリを clone して <code>just install</code> を実行します（Swift 6.2 以降が必要です。初回は、音声認識の実行環境のビルドに数分かかります）。</p>
-        <p><strong>削除する</strong>　<code>rm ~/.local/bin/vc</code> を実行します。モデル、設定、スキルは <code>~/.voice-control</code> に残ります。</p>
+        <p><strong>ソースから入れる</strong>　リポジトリを clone して <code>just install</code> を実行します（アプリを <code>~/Applications</code> へ入れて起動します。Swift 6.2 以降が必要です。初回は、音声認識の実行環境のビルドに数分かかります）。<code>just dmg</code> で、配布用の dmg を作れます。</p>
+        <p><strong>削除する</strong>　<code>just uninstall</code>（アプリ・コマンドのリンク・許可を取り除きます）。手で入れたなら、アプリをゴミ箱へ。モデル、設定、スキルは <code>~/.voice-control</code> に残ります。</p>
+        <p><strong>許可が効かないとき</strong>　設定ではオンなのに「許可されていません」と出るなら、<code>just reset-permissions</code>（このアプリの許可だけを取り消します。次の起動で、確認が出ます）。</p>
       </div>
     </details>
   </div>
@@ -375,7 +363,7 @@ vc model download</code></pre><button class="copy" type="button" data-copy-from=
     <header class="section-head reveal"><h2>よくある質問</h2></header>
     <div class="faq">
       <details class="reveal"><summary>本当に、話した内容は外に出ませんか？</summary><div class="body"><p>音声認識（初期設定は Apple のオンデバイス）、スキルの選択（Tiny-Jev）、初期設定の AI モデルは、Mac の中で動きます。通信するのは、インストール、モデルの取得、スキルの取得のときと、Ollama などを使うときの Mac 自身（<code>127.0.0.1</code>）だけです。例外は、自分で入れた <code>ask-agent</code>・<code>web-search</code>・<code>ask-agent-image</code> の 3 つのスキルです（<code>ask-agent-image</code> は、画面の画像を送るので、毎回確認します）。</p></div></details>
-      <details class="reveal"><summary>話すときに押すキーは変えられますか？</summary><div class="body"><p>初期設定は Shift の長押しです。たとえば <code>vc hotkey set rshift</code> で、右 Shift に変えられます。声で頼むキーと、声で文字を入力するキーを、別々に設定することもできます（<code>vc hotkey set-dictate</code>）。</p></div></details>
+      <details class="reveal"><summary>話すときに押すキーは変えられますか？</summary><div class="body"><p>初期設定は Shift の長押しです。設定の「キー」で、たとえば <code>rshift</code>（右 Shift）に変えられます。声で頼むキーと、声で文字を入力するキーを、別々に設定することもできます。</p></div></details>
       <details class="reveal"><summary>自分のスキルは作れますか？</summary><div class="body"><p>作れます。<code>~/.voice-control/skills/&lt;名前&gt;/SKILL.md</code> を、次のように書きます。</p><pre class="skillmd">---
 name: open-app
 description: アプリを開く：「Safari を開いて」
@@ -383,12 +371,12 @@ allowed-commands:
   - open
 ---
 Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
-      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（<code>vc engine set ollama:qwen3.5:4b</code>）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
+      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
       <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。</p></div></details>
-      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p><code>vc fillers on</code> を実行します。消す言葉は <code>vc fillers add あのさ</code> で追加できて、<code>vc fillers</code> で一覧を見られます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
-      <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に、1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、<code>vc listen</code> を終えると消えます。新しく撮ると、置き換わります。パネルの「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中の AI モデル（Apple のモデル、または画像に対応した Ollama のモデル）にだけ渡します。</p></div></details>
+      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声」で、「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面の辞書で足し引きできます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
+      <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に、1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、アプリを終えると消えます。新しく撮ると、置き換わります。パネルの「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中の AI モデル（Apple のモデル、または画像に対応した Ollama のモデル）にだけ渡します。</p></div></details>
       <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとに出るパネルの<strong>「文字起こし」</strong>を押します。macOS の文字認識で読み取って、パネルの下に、そのまま出します（選んでコピーできます）。AI を通さないので、写し間違いがありません。最初の 1 回だけ、システムの準備で 30 秒ほどかかります。</p></div></details>
-      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。依頼を順番に分けて実行する機能は、<code>vc plan off</code> で止められます。vc 自体は、<code>rm ~/.local/bin/vc</code> で削除できます。</p></div></details>
+      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。依頼を順番に分けて実行する機能は、設定の「モデル」で止められます。アプリ自体は、<code>just uninstall</code>（またはアプリをゴミ箱へ）で削除できます。</p></div></details>
     </div>
   </div>
 </section>
@@ -398,8 +386,7 @@ Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done:
   <div class="wrap">
     <h2 class="reveal">まずは、実行しない設定で試してみる。</h2>
     <p class="lead reveal">いちばん安全な始め方は、<code>--dry-run</code> を付けて、何をするかだけを見ることです。</p>
-    <div class="cmd reveal"><pre><code id="c-close">curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash</code></pre><button class="copy" type="button" data-copy-from="c-close">コピー</button></div>
-    <div class="cta-row reveal">
+        <div class="cta-row reveal">
       <a class="btn btn-primary" href="#install">はじめかたを見る</a>
       <a class="btn" href="https://github.com/takemo101/voice-control" rel="noopener">GitHub で見る</a>
     </div>

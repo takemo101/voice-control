@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 /// 読み上げの声（日本語）の選び方。**入っている声のうち、品質がいちばん高いものを、自動で使う**（高品質〔Premium・拡張〕の声を、利用者がダウンロードすると、その声になる）。
-/// 利用者が、声を決めたとき（`vc speak voice`）は、それを使う。面白い声（Eloquence・効果音の声）は、自動では選ばない。
+/// 利用者が、声を決めたとき（設定ウィンドウ > 音声）は、それを使う。面白い声（Eloquence・効果音の声）は、自動では選ばない。
 public enum SpeechVoice {
     /// 声の情報（`AVSpeechSynthesisVoice` の写し。テストで、作れるように）。
     public struct Info: Equatable, Sendable {
