@@ -1,21 +1,21 @@
 import Testing
 @testable import VCSpeech
 
-/// 許可が付く先（vc を動かしている端末アプリ）を、親のプロセスのパスから見つける。
+/// 許可が付く先（vc を動かしているアプリ）の候補を、親のプロセスのパスから集める。
 @Suite struct HostAppTests {
-    @Test func theFirstAppAboveVcIsTheOneThatNeedsPermission() throws {
-        let found = try #require(HostApp.find(in: ["/bin/zsh", "/usr/bin/login", "/Applications/Ghostty.app/Contents/MacOS/ghostty", "/sbin/launchd"]))
-        #expect(found.name == "Ghostty" && found.bundlePath == "/Applications/Ghostty.app")
+    @Test func theAppClosestToVcComesFirstAndNestedHelpersAreAllListed() {
+        // Tern：シェルは、本体ではなく、ヘルパー（Tern Daemon.app。bundle id が別）の下で動く
+        let paths = ["/bin/zsh", "/Applications/Tern.app/Contents/Helpers/Tern Daemon.app/Contents/MacOS/tern", "/Applications/Tern.app/Contents/MacOS/tern"]
+        #expect(HostApp.bundlePaths(in: paths) == ["/Applications/Tern.app/Contents/Helpers/Tern Daemon.app", "/Applications/Tern.app"])
     }
 
-    @Test func nestedHelpersResolveToTheOutermostApp() throws {
-        let found = try #require(HostApp.find(in: ["/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper.app/Contents/MacOS/Code Helper"]))
-        // 先に見つかる .app は、外側（パスの先頭側）
-        #expect(found.name == "Visual Studio Code")
+    @Test func plainTerminalAppsGiveOneCandidate() {
+        #expect(HostApp.bundlePaths(in: ["/bin/zsh", "/usr/bin/login", "/Applications/Ghostty.app/Contents/MacOS/ghostty", "/sbin/launchd"]) == ["/Applications/Ghostty.app"])
+        #expect(HostApp.bundlePaths(in: ["/Applications/Visual Studio Code.app/Contents/MacOS/Electron"]) == ["/Applications/Visual Studio Code.app"])
     }
 
     @Test func noAppMeansNoGuess() {
-        #expect(HostApp.find(in: ["/bin/zsh", "/usr/bin/tmux", "/usr/bin/ssh"]) == nil)
-        #expect(HostApp.find(in: []) == nil)
+        #expect(HostApp.bundlePaths(in: ["/bin/zsh", "/usr/bin/tmux", "/usr/bin/ssh"]).isEmpty)
+        #expect(HostApp.bundlePaths(in: []).isEmpty)
     }
 }

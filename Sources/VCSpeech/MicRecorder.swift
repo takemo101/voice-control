@@ -41,15 +41,17 @@ public final class MicRecorder: @unchecked Sendable {
         }
     }
 
-    /// 許可されなかったときの、利用者への説明（何が・どのアプリに・どうすれば）。**許可は、`vc` ではなく、動かしている端末アプリに付く**。
-    public static func deniedMessage(host: HostApp? = HostApp.current()) -> String {
+    /// 許可されなかったときの、利用者への説明（何が・どのアプリに・どうすれば）。**許可は、`vc` ではなく、動かしているアプリに付く**。候補は、内側（実際に動いているもの）が先。
+    public static func deniedMessage(hosts: [HostApp] = HostApp.candidates()) -> String {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         if status == .restricted { return "マイクが、この Mac の制限（管理プロファイル・ペアレンタルコントロール）で、使えません" }
-        guard let host else {
-            return "マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）。許可が要るのは、vc を動かしている端末アプリです（tmux・ssh の中などで、端末アプリを特定できませんでした。端末アプリから、直接、動かしてみてください）"
+        guard let first = hosts.first else {
+            return "マイクが許可されていません（システム設定 > プライバシーとセキュリティ > マイク）。許可が要るのは、vc を動かしている端末アプリです（tmux・ssh の中などで、アプリを特定できませんでした。端末アプリから、直接、動かしてみてください）"
         }
-        var text = "マイクが許可されていません。許可が要るのは vc ではなく、vc を動かしている端末アプリ「\(host.name)」です（システム設定 > プライバシーとセキュリティ > マイク で、「\(host.name)」をオンに）。オンなのに出るときは、別の端末アプリで動かしていないか確かめてください"
-        if let id = host.bundleIdentifier { text += "。それでも直らなければ、許可をやり直す：tccutil reset Microphone \(id)（そのアプリだけが、リセットされます。次の実行で、確認が出ます）" }
+        var text = "マイクが許可されていません。許可が要るのは vc ではなく、vc を動かしているアプリ「\(first.name)」です（システム設定 > プライバシーとセキュリティ > マイク で、オンに）"
+        if hosts.count > 1 { text += "。同じアプリの中の別のもの（" + hosts.dropFirst().map { "「\($0.name)」" }.joined(separator: "・") + "）の許可を、見ている場合もあります" }
+        let ids = hosts.compactMap(\.bundleIdentifier)
+        if !ids.isEmpty { text += "。許可の記録を、やり直す：" + ids.map { "tccutil reset Microphone \($0)" }.joined(separator: " ／ ") + "（そのアプリだけが、リセットされます。そのあと、アプリを開き直すと、次の実行で、確認が出ます）" }
         return text
     }
 
