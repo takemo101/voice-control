@@ -181,6 +181,12 @@ public final class VoiceLoop {
         withExtendedLifetime((trigger, escape)) { NSApplication.shared.run() }
     }
 
+    /// アプリ（メニューバーの vc.app）用：イベントループは、アプリが回す。配線して、準備の表示を出して、戻る。**トリガーと Esc は、アプリが生きている間、手放さない**（`VoiceSession` が持つ。`VoiceLoop` 自身が、Esc を持つ）。ここにも `await` を足さない。
+    @MainActor public func begin(onReady: () -> Void) {
+        start()
+        onReady()
+    }
+
     /// トリガー・Esc の受け口を配線して、発話を順に処理する `Task` を始める（メインアクターの `Task`：呼び出し元の隔離を引き継ぐ）。
     @MainActor func start() {
         // 受け口のクロージャは、`self` ではなく、必要な部品だけを持つ（トリガー → クロージャ → `self` → トリガーの循環を作らない）。

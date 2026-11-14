@@ -98,15 +98,22 @@ struct CommandContext {
     }
 
     func loadJev() -> TinyJev {
-        do {
-            let t0 = Date()
-            let jev = try TinyJev(directory: resolveModelDir(), length: options.length)
-            _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // グラフのコンパイルを、計測の外へ出す
-            eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), options.length)))
-            return jev
-        } catch {
-            fail("モデルを読めません: \(error)（vc model download で取得）")
-        }
+        do { return try tryLoadJev() } catch { fail("モデルを読めません: \(error)（vc model download で取得）") }
+    }
+
+    /// `loadJev` の、`fail` しない版（アプリは、起動できない理由を、ダイアログとメニューに出す）。
+    func tryLoadJev() throws -> TinyJev {
+        guard let directory = findModelDirectory() else { throw ModelMissing(searched: modelCandidates) }
+        let t0 = Date()
+        let jev = try TinyJev(directory: directory, length: options.length)
+        _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // グラフのコンパイルを、計測の外へ出す
+        eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), options.length)))
+        return jev
+    }
+
+    struct ModelMissing: Error, CustomStringConvertible {
+        let searched: [String]
+        var description: String { "モデルが見つかりません（探した場所: \(searched.joined(separator: ", "))）" }
     }
 
     /// Tiny-Jev を、使うときまで読み込まない形で渡す（`vc pick`・`vc find` を使うスキルが、選ぶのに使う）。`loaded` があれば、それを使う（読み込み済みを、読み直さない）。

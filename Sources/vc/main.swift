@@ -6,8 +6,20 @@ import VCCore
 
 @MainActor func runMain() async throws {
     // ヘルプは、モデルの読み込みなど、他の処理より前に出す。
-    if Help.handle(Array(CommandLine.arguments.dropFirst())) { exit(0) }
-    var arguments = Arguments(Array(CommandLine.arguments.dropFirst()))
+    // アプリ（….app の中の vc）を、引数なしで起動したら、メニューバーのアプリ。引数があれば、CLI（スキルが使うコマンド）
+    let raw: [String]
+    switch AppLaunch.mode(arguments: Array(CommandLine.arguments.dropFirst()), executablePath: AppLaunch.executablePath, isTerminal: isatty(STDIN_FILENO) == 1) {
+    case .gui:
+        AppEntry.launch()
+        exit(0)
+    case let .openApp(bundle):
+        if AppLaunch.open(bundle: bundle) { print("Voice Control: メニューバーのアプリを起動しました（すでに起動中なら、そのままです）"); exit(0) }
+        raw = []
+    case let .cli(arguments):
+        raw = arguments
+    }
+    if Help.handle(raw) { exit(0) }
+    var arguments = Arguments(raw)
     let options = CommonOptions(consuming: &arguments)
     guard let name = arguments.command else { print(Help.overview()); exit(0) }
     let context = CommandContext(options: options)

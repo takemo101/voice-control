@@ -1065,6 +1065,19 @@ SPEC F55・N1 の例外④。**`ask-agent` のスクリプトは、会話には�
 
 **未確認**：各 CLI が、履歴（セッション）を、どこにどれだけ残すか（`claude`・`codex`・`pi` は、残さないオプションを付けた。`agy`・`grok`・`opencode` は、CLI 側に残りうる：**確かめていない**）・長い会話（compaction が、外のエージェントで、要約を書く質）・実際の声での会話・`ropt` での操作。**画像・コピーした文章は、外のエージェントには渡さない**（設計。単体テストはなし：`ChatMode` の分岐）。
 
+### メニューバーのアプリ（dmg。2026-11-15。利用者の依頼：CLI だと許可の問題が出て辛いので、dmg のアプリにしたい。shortnote のように CLI も使えるように。設定画面は meeting-analyzer を参考に）
+
+SPEC F56。**きっかけ**：`vc listen --hotkey` が「マイクが許可されていません」で動かなかった。許可は `vc` ではなく、動かしている端末アプリに付く。利用者の端末（Tern）では、シェルが、本体ではなく、別の bundle id のヘルパー（Tern Daemon）から起動されており、`tccutil reset Microphone <本体の id>`・`<ヘルパーの id>` のどちらも失敗し（原因は未確認）、許可を直せなかった。この Mac で、`AVCaptureDevice.authorizationStatus` は 2（拒否）だった。
+
+**参考にしたもの**：meeting-analyzer（`Launch.swift`〔引数なし＝GUI・引数＝CLI・端末から引数なしは `open`〕・`CommandLineTool`・`build.sh`〔指定要件を bundle ID だけにする署名〕・`dmg.sh`・`verify-dmg.sh`）。shortnote は、この作業環境から読めなかった（`Operation not permitted`）ので、meeting-analyzer が参照している同じ方式（`snote`）を、meeting-analyzer 経由で知った。
+
+| 項目 | 結果 |
+|---|---|
+| `just dmg`（この作業環境の写しで） | `build/VoiceControl.app` と `dist/vc-0.4.6-macos-arm64.dmg` を作れた |
+| `scripts/verify-dmg.sh` | 10 項目、すべて通った（dmg の整合・中身・同梱物・Info.plist・版・arm64・ライブラリ・署名と指定要件〔`designated => identifier "dev.takemo101.voice-control"`〕・`--version`・`vc show --help`） |
+| 単体テスト | 起動の分岐（アプリの中・引数なし／端末から／引数あり／ビルドしたまま）・コマンド `vc` のリンク |
+| **未確認** | **アプリの実際の起動（メニューバーのアイコン・許可の確認がアプリ自身で出ること）は、許可に関わる操作なので、AI は動かしていない**（人間の確認待ち）。Tern の中から動くか・更新後も許可が残るか（指定要件を bundle ID だけにしても、macOS がそう扱うか）・`/usr/local/bin/vc` のインストール・ログイン時の起動。アイコンは、まだ無い |
+
 ## 人間の確認が要るもの（AI は合格にしない）
 
 SPEC §6 の「一部確認・未確認」の債務（58 件中 35 件。2026-11-09 の時点）は、**実マイク・実際の声・実アプリ・利用者のクリップボード・許可ダイアログ・複数のディスプレイ**が要るものに、集まっている。AI は、これらを、**利用者の環境を変えずには**、確かめられない。そこで、**同じ操作で、複数の条件を閉じられるように、確認の「場面」にまとめた**。優先順位は、**中核に近い順・1 回の確認で閉じる条件が多い順**。
