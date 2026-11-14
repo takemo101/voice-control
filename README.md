@@ -402,6 +402,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | `vc fillers [show\|on\|off\|add\|remove\|reset]` | 音声入力で消す、つなぎ言葉（えーと・um など）の辞書の確認・足し引き・オン／オフ（既定は off） |
 | `vc plan [show\|on\|off\|reset]` | 1 つの依頼を、複数のステップに分けて実行するか（既定 on。分け方は言語モデルが決める） |
 | `vc caption [show\|on\|off\|reset]` | 録音中に、聞こえている文字を、上のパネルに出すか（既定 on。実験） |
+| `vc chat-agent [show\|set <名前>\|reset]` | 会話に使うエージェント（既定 apple＝この Mac の中。agy・claude・codex・grok・opencode・pi を選ぶと、**会話の発話が提供元へ送られる**。実験） |
 | `vc chat` / `vc hotkey set-chat <キー>` | 会話（スキルを選ばず、質問を重ねる。古いやり取りは要約して続ける。画像・コピーした文章も添えられる。記録はメモリだけ。実験） |
 | `vc speak [show\|on\|off\|voices\|voice\|test]` | 読み上げの声（入っている中で、品質がいちばん高い日本語の声を自動で）と、結果を読み上げるか（既定 off。実験） |
 | `vc recheck [show\|on\|off\|reset]` | 聞き取りに自信がないとき、実行の前に、聞こえた文を確かめる（既定 on。実験） |

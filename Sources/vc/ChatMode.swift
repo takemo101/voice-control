@@ -7,7 +7,9 @@ import VCSkill
 /// 会話の記録は、**メモリだけ**（ファイル・ログに残さない）。`vc` を終えるか、「会話を終わって」と言うか、しばらく話さないと、消える。
 @MainActor final class ChatMode {
     static let shared = ChatMode()
-    let conversation = ChatConversation()
+    private(set) var conversation = ChatConversation()
+    /// いま使っているエージェント。`configure` で替える（替えると、会話は、新しくなる）。
+    private(set) var agent = ChatAgent.apple
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
@@ -18,6 +20,14 @@ import VCSkill
         let phrases = ["会話を終わ", "会話を終了", "会話をやめ", "会話をリセット", "会話をはじめから", "新しい会話", "会話リセット", "会話終了"]
         if phrases.contains(where: text.contains) { return true }
         return ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"].contains(text)
+    }
+
+    /// 使うエージェントを決める（`vc listen`・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
+    func configure(agent: ChatAgent) {
+        guard agent != self.agent else { return }
+        self.agent = agent
+        conversation = ChatConversation(backend: agent.makeBackend())
+        attached = []
     }
 
     func end() async {
@@ -35,7 +45,10 @@ import VCSkill
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         let wants = ChatAttachments.wants(utterance)
-        if wants.image {
+        if agent.isExternal && (wants.image || wants.text) {
+            // 外へ出さない決まり：画像・コピーした文章は、この Mac の中のモデルにだけ渡す
+            notes.append("\(agent.rawValue) には、画像・コピーした文章を渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます：vc chat-agent reset）")
+        } else if wants.image {
             let source = ImageSource.any.resolve(for: utterance)
             switch source.materialize(for: utterance) {
             case let .success(file):
@@ -73,4 +86,15 @@ import VCSkill
 /// コピーした文章（クリップボード）を、読むだけ（書き換えない）。
 enum TextClipboard {
     static func read() -> String? { NSPasteboard.general.string(forType: .string) }
+}
+
+extension CommandContext {
+    /// 会話に使うエージェント：設定（`vc chat-agent`）。なければ Apple。書き方が違えば、理由を示して終わる。
+    func resolveChatAgent() -> ChatAgent {
+        guard let text = currentSettings().chatAgent else { return .apple }
+        guard let agent = ChatAgent.parse(text) else {
+            fail("settings.json の chatAgent「\(text)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）。vc chat-agent で直す")
+        }
+        return agent
+    }
 }

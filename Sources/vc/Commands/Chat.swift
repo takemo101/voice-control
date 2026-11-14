@@ -5,7 +5,7 @@ import VCSkill
 struct ChatCommand: Command {
     static let info = CommandInfo(
         name: "chat", group: .skills, summary: "会話（セッション）：質問を重ねられる。長くなったら、古いやり取りを要約して、続けられる（実験）",
-        usage: ["vc chat [--stats]", "vc hotkey set-chat <キー>   （声で会話する：vc listen --hotkey の中で、このキーを押して話す）"],
+        usage: ["vc chat [--agent <名前>] [--stats]", "vc hotkey set-chat <キー>   （声で会話する：vc listen --hotkey の中で、このキーを押して話す）"],
         details: [
             "**スキルを選ばずに、会話として質問できる**（Apple のオンデバイスのモデル。この Mac の外へ出さない）。標準入力から、1 行ずつ質問を読み、答えを出す（空行・Ctrl+D で終わる）。声で使うには、会話のキーを決める：vc hotkey set-chat rctrl（vc listen --hotkey の中で、そのキーを押して話す）。",
             "**会話の記録は、メモリだけ**（ファイル・ログに残さない）。終わると、消える。「会話を終わって」「新しい会話」（vc chat では /reset）・5 分間話さない・vc を終える、で消える。",
@@ -14,13 +14,20 @@ struct ChatCommand: Command {
             "**会話では、スキルを実行しない**（Spotify を操作する・ファイルを開く、などは、vc listen の声で頼むキーで）。調べものは、ask-agent。小さなモデル（約 3B）なので、事実の質問は、間違える。整理・要約・言い換え・手元の画像や文章についての質問が、得意。",
             "--stats：終わるときに、往復の数・要約の回数・要約の長さを、標準エラーに出す。入力の /reset：会話を終える・/summary：いまの要約を見る（確認用）。",
         ],
-        options: [("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
+        options: [("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定 vc chat-agent）"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
         examples: ["vc chat", "echo '私の好きな色は青です' | vc chat"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var arguments = arguments
         let stats = arguments.flag("--stats")
         let delimit = arguments.flag("--delimit")
+        var agent = context.resolveChatAgent()
+        if let name = arguments.option("--agent") {
+            guard let chosen = ChatAgent.parse(name) else { fail("--agent「\(name)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）") }
+            agent = chosen
+        }
+        await ChatMode.shared.configure(agent: agent)
+        if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます") }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
         let chat = await ChatMode.shared
