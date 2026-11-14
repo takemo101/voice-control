@@ -61,11 +61,11 @@ struct DoctorCommand: Command {
         }
     }
 
-    static func microphoneCheck(_ permission: MicRecorder.Permission) -> DoctorCheck {
+    static func microphoneCheck(_ permission: MicRecorder.Permission, hosts: [HostApp] = HostApp.candidates()) -> DoctorCheck {
         switch permission {
         case .granted: return .ok("マイク", "許可されています")
         case .notDetermined: return .warn("マイク", "まだ許可を聞いていません", fix: "最初の vc listen で、macOS が確認を出します（声の入力を使うとき）")
-        case .denied: return .warn("マイク", "許可されていません", fix: "システム設定 > プライバシーとセキュリティ > マイク で、vc を動かす端末アプリを許可してください")
+        case .denied: return .warn("マイク", "許可されていません", fix: "システム設定 > プライバシーとセキュリティ > マイク で、vc を動かしている端末アプリ" + (hosts.first.map { "「\($0.name)」" } ?? "") + "を許可してください（許可は、vc ではなく、動かしているアプリに付きます" + (hosts.count > 1 ? "。候補：" + hosts.map(\.name).joined(separator: "・") : "") + "）")
         }
     }
 
