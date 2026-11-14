@@ -26,11 +26,11 @@ struct ChatCommand: Command {
             guard let chosen = ChatAgent.parse(name) else { fail("--agent「\(name)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）") }
             agent = chosen
         }
-        await ChatMode.shared.configure(agent: agent)
+        ChatMode.shared.configure(agent: agent)
         if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます") }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
-        let chat = await ChatMode.shared
+        let chat = ChatMode.shared
         while true {
             if interactive { print(Style.bold("> "), terminator: ""); fflush(stdout) }
             guard let line = readLine(), !line.trimmingCharacters(in: .whitespaces).isEmpty else { break }
