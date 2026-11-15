@@ -119,4 +119,14 @@ import Testing
         try await make(board, sent: { sentKey = true }).insert("")
         #expect(!sentKey && !board.wroteTransient)
     }
+
+    /// 入力のあとの Enter（設定）：許可があれば、1 回だけ送る。許可がなければ、送らず、false（画面に、そう出す）。
+    @Test func pressReturnSendsOnceWhenTrustedAndNeverWithoutPermission() {
+        var returns = 0
+        let allowed = ClipboardPaste(pasteboard: FakePasteboard(items: []), sendReturn: { returns += 1 }, trusted: { true })
+        #expect(allowed.pressReturn() && returns == 1)
+        let denied = ClipboardPaste(pasteboard: FakePasteboard(items: []), sendReturn: { returns += 1 }, trusted: { false })
+        #expect(!denied.pressReturn() && returns == 1)
+    }
 }
+
