@@ -30,8 +30,8 @@ const requested = args.length === 2 ? (ALIASES[args[0].trim().toLowerCase()] ?? 
 const question = (args[args.length - 1] ?? "").trim();
 if (!question) fail("調べることが空です", 2);
 
-// 使うモデル（agy だけ）。`agy models` の名前。既定は Gemini 3.8 Flash（Medium）。環境変数 ASK_AGENT_AGY_MODEL で替えられる。オプションの注入を防ぐため、英小文字・数字・`.`・`-` だけ（先頭は、英数字）
-const AGY_DEFAULT_MODEL = "gemini-3.8-flash-medium";
+// 使うモデル（agy だけ）。`agy models` の名前。既定は Gemini 4 Hydrogen（Medium）。環境変数 ASK_AGENT_AGY_MODEL で替えられる。オプションの注入を防ぐため、英小文字・数字・`.`・`-` だけ（先頭は、英数字）
+const AGY_DEFAULT_MODEL = "gemini-4-hydrogen-medium";
 const agyModel = (process.env.ASK_AGENT_AGY_MODEL ?? "").trim() || AGY_DEFAULT_MODEL;
 if (!/^[a-z0-9][a-z0-9.-]*$/.test(agyModel)) fail(`ASK_AGENT_AGY_MODEL「${agyModel.slice(0, 40)}」は使えません（agy models の名前：英小文字・数字・. と - だけ）`, 2);
 
