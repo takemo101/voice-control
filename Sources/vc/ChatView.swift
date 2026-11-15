@@ -77,7 +77,8 @@ struct ChatView: View {
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
+                // `LazyVStack` にしない：初めて開いたとき、表示の範囲が決まる前に、中身が作られず、会話が空に見えた（利用者の報告）。往復は、少ないので、遅延させる意味がない
+                VStack(alignment: .leading, spacing: 22) {
                     if state.entries.isEmpty { EmptyState().frame(maxWidth: .infinity).padding(.top, 60) }
                     ForEach(state.entries) { entry in
                         EntryView(entry: entry, speakingThis: state.speakingEntry == entry.id, stopSpeaking: stopSpeaking, speak: speak).id(entry.id)
@@ -93,6 +94,10 @@ struct ChatView: View {
                 LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 16)
             })
             // いちばん新しい往復の頭へ（答えが長くても、質問から読める）
+            .onAppear {
+                guard let last = state.entries.last?.id else { return }
+                proxy.scrollTo(last, anchor: .top)
+            }
             .onChange(of: state.scrollToken) {
                 guard let last = state.entries.last?.id else { return }
                 withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(last, anchor: .top) }

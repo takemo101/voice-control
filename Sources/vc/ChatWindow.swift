@@ -148,6 +148,9 @@ import VCSkill
         } else {
             window.orderFrontRegardless()
         }
+        // 初めて出すとき、中身の配置を、先に済ませる（キーでないウィンドウで、最初の描画が、遅れて、空に見えないように）
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         state.scrollToken += 1
     }
 
