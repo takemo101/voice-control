@@ -7,11 +7,12 @@ import VCDecision
 @Suite struct ChatImageUseTests {
     private struct Fixed: OptionScorer {
         let yes: Double
-        func score(state: String, question: String, options: [String]) throws -> [Double] { [1 - yes, yes] }
+        /// 画像についての選択肢（先頭）に `yes`、残りに均等に。
+        func score(state: String, question: String, options: [String]) throws -> [Double] { [yes] + Array(repeating: (1 - yes) / Double(options.count - 1), count: options.count - 1) }
     }
     private final class Recorder: OptionScorer, @unchecked Sendable {
         var state = ""
-        func score(state: String, question: String, options: [String]) throws -> [Double] { self.state = state; return [0.5, 0.5] }
+        func score(state: String, question: String, options: [String]) throws -> [Double] { self.state = state; return Array(repeating: 1 / Double(options.count), count: options.count) }
     }
     private struct Broken: Error {}
 
@@ -51,10 +52,19 @@ import VCDecision
         #expect(!asked)
     }
 
-    @Test func theJudgeSeesThePremiseAndTheUtteranceAndReturnsTheYesSide() throws {
+    @Test func theJudgeSeesThePremiseAndTheUtteranceAndReturnsTheImageSide() throws {
         let recorder = Recorder()
         _ = try ChatImageUse(scorer: recorder).probability(request: "それは、なぜ？")
         #expect(recorder.state.contains("スクリーンショットを撮った") && recorder.state.hasSuffix("発話: それは、なぜ？"))
         #expect(try ChatImageUse(scorer: Fixed(yes: 0.7)).probability(request: "x") == 0.7)
+    }
+
+    @Test func aScreenshotIsUsedOnceThenSkippedUntilANewOneAndTheSkipNoteComesOnce() {
+        var ledger = ScreenshotLedger()
+        #expect(ledger.isFresh("a"))
+        ledger.markUsed("a")
+        #expect(!ledger.isFresh("a") && ledger.isFresh("b"))   // 同じスクリーンショットは、次の質問では、判定しない（どの質問にも付く、を防ぐ）
+        let first = ledger.shouldNoteSkip("b"), again = ledger.shouldNoteSkip("b"), other = ledger.shouldNoteSkip("c")
+        #expect(first && !again && other)                      // 同じものについて、断りは、1 度だけ
     }
 }

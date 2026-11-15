@@ -18,6 +18,8 @@ import VCSkill
     private(set) var folder: URL?
     /// 撮ったスクリーンショットを、質問に使うかの判定（Tiny-Jev）。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
     var imageJudge: ChatImageUse?
+    /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
+    private var shots = ScreenshotLedger()
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
@@ -40,6 +42,7 @@ import VCSkill
         self.folder = folder
         conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder))
         attached = []
+        shots = ScreenshotLedger()
     }
 
     /// **質問のたびに**、選んだエージェントが、使えるか確かめる（CLI が、アンインストールなどで、なくなっていないか）。
@@ -64,6 +67,7 @@ import VCSkill
     func end() async {
         await conversation.reset()
         attached = []
+        shots = ScreenshotLedger()
         SaySpeaker.shared.stop()
         ChatWindow.shared.clear()
     }
@@ -102,8 +106,17 @@ import VCSkill
         let wants = ChatAttachments.wants(utterance)
         // 画像を使うか：「画面を撮る」で添えたものは、そのまま使う。撮ったスクリーンショット（ショートカット）は、**Tiny-Jev が、この質問に使うか判定する**。判定できなければ、言葉で決める
         let judge = imageJudge.map { judge in { try judge.probability(request: utterance) } }
-        let plan = ChatAttachments.imagePlan(request: utterance, hasAttached: attachedImage != nil, screenshotAvailable: ImageSource.screenshot.missing == nil, judge: judge)
-        if case .skippedScreenshot = plan { notes.append("撮ったスクリーンショットは、この質問には使いませんでした（使うときは、会話のウィンドウの「画面を撮る」で添えてください）") }
+        // 撮ったスクリーンショットは、1 度使ったら、次の質問では、判定せずに使わない（判定が外れて、どの質問にも付く、を防ぐ）
+        var shotKey: String?
+        if case let .success(shot) = ScreenshotStore.current() { shotKey = ChatAttachments.fingerprint(shot) }
+        let plan = ChatAttachments.imagePlan(request: utterance, hasAttached: attachedImage != nil, screenshotAvailable: shotKey.map { shots.isFresh($0) } ?? false, judge: judge)
+        if let shotKey {
+            switch plan {
+            case .screenshot, .attached: shots.markUsed(shotKey)
+            case .skippedScreenshot: if shots.shouldNoteSkip(shotKey) { notes.append("撮ったスクリーンショットは、この質問には使いませんでした（使うときは、会話のウィンドウの「画面を撮る」で添えてください）") }
+            default: break
+            }
+        }
         if plan.usesImage {
             // 画像のもと：添えてある画像、判定したスクリーンショット、なければ、言葉から（コピーした画像・撮ったスクリーンショット）
             let file: URL?
