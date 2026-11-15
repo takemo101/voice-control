@@ -22,10 +22,12 @@ public struct AppleChatBackend: ActivityReporting {
     public var capabilityNote: String { AppleChatTools.note(tools) }
 
     public func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String {
-        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil, confirm: nil)
+        try await respond(instructions: instructions, turns: turns, user: user, options: ChatCallOptions())
     }
 
-    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: ActivityHandler?, confirm: ToolConfirm?) async throws -> String {
+    /// 画像は、Apple の会話では、**文字にして、質問に入れてある**（`ChatAttachments`）ので、`options.image` は、使わない。
+    public func respond(instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
+        let onActivity = options.onActivity, confirm = options.confirm
         if case let .unavailable(reason) = AppleIntelligence.current() { throw ConversationError.unavailable("\(reason.summary)。\(reason.remedy)") }
         if tools.usesFolder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
         let calls = CallCounter()

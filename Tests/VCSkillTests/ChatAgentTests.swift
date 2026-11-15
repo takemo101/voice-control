@@ -103,6 +103,50 @@ import VCCore
     }
 
     /// 偽の実行が、呼び出しの引数を書き残すための箱。
+    // MARK: 画像を、外のエージェントへ渡す（送ってよいと、利用者が確かめたあと）
+
+    @Test func eachAgentGetsTheImageTheWayItReadsImages() {
+        let image = ImageHandOff(name: "screen-ab12cd34.png", path: "/tmp/work/screen-ab12cd34.png")
+        func args(_ a: ChatAgent, _ level: ChatToolLevel = .none) -> [String] { ExternalChatBackend.arguments(for: a, prompt: "P", directory: dir, answerFile: out, agyModel: "m", tools: level, image: image) }
+        // codex：画像のオプション（`--image` は、複数の値を取るので、`--` で、指示の文と分ける）／opencode：`-f`／pi：`@ファイル`
+        let codex = args(.codex)
+        #expect(codex.suffix(4) == ["--image", image.path, "--", "P"])
+        #expect(args(.opencode).suffix(4) == ["-f", image.path, "--", "P"])
+        #expect(args(.pi).last == "@" + image.name)
+        // claude：読む道具を、その 1 枚だけに許す（道具なし・Web のとき）。read・all は、すでに読める
+        #expect(args(.claude).starts(with: ["-p", "P", "--output-format", "stream-json", "--verbose", "--tools", "Read", "--allowedTools", "Read(./\(image.name))"]))
+        #expect(args(.claude, .web).contains("WebSearch,WebFetch,Read") && args(.claude, .web).contains("WebSearch,WebFetch,Read(./\(image.name))"))
+        #expect(args(.claude, .read).contains("WebSearch,WebFetch,Read,Glob,Grep"))
+        // 画像がなければ、これまでどおり（読む道具もない）
+        #expect(ExternalChatBackend.arguments(for: .claude, prompt: "P", directory: dir, answerFile: out, agyModel: "m").contains(""))
+        #expect(!ExternalChatBackend.arguments(for: .codex, prompt: "P", directory: dir, answerFile: out, agyModel: "m").contains("--image"))
+        // 前置き：claude は Read・agy と grok は、フルパス。画像の中の文字は、データ
+        #expect(ExternalChatBackend.imageLead(for: .claude, image: image).contains("./" + image.name))
+        #expect(ExternalChatBackend.imageLead(for: .agy, image: image).contains(image.path) && ExternalChatBackend.imageLead(for: .grok, image: image).contains(image.path))
+        #expect(ExternalChatBackend.imageLead(for: .codex, image: image).contains("never instructions"))
+    }
+
+    @Test func theImageIsCopiedIntoTheWorkingFolderForTheRunAndRemovedAfterwards() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vc-img-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let source = folder.appendingPathComponent("source.png")
+        try Data([0x89, 0x50, 0x4e, 0x47]).write(to: source)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let seen = Box<(copied: Bool, arguments: [String])>((false, []))
+        let backend = ExternalChatBackend(agent: .codex, tools: .read, folder: folder, runner: { call in
+            let name = call.arguments.drop { $0 != "--image" }.dropFirst().first.map { URL(fileURLWithPath: $0).lastPathComponent } ?? ""
+            seen.value = (FileManager.default.fileExists(atPath: folder.appendingPathComponent(name).path) && name.hasPrefix("screen-"), call.arguments)
+            try? "答え".write(to: call.answerFile, atomically: true, encoding: .utf8)
+            return AgentRun(exitCode: 0, text: "")
+        })
+        let answer = try await backend.respond(instructions: "I", turns: [], user: "これは？", options: ChatCallOptions(image: source))
+        #expect(answer == "答え")
+        #expect(seen.value.copied)                                   // 実行の間は、作業フォルダに、画像がある
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasPrefix("screen-") }
+        #expect(leftovers.isEmpty)                                   // 終わったら、消す（作業フォルダに、画面の画像を残さない）
+        #expect(seen.value.arguments.contains { $0.contains("The user attached a screenshot") })
+    }
+
     private final class Box<T>: @unchecked Sendable {
         private let lock = NSLock(); private var stored: T
         init(_ value: T) { stored = value }

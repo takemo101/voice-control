@@ -49,33 +49,61 @@ import VCSkill
     /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
     struct Outcome { var answer: String; var notes: [String]; var activities: [ChatActivity] = []; var startedNew = false }
 
+    /// 画像を、外のエージェントへ送ってよいか、利用者に確かめる（送るたびに：画像と、送り先を見せる）。送ってよければ true。
+    typealias ImageSendConfirm = @Sendable (_ image: URL, _ agent: ChatAgent) async -> Bool
+
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
-    func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void, confirm: ToolConfirm? = nil) async throws -> Outcome {
+    /// - `attachedImage`：会話のウィンドウに、添えてある画像（「この画面」と言わなくても、使う）。
+    /// - `confirmImage`：**外のエージェントへ画像を送る前の確認**（なければ、送らない）。Apple の会話は、画像を、この Mac の中で文字にするので、確認は要らない。
+    func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, progress: @escaping @MainActor (String) -> Void,
+             confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
+        var imageToSend: URL?
+        var cleanup: [() -> Void] = []
+        defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
         let wants = ChatAttachments.wants(utterance)
-        if (agent.isExternal || self.tools != .none) && (wants.image || wants.text) {
-            // 外へ出さない決まり：画像・コピーした文章は、この Mac の中のモデルにだけ渡す
-            notes.append("\(agent.rawValue) には、画像・コピーした文章を渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます：設定ウィンドウ > モデル reset）")
-        } else if wants.image {
-            let source = ImageSource.any.resolve(for: utterance)
-            switch source.materialize(for: utterance) {
-            case let .success(file):
-                defer { source.discard() }
-                let key = "image-" + ChatAttachments.fingerprint(file)
-                if attached.contains(key) { notes.append("同じ画像は、すでに会話に入っています") }
-                else {
-                    progress("画像を読んでいます…")
-                    let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
-                    switch digest {
-                    case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key)
-                    case let .failure(failure): notes.append("画像を読めませんでした（\(failure.message)）。画像なしで答えます")
+        let outside = agent.isExternal || tools != .none   // 画像・文章が、外へ出うる
+        let wantsImage = wants.image || attachedImage != nil
+        if wantsImage {
+            // 画像のもと：添えてある画像、なければ、言葉から（撮ったスクリーンショット／コピーした画像）
+            let file: URL?
+            if let attachedImage { file = attachedImage } else {
+                let source = ImageSource.any.resolve(for: utterance)
+                switch source.materialize(for: utterance) {
+                case let .success(found): file = found; cleanup.append { source.discard() }
+                case let .failure(missing): file = nil; notes.append("画像がないので、画像なしで答えます（\(missing)）")
+                }
+            }
+            if let file {
+                if agent.isExternal {
+                    // 外へ出る：**送るたびに確認する**（画像と送り先を見せる）。確認できなければ（端末など）、送らない
+                    if let confirmImage {
+                        if await confirmImage(file, agent) { imageToSend = file; notes.append("画像を、\(agent.rawValue) へ送りました") }
+                        else { notes.append("画像は、送りませんでした") }
+                    } else {
+                        notes.append("確認できないので、画像は、\(agent.rawValue) へ送りません")
+                    }
+                } else if tools != .none {
+                    notes.append("道具（Web 検索）を開けている間は、画像を渡しません（検索語に混ざって、外へ出ないため）")
+                } else {
+                    let key = "image-" + ChatAttachments.fingerprint(file)
+                    if attached.contains(key) { if wants.image { notes.append("同じ画像は、すでに会話に入っています") } }
+                    else {
+                        progress("画像を読んでいます…")
+                        let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
+                        switch digest {
+                        case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key)
+                        case let .failure(failure): notes.append("画像を読めませんでした（\(failure.message)）。画像なしで答えます")
+                        }
                     }
                 }
-            case let .failure(missing): notes.append("画像がないので、画像なしで答えます（\(missing)）")
             }
         } else if wants.text {
-            if let clip = TextClipboard.read(), let attachment = ChatAttachments.textAttachment(from: clip) {
+            if outside {
+                // 外へ出さない決まり：コピーした文章は、この Mac の中のモデルにだけ渡す
+                notes.append("コピーした文章は、道具（Web 検索）・外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話で、道具なしなら、使えます）")
+            } else if let clip = TextClipboard.read(), let attachment = ChatAttachments.textAttachment(from: clip) {
                 if attached.contains(attachment.key) { notes.append("同じ文章は、すでに会話に入っています") }
                 else { attachments.append(attachment); attached.insert(attachment.key) }
             } else {
@@ -85,10 +113,10 @@ import VCSkill
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
         let log = ActivityLog()
-        let reply = try await conversation.ask(question, onActivity: { activity in
+        let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm)
+        }, confirm: confirm, image: imageToSend))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }

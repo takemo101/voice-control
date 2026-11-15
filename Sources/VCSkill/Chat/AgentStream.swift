@@ -120,9 +120,19 @@ public struct AgentStream: Sendable {
                 input["path"] = String(line[range.upperBound...])
             }
             return [.activity(describe(tool: name, input: input))]
-        case "text": return (part["text"] as? String).map { [.final($0)] } ?? []   // 最後の文章が、答え
+        case "text":
+            // 最後の文章が、答え。ただし、計画モード（`--agent plan`）は、答えのあとに、「了解しました。以後は計画の相談のみ…」と、無関係な 1 文を足すことがある（実測）：それは、答えにしない
+            guard let text = part["text"] as? String, !isPlanModeBoilerplate(text) else { return [] }
+            return [.final(text)]
         default: return []
         }
+    }
+
+    /// 計画モードの、答えと無関係な定型の 1 文（短く、「計画」「実装はしません」などを含む）か。
+    static func isPlanModeBoilerplate(_ text: String) -> Bool {
+        let flat = text.replacingOccurrences(of: "\n", with: "")
+        guard flat.count <= 120 else { return false }
+        return flat.contains("プランモード") || (flat.contains("計画") && (flat.contains("実装はしません") || flat.contains("変更や実装")))
     }
 
     // MARK: pi（`--mode json`）

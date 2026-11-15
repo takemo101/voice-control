@@ -18,6 +18,19 @@ import VCSpeech
         return yes
     }
 
+    /// 外のエージェントへ**画像を送る前の確認**：画像（サムネイル）と送り先を、パネルに出して、ボタンか声の「はい」で答える。送るたびに、聞く。
+    private static func askToSendImage(_ file: URL, agent: ChatAgent, chip: String, confirmation: Confirmation, next: @escaping NextUtterance, restore: HUDContent) async -> Bool {
+        say("画像を、\(agent.rawValue) へ送ります。よいですか")
+        var content = HUDContent(phase: .confirm, title: "この画像を、\(agent.rawValue) へ送りますか？", hint: "画面の内容が、この Mac の外（\(agent.label)）へ出ます。" + ConfirmGuide.howToAnswer, chip: chip)
+        content.image = HUDImage.load(file, sendsOut: true)
+        content.choices = true
+        HUD.shared.show(content)
+        notice("画像を \(agent.rawValue) へ送る確認：パネルの\(ConfirmGuide.howToAnswer)")
+        let yes = (try? await VoiceHandlers.askByPanelOrVoice(confirmation: confirmation, next: next)) ?? false
+        HUD.shared.show(yes ? restore : HUDContent(phase: .info, title: "画像は、送りません", chip: chip), hideAfter: yes ? nil : 2)
+        return yes
+    }
+
     static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance) async {
         guard !utterance.isEmpty else {
             notice("聞き取れなかった")
@@ -46,11 +59,14 @@ import VCSpeech
             let confirm: ToolConfirm = { detail in
                 await askToConfirm(detail, chip: chip, confirmation: confirmation, next: next, restore: working)
             }
-            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, progress: { text in
+            let confirmImage: ChatMode.ImageSendConfirm = { file, sendTo in
+                await askToSendImage(file, agent: sendTo, chip: chip, confirmation: confirmation, next: next, restore: working)
+            }
+            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, progress: { text in
                 content.title = text
                 HUD.shared.show(content)
                 window.setStatus(text)
-            }, confirm: confirm)
+            }, confirm: confirm, confirmImage: confirmImage)
             if token.isCancelled || token.isSuperseded { window.discardPending(); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity.text)) }

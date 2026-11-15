@@ -20,6 +20,8 @@ struct ChatView: View {
     let stopSpeaking: () -> Void
     let speak: (ChatEntry) -> Void
     let reset: () -> Void
+    let attach: () -> Void
+    let detach: () -> Void
     let copyAll: () -> Void
     let close: () -> Void
 
@@ -29,6 +31,10 @@ struct ChatView: View {
             header
             Rule()
             transcript
+            if let image = state.image {
+                Rule()
+                AttachmentBar(image: image, external: state.warning != nil, detach: detach)
+            }
             Rule()
             footer
         }
@@ -99,6 +105,7 @@ struct ChatView: View {
             if state.speaking {
                 PillButton(title: "読み上げを止める  esc", symbol: "speaker.slash.fill", flashed: false, action: stopSpeaking)
             }
+            PillButton(title: state.image == nil ? "画面を撮る" : "撮り直す", symbol: "camera.viewfinder", flashed: false, action: attach)
             PillButton(title: "コピー", symbol: "doc.on.doc", flashed: state.copied, action: copyAll)
             PillButton(title: "リセット", symbol: "arrow.counterclockwise", flashed: false, action: reset)
             Spacer(minLength: 8)
@@ -106,6 +113,33 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(DragArea())
+    }
+}
+
+/// 会話に添えてある画像：サムネイルと、使えなくなるまでの時間。外のエージェントへは、**送るたびに確認する**ことを、断る。
+private struct AttachmentBar: View {
+    let image: AttachedImage
+    /// 外のエージェントか（送る前に、確認する）。
+    let external: Bool
+    let detach: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(nsImage: image.thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 64, height: 42).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.7))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("画像を、会話に添えています").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let left = max(0, Int(image.expiresAt.timeIntervalSince(context.date)))
+                    Text("あと \(left / 60):\(String(format: "%02d", left % 60)) で、使えなくなります" + (external ? "・送る前に、確認します" : ""))
+                        .font(.system(size: 11)).foregroundStyle(external ? ChatPalette.orange : .white.opacity(0.5))
+                }
+            }
+            Spacer(minLength: 8)
+            PillButton(title: "外す", symbol: "xmark", flashed: false, action: detach)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 9)
+        .background(.white.opacity(0.04))
     }
 }
 
@@ -180,6 +214,11 @@ private struct EntryView: View {
         HStack {
             Spacer(minLength: 56)
             VStack(alignment: .trailing, spacing: 4) {
+                if let thumbnail = entry.thumbnail {
+                    Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 150, height: 94).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.7))
+                        .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
+                }
                 Text(entry.question)
                     .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
                     .textSelection(.enabled)

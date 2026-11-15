@@ -14,7 +14,7 @@ struct ChatCommand: Command {
             "**会話では、スキルを実行しない**（Spotify を操作する・ファイルを開く、などは、アプリの声で頼むキーで）。調べものは、ask-agent。小さなモデル（約 3B）なので、事実の質問は、間違える。整理・要約・言い換え・手元の画像や文章についての質問が、得意。",
             "--stats：終わるときに、往復の数・要約の回数・要約の長さを、標準エラーに出す。入力の /reset：会話を終える・/summary：いまの要約を見る（確認用）。",
         ],
-        options: [("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > モデル）"), ("--tools <段階>", "外のエージェントに開ける道具：none・web・read・all（既定は、設定）"), ("--folder <フォルダ>", "道具を開けたときの作業フォルダ"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
+        options: [("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > モデル）"), ("--tools <段階>", "外のエージェントに開ける道具：none・web・read・all（既定は、設定）"), ("--folder <フォルダ>", "道具を開けたときの作業フォルダ"), ("--image <ファイル>", "会話に添える画像（PNG。外のエージェントへは、送る前に、端末で確認する）"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
         examples: ["vc chat", "echo '私の好きな色は青です' | vc chat"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -35,6 +35,7 @@ struct ChatCommand: Command {
         ChatMode.shared.configure(agent: agent, tools: chatTools.level, folder: chatTools.folder)
         if !agent.isExternal, ChatMode.shared.tools != .none { notice("Apple のモデル＋道具（\(ChatMode.shared.tools.title)）— 検索語と、開いたページの URL が、この Mac の外へ送られます") }
         if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.tools == .none ? "" : "（道具：\(ChatMode.shared.tools.title)）")) }
+        let imageFile = arguments.option("--image").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
         let chat = ChatMode.shared
@@ -50,7 +51,11 @@ struct ChatCommand: Command {
                     eprint(Style.yellow("確認：\(detail)。実行しますか？ [y/N] "))
                     return (readLine() ?? "").lowercased().hasPrefix("y")
                 } : nil
-                let outcome = try await chat.ask(text, engine: context.engine, token: nil, progress: { if interactive { eprint(Style.dim($0)) } }, confirm: confirm)
+                let confirmImage: ChatMode.ImageSendConfirm? = interactive ? { @Sendable file, agent in
+                    eprint(Style.yellow("画像を、\(agent.rawValue) へ送ります（この Mac の外へ出ます）。送りますか？ [y/N] "))
+                    return (readLine() ?? "").lowercased().hasPrefix("y")
+                } : nil
+                let outcome = try await chat.ask(text, engine: context.engine, token: nil, attachedImage: imageFile, progress: { if interactive { eprint(Style.dim($0)) } }, confirm: confirm, confirmImage: confirmImage)
                 for note in outcome.notes { eprint(Style.dim(note)) }
                 for activity in outcome.activities { eprint(Style.dim("▸ " + activity.text)) }
                 print(outcome.answer)

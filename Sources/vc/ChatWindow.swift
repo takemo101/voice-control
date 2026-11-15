@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VCCore
 import VCSkill
 
 /// 会話のウィンドウ：**1 つだけ**。質問と答えが、下へ続いていく（答えごとに、新しいウィンドウを開かない）。
@@ -13,6 +14,7 @@ import VCSkill
 
     private let state = ChatWindowState()
     private var window: DocumentWindowFrame?
+    private var expiry: Task<Void, Never>?
 
     var isVisible: Bool { window?.isVisible == true }
     var hasPending: Bool { state.entries.last.map { $0.answer == nil } ?? false }
@@ -35,7 +37,9 @@ import VCSkill
         state.agent = agent
         state.warning = warning
         state.tools = tools
-        state.entries.append(ChatEntry(question: question))
+        var entry = ChatEntry(question: question)
+        entry.thumbnail = state.image?.thumbnail   // 添えてある画像を、質問に付ける（どの画像についての質問か、分かるように）
+        state.entries.append(entry)
         state.scrollToken += 1
     }
 
@@ -64,9 +68,55 @@ import VCSkill
         state.entries.removeLast()
     }
 
-    /// 記録を、すべて消す（会話の終了・リセット）。
+    /// 記録を、すべて消す（会話の終了・リセット）。添えた画像も、外す。
     func clear() {
         state.entries = []
+        detachImage()
+    }
+
+    // MARK: 画像の添付（「画面を撮る」）
+
+    /// 質問に使う、添えてある画像（撮ってから 180 秒以内）。なければ nil。
+    var attachedImageFile: URL? {
+        guard state.image != nil else { return nil }
+        guard case let .success(file) = ScreenshotStore.current() else { detachImage(); return nil }
+        return file
+    }
+
+    /// 範囲を選んで撮り、会話に添える（このウィンドウは、撮るあいだ、隠す）。撮った画像は、`ScreenshotStore`（180 秒で古くなる・自分だけが読める）。
+    func attachScreenshot() async {
+        guard !state.capturing else { return }
+        state.capturing = true
+        defer { state.capturing = false }
+        window?.orderOut(nil)
+        try? await Task.sleep(for: .milliseconds(250))   // ウィンドウが消えるのを待つ（撮る画面に、写らないように）
+        let outcome = await ScreenCapture.captureForVoice()
+        show(activate: true)
+        switch outcome {
+        case .captured:
+            guard case let .success(file) = ScreenshotStore.current(), let thumbnail = HUDImage.load(file, sendsOut: false)?.thumbnail else { return }
+            let image = AttachedImage(thumbnail: thumbnail, takenAt: Date())
+            state.image = image
+            expiry?.cancel()
+            // 古くなったら、外す（使えない画像を、添えたままにしない）
+            expiry = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(ScreenshotStore.timeToLive))
+                guard !Task.isCancelled, self?.state.image?.id == image.id else { return }
+                self?.detachImage()
+            }
+        case .cancelled: break
+        case let .failed(reason):
+            HUD.shared.show(HUDContent(phase: .failure, title: "画面を撮れませんでした", hint: reason), hideAfter: 5)
+        }
+    }
+
+    /// 添えた画像を外す（撮った画像も、消す）。
+    func detachImage() {
+        expiry?.cancel()
+        expiry = nil
+        guard state.image != nil else { return }
+        state.image = nil
+        ScreenshotStore.clear()
     }
 
     // MARK: 表示
@@ -119,6 +169,15 @@ import VCSkill
             entry("東京の明日の天気は？", answer: "明日の東京は、**晴れ時々くもり**で、最高気温は 24 度の予報です。降水確率は午前 10%、午後 30% で、夕方から風が少し強くなります。傘は、念のため、持っていくと安心です。気温の変化が大きいので、薄手の上着があると、朝晩の移動が楽になります。", notes: ["しばらく話さなかったので、前の会話は終わりました"]),
             entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),
         ]
+        let sample = NSImage(size: NSSize(width: 160, height: 100), flipped: false) { rect in
+            NSGradient(colors: [NSColor(red: 0.2, green: 0.3, blue: 0.6, alpha: 1), NSColor(red: 0.5, green: 0.3, blue: 0.7, alpha: 1)])?.draw(in: rect, angle: 35)
+            NSColor.white.withAlphaComponent(0.85).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 16, y: 54, width: 90, height: 12), xRadius: 4, yRadius: 4).fill()
+            NSBezierPath(roundedRect: NSRect(x: 16, y: 34, width: 120, height: 8), xRadius: 3, yRadius: 3).fill()
+            return true
+        }
+        state.image = AttachedImage(thumbnail: sample, takenAt: Date().addingTimeInterval(-40))
+        state.entries[0].thumbnail = sample
         if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
         state.solid = true
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -153,6 +212,8 @@ import VCSkill
                 SaySpeaker.shared.say(chunks: SpokenText.chunks(from: entry.answer ?? ""), channel: .conversation)
             },
             reset: { AppActions.resetConversation() },
+            attach: { Task { @MainActor in await ChatWindow.shared.attachScreenshot() } },
+            detach: { ChatWindow.shared.detachImage() },
             copyAll: { [unowned self] in copyAll() },
             close: { [unowned window] in window.close() })
         window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
@@ -180,6 +241,15 @@ import VCSkill
 
 // MARK: 状態
 
+/// 会話に添えた画像。
+struct AttachedImage: Identifiable {
+    let id = UUID()
+    let thumbnail: NSImage
+    let takenAt: Date
+    /// これを過ぎると、使えない（`ScreenshotStore.timeToLive`）。
+    var expiresAt: Date { takenAt.addingTimeInterval(ScreenshotStore.timeToLive) }
+}
+
 /// 会話の 1 往復（質問と、答え。答えが来るまでは、`status`）。
 struct ChatEntry: Identifiable {
     let id = UUID()
@@ -189,6 +259,8 @@ struct ChatEntry: Identifiable {
     var answer: String?
     var activities: [ChatActivity] = []
     var notes: [String] = []
+    /// この質問に付けた、画像（サムネイル）。
+    var thumbnail: NSImage?
     /// 答えを整形した結果（描き直しのたびに、作り直さない）。
     var rendered: NSAttributedString?
 }
@@ -206,6 +278,10 @@ struct ChatEntry: Identifiable {
     @Published var tools: String?
     /// 増えると、いちばん新しい往復の頭へ、スクロールする。
     @Published var scrollToken = 0
+    /// 会話に添えてある画像（撮ってから 180 秒だけ、使える）。
+    @Published var image: AttachedImage?
+    /// 範囲を選んでいる間。
+    @Published var capturing = false
     /// 画像に描く確認用：ガラスの代わりに、暗い面を敷く。
     @Published var solid = false
 }

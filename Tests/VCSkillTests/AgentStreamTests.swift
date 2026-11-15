@@ -79,6 +79,15 @@ import Testing
         #expect(events(.opencode, lines) == [.activity(.read("note.txt")), .activity(.write("done.txt")), .activity(.run("ls -la")), .final("作成しました")])
     }
 
+    @Test func opencodePlanModesUnrelatedClosingSentenceIsNotTheAnswer() {
+        let lines = [
+            #"{"type":"text","part":{"text":"ふじさん42"}}"#,
+            #"{"type":"text","part":{"text":"了解しました。以後は計画の相談のみ行い、ファイルの変更や実装はしません。"}}"#,
+        ]
+        #expect(events(.opencode, lines) == [.final("ふじさん42")])
+        #expect(events(.opencode, [#"{"type":"text","part":{"text":"計画は次のとおりです。1 つ目は、データを集めることです。2 つ目は、集めたデータを、整理することです。最後に、結果をまとめます。実装はしません、ではなく、これは実際の答えです。さらに、補足として、各手順の注意点を、それぞれ短く説明します。さらに、補足として、各手順の注意点を、それぞれ短く説明します。"}}"#]).count == 1)   // 長い文は、答え
+    }
+
     @Test func piToolExecutionsAndTheLastAssistantMessageAreRead() {
         let lines = [
             #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"x"}}"#,
