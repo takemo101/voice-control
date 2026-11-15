@@ -345,19 +345,17 @@ enum CatalogState {
         FileManager.default.fileExists(atPath: VoiceControlHome.skillsDirectory.appendingPathComponent(name).path)
     }
 
-    /// 1 つ入れる（同名があれば、置き換える：「更新」）。**入れる前に、許可するコマンド・確認・外へ送るかを見せて、確かめる**（入れたスキルは、信頼の手続きなしで、いつも読み込まれるため）。
+    /// 1 つ入れる（同名があれば、置き換える：「更新」）。確認のダイアログは、出さない（許可するコマンド・外へ送るかは、一覧の各行に出ている）。
     func install(_ skill: Skill) {
         guard !installing.contains(skill.name), case let .loaded(listing) = catalog else { return }
-        let replacing = isInstalled(skill: skill.name)
-        guard Self.confirmInstall([skill], replacing: replacing, source: listing.source) else { return }
-        run(names: [skill.name], listing: listing, overwrite: replacing)
+        run(names: [skill.name], listing: listing, overwrite: isInstalled(skill: skill.name))
     }
 
     /// 一覧の、まだ入れていないスキルを、すべて入れる。
     func installMissing() {
         guard case let .loaded(listing) = catalog, installing.isEmpty else { return }
         let missing = listing.skills.filter { !isInstalled(skill: $0.name) }
-        guard !missing.isEmpty, Self.confirmInstall(missing, replacing: false, source: listing.source) else { return }
+        guard !missing.isEmpty else { return }
         run(names: missing.map(\.name).sorted(), listing: listing, overwrite: false)
     }
 
@@ -380,29 +378,6 @@ enum CatalogState {
             installing.subtract(names)
             revision += 1   // 一覧（有効・無効）を、読み直す
         }
-    }
-
-    /// 入れる前の確認（許可するコマンド・確認の有無・外へ送るか）。入れてよければ true。
-    private static func confirmInstall(_ skills: [Skill], replacing: Bool, source: RemoteInstall.Source) -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = skills.contains { $0.external != nil } ? .warning : .informational
-        if skills.count == 1, let skill = skills.first {
-            alert.messageText = "スキル「\(skill.name)」を、\(replacing ? "置き換え" : "入れ")ますか？"
-            var lines = [skill.description, "", "許可するコマンド：" + commands(of: skill), "実行の前の確認：" + (skill.confirm ? "必須" : "なし")]
-            if let notice = skill.externalNotice { lines.append("外へ送ります：" + notice) }
-            lines += ["", "取得元：github.com/\(RemoteSkills.repository) @ \(source.ref)", "入れたスキルは、信頼の手続きなしで、どこでも、いつも読み込まれます。"]
-            alert.informativeText = lines.joined(separator: "\n")
-        } else {
-            alert.messageText = "\(skills.count) 個のスキルを、入れますか？"
-            let external = skills.filter { $0.external != nil }
-            var lines = [skills.map(\.name).sorted().joined(separator: "、"), ""]
-            if !external.isEmpty { lines.append("使うと、発話や画面の画像を、この Mac の外へ送ります：" + external.map { "\($0.name)（\($0.externalNotice ?? "")）" }.joined(separator: "、")) }
-            lines += ["取得元：github.com/\(RemoteSkills.repository) @ \(source.ref)", "許可するコマンドは、各スキルの SKILL.md で決まります（一覧の各行で、確かめられます）。"]
-            alert.informativeText = lines.joined(separator: "\n")
-        }
-        alert.addButton(withTitle: replacing ? "置き換える" : "入れる")
-        alert.addButton(withTitle: "やめる")
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private static func describe(_ failure: SkillInstaller.Failure) -> String {

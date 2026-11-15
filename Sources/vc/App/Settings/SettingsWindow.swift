@@ -634,7 +634,7 @@ private struct CatalogCard: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Card("スキルをインストール", footer: "GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。入れる前に、許可するコマンドを確かめます。") {
+        Card("スキルをインストール", footer: "GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。許可するコマンドと、外へ送るかは、各行に出ています。") {
             switch model.catalog {
             case .idle:
                 Row("インストールできるスキル", detail: "一覧を、GitHub から取ります") {
@@ -657,7 +657,7 @@ private struct CatalogCard: View {
                 if listing.skills.contains(where: { !model.isInstalled(skill: $0.name) }) {
                     RowDivider()
                     Row("まだ入れていないスキルを、すべて", detail: nil) {
-                        Button("すべて入れる…") { model.installMissing() }.controlSize(.small).disabled(!model.installingIsEmpty)
+                        Button("すべて入れる") { model.installMissing() }.controlSize(.small).disabled(!model.installingIsEmpty)
                     }
                 }
             }
@@ -675,7 +675,7 @@ private struct CatalogCard: View {
                         ProgressView().controlSize(.small)
                     } else {
                         if installed { Pill(text: "入れ済み", color: Brand.ok) }
-                        Button(installed ? "更新" : "入れる…") { model.install(skill) }.controlSize(.small)
+                        Button(installed ? "更新" : "入れる") { model.install(skill) }.controlSize(.small)
                     }
                 }
             }
