@@ -42,10 +42,13 @@ public enum ChatAgent: String, CaseIterable, Sendable {
         isExternal ? ChatBudget(trigger: 24_000, keepRecent: 8_000, summaryMaxCharacters: 1500, notesMaxCharacters: 1500) : .standard
     }
 
-    /// 答えを作る側。
-    public func makeBackend() -> ChatBackend {
-        isExternal ? ExternalChatBackend(agent: self) : AppleChatBackend()
+    /// 答えを作る側。`web`：外のエージェントに、Web 検索をさせる（Apple には、効かない。`pi` は、Web の道具がない）。
+    public func makeBackend(web: Bool = false) -> ChatBackend {
+        isExternal ? ExternalChatBackend(agent: self, web: web) : AppleChatBackend()
     }
+
+    /// Web 検索を、使えるエージェントか（`pi` は、道具を持たない）。
+    public var canSearchWeb: Bool { isExternal && self != .pi }
 }
 
 /// 外のエージェントの CLI の 1 回の実行の結果。
@@ -65,16 +68,19 @@ public struct ExternalChatBackend: ChatBackend {
     public typealias Runner = @Sendable (_ executable: String, _ arguments: [String], _ directory: URL, _ answerFile: URL, _ cancel: CancelToken) -> AgentRun
 
     public let agent: ChatAgent
+    /// Web 検索をさせるか（させるなら、検索の道具だけを開ける。ファイル・端末の道具は、どちらでも、閉じたまま）。
+    public let web: Bool
     private let runner: Runner
     private let timeout: TimeInterval
     private let environment: @Sendable (String) -> String?
 
-    public init(agent: ChatAgent, timeout: TimeInterval = 100, environment: @escaping @Sendable (String) -> String? = { ProcessInfo.processInfo.environment[$0] }, runner: @escaping Runner = ExternalChatBackend.live) {
+    public init(agent: ChatAgent, web: Bool = false, timeout: TimeInterval = 100, environment: @escaping @Sendable (String) -> String? = { ProcessInfo.processInfo.environment[$0] }, runner: @escaping Runner = ExternalChatBackend.live) {
         precondition(agent.isExternal, "外のエージェントだけ")
-        self.agent = agent; self.timeout = timeout; self.environment = environment; self.runner = runner
+        self.agent = agent; self.web = web && agent.canSearchWeb; self.timeout = timeout; self.environment = environment; self.runner = runner
     }
 
     public var budget: ChatBudget { agent.budget }
+    public var capabilityNote: String { web ? ChatCapability.web : ChatCapability.noWeb }
 
     static let agyDefaultModel = "gemini-3.8-flash-medium"
 
@@ -89,13 +95,16 @@ public struct ExternalChatBackend: ChatBackend {
     }
 
     /// CLI の引数（**純粋**：テストで、読むだけ・Web なし・履歴なしの指定を確かめる）。`directory` は空の作業フォルダ・`answerFile` は、答えをファイルへ出すもの（codex）の出力先。
-    static func arguments(for agent: ChatAgent, prompt: String, directory: URL, answerFile: URL, agyModel: String) -> [String] {
+    static func arguments(for agent: ChatAgent, prompt: String, directory: URL, answerFile: URL, agyModel: String, web: Bool = false) -> [String] {
         switch agent {
         case .apple: return []
         case .agy: return ["-p", prompt, "--model", agyModel, "--mode", "plan", "--sandbox", "--print-timeout", "100s"]
-        case .claude: return ["-p", prompt, "--tools", "", "--permission-mode", "dontAsk", "--no-session-persistence", "--output-format", "text"]
-        case .codex: return ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--color", "never", "-C", directory.path, "-o", answerFile.path, prompt]
-        case .grok: return ["-p", prompt, "--cwd", directory.path, "--permission-mode", "plan", "--output-format", "plain", "--disable-web-search"]
+        case .claude:
+            // 道具は、Web の 2 つ（検索・取得）か、空（Web も、ファイルも、端末も、ない）
+            let tools = web ? "WebSearch,WebFetch" : ""
+            return ["-p", prompt, "--tools", tools] + (web ? ["--allowedTools", tools] : []) + ["--permission-mode", "dontAsk", "--no-session-persistence", "--output-format", "text"]
+        case .codex: return (web ? ["--search"] : []) + ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--color", "never", "-C", directory.path, "-o", answerFile.path, prompt]
+        case .grok: return ["-p", prompt, "--cwd", directory.path, "--permission-mode", "plan", "--output-format", "plain"] + (web ? [] : ["--disable-web-search"])
         case .opencode: return ["run", "--agent", "plan", prompt]
         case .pi: return ["-p", prompt, "--no-tools", "--no-session", "--no-extensions", "--no-skills", "--no-context-files"]
         }
@@ -115,14 +124,14 @@ public struct ExternalChatBackend: ChatBackend {
         let model = agent == .agy ? try agyModel() : ""
         let prompt = Self.prompt(instructions: instructions, turns: turns, user: user)
         let cancel = CancelToken()
-        let agent = agent, runner = runner, timeout = timeout
+        let agent = agent, runner = runner, timeout = timeout, web = web
         let run: AgentRun = await withTaskCancellationHandler {
             await Task.detached {
                 let directory = FileManager.default.temporaryDirectory.appendingPathComponent("vc-chat-\(UUID().uuidString)")
                 try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)   // try?: 作れなければ、起動が失敗して、その理由が出る
                 defer { try? FileManager.default.removeItem(at: directory) }
                 let answerFile = directory.appendingPathComponent(".answer.md")
-                var result = runner(agent.rawValue, Self.arguments(for: agent, prompt: prompt, directory: directory, answerFile: answerFile, agyModel: model), directory, answerFile, cancel)
+                var result = runner(agent.rawValue, Self.arguments(for: agent, prompt: prompt, directory: directory, answerFile: answerFile, agyModel: model, web: web), directory, answerFile, cancel)
                 if agent == .codex { result.text = (try? String(contentsOf: answerFile, encoding: .utf8)) ?? "" }   // codex は、答えを、ファイルへ出す
                 return result
             }.value

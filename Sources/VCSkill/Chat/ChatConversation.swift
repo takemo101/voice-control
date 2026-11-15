@@ -59,7 +59,7 @@ public actor ChatConversation {
     public var turnCount: Int { turns.count }
 
     private func fixedInstructions() -> String {
-        var text = Self.instructions
+        var text = Self.instructions + "\n\n" + backend.capabilityNote
         if !notes.isEmpty {
             text += "\n\nThings the user told you earlier in this conversation (their own words, so they are about the USER, not about you. They are true. Use them only when the user asks about themselves or when they are clearly needed; never bring them up otherwise):\n" + notes.map { "- " + $0 }.joined(separator: "\n")
         }

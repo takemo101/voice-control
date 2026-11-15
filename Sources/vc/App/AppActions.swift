@@ -41,6 +41,14 @@ import VCCore
         }
     }
 
+    /// 会話の記録を消す（メモリだけの記録。声で「会話を終わって」と言うのと同じ）。
+    static func resetConversation() {
+        Task {
+            await ChatMode.shared.end()
+            HUD.shared.show(HUDContent(phase: .info, title: "会話をリセットしました", hint: "次の会話は、新しく始まります"), hideAfter: 2.5)
+        }
+    }
+
     static var loginItemEnabled: Bool { loginItemState == .on || loginItemState == .needsApproval }
 
     /// ログイン時の起動を、オン・オフにする。失敗なら、利用者に見せる理由。

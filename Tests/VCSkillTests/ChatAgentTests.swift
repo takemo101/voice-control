@@ -25,6 +25,21 @@ import VCCore
         #expect(args(.apple).isEmpty)
     }
 
+    @Test func webSearchOpensOnlyTheSearchToolsAndOnlyWhenAsked() {
+        func args(_ a: ChatAgent, web: Bool) -> [String] { ExternalChatBackend.arguments(for: a, prompt: "P", directory: dir, answerFile: out, agyModel: "m", web: web) }
+        #expect(args(.claude, web: false).starts(with: ["-p", "P", "--tools", ""]) && !args(.claude, web: false).contains("--allowedTools"))
+        #expect(args(.claude, web: true).starts(with: ["-p", "P", "--tools", "WebSearch,WebFetch", "--allowedTools", "WebSearch,WebFetch"]))   // ファイル・端末の道具は、開けない
+        #expect(!args(.codex, web: false).contains("--search") && args(.codex, web: true).first == "--search" && args(.codex, web: true).contains("read-only"))
+        #expect(args(.grok, web: false).contains("--disable-web-search") && !args(.grok, web: true).contains("--disable-web-search") && args(.grok, web: true).contains("plan"))
+    }
+
+    @Test func theCapabilityNoteTellsTheAgentWhetherItCanSearchAndPiNeverCan() {
+        #expect(ExternalChatBackend(agent: .grok, web: true).capabilityNote == ChatCapability.web)
+        #expect(ExternalChatBackend(agent: .grok).capabilityNote == ChatCapability.noWeb)
+        #expect(ExternalChatBackend(agent: .pi, web: true).capabilityNote == ChatCapability.noWeb)   // pi は、検索の道具がない
+        #expect(ChatCapability.noWeb.contains("never reply") && ChatCapability.web.contains("actually search"))
+    }
+
     @Test func thePromptCarriesInstructionsHistoryAsDataAndTheNewMessage() {
         let p = ExternalChatBackend.prompt(instructions: "INSTR", turns: [ChatTurn(user: "前の質問", assistant: "前の答え")], user: "いまの質問")
         #expect(p.hasPrefix("INSTR") && p.contains("<conversation>") && p.contains("[利用者]：前の質問") && p.contains("[答え]：前の答え") && p.hasSuffix("[利用者]：いまの質問"))

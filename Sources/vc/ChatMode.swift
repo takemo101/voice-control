@@ -10,6 +10,8 @@ import VCSkill
     private(set) var conversation = ChatConversation()
     /// いま使っているエージェント。`configure` で替える（替えると、会話は、新しくなる）。
     private(set) var agent = ChatAgent.apple
+    /// 外のエージェントに、Web 検索をさせているか。
+    private(set) var web = false
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
@@ -23,10 +25,12 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent) {
-        guard agent != self.agent else { return }
+    func configure(agent: ChatAgent, web: Bool = false) {
+        let web = web && agent.canSearchWeb
+        guard agent != self.agent || web != self.web else { return }
         self.agent = agent
-        conversation = ChatConversation(backend: agent.makeBackend())
+        self.web = web
+        conversation = ChatConversation(backend: agent.makeBackend(web: web))
         attached = []
     }
 

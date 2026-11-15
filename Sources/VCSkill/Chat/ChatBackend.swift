@@ -7,10 +7,19 @@ public protocol ChatBackend: Sendable {
     func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String
     /// この答える側に合う、会話の長さの決まり（文脈の大きさで違う）。
     var budget: ChatBudget { get }
+    /// この答える側が、できないこと・できることの、指示（Web を見られるか）。会話の指示に、足される。
+    var capabilityNote: String { get }
 }
 
 extension ChatBackend {
     public var budget: ChatBudget { .standard }
+    public var capabilityNote: String { ChatCapability.noWeb }
+}
+
+/// 会話の指示に足す、Web についての決まり。**「調べます」と言うだけで、何もしない答え**を、防ぐ。
+public enum ChatCapability {
+    public static let noWeb = "You cannot browse the web or run tools in this conversation. If the user asks you to search or look something up, say so plainly in one sentence (never reply that you \"will look into it\"), then answer from your own knowledge and note that it may be out of date. Do not make up recent news."
+    public static let web = "You can search the web in this conversation. When the user asks about news or facts that may be recent, actually search, then answer concretely: the main items (names, dates, numbers) and the names of the source sites. Never reply with only a promise to search."
 }
 
 public enum ConversationError: Error, CustomStringConvertible, Equatable {

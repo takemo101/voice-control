@@ -502,9 +502,19 @@ private struct ModelsPage: View {
                 }
                 .labelsHidden().frame(width: 190)
             }
-            if let name = model.settings.chatAgent, ChatAgent.parse(name)?.isExternal == true {
+            if let name = model.settings.chatAgent, let agent = ChatAgent.parse(name), agent.isExternal {
                 Label("会話の発話が、この Mac の外（そのエージェントの提供元）へ送られます。画像・コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+                RowDivider()
+                if agent.canSearchWeb {
+                    SwitchRow(model: model, title: "Web 検索を使う", detail: "ニュースや最新の情報を、エージェントが検索して答えます（検索は、そのエージェントの提供元が行います）。オフだと、検索できないと答えます", value: model.settings.chatWeb ?? false) { $0.chatWeb = $1 }
+                } else {
+                    Row("Web 検索", detail: "このエージェントは、検索の道具を持っていません") { Pill(text: "使えません", color: Color.secondary) }
+                }
+            }
+            RowDivider()
+            Row("会話の記録", detail: "メモリだけ（保存しません）。5 分間話さないと、自動で終わります。声で「会話を終わって」でも消せます") {
+                Button("リセット") { AppActions.resetConversation() }.controlSize(.small)
             }
         }
         Card("音声認識") {

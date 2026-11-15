@@ -12,6 +12,7 @@ import Foundation
 /// - `liveCaption`：録音中に聞こえている文字（途中経過）を、画面の上のパネルに出すか。なければ、出す（設定ウィンドウ > 音声 で、出さない。実験）。
 /// - `chatHotkey`：会話のトリガー（設定ウィンドウ > キー）。なければ、会話はない。押している間だけ話し、離すと、**会話として**（スキルを選ばずに）質問する。
 /// - `chatAgent`：会話に使うエージェント（設定ウィンドウ > モデル）。なければ、この Mac の Apple のモデル。`agy`・`claude`・`codex`・`grok`・`opencode`・`pi` を選ぶと、**会話の発話が、その提供元へ送られる**（`ask-agent` と同じ例外。利用者が選んだときだけ）。
+/// - `chatWeb`：会話に使う**外のエージェント**に、Web 検索（ニュース・最新の事実）をさせるか。なければ、させない（外へ出るのは、発話だけ。検索は、エージェントの提供元が行う）。Apple のモデルには、効かない。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -25,6 +26,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var dictateHotkey: String?
     public var chatHotkey: String?
     public var chatAgent: String?
+    public var chatWeb: Bool?
     public var stt: String?
     public var shotHotkey: String?
     public var handsFree: Bool?
@@ -49,6 +51,7 @@ public struct Settings: Codable, Sendable, Equatable {
         dictateHotkey = try c.decodeIfPresent(String.self, forKey: .dictateHotkey)
         chatHotkey = try c.decodeIfPresent(String.self, forKey: .chatHotkey)
         chatAgent = try c.decodeIfPresent(String.self, forKey: .chatAgent)
+        chatWeb = try c.decodeIfPresent(Bool.self, forKey: .chatWeb)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         shotHotkey = try c.decodeIfPresent(String.self, forKey: .shotHotkey)
         handsFree = try c.decodeIfPresent(Bool.self, forKey: .handsFree)

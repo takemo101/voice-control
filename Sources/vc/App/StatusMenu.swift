@@ -47,6 +47,7 @@ import VCCore
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
         menu.addItem(.separator())
+        menu.addItem(action("会話をリセット", #selector(resetConversation)))
         menu.addItem(action("診断…", #selector(showDoctor)))
         menu.addItem(action("設定…", #selector(openSettings), key: ","))
         menu.addItem(action("データのフォルダを開く（スキル・設定）", #selector(openDataFolder)))
@@ -92,6 +93,8 @@ import VCCore
     // MARK: 操作
 
     @objc private func retry() { runtime.start() }
+
+    @objc private func resetConversation() { AppActions.resetConversation() }
 
     @objc private func showDoctor() { AppActions.showDoctor() }
 
