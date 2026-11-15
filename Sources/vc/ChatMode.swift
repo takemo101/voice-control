@@ -168,7 +168,7 @@ enum TextClipboard {
 }
 
 extension CommandContext {
-    /// 会話に使うエージェント：設定（設定ウィンドウ > モデル）。なければ Apple。書き方が違えば、理由を示して終わる。
+    /// 会話に使うエージェント：設定（設定ウィンドウ > 会話）。なければ Apple。書き方が違えば、理由を示して終わる。
     func resolveChatAgent() -> ChatAgent {
         guard let text = currentSettings().chatAgent else { return .apple }
         guard let agent = ChatAgent.parse(text) else {

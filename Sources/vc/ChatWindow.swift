@@ -179,6 +179,33 @@ import VCSkill
         return window
     }
 
+    /// 見本の画像（絵だけ。見た目の確認用）。
+    private static func sampleThumbnail() -> NSImage {
+        return NSImage(size: NSSize(width: 160, height: 100), flipped: false) { rect in
+            NSGradient(colors: [NSColor(red: 0.2, green: 0.3, blue: 0.6, alpha: 1), NSColor(red: 0.5, green: 0.3, blue: 0.7, alpha: 1)])?.draw(in: rect, angle: 35)
+            NSColor.white.withAlphaComponent(0.85).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 16, y: 54, width: 90, height: 12), xRadius: 4, yRadius: 4).fill()
+            NSBezierPath(roundedRect: NSRect(x: 16, y: 34, width: 120, height: 8), xRadius: 3, yRadius: 3).fill()
+            return true
+        }
+    }
+
+    /// 見た目の確認用（`vc chat-preview`）：本物のウィンドウに、見本の状態（添えた画像・読み上げの札）を、決める。
+    func previewState(attachedImage: Bool? = nil, speaking: Bool? = nil, header: (agent: String, warning: String?, tools: String?)? = nil) {
+        if let attachedImage { state.image = attachedImage ? AttachedImage(thumbnail: Self.sampleThumbnail(), takenAt: Date().addingTimeInterval(-20)) : nil }
+        if let speaking { state.speaking = speaking; state.speakingEntry = speaking ? state.entries.last?.id : nil }
+        if let header { state.agent = header.agent; state.warning = header.warning; state.tools = header.tools }
+    }
+
+    /// 見た目の確認用（`vc chat-preview --frames`）：空のウィンドウを、画面の外に置く（利用者の画面には、出ない）。
+    func previewOffscreen() -> NSWindow {
+        let window = makeWindowIfNeeded()
+        state.solid = true
+        window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
     func previewWindow(pendingOnly: Bool = false) -> NSWindow {
         let window = makeWindowIfNeeded()
         state.agent = "Claude Code"
@@ -200,13 +227,7 @@ import VCSkill
             entry("ギフティのニュースを、調べて", answer: nil, status: nil),
             entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),
         ]
-        let sample = NSImage(size: NSSize(width: 160, height: 100), flipped: false) { rect in
-            NSGradient(colors: [NSColor(red: 0.2, green: 0.3, blue: 0.6, alpha: 1), NSColor(red: 0.5, green: 0.3, blue: 0.7, alpha: 1)])?.draw(in: rect, angle: 35)
-            NSColor.white.withAlphaComponent(0.85).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 16, y: 54, width: 90, height: 12), xRadius: 4, yRadius: 4).fill()
-            NSBezierPath(roundedRect: NSRect(x: 16, y: 34, width: 120, height: 8), xRadius: 3, yRadius: 3).fill()
-            return true
-        }
+        let sample = Self.sampleThumbnail()
         state.image = AttachedImage(thumbnail: sample, takenAt: Date().addingTimeInterval(-40))
         state.entries[0].image = EntryImage(thumbnail: sample, route: .sent("claude"))
         state.entries[1].image = EntryImage(thumbnail: sample, route: .local)
