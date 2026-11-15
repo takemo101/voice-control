@@ -33,7 +33,7 @@ struct SettingsPreviewCommand: Command {
             window.makeKeyAndOrderFront(nil)
             hosting.layoutSubtreeIfNeeded()
             // 描く前に、ランループを少し回す（SwiftUI の更新を、済ませる）
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            Self.spin(seconds: 0.4)
             hosting.layoutSubtreeIfNeeded()
             guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { fail("描けません（\(page.rawValue)）") }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
@@ -42,5 +42,10 @@ struct SettingsPreviewCommand: Command {
             try png.write(to: file)
             print(file.path)
         }
+    }
+
+    /// ランループを少し回す（同期の関数：`RunLoop.run(until:)` は、非同期の文脈からは、呼べない）。
+    private static func spin(seconds: TimeInterval) {
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
     }
 }
