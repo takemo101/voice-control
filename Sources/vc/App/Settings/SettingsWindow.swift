@@ -436,7 +436,7 @@ private struct VoicePage: View {
             SwitchRow(model: model, title: "聞き取りに自信がないとき、確かめる", detail: "実行の前に、聞こえた文を確かめます（実験）", value: model.settings.recheck ?? true) { $0.recheck = $1 }
         }
         Card("読み上げ", footer: "確認の問いかけは、いつも読み上げます。より自然な声は、システム設定 > アクセシビリティ > 読み上げコンテンツ で入れられます。") {
-            SwitchRow(model: model, title: "実行の結果を、声で読み上げる", detail: nil, value: model.settings.speakResults ?? false) { $0.speakResults = $1 }
+            SwitchRow(model: model, title: "実行の結果・会話の答えを、声で読み上げる", detail: "会話の答えは、全文を読みます。止めるには、Esc・トリガーを押す・メニューバーの「読み上げを止める」", value: model.settings.speakResults ?? false) { $0.speakResults = $1 }
             RowDivider()
             Row("声", detail: "自動：入っている日本語の声のうち、品質が最も高いもの") {
                 HStack {

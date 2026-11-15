@@ -108,11 +108,9 @@ import VCSpeech
             try? await Task.sleep(for: .milliseconds(500))
             if Task.isCancelled { return }
         }
-        weak let old = session?.loop
-        session?.loop.stop()
+        // 古い声の流れの、キーの受け付けを、いますぐ外す（同じキーを、二重に登録しない。手放されるのを待たない）
+        session?.stop()
         session = nil
-        // 古い声の流れが、手放されて、トリガー・Esc の登録が外れるまで、待つ（同じキーを、二重に登録しない）
-        for _ in 0..<60 where old != nil { try? await Task.sleep(for: .milliseconds(50)) }
         do { try bringUp(Self.makeContext()) } catch {
             state = .stopped(reason: "\(error)")
         }

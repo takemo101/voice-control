@@ -47,6 +47,8 @@ import VCCore
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
         menu.addItem(.separator())
+        if SaySpeaker.shared.isSpeaking { menu.addItem(action("読み上げを止める", #selector(stopSpeaking))) }
+        menu.addItem(action("会話を開く", #selector(openChat)))
         menu.addItem(action("会話をリセット", #selector(resetConversation)))
         menu.addItem(action("診断…", #selector(showDoctor)))
         menu.addItem(action("設定…", #selector(openSettings), key: ","))
@@ -95,6 +97,10 @@ import VCCore
     @objc private func retry() { runtime.start() }
 
     @objc private func resetConversation() { AppActions.resetConversation() }
+
+    @objc private func openChat() { ChatWindow.shared.show(activate: true) }
+
+    @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
 
     @objc private func showDoctor() { AppActions.showDoctor() }
 

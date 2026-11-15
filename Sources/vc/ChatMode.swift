@@ -39,13 +39,15 @@ import VCSkill
     func end() async {
         await conversation.reset()
         attached = []
+        SaySpeaker.shared.stop()
+        ChatWindow.shared.clear()
     }
 
     /// 答えの見せ方：短ければ上のパネル、長ければウィンドウ。
     static func isShort(_ answer: String) -> Bool { answer.count <= 110 && !answer.contains("\n") }
 
     /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
-    struct Outcome { var answer: String; var notes: [String]; var activities: [String] = [] }
+    struct Outcome { var answer: String; var notes: [String]; var activities: [String] = []; var startedNew = false }
 
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void) async throws -> Outcome {
@@ -90,7 +92,7 @@ import VCSkill
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }
-        return Outcome(answer: reply.text, notes: notes, activities: log.items)
+        return Outcome(answer: reply.text, notes: notes, activities: log.items, startedNew: reply.startedNew)
     }
 }
 

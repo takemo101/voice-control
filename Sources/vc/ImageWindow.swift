@@ -80,9 +80,14 @@ import VCSkill
 
     // MARK: 操作
 
+    /// 画像を、クリップボードへ。**ファイルの参照も、一緒に入れる**：Finder（デスクトップ）へ貼ると、画像のファイルが作られる（画像のデータだけでは、Finder は、ファイルを作らない）。
+    /// そのため、まだなら `~/Pictures/voice-control` へ保存する（「パスをコピー」と同じ：利用者が押したときだけ）。保存できなければ、画像のデータだけ。
     private func copyImage() {
+        let item = NSPasteboardItem()
+        item.setData(png, forType: .png)
+        if let url = persist() { item.setString(url.absoluteString, forType: .fileURL) }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([image])
+        if !NSPasteboard.general.writeObjects([item]) { NSPasteboard.general.writeObjects([image]) }
         flash(.image)
     }
 

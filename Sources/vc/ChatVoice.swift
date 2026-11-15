@@ -20,43 +20,44 @@ import VCSkill
         let agent = ChatMode.shared.agent
         let toolNote = ChatMode.shared.tools == .none ? "" : "・" + (ChatMode.shared.tools == .all ? "全ツール" : ChatMode.shared.tools.rawValue)
         let name = agent.isExternal ? "会話（\(agent.rawValue)・外へ送信\(toolNote)）" : "会話"
+        let window = ChatWindow.shared
+        window.begin(question: utterance, agent: agent.isExternal ? "\(agent.label) — この Mac の外へ送信" + (ChatMode.shared.tools == .none ? "" : "・" + ChatMode.shared.tools.title) : agent.label)
         var content = HUDContent(phase: .working, title: "考えています…", chip: chip, heard: utterance, skill: name)
         HUD.shared.show(content)
         do {
             let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token) { text in
                 content.title = text
                 HUD.shared.show(content)
+                window.setStatus(text)
             }
-            if token.isCancelled || token.isSuperseded { return }
+            if token.isCancelled || token.isSuperseded { window.discardPending(); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity)) }
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
-            if ChatMode.isShort(outcome.answer) && outcome.activities.isEmpty {
-                var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
+            // 会話のウィンドウ（1 つだけ）に、答えを足す。短い答えで、操作もなければ、上のパネルだけ（ウィンドウが出ていれば、そこに足す）
+            let wasVisible = window.isVisible
+            window.finish(answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew)
+            let spoken = speakResults ? SpokenText.chunks(from: outcome.answer) : []
+            var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
+            if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }
+            if ChatMode.isShort(outcome.answer) && outcome.activities.isEmpty && !wasVisible {
                 done.reply = outcome.answer
-                if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }
+                if !spoken.isEmpty { done.hint = (done.hint.map { $0 + "・" } ?? "") + "読み上げ中（Esc で止める）" }
                 HUD.shared.show(done, hideAfter: HUDSession.readingTime(for: outcome.answer))
+            } else if wasVisible {
+                window.show(activate: false)
+                HUD.shared.hide()
             } else {
-                // 道具を使ったときは、**実行した操作**を、答えの下に出す（何が実行されたかを、確かめられるように。記録には残さない）
-                let actions = outcome.activities.isEmpty ? "" : "\n\n---\n\n**実行した操作**\n\n" + outcome.activities.map { "- `\($0)`" }.joined(separator: "\n")
-                if let why = DocumentWindow.present(markdown: "> 会話：\(utterance)\n\n" + outcome.answer + actions) { eprint("ウィンドウを出せません: \(why)") }
-                var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
-                done.reply = "回答を、ウィンドウに出しました"
-                if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }
+                window.show(activate: true)
+                done.reply = "回答を、会話のウィンドウに出しました"
+                if !spoken.isEmpty { done.hint = (done.hint.map { $0 + "・" } ?? "") + "読み上げ中（Esc で止める）" }
                 HUD.shared.show(done, hideAfter: 4)
             }
-            if speakResults { say(ChatVoice.spoken(outcome.answer)) }
+            if !spoken.isEmpty { SaySpeaker.shared.say(chunks: spoken) }   // 全文を読む（止めるには、Esc・ウィンドウのボタン・メニュー・トリガー）
         } catch {
+            window.discardPending()
             if token.isSuperseded { return }
             if token.isCancelled || error is CancellationError { VoiceUI.showCancelled(chip: chip) } else { VoiceUI.showFailure(error, chip: chip) }
         }
-    }
-
-    /// 読み上げる文：長い答えは、先頭の数文だけ（ウィンドウに全文がある）。
-    static func spoken(_ answer: String) -> String {
-        let sentences = answer.split(whereSeparator: { "。\n".contains($0) }).map(String.init)
-        var out = ""
-        for sentence in sentences { if out.count + sentence.count > 160 { break }; out += sentence + "。" }
-        return out.isEmpty ? String(answer.prefix(160)) : out
     }
 }

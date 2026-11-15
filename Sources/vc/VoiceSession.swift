@@ -17,8 +17,17 @@ import VCSpeech
     /// 端末に出す、いまの設定の案内（アプリでは、メニューの状態に使う）。
     let hint: String
 
-    private init(loop: VoiceLoop, retained: [Any], hint: String, onReady: @escaping () -> Void) {
-        self.loop = loop; self.retained = retained; self.hint = hint; self.onReady = onReady
+    /// 画面撮影のショートカット（`stop` で、受け付けを外す）。
+    private let screenTriggers: [any PushToTalkTrigger]
+
+    private init(loop: VoiceLoop, retained: [Any], screenTriggers: [any PushToTalkTrigger], hint: String, onReady: @escaping () -> Void) {
+        self.loop = loop; self.retained = retained; self.screenTriggers = screenTriggers; self.hint = hint; self.onReady = onReady
+    }
+
+    /// 止める：トリガー・Esc・画面撮影のショートカットの受け付けを、いますぐ外す（設定を変えて、作り直すとき）。
+    func stop() {
+        loop.stop()
+        screenTriggers.forEach { $0.invalidate() }
     }
 
     static func make(context: CommandContext, jev: TinyJev, muter: OutputMuter, speech: SpeechEngine) throws -> VoiceSession {
@@ -83,6 +92,6 @@ import VCSpeech
                 HUD.shared.show(HUDContent(phase: .info, title: "準備できました", hint: "\(holdInstruction(spec))ている間だけ聞きます", chip: chip), hideAfter: 3.5)
             }
         }
-        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
+        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], screenTriggers: screenTriggers, hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
     }
 }

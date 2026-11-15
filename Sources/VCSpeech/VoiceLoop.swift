@@ -190,6 +190,10 @@ public final class VoiceLoop {
     /// **設定を変えたとき、作り直すために使う**。処理の最中は、呼ばない（`isBusy` が偽のときだけ）。止めたあとの `begin`・`run` は、できない。
     @MainActor public func stop() {
         stopped = true
+        // キーの受け付けを、いますぐ外す（手放されるのを待たない。待つと、同じキーを登録し直すとき、`register(-9878)`＝登録済み、で失敗する）
+        trigger.invalidate()
+        escape.onEscape = nil
+        escape.setActive(false)
         queue.push(.cancel)   // 待っている `consume` を起こして、終わらせる
     }
 

@@ -28,6 +28,7 @@ enum VoiceUI {
     static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false, chat: Bool = false) {
         switch event {
         case .recordingStarted:
+            SaySpeaker.shared.stop()   // 読み上げの最中にトリガーを押したら、止める（マイクが、読み上げの声を拾わないように）
             LiveCaption.shared.begin()   // 録音中の文字（途中経過）
             var content = HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : (chat ? "離すと、会話として質問します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）"), chip: chip)
             content.captionSlot = LiveCaption.shared.enabled   // 録音中の文字の欄（録音中の文字の表示）
