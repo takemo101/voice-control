@@ -1,7 +1,7 @@
 #!/bin/bash
 # 製品ページ（site/）の動画・画像を、本物の vc の画面から撮る。
-# 使い方：scripts/site/capture.sh <hud|window|denied|all> [出力先]    出力先の既定：/tmp/vc-site-capture
-# 撮るもの：画面の上のパネル（vc hud-preview の作り物の内容）の動画と、Markdown のウィンドウ（vc show）の動画。
+# 使い方：scripts/site/capture.sh <hud|window|denied|chat|all> [出力先]    出力先の既定：/tmp/vc-site-capture
+# 撮るもの：画面の上のパネル（vc hud-preview の作り物の内容）の動画と、Markdown のウィンドウ（vc show）・会話のウィンドウ（vc chat-preview）の動画。
 # **自作の背景ウィンドウ**（stage.swift：壁紙のような暗いグラデーション）の上で撮る。背景が出ていなければ撮らない（利用者の画面を、写さないため）。
 # 画面収録の許可が要る。撮影中は、画面の上と中央に、背景と vc のウィンドウが出る（約 20 秒）。マウスのカーソルは、動画に入るので、あとの切り出し（encode.sh）で、範囲の外にする。
 set -u
@@ -21,11 +21,12 @@ stage() { # <top|center> <幅> <高さ> <秒> <範囲のファイル>
 }
 
 hud() {
-  stage top 960 540 45 "$OUT/region-hud.txt"
-  screencapture -v -V 19 -x -R"$(cat "$OUT/region-hud.txt")" "$OUT/hud.mov" &
+  stage top 960 540 50 "$OUT/region-hud.txt"
+  rm -f "$OUT/hud.mov"   # 既にあると、screencapture は、上書きできずに失敗する
+  screencapture -v -V 22 -x -R"$(cat "$OUT/region-hud.txt")" "$OUT/hud.mov" &
   REC=$!
   sleep 1.0
-  NO_COLOR=1 "$VC" hud-preview --seconds 3 >/dev/null 2>&1 &
+  NO_COLOR=1 "$VC" hud-preview --stage recording,caption,thinking,working,confirm,success --seconds 3 >/dev/null 2>&1 &
   sleep 0.8
   pgrep -f "vc hud-preview" >/dev/null || { echo "GUARD: hud-preview が動いていません"; kill $REC 2>/dev/null; pkill -x stage; exit 3; }
   wait $REC
@@ -35,6 +36,7 @@ hud() {
 
 denied() {
   stage top 960 540 20 "$OUT/region-denied.txt"
+  rm -f "$OUT/denied.png"
   NO_COLOR=1 "$VC" hud-preview --stage denied --seconds 15 >/dev/null 2>&1 &
   sleep 2.6
   pgrep -f "vc hud-preview" >/dev/null || { echo "GUARD: hud-preview が動いていません"; pkill -x stage; exit 3; }
@@ -46,6 +48,7 @@ denied() {
 window() {
   [ -f "$HERE/sample.md" ] || { echo "sample.md がありません"; exit 1; }
   stage center 760 900 45 "$OUT/region-window.txt"
+  rm -f "$OUT/window.mov"
   screencapture -v -V 7 -x -R"$(cat "$OUT/region-window.txt")" "$OUT/window.mov" &
   REC=$!
   sleep 1.2
@@ -57,10 +60,26 @@ window() {
   echo "撮った: $OUT/window.mov"
 }
 
+chat() {
+  # 会話のウィンドウ（vc chat-preview の作り物の会話。ガラスの透け感も写る）：声を聞く案内 → 調べて答える → 外のエージェント → 画像つきの質問（約 33 秒）
+  stage center 760 900 48 "$OUT/region-chat.txt"
+  rm -f "$OUT/chat.mov"
+  screencapture -v -V 36 -x -R"$(cat "$OUT/region-chat.txt")" "$OUT/chat.mov" &
+  REC=$!
+  sleep 1.2
+  NO_COLOR=1 "$VC" chat-preview --seconds 33 >/dev/null 2>&1 &
+  sleep 1.5
+  pgrep -f "vc chat-preview" >/dev/null || { echo "GUARD: chat-preview が動いていません"; kill $REC 2>/dev/null; pkill -x stage; exit 3; }
+  wait $REC
+  pkill -f "vc chat-preview"; pkill -x stage
+  echo "撮った: $OUT/chat.mov"
+}
+
 case "$WHAT" in
   hud) hud ;;
+  chat) chat ;;
   window) window ;;
   denied) denied ;;
-  all) hud; denied; window ;;
-  *) echo "使い方: $0 <hud|window|denied|all> [出力先]"; exit 1 ;;
+  all) hud; denied; window; chat ;;
+  *) echo "使い方: $0 <hud|window|denied|chat|all> [出力先]"; exit 1 ;;
 esac

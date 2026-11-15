@@ -72,7 +72,7 @@ scripts/
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
   build-native.sh      音声認識の実行環境 transcribe.cpp を、固定した commit から、静的ライブラリにビルドする
   eval-skills.py       スキルの選択・実行の測定（corpus/skills.tsv）
-  site/                製品ページ・README の画像と動画の作り方：render.sh（画面の外で描く。許可不要）・capture.sh と encode.sh（画面収録の許可が要る。パネル・Markdown のウィンドウ）・stage.swift（撮影用の背景）
+  site/                製品ページ・README の画像と動画の作り方：render.sh（設定のウィンドウを、画面の外で描く。許可不要）・capture.sh と encode.sh（画面収録の許可が要る。パネル・Markdown のウィンドウ・会話のウィンドウ）・stage.swift（撮影用の背景）
 site/                  製品ページ（GitHub Pages。素の HTML・CSS・JavaScript。assets/ に、画像・動画）
 .github/workflows/
   release.yml          タグ vX.Y.Z の push で、vc をビルドして GitHub Release に添付する（dmg と SHA-256）

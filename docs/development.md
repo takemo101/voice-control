@@ -118,8 +118,10 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 - **構成**：`site/index.html`・`site/assets/`（`tokens.css`＝色・文字・余白の名前つきの値、`styles.css`、`main.js`、`video/`、`img/`）。動画（mp4・webm）と画面の静止画は、**本物の `vc` の画面を、自作の背景の上で撮った**もの（`vc hud-preview` の作り物の内容と、`vc show` のサンプル）。
 - **見る**：`python3 -m http.server 8765 --bind 127.0.0.1 -d site` → <http://127.0.0.1:8765/>。
-- **会話・設定の画像と動画を作り直す**：`scripts/site/render.sh`（`just build` のあと。ffmpeg が要る）。本物の SwiftUI の画面を、**画面に出さず**（画面の外で）描く（`vc settings-preview`・`vc chat-preview --frames`）ので、**画面収録の許可は、要らない**。見本のホーム（`.voice-control/skills` のスキルだけ）と、仮の `HOME` で描くので、利用者のパス・設定・スキルは、画像に入らない。`docs/images/` と `site/assets/` へ書く（`settings-*.png`・`chat-*.png`・`demo-chat.*`）。ガラスの透け感は、描けない（会話のウィンドウは、不透明の背景）。
-- **パネル・Markdown のウィンドウを撮り直す**：`scripts/site/capture.sh all`（画面収録の許可が要る。背景が出ていなければ撮らない）→ `scripts/site/encode.sh`（`site/assets/` へ。ffmpeg が要る）。撮影のとき、利用者の画面・アプリを、写さない（自作の背景だけ）。
+- **設定の画像を作り直す**：`scripts/site/render.sh`（`just build` のあと。ffmpeg が要る）。`vc settings-preview` が、設定のウィンドウを、**画面に出さず**（画面の外で）描くので、**画面収録の許可は、要らない**。見本のホーム（`.voice-control/skills` のスキルだけ）と、仮の `HOME` で描くので、利用者のパス・設定・スキルは、画像に入らない。`docs/images/` と `site/assets/img/` へ書く（`settings-*.png`）。
+- **パネル・Markdown のウィンドウ・会話のウィンドウを撮り直す**：`scripts/site/capture.sh all`（**画面収録の許可が要る**。背景が出ていなければ撮らない。約 2 分、画面の上と中央に、自作の背景と、`vc hud-preview`・`vc show`・`vc chat-preview` の表示が出る）→ `scripts/site/encode.sh`（`site/assets/` と `docs/images/` へ。ffmpeg が要る）。撮影のとき、利用者の画面・アプリを、写さない（自作の背景だけ）。`vc` は、`VC=<パス>` で替えられる。
+  - **画面収録の許可は、「そのコマンドを動かしているアプリ」に付く**。エージェントが、Tern のように、**ヘルパー（Tern Daemon.app）経由**でシェルを動かすと、責任アプリがヘルパーになり、アプリ本体に許可があっても、`screencapture` は「could not create image from rect」で失敗する（2026-11-15。左上の 8×8 だけを撮って確かめる）。ヘルパーにも許可を付けても、すぐには直らなかった。サービスの再起動（`launchctl kickstart -k gui/$(id -u)/user.tern-remote`）のあと、撮れた（再起動で直ったのか、許可の反映の遅れかは、特定していない）。
+  - `screencapture` は、**出力のファイルが既にあると、上書きできずに失敗する**（`capture.sh` は、撮る前に消す）。
 - **公開**：`main` に `site/**` が入ると、[pages.yml](../.github/workflows/pages.yml) が公開する。**初めに 1 回だけ**、リポジトリの Settings > Pages > Source を「GitHub Actions」にする（利用者の操作）。
 - **リリースのとき**：ページの版（`<span>v0.5.0</span>`）を、新しい版へ上げる（`Sources/vc/Version.swift` と同じ変更に含める）。
 - **守ること**：外部の通信・解析・外部フォントを足さない（製品の約束と合わせる）。動作例の出力は、**本物の `vc run --dry-run`** のもの（作らない）。数値は、測ったものだけ。レスポンシブは、幅 320・375・414・768・1280 で、横にはみ出さないこと。動きは、`prefers-reduced-motion` で止まること。

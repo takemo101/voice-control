@@ -53,15 +53,18 @@
 <table>
   <tr>
     <td width="50%" align="center"><img src="docs/images/hud-recording.png" alt="録音中のパネル（波形が動く）"><br><b>1. 録音中</b><br>Shift を押している間だけ聞く。波形が、声に合わせて動く</td>
+    <td width="50%" align="center"><img src="docs/images/hud-caption.png" alt="録音中の文字（聞こえている文字が、字幕のように出る）"><br><b>録音中の文字</b><br>聞こえている文字が、少しずつ出る（確定前は薄い。設定で切れる）</td>
+  </tr>
+  <tr>
     <td width="50%" align="center"><img src="docs/images/hud-thinking.png" alt="認識中のパネル（考え中のドットと光る縁）"><br><b>2. 認識中</b><br>離すと、文字にする。考え中のドットが動く</td>
-  </tr>
-  <tr>
     <td width="50%" align="center"><img src="docs/images/hud-working.png" alt="実行中のパネル"><br><b>3. 実行中</b><br>聞こえた文・選ばれたスキル・実行中のコマンドが出る</td>
-    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>4. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
   </tr>
   <tr>
+    <td width="50%" align="center"><img src="docs/images/hud-confirm.png" alt="確認のパネル（実行する・やめる）"><br><b>4. 確認</b><br>ボタン・キー（← → と Return、y / n）・声の「はい」で答える。先に答えたほうが決まる</td>
     <td width="50%" align="center"><img src="docs/images/hud-success.png" alt="完了のパネル"><br><b>5. 完了</b><br>実行したコマンドと、結果の一言が出る</td>
-    <td width="50%" align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンドを、実行しなかったときのパネル"><br><b>許可されていないコマンドは、実行しない</b><br>スキルが許したコマンドだけが動く</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/images/hud-denied.png" alt="許可されていないコマンドを、実行しなかったときのパネル" width="50%"><br><b>許可されていないコマンドは、実行しない</b><br>スキルが許したコマンドだけが動く</td>
   </tr>
 </table>
 
@@ -101,7 +104,7 @@
   </tr>
 </table>
 
-> 上の画像は、**本物の表示**を、見本の内容で撮ったものです（実際の操作・実際の発話の画面ではありません）。パネル・Markdown のウィンドウは、`vc hud-preview`・`vc show` を、自作の模擬のデスクトップの上で撮りました。会話・設定は、`vc chat-preview --frames`・`vc settings-preview` が、**画面の外で描いた**もの（`scripts/site/render.sh`。ガラスの透け感は、描けないので、不透明の背景）です。設定の「一般」の許可の状態は、描いたプロセスのもの（許可の前の、初めての状態）です。
+> 上の画像は、**本物の表示**を、見本の内容で撮ったものです（実際の操作・実際の発話の画面ではありません）。パネル・Markdown のウィンドウ・会話のウィンドウは、`vc hud-preview`・`vc show`・`vc chat-preview` を、**自作の模擬のデスクトップの上で、画面収録**したもの（`scripts/site/capture.sh`・`encode.sh`）。設定は、`vc settings-preview` が**画面の外で描いた**もの（`scripts/site/render.sh`）で、「一般」の許可の状態は、描いたプロセスのもの（許可の前の、初めての状態）です。
 
 ## 仕組み
 
@@ -370,7 +373,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 スキルを選ばず、**質問を重ねる**使い方です（実行はしません。操作の依頼は、声で頼むキーで）。**会話のキー**（設定 > キー の「会話」。例：`ropt`＝右 ⌥）を押している間だけ話すか、メニューバーのアイコン > **会話を開く** で、ウィンドウに**文字で**質問します。
 
-<p align="center"><a href="site/assets/video/demo-chat.mp4"><img src="docs/images/chat-answer.png" alt="会話のウィンドウ（画像をクリックすると、動画）" width="360"></a><br><sub>画像をクリックすると、会話の動画（35 秒）が開きます（画面の外で描いた、見本の内容）</sub></p>
+<p align="center"><a href="site/assets/video/demo-chat.mp4"><img src="docs/images/chat-answer.png" alt="会話のウィンドウ（画像をクリックすると、動画）" width="360"></a><br><sub>画像をクリックすると、会話の動画（34 秒）が開きます（画面収録。見本の内容）</sub></p>
 
 - **1 つのウィンドウ**に、質問と答え（吹き出し）が続きます。新しく開き直しません。考えている間は、いまの操作（「検索：…」「読む：…」）が出て、答えの下に、**実行した操作**が残ります。中断・失敗した質問も、理由つきで残ります。
 - **続けて質問**できます。長くなったら、古いやり取りを要約して、続けます。**記録は、メモリだけ**です（ファイルにも、ログにも残りません）。「会話を終わって」と言う・ウィンドウの「リセット」・5 分間話さない・アプリを終える、で消えます。

@@ -197,15 +197,6 @@ import VCSkill
         if let header { state.agent = header.agent; state.warning = header.warning; state.tools = header.tools }
     }
 
-    /// 見た目の確認用（`vc chat-preview --frames`）：空のウィンドウを、画面の外に置く（利用者の画面には、出ない）。
-    func previewOffscreen() -> NSWindow {
-        let window = makeWindowIfNeeded()
-        state.solid = true
-        window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
-        window.makeKeyAndOrderFront(nil)
-        return window
-    }
-
     func previewWindow(pendingOnly: Bool = false) -> NSWindow {
         let window = makeWindowIfNeeded()
         state.agent = "Claude Code"
