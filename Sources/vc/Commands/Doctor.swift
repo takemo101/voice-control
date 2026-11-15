@@ -16,6 +16,15 @@ struct DoctorCommand: Command {
         options: [], examples: ["vc doctor", "vc doctor --engine ollama:qwen3.5:4b", "vc doctor --engine openai:qwen3-4b@1234"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
+        let report = DoctorReport(checks: await Self.collect(context))
+        heading("vc doctor" + Style.dim("（vc \(AppInfo.version)・macOS \(Self.osVersion)）"))
+        report.lines().forEach { print($0) }
+        if report.hasFailure { exit(1) }
+    }
+
+    /// 確認の本体（`vc doctor` と、アプリの診断ウィンドウが使う）。
+    /// `includeClipboard`：コピーした画像の様子（形式の名前だけ）も確かめる。アプリの診断ウィンドウは、利用者のクリップボードに触れない（false）。
+    static func collect(_ context: CommandContext, includeClipboard: Bool = true) async -> [DoctorCheck] {
         var checks: [DoctorCheck] = []
 
         // --- 必須：スキルの実行（vc run・声の入力）に要る ---
@@ -32,23 +41,19 @@ struct DoctorCommand: Command {
         checks.append(ModifierHold.isTrusted
             ? .ok("アクセシビリティ", "許可されています（ホットキー・agent-desktop）")
             : .warn("アクセシビリティ", "許可されていません",
-                    fix: "vc を動かす端末アプリに、許可が要ります：システム設定 > プライバシーとセキュリティ > アクセシビリティ（agent-desktop permissions でも確かめられます）"))
+                    fix: "システム設定 > プライバシーとセキュリティ > アクセシビリティ で、voice-control（端末から動かしているなら、その端末アプリ）を許可してください"))
         checks.append(ScreenCapture.isAllowed
             ? .ok("画面収録", "許可されています（スクリーンショット：スクリーンショットのショートカット）")
             : .warn("画面収録", "許可されていません（スクリーンショットを使うときだけ要ります）", fix: ScreenCapture.permissionHint))
         // コピーした画像（image-ask）：いまのクリップボードの様子（形式の名前だけ：中身は、読まない）。「コピーしたのに選ばれない」を、切り分けるため
-        checks.append(ImageSource.clipboard.missing.map { .ok("クリップボード", "画像は、ありません（\($0)）") } ?? .ok("クリップボード", "画像が、あります（image-ask が使えます）"))
+        if includeClipboard { checks.append(ImageSource.clipboard.missing.map { .ok("クリップボード", "画像は、ありません（\($0)）") } ?? .ok("クリップボード", "画像が、あります（image-ask が使えます）")) }
         checks.append(Self.microphoneCheck(MicRecorder.permission))
         checks.append(Self.speechCheck(context))
         let (_, problem) = Settings.loadOrDefault()
         let settingsFile = VoiceControlHome.settingsFile
         let settingsDetail = FileManager.default.fileExists(atPath: settingsFile.path) ? "読めます（\(settingsFile.path)）" : "まだありません（既定の設定で動きます）"
         checks.append(problem.map { .warn("設定ファイル", "読めません", fix: "\($0)") } ?? .ok("設定ファイル", settingsDetail))
-
-        let report = DoctorReport(checks: checks)
-        heading("vc doctor" + Style.dim("（vc \(AppInfo.version)・macOS \(Self.osVersion)）"))
-        report.lines().forEach { print($0) }
-        if report.hasFailure { exit(1) }
+        return checks
     }
 
     /// `required`：スキルを実行するモデルが Apple のとき。ほかのエンジン（Ollama など）なら、要らないので、使えなくても、警告にとどめる。

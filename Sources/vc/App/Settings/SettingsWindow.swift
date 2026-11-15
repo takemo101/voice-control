@@ -14,21 +14,27 @@ import VCSpeech
     func show(page: SettingsPage? = nil) {
         model.reload()
         if let page { model.page = page }
-        if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(model: model))
-            let window = NSWindow(contentViewController: hosting)
-            window.title = "voice-control の設定"
-            window.styleMask = [.titled, .closable, .fullSizeContentView]
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.isReleasedWhenClosed = false
-            window.center()
-            self.window = window
-        }
+        if window == nil { window = Self.makeWindow(model: model) }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
+
+    /// ウィンドウの作り（アプリと、`vc settings-preview` が、同じものを使う：描いた絵が、実際の見た目になる）。内容の大きさは、タイトルバーの下まで、ぴったり。
+    static func makeWindow(model: SettingsModel) -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: settingsWidth, height: settingsHeight), styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: SettingsView(model: model))
+        window.title = "voice-control の設定"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        window.center()
+        return window
+    }
 }
+
+let settingsWidth: CGFloat = 820
+let settingsHeight: CGFloat = 640
 
 // MARK: 見た目の部品
 
@@ -61,7 +67,7 @@ extension SettingsPage {
         case .voice: return "録音・読み上げ・つなぎ言葉"
         case .models: return "スキルを動かすモデル・会話・音声認識"
         case .skills: return "声で頼めることの、有効・無効"
-        case .general: return "許可・起動・コマンド・診断"
+        case .general: return "準備状況・起動・コマンド・診断"
         }
     }
 }
@@ -78,6 +84,23 @@ private struct Badge: View {
             .frame(width: size, height: size)
             .background(RoundedRectangle(cornerRadius: size * 0.27, style: .continuous).fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)))
             .shadow(color: colors.last?.opacity(0.35) ?? .clear, radius: 3, y: 1)
+    }
+}
+
+/// 説明の帯（使い方の例など）。
+private struct Callout: View {
+    let symbol: String
+    let text: String
+    var tint: Color = Brand.think1
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 14, weight: .semibold)).foregroundStyle(tint).frame(width: 18)
+            Text(text).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(tint.opacity(0.12)))
     }
 }
 
@@ -234,7 +257,7 @@ struct SettingsView: View {
             }
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(width: 820, height: 600)
+        .frame(minWidth: settingsWidth, maxWidth: .infinity, minHeight: settingsHeight, maxHeight: .infinity)
         .ignoresSafeArea()
     }
 }
@@ -309,14 +332,15 @@ private struct KeysPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Card("押している間だけ話す", footer: "修飾キーだけのキー（shift・ctrl・rcmd・ropt など）の長押しは、アクセシビリティの許可が要ります。書き方：shift・ctrl+opt+space・f5・rcmd（右の Command）など。") {
+        Callout(symbol: "hand.tap.fill", text: "キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。")
+        Card("押している間だけ話す", footer: "修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。") {
             ForEach(Array(KeyKind.allCases.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)
             }
         }
         Card("操作") {
-            SwitchRow(model: model, title: "手放し（ダブルタップ）", detail: "キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方は、そのまま）", value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
+            SwitchRow(model: model, title: "手放し（ダブルタップ）", detail: "キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）", value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
         }
     }
 }
@@ -326,34 +350,56 @@ private struct KeyRow: View {
     let kind: KeyKind
 
     var body: some View {
-        let draft = model.keyDrafts[kind] ?? ""
         let saved = model.settings[keyPath: kind.keyPath] ?? ""
-        let shown: String = {
-            let text = draft.trimmingCharacters(in: .whitespaces).isEmpty ? (kind == .listen ? "shift" : "") : draft
-            if case let .success(spec) = HotKeySpec.parse(text) { return String(spec.displayName.split(whereSeparator: { "(（".contains($0) })[0]).trimmingCharacters(in: .whitespaces) }
-            return text.isEmpty ? "—" : "?"
+        let isRecording = model.recording == kind
+        let effective = saved.isEmpty ? (kind == .listen ? "shift" : "") : saved
+        let label: String = {
+            if case let .success(spec) = HotKeySpec.parse(effective) { return KeyRow.label(of: spec) }
+            return effective.isEmpty ? "未設定" : "?"
         }()
         VStack(alignment: .leading, spacing: 6) {
             Row(kind.title, detail: kind.help) {
                 HStack(spacing: 8) {
-                    KeyCap(text: shown)
-                    TextField("", text: Binding(get: { draft }, set: { model.setDraft(kind, $0) }), prompt: Text(kind.isOptional ? "使わない" : "shift"))
-                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 118)
-                        .onSubmit { model.commitKey(kind) }
-                    Menu {
-                        ForEach(kind.presets, id: \.self) { preset in Button(preset) { model.setDraft(kind, preset); model.commitKey(kind) } }
-                        if kind.isOptional { Divider(); Button("使わない") { model.setDraft(kind, ""); model.commitKey(kind) } }
-                    } label: { Image(systemName: "chevron.down.circle") }
-                    .menuStyle(.borderlessButton).fixedSize()
-                    if draft != saved {
-                        Button("適用") { model.commitKey(kind) }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small).disabled(model.keyProblems[kind] != nil)
+                    Button { isRecording ? model.stopRecording() : model.startRecording(kind) } label: {
+                        Text(isRecording ? "キーを押してください…" : label)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(isRecording ? Brand.rec1 : (effective.isEmpty ? Color.secondary : Color.primary))
+                            .padding(.horizontal, 12).frame(minWidth: 86, minHeight: 28)
+                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(isRecording ? Brand.rec2.opacity(0.14) : Color(nsColor: .windowBackgroundColor)))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(isRecording ? Brand.rec1 : Color.primary.opacity(0.18), lineWidth: isRecording ? 1.5 : 1))
+                            .shadow(color: .black.opacity(isRecording ? 0 : 0.16), radius: 0, y: 2)
                     }
+                    .buttonStyle(.plain)
+                    .help("押して、使いたいキーを押す（Esc で取りやめ）")
+                    Menu {
+                        ForEach(kind.presets, id: \.self) { preset in
+                            Button(KeyRow.title(of: preset)) { model.setDraft(kind, preset); model.commitKey(kind) }
+                        }
+                        if kind.isOptional { Divider(); Button("使わない") { model.setDraft(kind, ""); model.commitKey(kind) } }
+                    } label: { Image(systemName: "ellipsis.circle") }
+                    .menuStyle(.borderlessButton).fixedSize().help("候補から選ぶ")
                 }
             }
-            if let problem = model.keyProblems[kind] {
+            if isRecording {
+                Label(model.recordingHint ?? "修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。", systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
+                    .font(.system(size: 11)).foregroundStyle(model.recordingHint == nil ? Color.secondary : Brand.rec1)
+                    .padding(.horizontal, 14).padding(.bottom, 8)
+            } else if let problem = model.keyProblems[kind] {
                 Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
             }
         }
+    }
+
+    /// キーの表示：記号と、書き方（例：「⇧  shift」「右⌘  rcmd」「⌃⌥S  ctrl+opt+s」）。
+    static func label(of spec: HotKeySpec) -> String {
+        let symbols = String(spec.displayName.split(whereSeparator: { "(（".contains($0) })[0]).trimmingCharacters(in: .whitespaces)
+        return "\(symbols)  \(spec.description)"
+    }
+
+    /// 候補メニューの表示。
+    static func title(of preset: String) -> String {
+        if case let .success(spec) = HotKeySpec.parse(preset) { return label(of: spec) }
+        return preset
     }
 }
 
@@ -529,42 +575,104 @@ private struct SkillsPage: View {
 private struct GeneralPage: View {
     @ObservedObject var model: SettingsModel
 
-    private func permission(_ title: String, _ detail: String, granted: Bool?, pane: String) -> some View {
-        Row(title, detail: detail) {
-            HStack(spacing: 10) {
-                Pill(text: granted == true ? "許可済み" : (granted == nil ? "未確認" : "許可なし"), color: granted == true ? Brand.ok : Brand.warn)
-                Button("開く") { AppActions.openPrivacy(pane) }.controlSize(.small)
-            }
+    /// 準備の 1 項目。
+    private struct Step {
+        let title: String
+        let detail: String
+        let done: Bool
+        let action: (label: String, run: () -> Void)?
+    }
+
+    private func steps() -> [Step] {
+        let mic = MicRecorder.permission
+        var list: [Step] = [
+            Step(title: "マイクの許可", detail: mic == .granted ? "許可されています" : "声を聞くために必要です。アプリを起動すると、確認が出ます", done: mic == .granted,
+                 action: mic == .granted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Microphone") })),
+            Step(title: "アクセシビリティの許可", detail: ModifierHold.isTrusted ? "許可されています" : "キー（修飾キーの長押し・Esc）の検出と、前面のアプリへの入力に必要です", done: ModifierHold.isTrusted,
+                 action: ModifierHold.isTrusted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Accessibility") })),
+            Step(title: "Tiny-Jev のモデル", detail: model.isInstalled(TinyJevModel.spec) ? "取得済みです" : "スキルを選ぶモデル（約 1.2 GB）。取得が必要です", done: model.isInstalled(TinyJevModel.spec),
+                 action: model.isInstalled(TinyJevModel.spec) ? nil : ("取得する", { model.page = .models })),
+        ]
+        if model.settings.engine == nil, case let .unavailable(reason) = AppleIntelligence.current() {
+            list.append(Step(title: "Apple Intelligence", detail: reason.summary + "。" + reason.remedy, done: false, action: ("システム設定を開く", { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) })))
         }
+        return list
     }
 
     var body: some View {
         let _ = model.revision
-        let mic = MicRecorder.permission
-        Card("許可", footer: "許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、「もう一度、確かめる」。") {
-            permission("マイク", "声の入力に必須", granted: mic == .granted ? true : (mic == .notDetermined ? nil : false), pane: "Privacy_Microphone")
-            RowDivider()
-            permission("アクセシビリティ", "キーの検出（修飾キーの長押し・Esc）と、前面のアプリへの入力", granted: ModifierHold.isTrusted, pane: "Privacy_Accessibility")
-            RowDivider()
-            permission("画面収録", "画面撮影・画面を見るスキルを使うときだけ", granted: ScreenCapture.isAllowed, pane: "Privacy_ScreenCapture")
-            RowDivider()
-            Row("状態を読み直す") { Button("もう一度、確かめる") { model.reload() }.controlSize(.small) }
-        }
-        Card("アプリ") {
-            Row("ログイン時に起動") {
-                BrandSwitch(isOn: Binding(get: { AppActions.loginItemEnabled }, set: { _ in
-                    if let problem = AppActions.toggleLoginItem() { AppAlerts.show(title: "ログイン時の起動を変えられません", message: problem, style: .warning) }
-                    model.reload()
-                }))
+        let steps = steps()
+        let pending = steps.filter { !$0.done }.count
+        Card("準備状況", footer: "許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、右上の「もう一度、確かめる」。") {
+            Row(pending == 0 ? "準備ができています" : "あと \(pending) 件で、使えます", detail: pending == 0 ? "声の入力を使えます" : "下の項目を、上から順に、片づけてください") {
+                HStack(spacing: 10) {
+                    Pill(text: pending == 0 ? "OK" : "要設定", color: pending == 0 ? Brand.ok : Brand.warn)
+                    Button("もう一度、確かめる") { model.reload() }.controlSize(.small)
+                }
             }
-            RowDivider()
+            ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
+                RowDivider()
+                Row(step.title, detail: step.detail) {
+                    HStack(spacing: 10) {
+                        Image(systemName: step.done ? "checkmark.circle.fill" : "exclamationmark.circle.fill").font(.system(size: 16)).foregroundStyle(step.done ? Brand.ok : Brand.warn)
+                        if let action = step.action { Button(action.label) { action.run() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small) }
+                    }
+                }
+            }
+        }
+        Card("起動", footer: "オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。") {
+            LoginRow(model: model)
+        }
+        Card("ターミナル") {
             CommandLineRow(model: model)
+        }
+        Card("情報") {
+            Row("診断", detail: "必要なものが、そろっているかを、くわしく確かめます") { Button("開く") { AppActions.showDoctor() }.controlSize(.small) }
             RowDivider()
-            Row("診断", detail: "必要なものが、そろっているかを確かめます（vc doctor）") { Button("見る") { AppActions.showDoctor() }.controlSize(.small) }
+            Row("画面収録の許可", detail: "画面撮影・画面を見るスキルを使うときだけ必要です") {
+                HStack(spacing: 10) {
+                    Pill(text: ScreenCapture.isAllowed ? "許可済み" : "許可なし", color: ScreenCapture.isAllowed ? Brand.ok : Color.secondary)
+                    Button("開く") { AppActions.openPrivacy("Privacy_ScreenCapture") }.controlSize(.small)
+                }
+            }
             RowDivider()
             Row("設定ファイル", detail: "~/.voice-control/settings.json") { Button("開く") { AppActions.openSettingsFile() }.controlSize(.small) }
             RowDivider()
             Row("データのフォルダ", detail: "スキル・設定・モデル") { Button("開く") { AppActions.openDataFolder() }.controlSize(.small) }
+            RowDivider()
+            Row("バージョン", detail: "voice-control") { Text(AppInfo.version).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary) }
+        }
+    }
+}
+
+private struct LoginRow: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        let state = AppActions.loginItemState
+        let message = model.loginMessage
+        VStack(alignment: .leading, spacing: 6) {
+            Row("ログイン時に起動", detail: state == .unavailable ? "このアプリの場所では、登録できません。「アプリケーション」フォルダへ移してください" : nil) {
+                HStack(spacing: 10) {
+                    if state == .needsApproval { Pill(text: "承認が必要", color: Brand.warn) }
+                    BrandSwitch(isOn: Binding(get: { AppActions.loginItemEnabled }, set: { on in
+                        model.setLoginItem(on)
+                    }))
+                    .opacity(state == .unavailable ? 0.4 : 1).disabled(state == .unavailable)
+                }
+            }
+            if state == .needsApproval {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle.fill").foregroundStyle(Brand.warn)
+                    Text("システム設定の「ログイン項目」で、voice-control を許可してください。").font(.system(size: 11))
+                    Spacer()
+                    Button("ログイン項目を開く") { AppActions.openLoginItemsSettings() }.controlSize(.small)
+                }
+                .padding(.horizontal, 14).padding(.bottom, 10)
+            }
+            if let message {
+                Label(message, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 10)
+            }
         }
     }
 }

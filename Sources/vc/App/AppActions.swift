@@ -23,32 +23,45 @@ import VCCore
         NSApp.terminate(nil)
     }
 
-    static var loginItemEnabled: Bool { SMAppService.mainApp.status == .enabled }
+    enum LoginItemState: Equatable {
+        case on
+        case off
+        /// 登録したが、システム設定（ログイン項目）での承認が要る。
+        case needsApproval
+        /// アプリの場所などの都合で、登録できない（ビルドしたまま・「アプリケーション」の外など）。
+        case unavailable
+    }
 
-    /// ログイン時の起動を切り替える。失敗なら、利用者に見せる理由。
-    static func toggleLoginItem() -> String? {
+    static var loginItemState: LoginItemState {
+        switch SMAppService.mainApp.status {
+        case .enabled: return .on
+        case .requiresApproval: return .needsApproval
+        case .notFound: return .unavailable
+        default: return .off
+        }
+    }
+
+    static var loginItemEnabled: Bool { loginItemState == .on || loginItemState == .needsApproval }
+
+    /// ログイン時の起動を、オン・オフにする。失敗なら、利用者に見せる理由。
+    static func setLoginItem(_ on: Bool) -> String? {
         let service = SMAppService.mainApp
         do {
-            if service.status == .enabled { try service.unregister() } else { try service.register() }
+            if on { if service.status != .enabled { try service.register() } } else { try service.unregister() }
             return nil
         } catch { return error.localizedDescription }
     }
+
+    /// システム設定の「ログイン項目」を開く。
+    static func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
 
     /// システム設定の「プライバシーとセキュリティ」の、その項目を開く（`pane`：`Privacy_Microphone`・`Privacy_Accessibility`・`Privacy_ScreenCapture`）。
     static func openPrivacy(_ pane: String) {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") { NSWorkspace.shared.open(url) }
     }
 
-    /// 診断（`vc doctor`）を、ウィンドウに出す。アプリ自身が動かすので、許可の状態は、このアプリのもの。
-    static func showDoctor() {
-        guard let executable = Bundle.main.executablePath else { return }
-        Task.detached {
-            let result = ProcessRunner.run(executable: executable, arguments: ["doctor"], mergeStderr: true, timeout: 30)
-            await MainActor.run {
-                if let why = DocumentWindow.present(markdown: "```\n" + result.text + "\n```", title: "vc doctor") { AppAlerts.show(title: "診断を出せません", message: why, style: .warning) }
-            }
-        }
-    }
+    /// 診断（`vc doctor` と同じ確認）を、ウィンドウに出す。アプリ自身が確かめるので、許可の状態は、このアプリのもの。
+    static func showDoctor() { DiagnosticsWindow.shared.show() }
 
     static func openSettingsFile() {
         let file = VoiceControlHome.settingsFile

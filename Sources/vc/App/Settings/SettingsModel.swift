@@ -6,7 +6,7 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case keys, voice, models, skills, general
+    case general, keys, voice, models, skills
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -41,7 +41,7 @@ enum DownloadState: Equatable {
     /// 設定ファイルを読めない・書けない理由（読めないファイルは、上書きしない）。
     @Published private(set) var problem: String?
     @Published private(set) var needsRestart = false
-    @Published var page: SettingsPage = .keys
+    @Published var page: SettingsPage = .general
     /// キー欄の入力中の文字と、その問題。
     @Published var keyDrafts: [KeyKind: String] = [:]
     @Published private(set) var keyProblems: [KeyKind: String] = [:]
@@ -53,6 +53,13 @@ enum DownloadState: Equatable {
     /// 許可の状態などを、画面を開くたびに読み直すための印。
     @Published private(set) var revision = 0
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// キーを記録しているところ（「クリックして、キーを押す」）。
+    @Published private(set) var recording: KeyKind?
+    @Published private(set) var recordingHint: String?
+    /// ログイン時の起動を変えられなかった理由。
+    @Published private(set) var loginMessage: String?
+    private var recorder = KeyRecorder()
+    private var monitor: Any?
 
     init() {
         let loaded = Settings.loadOrDefault()
@@ -108,6 +115,62 @@ enum DownloadState: Equatable {
         if let why = SettingsRules.keyProblem(kind, text: text, in: settings) { keyProblems[kind] = why; return }
         keyProblems[kind] = nil
         update { $0[keyPath: kind.keyPath] = text.isEmpty ? nil : text }
+    }
+
+    func setLoginItem(_ on: Bool) {
+        loginMessage = AppActions.setLoginItem(on)
+        reload()
+    }
+
+    // MARK: キーの記録
+
+    func startRecording(_ kind: KeyKind) {
+        stopRecording()
+        recording = kind
+        recordingHint = nil
+        recorder = KeyRecorder()
+        keyProblems[kind] = nil
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            MainActor.assumeIsolated { self?.handle(event) }
+            return nil   // 記録中の入力は、ほかへ渡さない
+        }
+    }
+
+    func stopRecording() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = nil
+        recordingHint = nil
+    }
+
+    private func handle(_ event: NSEvent) {
+        guard let kind = recording else { return }
+        let input: KeyRecorder.Input
+        let flags = event.modifierFlags
+        switch event.type {
+        case .flagsChanged:
+            guard let info = HotKeySpec.modifier(forCode: event.keyCode) else { return }
+            let flag: NSEvent.ModifierFlags = [.command: .command, .shift: .shift, .option: .option, .control: .control][info.modifier]!
+            input = .modifier(code: event.keyCode, down: flags.contains(flag))
+        case .keyDown:
+            if event.isARepeat { return }
+            var mods: Set<HotKeySpec.Modifier> = []
+            if flags.contains(.control) { mods.insert(.control) }
+            if flags.contains(.option) { mods.insert(.option) }
+            if flags.contains(.shift) { mods.insert(.shift) }
+            if flags.contains(.command) { mods.insert(.command) }
+            input = .key(code: event.keyCode, modifiers: mods)
+        default: return
+        }
+        switch recorder.handle(input) {
+        case .waiting: break
+        case .cancelled: stopRecording()
+        case let .rejected(reason): recordingHint = reason
+        case let .recorded(text):
+            stopRecording()
+            setDraft(kind, text)
+            commitKey(kind)
+        }
     }
 
     // MARK: エンジン

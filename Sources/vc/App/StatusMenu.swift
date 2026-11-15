@@ -46,7 +46,7 @@ import VCCore
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
         menu.addItem(.separator())
-        menu.addItem(action("診断を見る（vc doctor）", #selector(showDoctor)))
+        menu.addItem(action("診断…", #selector(showDoctor)))
         menu.addItem(action("設定…", #selector(openSettings), key: ","))
         menu.addItem(action("データのフォルダを開く（スキル・設定）", #selector(openDataFolder)))
         menu.addItem(loginItem())
@@ -99,7 +99,7 @@ import VCCore
     @objc private func openDataFolder() { AppActions.openDataFolder() }
 
     @objc private func toggleLogin() {
-        if let problem = AppActions.toggleLoginItem() { AppAlerts.show(title: "ログイン時の起動を変えられません", message: problem, style: .warning) }
+        if let problem = AppActions.setLoginItem(!AppActions.loginItemEnabled) { AppAlerts.show(title: "ログイン時の起動を変えられません", message: problem, style: .warning) }
     }
 
     @objc private func toggleCommand() {
