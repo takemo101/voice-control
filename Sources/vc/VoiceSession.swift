@@ -38,7 +38,10 @@ import VCSpeech
         let shotSpec = context.resolveShotHotKey()
         let chatSpec = context.resolveChatHotKey()
         let chatAgent = context.resolveChatAgent()
-        if chatSpec != nil { let chat = context.resolveChatTools(); ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder) }
+        // 会話の設定（エージェント・道具）：会話のキーがなくても、入力欄・メニューから、会話できる
+        let chat = context.resolveChatTools()
+        ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder)
+        ChatWindow.shared.setKeyHint(chatSpec?.displayName)
         if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
         HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
         var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
@@ -51,6 +54,20 @@ import VCSpeech
         // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
         let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
         let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
+        // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
+        ChatWindow.shared.submit = { text in
+            Task { @MainActor in
+                guard !ChatWindow.shared.hasPending else { return }
+                let token = CancelToken()
+                let box = TypedTask()
+                let waitForever: NextUtterance = { try await Task.sleep(for: .seconds(86_400)); return nil }
+                // 声の質問が来たら、この質問は、中断する（処理も止める）
+                let cancel: () -> Void = { token.supersede(); box.task?.cancel() }
+                box.task = Task { @MainActor in
+                    await ChatVoice.handle(text, token: token, context: context, chip: "入力", speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel)
+                }
+            }
+        }
         let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip, VoiceMode.chat: chatSpec?.displayName ?? chip]
         let paste = ClipboardPaste()
         let session = RecordingSession()
@@ -95,4 +112,9 @@ import VCSpeech
         }
         return VoiceSession(loop: loop, retained: [triggers, screenTriggers], screenTriggers: screenTriggers, hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
     }
+}
+
+/// 文字で送った質問の `Task`（取りやめの手続きが、あとから参照する）。メインスレッドだけで触る。
+@MainActor private final class TypedTask {
+    var task: Task<Void, Never>?
 }

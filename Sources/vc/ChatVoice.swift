@@ -31,7 +31,7 @@ import VCSpeech
         return yes
     }
 
-    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance) async {
+    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance, cancelHook: (() -> Void)? = nil) async {
         guard !utterance.isEmpty else {
             notice("聞き取れなかった")
             HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
@@ -50,8 +50,8 @@ import VCSpeech
         let window = ChatWindow.shared
         let level = ChatMode.shared.tools
         let toolLabel: String? = level == .none ? nil : (level == .all ? "すべて" : (level == .read ? "＋読む" : "Web"))
-        window.begin(question: utterance, agent: agent.isExternal ? agent.label : "Apple のモデル（この Mac の中）",
-                     warning: agent.isExternal ? "この Mac の外へ送信" : (level == .none ? nil : "検索語を外へ送信"), tools: toolLabel)
+        let id = window.begin(question: utterance, agent: agent.isExternal ? agent.label : "Apple のモデル（この Mac の中）",
+                     warning: agent.isExternal ? "この Mac の外へ送信" : (level == .none ? nil : "検索語を外へ送信"), tools: toolLabel, cancel: cancelHook)
         var content = HUDContent(phase: .working, title: "考えています…", chip: chip, heard: utterance, skill: name)
         HUD.shared.show(content)
         do {
@@ -62,18 +62,18 @@ import VCSpeech
             let confirmImage: ChatMode.ImageSendConfirm = { file, sendTo in
                 await askToSendImage(file, agent: sendTo, chip: chip, confirmation: confirmation, next: next, restore: working)
             }
-            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImageToPending($0) }, progress: { text in
+            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImage(id, file: $0) }, progress: { text in
                 content.title = text
                 HUD.shared.show(content)
-                window.setStatus(text)
+                window.setStatus(id, text)
             }, confirm: confirm, confirmImage: confirmImage)
-            if token.isCancelled || token.isSuperseded { window.discardPending(); return }
+            if token.isCancelled || token.isSuperseded { window.stop(id, reason: token.isSuperseded ? "新しい質問を優先しました" : "取りやめました（Esc）"); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity.text)) }
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
             // 会話のウィンドウ（1 つだけ）に、答えを足す。短い答えで、操作もなければ、上のパネルだけ（ウィンドウが出ていれば、そこに足す）
             let wasVisible = window.isVisible
-            window.finish(answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew, imageRoute: outcome.imageRoute)
+            window.finish(id, answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew, imageRoute: outcome.imageRoute)
             let spoken = speakResults ? SpokenText.chunks(from: outcome.answer) : []
             var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
             if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }
@@ -92,9 +92,15 @@ import VCSpeech
             }
             if !spoken.isEmpty { window.speakLatest(spoken) }   // 全文を読む（止めるには、Esc・ウィンドウのボタン・メニュー・トリガー）
         } catch {
-            window.discardPending()
-            if token.isSuperseded { return }
-            if token.isCancelled || error is CancellationError { VoiceUI.showCancelled(chip: chip) } else { VoiceUI.showFailure(error, chip: chip) }
+            // 中断・失敗した質問も、ウィンドウに残す（理由つき。会話の記録には、入らない）
+            if token.isSuperseded { window.stop(id, reason: "新しい質問を優先しました"); return }
+            if token.isCancelled || error is CancellationError {
+                window.stop(id, reason: "取りやめました（Esc）")
+                VoiceUI.showCancelled(chip: chip)
+            } else {
+                window.fail(id, message: "\(error)")
+                VoiceUI.showFailure(error, chip: chip)
+            }
         }
     }
 }

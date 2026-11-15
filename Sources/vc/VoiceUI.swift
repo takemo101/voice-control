@@ -26,6 +26,7 @@ enum VoiceUI {
 
     /// `VoiceLoop` の出来事を、画面の上と端末に出す。
     static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false, chat: Bool = false) {
+        if chat { MainActor.assumeIsolated { ChatWindow.shared.setVoiceState(chatVoiceState(for: event)) } }   // 会話のウィンドウの、下の案内（聞いている・文字にしている）
         switch event {
         case .recordingStarted:
             SaySpeaker.shared.stop()   // 読み上げの最中にトリガーを押したら、止める（マイクが、読み上げの声を拾わないように）
@@ -65,6 +66,15 @@ enum VoiceUI {
             // 画面の上は、新しい発話の「認識中」のまま（上書きしない）。読み上げだけ止める
             SaySpeaker.shared.stop()
             print("  " + Style.dim("前の処理を中断して、新しい依頼を受けました"))
+        }
+    }
+
+    /// 会話のキーの出来事から、ウィンドウの案内の状態を決める。
+    static func chatVoiceState(for event: VoiceLoopEvent) -> ChatVoiceState {
+        switch event {
+        case .recordingStarted: return .listening
+        case .recognizing: return .recognizing
+        default: return .idle   // 離した・捨てた・取りやめた・文字になった：案内を、もとへ戻す
         }
     }
 

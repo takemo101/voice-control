@@ -17,7 +17,19 @@ import VCSkill
     private var expiry: Task<Void, Never>?
 
     var isVisible: Bool { window?.isVisible == true }
-    var hasPending: Bool { state.entries.last.map { $0.answer == nil } ?? false }
+
+    /// 入力欄から送られた質問を、処理する（声の流れの組み立てで、決める：`VoiceSession`）。なければ、入力欄は出さない。
+    var submit: (@MainActor (String) -> Void)? {
+        get { state.submit }
+        set { state.submit = newValue }
+    }
+
+    /// 声の状態（録音・認識）を、知らせる（下の案内に出す）。
+    func setVoiceState(_ voice: ChatVoiceState) { state.voice = voice }
+
+    /// 会話のキーの名前（案内に出す）。
+    func setKeyHint(_ hint: String?) { state.keyHint = hint }
+    var hasPending: Bool { state.entries.hasPending }
 
     private override init() {
         super.init()
@@ -32,48 +44,40 @@ import VCSkill
     // MARK: 記録の更新
 
     /// 質問が分かった：質問と「考えています…」を出す。`agent`：使っているエージェントの名前。`warning`：外へ送るときの断り（ヘッダーの橙の札）。`tools`：開けている道具（札）。
-    func begin(question: String, agent: String, warning: String?, tools: String?) {
-        discardPending()
+    /// 戻り値の `id` で、この往復を指す（答え・中断・失敗の知らせを、この往復だけに、届けるため）。
+    @discardableResult
+    func begin(question: String, agent: String, warning: String?, tools: String?, cancel: (() -> Void)? = nil) -> UUID {
         state.agent = agent
         state.warning = warning
         state.tools = tools
         var entry = ChatEntry(question: question)
+        entry.cancel = cancel
         entry.image = state.image.map { EntryImage(thumbnail: $0.thumbnail) }   // 添えてある画像を、質問に付ける（どの画像についての質問か、分かるように）
-        state.entries.append(entry)
+        state.entries.begin(entry)
         state.scrollToken += 1
+        return entry.id
     }
 
     /// 実行中の様子（外のエージェントの、いまの操作など）。
-    func setStatus(_ text: String) {
-        guard hasPending else { return }
-        state.entries[state.entries.count - 1].status = text
+    func setStatus(_ id: UUID, _ text: String) { state.entries.setStatus(id, text) }
+
+    /// 質問に使う画像が分かった（言葉で頼んだ画像など）：その質問に、画像を付ける（添えてある画像は、`begin` で付いている）。
+    func attachImage(_ id: UUID, file: URL) {
+        guard let thumbnail = HUDImage.load(file, sendsOut: false)?.thumbnail else { return }
+        state.entries.attach(id, image: EntryImage(thumbnail: thumbnail))
     }
 
     /// 答えが来た。`startedNew`：しばらく話さなかったので、前の会話は、終わった（古い記録を消す）。
-    /// 質問に使う画像が分かった（言葉で頼んだ画像など）：待ちの質問に、画像を付ける（添えてある画像は、`begin` で付いている）。
-    func attachImageToPending(_ file: URL) {
-        guard hasPending, state.entries[state.entries.count - 1].image == nil, let thumbnail = HUDImage.load(file, sendsOut: false)?.thumbnail else { return }
-        state.entries[state.entries.count - 1].image = EntryImage(thumbnail: thumbnail)
-    }
-
-    func finish(answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
-        guard hasPending else { return }
-        if startedNew { state.entries = [state.entries[state.entries.count - 1]] }
-        let last = state.entries.count - 1
-        state.entries[last].status = nil
-        state.entries[last].answer = answer
-        state.entries[last].rendered = Self.render(answer)
-        state.entries[last].activities = activities
-        state.entries[last].notes = notes
-        state.entries[last].image?.route = imageRoute   // 画像が、どう扱われたか（この Mac の中で読んだ・送った・断った）
+    func finish(_ id: UUID, answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
+        state.entries.finish(id, answer: answer, rendered: Self.render(answer), activities: activities, notes: notes, route: imageRoute, startedNew: startedNew)
         state.scrollToken += 1
     }
 
-    /// 答えが出なかった（失敗・取りやめ）：待ちの質問を、取り除く。
-    func discardPending() {
-        guard hasPending else { return }
-        state.entries.removeLast()
-    }
+    /// 中断・取りやめた：質問を、理由つきで残す（会話の記録には、入らない）。
+    func stop(_ id: UUID, reason: String) { state.entries.stop(id, reason: reason) }
+
+    /// 答えを作れなかった：質問を、理由つきで残す。
+    func fail(_ id: UUID, message: String) { state.entries.fail(id, message: message) }
 
     /// 記録を、すべて消す（会話の終了・リセット）。添えた画像も、外す。
     func clear() {
@@ -166,6 +170,7 @@ import VCSkill
             var e = ChatEntry(question: question)
             e.status = status
             e.answer = answer
+            e.outcome = answer == nil ? .pending : .answered
             e.rendered = answer.map { Self.render($0) }
             e.activities = activities
             e.notes = notes
@@ -174,6 +179,7 @@ import VCSkill
         state.entries = [
             entry("このフォルダのファイルを、一覧にして", answer: "## 見つけたファイル\n\nフォルダには、次の 2 つがあります。\n\n| 名前 | 内容 |\n|---|---|\n| **note.txt** | メモ（16 バイト） |\n| **memo.txt** | 「確認済み」 |\n\n1. `memo.txt` は、さっき作りました\n2. 詳しくは [公式の説明](https://example.com/doc) を見てください\n\n> 書き込みは、作業フォルダの中だけです。\n\n```sh\nls -la\n```", activities: [.run("ls -la"), .write("memo.txt")]),
             entry("東京の明日の天気は？", answer: "明日の東京は、**晴れ時々くもり**で、最高気温は 24 度の予報です。降水確率は午前 10%、午後 30% で、夕方から風が少し強くなります。傘は、念のため、持っていくと安心です。気温の変化が大きいので、薄手の上着があると、朝晩の移動が楽になります。", notes: ["しばらく話さなかったので、前の会話は終わりました"]),
+            entry("ギフティのニュースを、調べて", answer: nil, status: nil),
             entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),
         ]
         let sample = NSImage(size: NSSize(width: 160, height: 100), flipped: false) { rect in
@@ -186,8 +192,10 @@ import VCSkill
         state.image = AttachedImage(thumbnail: sample, takenAt: Date().addingTimeInterval(-40))
         state.entries[0].image = EntryImage(thumbnail: sample, route: .sent("claude"))
         state.entries[1].image = EntryImage(thumbnail: sample, route: .local)
-        state.entries[2].image = EntryImage(thumbnail: sample, route: nil)
-        if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
+        state.entries[2].outcome = .stopped("新しい質問を優先しました")
+        state.keyHint = "右 ⌥（ropt）"
+        state.submit = { _ in }
+        if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.image = nil; state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
         state.solid = true
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
         window.makeKeyAndOrderFront(nil)
@@ -250,13 +258,6 @@ import VCSkill
 
 // MARK: 状態
 
-/// 質問に付いた画像（サムネイルと、どう扱われたか）。
-struct EntryImage {
-    let thumbnail: NSImage
-    /// 答えが出たあとに決まる（それまでは、nil：「読んでいます」）。
-    var route: ChatMode.ImageRoute?
-}
-
 /// 会話に添えた画像。
 struct AttachedImage: Identifiable {
     let id = UUID()
@@ -266,24 +267,24 @@ struct AttachedImage: Identifiable {
     var expiresAt: Date { takenAt.addingTimeInterval(ScreenshotStore.timeToLive) }
 }
 
-/// 会話の 1 往復（質問と、答え。答えが来るまでは、`status`）。
-struct ChatEntry: Identifiable {
-    let id = UUID()
-    var question: String
-    let asked = Date()
-    var status: String? = "考えています…"
-    var answer: String?
-    var activities: [ChatActivity] = []
-    var notes: [String] = []
-    /// この質問に付けた、画像。
-    var image: EntryImage?
-    /// 答えを整形した結果（描き直しのたびに、作り直さない）。
-    var rendered: NSAttributedString?
+/// 会話のキーの、いまの状態。
+enum ChatVoiceState: Equatable {
+    case idle
+    /// キーを押している間、聞いている。
+    case listening
+    /// 離した：文字にしている。
+    case recognizing
 }
 
 /// 画面の状態。SwiftUI の `@State` は、この環境（コマンドラインツールだけ）では、マクロのプラグインがなく使えないので、参照型にする。
 @MainActor final class ChatWindowState: ObservableObject {
     @Published var entries: [ChatEntry] = []
+    /// 声の状態（会話のキーの録音・認識）。ウィンドウの下の案内に出す。
+    @Published var voice = ChatVoiceState.idle
+    /// 会話のキーの名前（案内用。なければ、キーなし）。
+    @Published var keyHint: String?
+    /// 入力欄の文字。
+    @Published var draft = ""
     /// 会話の答えを、読んでいるか（スキルの結果などの読み上げは、含まない）。
     @Published var speaking = false
     /// 読んでいる答え（その答えにだけ、「止める」を出す）。
@@ -298,6 +299,8 @@ struct ChatEntry: Identifiable {
     @Published var image: AttachedImage?
     /// 範囲を選んでいる間。
     @Published var capturing = false
+    /// 入力欄から質問を送る（声の流れの組み立てが、決める）。
+    var submit: (@MainActor (String) -> Void)?
     /// 画像に描く確認用：ガラスの代わりに、暗い面を敷く。
     @Published var solid = false
 }

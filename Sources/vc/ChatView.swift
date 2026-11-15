@@ -36,6 +36,8 @@ struct ChatView: View {
                 AttachmentBar(image: image, external: state.warning != nil, detach: detach)
             }
             Rule()
+            ComposerBar(state: state)
+            Rule()
             footer
         }
         .modifier(Surface(solid: state.solid, shape: shape))
@@ -116,6 +118,82 @@ struct ChatView: View {
     }
 }
 
+/// 中断・失敗した往復の、表示（点線のカード。会話の記録には、入っていない）。
+private struct OutcomeNote: View {
+    let symbol: String
+    let title: String
+    let detail: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: symbol).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(color)
+            Text(detail).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// 下の入力帯：**いま何ができるか・何が起きているか**を、1 行で見せる（キーの案内・聞いている・認識中・考えている）と、文字で質問する欄。
+private struct ComposerBar: View {
+    @ObservedObject var state: ChatWindowState
+
+    private var busy: Bool { state.entries.hasPending }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            guide
+            if state.submit != nil {
+                HStack(spacing: 8) {
+                    TextField(busy ? "考えている間は、送れません（話して、中断もできます）" : "メッセージを入力（Enter で送信）", text: $state.draft)
+                        .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(Capsule().fill(.white.opacity(0.09)))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
+                        .disabled(busy)
+                        .onSubmit(send)
+                    Button(action: send) {
+                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 26)).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
+                    }
+                    .buttonStyle(.plain).disabled(!canSend).accessibilityLabel("送信")
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+    private var canSend: Bool { !busy && !state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private func send() {
+        let text = state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canSend, let submit = state.submit else { return }
+        state.draft = ""
+        submit(text)
+    }
+
+    /// いまの状態の案内。
+    @ViewBuilder private var guide: some View {
+        switch state.voice {
+        case .listening:
+            HStack(spacing: 7) {
+                TimelineView(.animation) { context in
+                    Circle().fill(Color.red).frame(width: 9, height: 9).opacity(0.45 + 0.55 * abs(sin(context.date.timeIntervalSinceReferenceDate * 3)))
+                }
+                Text("聞いています…（離すと送信・Esc で取りやめ）").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Color.red.opacity(0.95))
+            }
+        case .recognizing:
+            Label("文字にしています…", systemImage: "waveform").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(ChatPalette.accent)
+        case .idle:
+            if busy {
+                Label("考えています…（話すと、この質問を中断して、新しい質問を優先します）", systemImage: "hourglass").font(.system(size: 11.5)).foregroundStyle(ChatPalette.accent.opacity(0.9))
+            } else if let key = state.keyHint {
+                Label("\(key) を押している間、話します", systemImage: "mic.fill").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.55))
+            } else {
+                Label("会話のキーが、決まっていません（設定 > キー）。文字で質問できます", systemImage: "mic.slash").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5))
+            }
+        }
+    }
+}
+
 /// 質問に付いた画像：**添付されているように**見せる（クリップのアイコン・サムネイル・下に、どう扱われたかの札）。
 private struct AttachmentCard: View {
     let image: EntryImage
@@ -148,7 +226,7 @@ private struct RouteChip: View {
         let (text, symbol, color): (String, String, Color) = {
             switch route {
             case nil: return ("読んでいます…", "ellipsis", .white.opacity(0.6))
-            case .local?: return ("この Mac の中で読みました", "lock.fill", Color(red: 0.35, green: 0.85, blue: 0.6))
+            case .local?: return ("この Mac の中で処理", "lock.fill", Color(red: 0.35, green: 0.85, blue: 0.6))
             case let .sent(agent)?: return ("\(agent) へ送信", "arrow.up.forward.circle.fill", ChatPalette.orange)
             case let .declined(agent)?: return ("\(agent) へは、送っていません", "xmark.circle.fill", .white.opacity(0.6))
             case let .notUsed(reason)?: return (reason, "exclamationmark.triangle.fill", .white.opacity(0.6))
@@ -281,21 +359,26 @@ private struct EntryView: View {
             }
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 10) {
-                if let rendered = entry.rendered {
-                    RichText(attributed: rendered).frame(maxWidth: .infinity, alignment: .leading)
-                } else {
+                switch entry.outcome {
+                case .pending:
                     Pending(status: entry.status ?? "考えています…")
+                case .answered:
+                    if let rendered = entry.rendered { RichText(attributed: rendered).frame(maxWidth: .infinity, alignment: .leading) }
+                    if !entry.activities.isEmpty { activities.padding(.top, 4) }
+                    ForEach(entry.notes, id: \.self) { note in
+                        Label(note, systemImage: "info.circle").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
+                    }
+                    if let answer = entry.answer { actions(answer) }
+                case let .stopped(reason):
+                    OutcomeNote(symbol: "stop.circle.fill", title: "中断しました", detail: reason + "。この質問は、会話の記録に入っていません（もう一度、聞いてください）", color: .white.opacity(0.6))
+                case let .failed(message):
+                    OutcomeNote(symbol: "exclamationmark.triangle.fill", title: "答えを作れませんでした", detail: message, color: ChatPalette.orange)
                 }
-                if !entry.activities.isEmpty { activities.padding(.top, 4) }
-                ForEach(entry.notes, id: \.self) { note in
-                    Label(note, systemImage: "info.circle").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
-                }
-                if let answer = entry.answer { actions(answer) }
             }
             .padding(.horizontal, 15).padding(.vertical, 13)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.07)))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.7))
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(entry.outcome == .answered || entry.isPending ? 0.07 : 0.035)))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.10), style: StrokeStyle(lineWidth: 0.7, dash: entry.outcome == .answered || entry.isPending ? [] : [4, 3])))
         }
     }
 
