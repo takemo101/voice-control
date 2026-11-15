@@ -46,7 +46,7 @@ struct ChatCommand: Command {
             if text == "/summary" { print(await chat.conversation.currentSummary ?? Style.dim("（要約は、まだありません）")); continue }
             do {
                 // 確認が要る操作（上書き・安全でないコマンド）は、端末で聞く（端末でなければ、確認できないので、その操作は、しない）
-                let confirm: ToolConfirm? = interactive ? { detail in
+                let confirm: ToolConfirm? = interactive ? { @Sendable detail in
                     eprint(Style.yellow("確認：\(detail)。実行しますか？ [y/N] "))
                     return (readLine() ?? "").lowercased().hasPrefix("y")
                 } : nil

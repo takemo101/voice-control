@@ -57,7 +57,7 @@ public struct AppleChatBackend: ActivityReporting {
         if case let .unavailable(reason) = AppleIntelligence.current() { throw ConversationError.unavailable("\(reason.summary)。\(reason.remedy)") }
         if tools.usesFolder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
         let calls = CallCounter()
-        let available = AppleChatTools.make(level: tools, folder: folder, web: web, confirm: confirm.map { ask in { detail in calls.markAsked(); return await ask(detail) } },
+        let available = AppleChatTools.make(level: tools, folder: folder, web: web, confirm: confirm.map { ask -> ToolConfirm in { @Sendable detail in calls.markAsked(); return await ask(detail) } },
                                             activity: { calls.record($0); onActivity?($0) })
         let definitions = available.map { Transcript.ToolDefinition(tool: $0) }
         var entries: [Transcript.Entry] = [.instructions(Transcript.Instructions(segments: [.text(.init(content: instructions))], toolDefinitions: definitions))]
