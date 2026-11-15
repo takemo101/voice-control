@@ -9,6 +9,7 @@ import Foundation
 /// - `recheck`：聞き取りに自信がないとき（認識の確信度が低いとき）、実行の前に、聞こえた文を確かめるか。なければ、確かめる（設定ウィンドウ > 音声 で、確かめない。実験）。
 /// - `speakResults`：実行の結果（「完了：〇〇」）を、声で読み上げるか。なければ、読み上げない（確認の問いかけは、いつも読み上げる）。設定ウィンドウ > 音声。
 /// - `voice`：読み上げの声（識別子か名前）。なければ、入っている日本語の声のうち、品質がいちばん高いもの。設定ウィンドウ > 音声。
+/// - `dictateEnter`：音声入力で、文字を入れたあと、**Enter を送る**か（メッセージの送信・コマンドの実行まで、自動で行う）。なければ、送らない（設定ウィンドウ > 音声）。送る前に、短い間があり、Esc で取りやめられる。
 /// - `liveCaption`：録音中に聞こえている文字（途中経過）を、画面の上のパネルに出すか。なければ、出す（設定ウィンドウ > 音声 で、出さない。実験）。
 /// - `chatHotkey`：会話のトリガー（設定ウィンドウ > キー）。なければ、会話はない。押している間だけ話し、離すと、**会話として**（スキルを選ばずに）質問する。
 /// - `chatAgent`：会話に使うエージェント（設定ウィンドウ > 会話）。なければ、この Mac の Apple のモデル。`agy`・`claude`・`codex`・`grok`・`opencode`・`pi` を選ぶと、**会話の発話が、その提供元へ送られる**（`ask-agent` と同じ例外。利用者が選んだときだけ）。
@@ -35,6 +36,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var recheck: Bool?
     public var speakResults: Bool?
     public var liveCaption: Bool?
+    public var dictateEnter: Bool?
     public var voice: String?
     public var mute: Bool?
     public var removeFillers: Bool?
@@ -61,6 +63,7 @@ public struct Settings: Codable, Sendable, Equatable {
         recheck = try c.decodeIfPresent(Bool.self, forKey: .recheck)
         speakResults = try c.decodeIfPresent(Bool.self, forKey: .speakResults)
         liveCaption = try c.decodeIfPresent(Bool.self, forKey: .liveCaption)
+        dictateEnter = try c.decodeIfPresent(Bool.self, forKey: .dictateEnter)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)

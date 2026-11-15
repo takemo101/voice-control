@@ -32,6 +32,9 @@ struct VoicePage: View {
                 }
             }
         }
+        Card("音声入力", footer: "オンにすると、送信ボタンやコマンドの実行まで、声だけでできます。メッセージ・ターミナルでは、そのまま送られます（Enter を送る前の 0.8 秒に、Esc で取りやめられます）。") {
+            SwitchRow(model: model, title: "入力したあと、Enter を送る", detail: "文字を入れてから、Enter キーを押します", value: model.settings.dictateEnter ?? false) { $0.dictateEnter = $1 }
+        }
         Card("音声入力のつなぎ言葉", footer: (model.settings.removeFillers ?? false) ? "消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。" : "オンにすると、消す言葉の一覧を、ここで直せます。音声入力だけに効きます（声で頼む内容には、使いません）。") {
             SwitchRow(model: model, title: "つなぎ言葉（えーと・um など）を消す", detail: nil, value: model.settings.removeFillers ?? false) { $0.removeFillers = $1 }
             if model.settings.removeFillers ?? false {   // オフのときは、言葉の欄を、出さない（空の大きな欄が、目立つ）
