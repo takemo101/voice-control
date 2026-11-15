@@ -104,6 +104,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 - 変更の確認：`but diff`（未コミットの差分と ID）、`but status`（branch・commit の概観）。ID は、直前の出力からそのまま写す。
 - 同期：`but pull`（target の更新を、workspace に取り込む）。先に確認したいときは `but pull --check`。
 - **PR を merge したら、毎回、すぐに同期する**：`but pull` → `but status`（base が merge 後の `main`、統合された branch が消えている）。`but pull --check` で、先に衝突の有無を見てもよい。衝突した commit は、`but resolve` で、古いものから直す。同期が済むまで、次の作業・PR を始めない。
+- **積んだ PR（スタック）**：下の PR を base にした PR は、`gh pr merge` が「stack の一部なので、非同期の merge API で」と断る。`gh api -X PUT repos/<owner>/<repo>/pulls/<上の PR>/merge-async -f merge_method=merge -f sha=<CI を通した head>`（下の PR も、まとめて入る）。結果は、返った uuid を `GET …/merge-async/<uuid>` で見る。
 - PR：`but pr new <branch> -F <message-file>`（push を含む）。PR を依頼されたときだけ作る。PR の target・head・差分を確かめてから、`main` へ normal merge する。admin・force・保護の迂回・`but land` による PR 回避をしない。
 - push・公開・リリース・認証は、利用者の依頼があるときだけ。**秘密・個人の情報（トークン・API キー・実際の発話・画面の内容・個人のパス）をコミットしない**（コミットの前に確かめる）。
 - コミットの作者は、リポジトリの設定（`user.name`・`user.email`）のまま。
@@ -117,9 +118,12 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 - **構成**：`site/index.html`・`site/assets/`（`tokens.css`＝色・文字・余白の名前つきの値、`styles.css`、`main.js`、`video/`、`img/`）。動画（mp4・webm）と画面の静止画は、**本物の `vc` の画面を、自作の背景の上で撮った**もの（`vc hud-preview` の作り物の内容と、`vc show` のサンプル）。
 - **見る**：`python3 -m http.server 8765 --bind 127.0.0.1 -d site` → <http://127.0.0.1:8765/>。
-- **動画・画像を撮り直す**：`scripts/site/capture.sh all`（画面収録の許可が要る。背景が出ていなければ撮らない）→ `scripts/site/encode.sh`（`site/assets/` へ。ffmpeg が要る）。撮影のとき、利用者の画面・アプリを、写さない（自作の背景だけ）。
+- **設定の画像を作り直す**：`scripts/site/render.sh`（`just build` のあと。ffmpeg が要る）。`vc settings-preview` が、設定のウィンドウを、**画面に出さず**（画面の外で）描くので、**画面収録の許可は、要らない**。見本のホーム（`.voice-control/skills` のスキルだけ）と、仮の `HOME` で描くので、利用者のパス・設定・スキルは、画像に入らない。`docs/images/` と `site/assets/img/` へ書く（`settings-*.png`）。
+- **パネル・Markdown のウィンドウ・会話のウィンドウを撮り直す**：`scripts/site/capture.sh all`（**画面収録の許可が要る**。背景が出ていなければ撮らない。約 2 分、画面の上と中央に、自作の背景と、`vc hud-preview`・`vc show`・`vc chat-preview` の表示が出る）→ `scripts/site/encode.sh`（`site/assets/` と `docs/images/` へ。ffmpeg が要る）。撮影のとき、利用者の画面・アプリを、写さない（自作の背景だけ）。`vc` は、`VC=<パス>` で替えられる。
+  - **画面収録の許可は、「そのコマンドを動かしているアプリ」に付く**。エージェントが、Tern のように、**ヘルパー（Tern Daemon.app）経由**でシェルを動かすと、責任アプリがヘルパーになり、アプリ本体に許可があっても、`screencapture` は「could not create image from rect」で失敗する（2026-11-15。左上の 8×8 だけを撮って確かめる）。ヘルパーにも許可を付けても、すぐには直らなかった。サービスの再起動（`launchctl kickstart -k gui/$(id -u)/user.tern-remote`）のあと、撮れた（再起動で直ったのか、許可の反映の遅れかは、特定していない）。
+  - `screencapture` は、**出力のファイルが既にあると、上書きできずに失敗する**（`capture.sh` は、撮る前に消す）。
 - **公開**：`main` に `site/**` が入ると、[pages.yml](../.github/workflows/pages.yml) が公開する。**初めに 1 回だけ**、リポジトリの Settings > Pages > Source を「GitHub Actions」にする（利用者の操作）。
-- **リリースのとき**：ページの版（`v0.3.x`・`V=0.3.x`）を、新しい版へ上げる：`sed -i '' 's/0\.3\.OLD/0.3.NEW/g' site/index.html`（README と同じ変更に含める）。
+- **リリースのとき**：ページの版（`<span>v0.5.0</span>`）を、新しい版へ上げる（`Sources/vc/Version.swift` と同じ変更に含める）。
 - **守ること**：外部の通信・解析・外部フォントを足さない（製品の約束と合わせる）。動作例の出力は、**本物の `vc run --dry-run`** のもの（作らない）。数値は、測ったものだけ。レスポンシブは、幅 320・375・414・768・1280 で、横にはみ出さないこと。動きは、`prefers-reduced-motion` で止まること。
 
 ## リリース

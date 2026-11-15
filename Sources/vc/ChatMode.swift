@@ -10,6 +10,9 @@ import VCSkill
     private(set) var conversation = ChatConversation()
     /// いま使っているエージェント。`configure` で替える（替えると、会話は、新しくなる）。
     private(set) var agent = ChatAgent.apple
+    /// 設定で選んだエージェントと道具の段階（`agent` は、これが使えないとき、Apple に替わる）。
+    private(set) var configured = ChatAgent.apple
+    private var requestedTools = ChatToolLevel.none
     /// 外のエージェントに開けている道具の段階と、作業フォルダ。
     private(set) var tools = ChatToolLevel.none
     private(set) var folder: URL?
@@ -27,13 +30,33 @@ import VCSkill
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
     func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil) {
-        let tools = agent.effective(tools)
-        guard agent != self.agent || tools != self.tools || folder != self.folder else { return }
+        guard agent != configured || tools != requestedTools || folder != self.folder else { return }
+        configured = agent
+        requestedTools = tools
         self.agent = agent
-        self.tools = tools
+        self.tools = agent.effective(tools)
         self.folder = folder
-        conversation = ChatConversation(backend: agent.makeBackend(tools: tools, folder: folder))
+        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder))
         attached = []
+    }
+
+    /// **質問のたびに**、選んだエージェントが、使えるか確かめる（CLI が、アンインストールなどで、なくなっていないか）。
+    /// 使えなければ、**Apple のモデル**で答える（会話の記録は、そのまま。設定は、変えない：入れ直せば、また使える）。戻り値は、利用者に見せる断り。
+    func settleAgent() async -> String? {
+        if configured.isExternal, !AgentLocator.isAvailable(configured) {
+            if agent != .apple {
+                agent = .apple
+                tools = ChatAgent.apple.effective(requestedTools)
+                await conversation.replaceBackend(ChatAgent.apple.makeBackend(tools: tools, folder: folder))
+            }
+            return "\(configured.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました"
+        }
+        if agent != configured {   // 入れ直された：選んだエージェントへ戻す
+            agent = configured
+            tools = configured.effective(requestedTools)
+            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder))
+        }
+        return nil
     }
 
     func end() async {
@@ -145,7 +168,7 @@ enum TextClipboard {
 }
 
 extension CommandContext {
-    /// 会話に使うエージェント：設定（設定ウィンドウ > モデル）。なければ Apple。書き方が違えば、理由を示して終わる。
+    /// 会話に使うエージェント：設定（設定ウィンドウ > 会話）。なければ Apple。書き方が違えば、理由を示して終わる。
     func resolveChatAgent() -> ChatAgent {
         guard let text = currentSettings().chatAgent else { return .apple }
         guard let agent = ChatAgent.parse(text) else {

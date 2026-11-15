@@ -213,7 +213,7 @@ public struct ExternalChatBackend: ActivityReporting {
 
     /// 実際の実行：シェルなし・標準入力なし・標準エラーは捨てる。
     public static let live: Runner = { call in
-        let result = ProcessRunner.run(executable: call.executable, arguments: call.arguments, mergeStderr: false, timeout: 110, cancel: call.cancel, workingDirectory: call.directory, onOutput: call.onOutput)
+        let result = ProcessRunner.run(executable: call.executable, arguments: call.arguments, mergeStderr: false, timeout: 110, cancel: call.cancel, workingDirectory: call.directory, environment: ["PATH": AgentLocator.childPATH()], onOutput: call.onOutput)
         return AgentRun(exitCode: result.exitCode, text: result.text, timedOut: result.timedOut, cancelled: result.cancelled)
     }
 }

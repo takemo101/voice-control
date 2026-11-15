@@ -70,8 +70,13 @@ scripts/
   uninstall.sh         入れたアプリ・コマンドのリンク・モデルのリンクを取り除く
   reset-permissions.sh このアプリの許可を取り消す
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
+  build-native.sh      音声認識の実行環境 transcribe.cpp を、固定した commit から、静的ライブラリにビルドする
+  eval-skills.py       スキルの選択・実行の測定（corpus/skills.tsv）
+  site/                製品ページ・README の画像と動画の作り方：render.sh（設定のウィンドウを、画面の外で描く。許可不要）・capture.sh と encode.sh（画面収録の許可が要る。パネル・Markdown のウィンドウ・会話のウィンドウ）・stage.swift（撮影用の背景）
+site/                  製品ページ（GitHub Pages。素の HTML・CSS・JavaScript。assets/ に、画像・動画）
 .github/workflows/
-  release.yml          タグ vX.Y.Z の push で、vc をビルドして GitHub Release に添付する
+  release.yml          タグ vX.Y.Z の push で、vc をビルドして GitHub Release に添付する（dmg と SHA-256）
+  pages.yml            main に site/** が入ると、製品ページを公開する
 docs/
   README.md            この索引
   development.md       ビルド・テスト・GitButler・PR
@@ -80,6 +85,7 @@ docs/
   references.md        参考にした設計原則・調べた外部の機能
   refactoring.md       リファクタリングの観点と進め方
   verification.md      検証手順・記録・人間の確認待ち
+  images/              README の画像（パネル・Markdown のウィンドウ・会話・設定）
   skills.md            スキルの書き方と仕様・声の入力（声の入力（メニューバーのアプリ））
 ```
 
