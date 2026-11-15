@@ -6,12 +6,13 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, keys, voice, models, skills
+    case general, keys, voice, chat, models, skills
     var id: String { rawValue }
     var title: String {
         switch self {
         case .keys: return "キー"
         case .voice: return "音声"
+        case .chat: return "会話"
         case .models: return "モデル"
         case .skills: return "スキル"
         case .general: return "一般"
@@ -21,6 +22,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .keys: return "keyboard"
         case .voice: return "waveform"
+        case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"
         case .general: return "gearshape"

@@ -32,20 +32,22 @@ struct VoicePage: View {
                 }
             }
         }
-        Card("音声入力のつなぎ言葉", footer: "消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。") {
+        Card("音声入力のつなぎ言葉", footer: (model.settings.removeFillers ?? false) ? "消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。" : "オンにすると、消す言葉の一覧を、ここで直せます。音声入力だけに効きます（声で頼む内容には、使いません）。") {
             SwitchRow(model: model, title: "つなぎ言葉（えーと・um など）を消す", detail: nil, value: model.settings.removeFillers ?? false) { $0.removeFillers = $1 }
-            RowDivider()
-            VStack(alignment: .leading, spacing: 8) {
-                TextEditor(text: $model.fillersText)
-                    .font(.system(size: 12)).frame(height: 84).scrollContentBackground(.hidden)
-                    .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-                HStack {
-                    Button("保存") { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
-                    Button("既定に戻す") { model.resetFillers() }.controlSize(.small)
+            if model.settings.removeFillers ?? false {   // オフのときは、言葉の欄を、出さない（空の大きな欄が、目立つ）
+                RowDivider()
+                VStack(alignment: .leading, spacing: 8) {
+                    TextEditor(text: $model.fillersText)
+                        .font(.system(size: 12)).frame(height: 84).scrollContentBackground(.hidden)
+                        .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+                    HStack {
+                        Button("保存") { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                        Button("既定に戻す") { model.resetFillers() }.controlSize(.small)
+                    }
                 }
+                .padding(14)
             }
-            .padding(14)
         }
     }
 }

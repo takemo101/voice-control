@@ -87,6 +87,7 @@ struct SettingsView: View {
                         switch model.page {
                         case .keys: KeysPage(model: model)
                         case .voice: VoicePage(model: model)
+                        case .chat: ChatPage(model: model)
                         case .models: ModelsPage(model: model)
                         case .skills: SkillsPage(model: model)
                         case .general: GeneralPage(model: model)

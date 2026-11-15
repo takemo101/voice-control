@@ -24,6 +24,7 @@ extension SettingsPage {
         switch self {
         case .keys: return [Brand.rec2, Brand.rec1]
         case .voice: return [Brand.think1, Color(red: 0.25, green: 0.55, blue: 0.95)]
+        case .chat: return [Color(red: 0.40, green: 0.82, blue: 1.0), Color(red: 0.58, green: 0.40, blue: 0.96)]
         case .models: return [Brand.think2, Color(red: 0.45, green: 0.30, blue: 0.90)]
         case .skills: return [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)]
         case .general: return [Color(white: 0.62), Color(white: 0.42)]
@@ -34,8 +35,9 @@ extension SettingsPage {
         switch self {
         case .keys: return "押している間だけ話す、キーを決めます"
         case .voice: return "録音・読み上げ・つなぎ言葉"
-        case .models: return "スキルを動かすモデル・会話・音声認識"
-        case .skills: return "声で頼めることの、有効・無効"
+        case .chat: return "エージェント・道具・画像・記録"
+        case .models: return "スキルを動かすモデル・音声認識"
+        case .skills: return "声で頼めることの、有効・無効・インストール"
         case .general: return "準備状況・起動・コマンド・診断"
         }
     }
