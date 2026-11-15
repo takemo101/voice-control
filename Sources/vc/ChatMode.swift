@@ -50,6 +50,8 @@ import VCSkill
     enum ImageRoute: Equatable {
         /// この Mac の中で、文字にして、質問に入れた（Apple の会話）。
         case local
+        /// 外のエージェント（名前）へ送る確認を、待っている。
+        case confirming(String)
         /// 外のエージェント（名前）へ送った（確認して）。
         case sent(String)
         /// 送る確認を、断った。
@@ -64,7 +66,7 @@ import VCSkill
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     /// - `attachedImage`：会話のウィンドウに、添えてある画像（「この画面」と言わなくても、使う）。
     /// - `confirmImage`：**外のエージェントへ画像を送る前の確認**（なければ、送らない）。Apple の会話は、画像を、この Mac の中で文字にするので、確認は要らない。
-    func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, onImage: (@MainActor (URL) -> Void)? = nil, progress: @escaping @MainActor (String) -> Void,
+    func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, onImage: (@MainActor (URL) -> Void)? = nil, onRoute: (@MainActor (ImageRoute) -> Void)? = nil, progress: @escaping @MainActor (String) -> Void,
              confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
@@ -89,6 +91,7 @@ import VCSkill
                 if agent.isExternal {
                     // 外へ出る：**送るたびに確認する**（画像と送り先を見せる）。確認できなければ（端末など）、送らない
                     if let confirmImage {
+                        onRoute?(.confirming(agent.rawValue))   // 確認を待っている間は、そう出す（「送信中」に見えないように）
                         if await confirmImage(file, agent) { imageToSend = file; route = .sent(agent.rawValue) }
                         else { route = .declined(agent.rawValue) }
                     } else {
@@ -118,6 +121,7 @@ import VCSkill
                 notes.append("コピーした文章がないので、文章なしで答えます")
             }
         }
+        if let route { onRoute?(route) }   // 画像の扱いは、決まった時点で、ウィンドウへ知らせる（答えが出るまで、待たせない）
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
         // Apple の会話で、画像・コピーした文章が、会話に入っている間は、Web の道具を外す（画面の内容が、モデルの作る検索語に混ざって、外へ出ないため）

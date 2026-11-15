@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import vc
@@ -54,5 +55,19 @@ import Testing
         entries.begin(typed)
         entries.begin(entry("声の質問"))
         #expect(flag.cancelled)                                                    // 処理も、止める（止めた質問を、会話の記録に入れない）
+    }
+
+    @Test func theImageRouteShowsAsSoonAsItIsDecidedNotOnlyWhenTheAnswerArrives() {
+        var entries: [ChatEntry] = []
+        var asked = entry("この画像は？")
+        asked.image = EntryImage(thumbnail: NSImage(size: NSSize(width: 1, height: 1)))
+        entries.begin(asked)
+        entries.setRoute(asked.id, .confirming("agy"))
+        #expect(entries[0].image?.route == .confirming("agy"))            // 確認待ち：「送信中」に見えない
+        entries.setRoute(asked.id, .declined("agy"))
+        #expect(entries[0].isPending && entries[0].image?.route == .declined("agy"))   // 断った：答えを待たずに、出る
+        entries.finish(asked.id, answer: "答え", rendered: nil, activities: [], notes: [], route: .declined("agy"), startedNew: false)
+        entries.setRoute(asked.id, .sent("agy"))                            // 答えが出たあとの、遅れた知らせは、変えない
+        #expect(entries[0].image?.route == .declined("agy"))
     }
 }

@@ -60,6 +60,9 @@ extension Array where Element == ChatEntry {
 
     mutating func setStatus(_ id: UUID, _ text: String) { updatePending(id) { $0.status = text } }
 
+    /// 画像の扱いが決まった（確認待ち・送った・断った・この Mac の中で処理した）。答えを待たずに、出す。
+    mutating func setRoute(_ id: UUID, _ route: ChatMode.ImageRoute) { updatePending(id) { $0.image?.route = route } }
+
     /// 質問に使う画像が分かった（まだ付いていないときだけ）。
     mutating func attach(_ id: UUID, image: EntryImage) { updatePending(id) { if $0.image == nil { $0.image = image } } }
 

@@ -60,7 +60,7 @@ import VCSpeech
             let confirmImage: ChatMode.ImageSendConfirm = { file, sendTo in
                 await askToSendImage(file, agent: sendTo, chip: chip, confirmation: confirmation, next: next)
             }
-            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImage(id, file: $0) }, progress: { text in
+            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImage(id, file: $0) }, onRoute: { window.setImageRoute(id, $0) }, progress: { text in
                 window.setStatus(id, text)
             }, confirm: confirm, confirmImage: confirmImage)
             if token.isCancelled || token.isSuperseded { window.stop(id, reason: token.isSuperseded ? "新しい質問を優先しました" : "取りやめました（Esc）"); return }

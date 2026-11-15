@@ -231,9 +231,10 @@ private struct RouteChip: View {
         let (text, symbol, color): (String, String, Color) = {
             switch route {
             case nil: return ("読んでいます…", "ellipsis", .white.opacity(0.6))
+            case let .confirming(agent)?: return ("\(agent) へ送る確認待ち", "hourglass", ChatPalette.orange)
             case .local?: return ("この Mac の中で処理", "lock.fill", Color(red: 0.35, green: 0.85, blue: 0.6))
             case let .sent(agent)?: return ("\(agent) へ送信", "arrow.up.forward.circle.fill", ChatPalette.orange)
-            case let .declined(agent)?: return ("\(agent) へは、送っていません", "xmark.circle.fill", .white.opacity(0.6))
+            case .declined?: return ("送信しませんでした", "xmark.circle.fill", .white.opacity(0.6))
             case let .notUsed(reason)?: return (reason, "exclamationmark.triangle.fill", .white.opacity(0.6))
             }
         }()

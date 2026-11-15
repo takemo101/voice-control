@@ -67,6 +67,9 @@ import VCSkill
         state.entries.attach(id, image: EntryImage(thumbnail: thumbnail))
     }
 
+    /// 画像の扱いが決まった（確認待ち・送った・断った）：答えを待たずに、札を替える。
+    func setImageRoute(_ id: UUID, _ route: ChatMode.ImageRoute) { state.entries.setRoute(id, route) }
+
     /// 答えが来た。`startedNew`：しばらく話さなかったので、前の会話は、終わった（古い記録を消す）。
     func finish(_ id: UUID, answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
         state.entries.finish(id, answer: answer, rendered: Self.render(answer), activities: activities, notes: notes, route: imageRoute, startedNew: startedNew)
