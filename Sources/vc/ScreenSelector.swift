@@ -33,7 +33,7 @@ import SwiftUI
 
     // MARK: 入口
 
-    /// 選ぶ。選び終わる（撮った・取りやめ）まで待つ。**イベントのループ（`NSApplication.run()`）が回っているとき**に呼ぶ（`vc listen --hotkey`。単独のコマンドは、`runStandalone`）。
+    /// 選ぶ。選び終わる（撮った・取りやめ）まで待つ。**イベントのループ（`NSApplication.run()`）が回っているとき**に呼ぶ（声の入力。単独のコマンドは、`runStandalone`）。
     static func select() async -> Outcome {
         guard active == nil else { return .cancelled }   // 選んでいる最中の、2 回目
         let frames: [ScreenGrab.Frame]

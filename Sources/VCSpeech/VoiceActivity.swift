@@ -1,7 +1,7 @@
 import Foundation
 import VCCore
 
-/// 声の流れ（`vc listen --hotkey`）に届く入力：録音した音声か、Esc による取りやめの合図（待っている処理を起こす）。
+/// 声の流れ（声の入力）に届く入力：録音した音声か、Esc による取りやめの合図（待っている処理を起こす）。
 enum VoiceInput: Sendable {
     case audio(URL)
     case cancel

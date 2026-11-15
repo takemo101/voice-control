@@ -70,33 +70,3 @@ func usageError(_ command: String, _ message: String) -> Never {
     eprint("詳しくは: vc \(command) --help")
     exit(2)
 }
-
-/// ダウンロードの進み具合の表示。端末なら 1 行を書き換え、そうでなければ 10% ごとに 1 行。
-/// `@unchecked Sendable` の理由：可変な状態（`currentFile`・`lastStep`・`lineOpen`）は、すべて `lock` で守る（進みの通知は、通信のスレッドから来る）。
-final class ProgressPrinter: @unchecked Sendable {
-    private let tty: Bool
-    private let lock = NSLock()
-    private var currentFile = ""
-    private var lastStep = -1
-    private var lineOpen = false
-
-    init(tty: Bool) { self.tty = tty }
-
-    func report(_ p: DownloadProgress) {
-        lock.lock(); defer { lock.unlock() }
-        let percent = p.total > 0 ? Int(Double(p.received) / Double(p.total) * 100) : 0
-        if p.file != currentFile { finishLine(); currentFile = p.file; lastStep = -1 }
-        let mb = { (b: Int64) in String(format: "%.0f", Double(b) / 1_048_576) }
-        let line = "  \(pad(p.file, to: 18))  \(percent)%  \(mb(p.received)) / \(mb(p.total)) MB"
-        if tty {
-            print("\r" + line + "\u{1B}[K", terminator: ""); fflush(stdout); lineOpen = true
-        } else if percent / 10 != lastStep {
-            lastStep = percent / 10
-            print(line); fflush(stdout)
-        }
-    }
-
-    func finish() { lock.lock(); defer { lock.unlock() }; finishLine() }
-
-    private func finishLine() { if lineOpen { print(""); lineOpen = false } }
-}

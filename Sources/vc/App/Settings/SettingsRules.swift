@@ -20,7 +20,7 @@ enum KeyKind: CaseIterable, Hashable {
         switch self {
         case .listen: return "押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）"
         case .dictate: return "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）"
-        case .chat: return "押している間だけ話し、離すと、会話として質問します（スキルは使いません。実験）"
+        case .chat: return "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）"
         case .shot: return "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）"
         }
     }

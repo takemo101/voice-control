@@ -87,10 +87,10 @@ public typealias NextUtterance = @MainActor @Sendable () async throws -> String?
 /// - `cancel`：Esc で取りやめられる。実行中の処理は、これを見て止まる（処理の `Task` も取りやめられる）。
 /// - `next`：確認の返事など、次の発話を待つ。
 /// 処理の中の失敗・取りやめの表示は、ハンドラの仕事（文字にする段階のものは、`VoiceLoopEvent`）。
-/// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。`vc listen --hotkey` が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
+/// - `tag`：この録音を始めたトリガーの印（`TaggedTrigger.tag`。トリガーが 1 つなら、空）。声の入力 が、声で頼む／音声入力を、トリガーで切り替えるのに使う。
 public typealias UtteranceHandler = @MainActor @Sendable (_ utterance: String, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Void
 
-/// **聞き取りに自信がないとき**（認識の確信度が `threshold` 未満）、実行の前に、聞こえた文を確かめる（`vc recheck`。実験）。
+/// **聞き取りに自信がないとき**（認識の確信度が `threshold` 未満）、実行の前に、聞こえた文を確かめる（聞き取りの確認。実験）。
 /// `confirm` が false を返したら、その発話は、処理しない。声で頼む以外（音声入力など）は、`confirm` の側で、true を返してよい。
 public struct Uncertainty: Sendable {
     public typealias Confirm = @MainActor @Sendable (_ text: String, _ confidence: Double, _ cancel: CancelToken, _ next: @escaping NextUtterance, _ tag: String) async -> Bool
@@ -115,12 +115,12 @@ final class TagQueue: @unchecked Sendable {
 
 // MARK: - VoiceLoop
 
-/// 声の流れ（`vc listen --hotkey`）の**調整**：トリガー（押した・離した）・録音・Esc・認識の待ち行列・発話ごとの処理の `Task`。
+/// 声の流れ（声の入力）の**調整**：トリガー（押した・離した）・録音・Esc・認識の待ち行列・発話ごとの処理の `Task`。
 /// 状態の遷移は `VoiceActivity`、入力の列は `VoiceInputQueue`。スキル・画面の表示は、知らない（`UtteranceHandler`・`VoiceLoopEvent` の向こう側）。
 ///
 /// **守る不変条件**（実際に起きた不具合）：
 /// 1. **`run(onReady:)` は同期**で、`NSApplication.run()` の前に `await` を挟まない。`await` のあとの処理は、メインキューのブロックの中で動き、
-///    そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が動かない。呼ぶ側（`vc listen`）も、`run` の前に `await` しない
+///    そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が動かない。呼ぶ側（声の入力）も、`run` の前に `await` しない
 ///    （マイクの許可は同期の `MicRecorder.authorize()`）。
 /// 2. **トリガーと Esc は、`run()` の間、手放さない**（`withExtendedLifetime`）。最適化で、最後の使用のあとに解放されると、ホットキーが死ぬ。
 /// 3. **修飾キーを押している間は、Esc の Carbon ホットキーを登録しない**（登録すると、そのあとの Esc が届かない：実測）。それを守るのは `EscapeKey.setActive(true)` で、
@@ -148,6 +148,8 @@ public final class VoiceLoop {
     private let scheduler: Scheduler
     private let rearmDelays: [TimeInterval]
     private let activity = VoiceActivity()
+    private var consumeTask: Task<Void, Never>?
+    private var stopped = false
     private let queue = VoiceInputQueue()
     /// 自信がないときの確認（なければ、確認しない）。`run` の前に、決める。
     public var uncertainty: Uncertainty?
@@ -179,6 +181,20 @@ public final class VoiceLoop {
         NSApplication.shared.setActivationPolicy(.accessory)
         // トリガーと Esc は、`run()` が終わるまで手放さない（不変条件 2）。
         withExtendedLifetime((trigger, escape)) { NSApplication.shared.run() }
+    }
+
+    /// 録音中・認識中・実行中・認識待ちの音声があるか（設定を反映するために、作り直してよいかの判断に使う）。
+    public var isBusy: Bool { activity.isActive }
+
+    /// 止める：待ち行列の処理を終えて、このループを手放せるようにする（トリガー・Esc は、このループが手放されると、解放されて、登録が外れる）。
+    /// **設定を変えたとき、作り直すために使う**。処理の最中は、呼ばない（`isBusy` が偽のときだけ）。止めたあとの `begin`・`run` は、できない。
+    @MainActor public func stop() {
+        stopped = true
+        // キーの受け付けを、いますぐ外す（手放されるのを待たない。待つと、同じキーを登録し直すとき、`register(-9878)`＝登録済み、で失敗する）
+        trigger.invalidate()
+        escape.onEscape = nil
+        escape.setActive(false)
+        queue.push(.cancel)   // 待っている `consume` を起こして、終わらせる
     }
 
     /// アプリ（メニューバーの vc.app）用：イベントループは、アプリが回す。配線して、準備の表示を出して、戻る。**トリガーと Esc は、アプリが生きている間、手放さない**（`VoiceSession` が持つ。`VoiceLoop` 自身が、Esc を持つ）。ここにも `await` を足さない。
@@ -242,13 +258,14 @@ public final class VoiceLoop {
             }
         }
 
-        Task { await self.consume() }
+        consumeTask = Task { await self.consume() }
     }
 
     /// 列の音声を、1 つずつ、順に処理する（発話ごとに、取りやめの合図と `Task` を作る。Esc は、これらを止める）。
     @MainActor private func consume() async {
-        while true {
-            guard case let .audio(file) = await queue.next() else { continue }   // 待っている処理がないときの Esc の合図は、読み捨てる
+        while !stopped {
+            guard case let .audio(file) = await queue.next() else { continue }
+            if stopped { try? FileManager.default.removeItem(at: file); break }   // 止めたあとに来た音声は、処理せず、捨てる   // 待っている処理がないときの Esc の合図は、読み捨てる
             let tag = tags.pop()
             let token = CancelToken()
             activity.beginWork(token)

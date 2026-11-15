@@ -17,11 +17,6 @@ build:
 test:
     ./scripts/test.sh
 
-# 配布用の tar.gz と SHA-256 を dist/ に作って、検査する（リリースのワークフローと同じ手順）
-package:
-    ./scripts/package.sh
-    ./scripts/verify-package.sh dist/vc-*-macos-arm64.tar.gz "$(.build/release/vc --version | awk '{print $2}')"
-
 # build/VoiceControl.app（メニューバーのアプリ。Apple silicon、ad-hoc 署名）を作る
 app:
     ./scripts/build-app.sh
@@ -31,13 +26,17 @@ dmg:
     ./scripts/dmg.sh
     ./scripts/verify-dmg.sh dist/vc-*-macos-arm64.dmg "$(.build/release/vc --version | awk '{print $2}')"
 
-# 開発用に、vc を ~/.local/bin へ入れる（BIN_DIR で場所）。このリポジトリの models/ があれば、~/.voice-control/models/tiny-jev-0.6b から、そこへリンクする。なければ、vc model download で取得
-install: build
+# 開発用に、アプリを ~/Applications へ入れて、起動する（INSTALL_DIR で場所、NO_OPEN=1 で起動なし、RESET_PERMISSIONS=1 で許可を取り消してから）。コマンド vc は ~/.local/bin へリンク。リポジトリの models/tiny-jev-0.6b があれば、~/.voice-control/models/tiny-jev-0.6b へリンク
+install: app
     ./scripts/install.sh
 
-# install で入れた vc とモデルのリンクを取り除く。モデルの本体（models/・vc model download で置いたもの）と、アクセシビリティ・マイクの許可には触れない
+# install で入れたアプリ・コマンド vc のリンク・モデルのリンクを取り除く（既定の場所なら、許可も取り消す）。モデルの本体・スキル・設定には触れない
 uninstall:
     ./scripts/uninstall.sh
+
+# このアプリの許可（マイク・アクセシビリティ・画面収録）を取り消す（設定ではオンなのに「許可されていません」と出るとき。次の起動で、確認が出る）
+reset-permissions:
+    ./scripts/reset-permissions.sh
 
 # 自作ウィンドウ（Fixture）を、前面を奪わずに起動する。終了は `just fixture-stop`（ARGS 例: --ja、--many 40）
 fixture *args: build
@@ -50,6 +49,6 @@ fixture-stop:
 eval: build
     "{{vc}}" eval-gate corpus/gate.tsv
 
-# ビルドして、vc を呼ぶ（例: just vc run "Safariを開いて" --dry-run / just vc listen --hotkey）
+# ビルドして、vc（CLI）を呼ぶ（例: just vc run "Safariを開いて" --dry-run）
 vc *args: build
     "{{vc}}" "$@"

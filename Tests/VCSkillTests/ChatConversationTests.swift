@@ -10,6 +10,7 @@ import Testing
         private(set) var calls: [(instructions: String, turns: [ChatTurn], user: String)] = []
         var summaryFailures = 0
         var overflowOnce = false
+        var emptyAnswers = 0
         var summaryLength = 20
         private(set) var summaries = 0
 
@@ -25,6 +26,7 @@ import Testing
                 return "要約\(n)" + String(repeating: "あ", count: max(0, length - 3))
             }
             if overflowOnce { overflowOnce = false; lock.unlock(); throw ConversationError.contextOverflow }
+            if emptyAnswers > 0 { emptyAnswers -= 1; lock.unlock(); return "  \n " }
             lock.unlock()
             return "答え：" + String(user.prefix(8))
         }
@@ -35,6 +37,16 @@ import Testing
 
     private func long(_ n: Int) -> String { String(repeating: "あ", count: n) }
     private let small = ChatBudget(trigger: 700, keepRecent: 300, summaryMaxCharacters: 200)
+
+    @Test func anEmptyAnswerIsAFailureAndIsNotRecordedInTheConversation() async throws {
+        let backend = FakeBackend()
+        backend.emptyAnswers = 1
+        let conversation = ChatConversation(backend: backend)
+        await #expect(throws: ConversationError.self) { _ = try await conversation.ask("こんにちは") }   // 画面に何も出ない往復を、返さない
+        let reply = try await conversation.ask("もう一度")
+        #expect(reply.text.hasPrefix("答え："))
+        #expect(backend.chatCalls.last?.turns.isEmpty == true)   // 空の答えの往復は、記録に入っていない
+    }
 
     // MARK: 計画（純粋）
 
@@ -87,7 +99,7 @@ import Testing
         #expect(second.text.hasPrefix("答え："))
         let calls = backend.chatCalls
         #expect(calls[0].turns.isEmpty && calls[1].turns == [ChatTurn(user: "私の名前はミカです", assistant: "答え：私の名前はミカで")])
-        #expect(calls[1].instructions == ChatConversation.instructions)
+        #expect(calls[1].instructions.hasPrefix(ChatConversation.instructions) && calls[1].instructions.hasSuffix(ChatToolLevel.none.note))   // 指示のあとに、Web についての決まりが付く
         let count = await chat.turnCount
         #expect(count == 2)
     }

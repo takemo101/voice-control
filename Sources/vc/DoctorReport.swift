@@ -2,7 +2,8 @@ import Foundation
 
 /// `vc doctor` の 1 項目：使える環境か。`fail` は、スキルの実行に**必須**なものが使えない。`warn` は、任意の機能（ホットキー・声の入力など）に
 /// 要るものが、まだ使えない。直す手順（`fix`）は、`ok` 以外のときだけ付く。
-struct DoctorCheck {
+struct DoctorCheck: Identifiable {
+    var id: String { name }
     enum State { case ok, warn, fail }
     let name: String
     let state: State

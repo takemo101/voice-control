@@ -5,6 +5,7 @@ import VCCore
 @MainActor final class StatusMenu: NSObject, NSMenuDelegate {
     private let item: NSStatusItem
     private let runtime: AppRuntime
+    private var token: AnyObject?
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -13,7 +14,7 @@ import VCCore
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
-        runtime.onChange = { [weak self] in self?.refreshIcon() }
+        token = runtime.observe { [weak self] in self?.refreshIcon() }
         refreshIcon()
     }
 
@@ -46,10 +47,12 @@ import VCCore
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
         menu.addItem(.separator())
-        menu.addItem(action("診断を見る（vc doctor）", #selector(showDoctor)))
+        if SaySpeaker.shared.isSpeaking() { menu.addItem(action("読み上げを止める", #selector(stopSpeaking))) }
+        menu.addItem(action("会話を開く", #selector(openChat)))
+        menu.addItem(action("会話をリセット", #selector(resetConversation)))
+        menu.addItem(action("診断…", #selector(showDoctor)))
         menu.addItem(action("設定…", #selector(openSettings), key: ","))
         menu.addItem(action("データのフォルダを開く（スキル・設定）", #selector(openDataFolder)))
-        menu.addItem(loginItem())
         menu.addItem(commandItem())
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -64,12 +67,6 @@ import VCCore
     private func action(_ title: String, _ selector: Selector, key: String = "") -> NSMenuItem {
         let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
         item.target = self
-        return item
-    }
-
-    private func loginItem() -> NSMenuItem {
-        let item = action("ログイン時に起動", #selector(toggleLogin))
-        item.state = AppActions.loginItemEnabled ? .on : .off
         return item
     }
 
@@ -92,15 +89,17 @@ import VCCore
 
     @objc private func retry() { runtime.start() }
 
+    @objc private func resetConversation() { AppActions.resetConversation() }
+
+    @objc private func openChat() { ChatWindow.shared.show(activate: true) }
+
+    @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
+
     @objc private func showDoctor() { AppActions.showDoctor() }
 
     @objc private func openSettings() { SettingsWindow.shared.show() }
 
     @objc private func openDataFolder() { AppActions.openDataFolder() }
-
-    @objc private func toggleLogin() {
-        if let problem = AppActions.toggleLoginItem() { AppAlerts.show(title: "ログイン時の起動を変えられません", message: problem, style: .warning) }
-    }
 
     @objc private func toggleCommand() {
         if let problem = AppActions.toggleCommandLine() { AppAlerts.show(title: "コマンドを変えられません", message: problem, style: .warning) }

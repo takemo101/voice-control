@@ -35,6 +35,10 @@ checks() {
     ok "同梱物（スキルを作るスキル・ライセンス）"
 
     local plist="${app}/Contents/Info.plist"
+    local icon_name
+    icon_name="$(plutil -extract CFBundleIconFile raw "${plist}" 2>/dev/null || true)"
+    [ -n "${icon_name}" ] && [ -s "${app}/Contents/Resources/${icon_name}.icns" ] || fail "アイコン（CFBundleIconFile と Resources/*.icns）が無い"
+    ok "アイコン（${icon_name}.icns）"
     for key in NSMicrophoneUsageDescription NSSpeechRecognitionUsageDescription NSAppleEventsUsageDescription; do
         plutil -extract "${key}" raw "${plist}" >/dev/null 2>&1 || fail "Info.plist に ${key} が無い"
     done

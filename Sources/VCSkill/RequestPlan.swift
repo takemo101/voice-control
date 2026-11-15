@@ -83,7 +83,7 @@ public enum PlanValidator {
 
 /// 複数ステップに分けるか（設定 `multiStep`）。
 public enum PlanPreference {
-    /// 既定：分ける（言語モデルが、分けてよいか決める）。`vc plan off` で、いまの 1 依頼 = 1 スキルの動きに戻る。
+    /// 既定：分ける（言語モデルが、分けてよいか決める）。設定ウィンドウ > モデル で、いまの 1 依頼 = 1 スキルの動きに戻る。
     public static let defaultEnabled = true
     public static func isEnabled(setting: Bool?) -> Bool { setting ?? defaultEnabled }
 }

@@ -154,6 +154,12 @@ public struct DoubleTapGesture: Sendable, Equatable {
         })
     }
 
+    public func invalidate() {
+        onPress = nil; onRelease = nil; onHandsFree = nil
+        cancelTimer?(); cancelTimer = nil
+        inner.invalidate()
+    }
+
     private func innerPress() {
         apply(gesture.press(at: now()))
     }

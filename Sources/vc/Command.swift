@@ -1,8 +1,7 @@
 /// ヘルプでの分類（`vc --help` の見出し。並びも、これ）。
 enum CommandGroup: String, CaseIterable {
-    case skills = "スキル（主な機能）"
-    case evaluation = "評価・検証"
-    case settings = "設定"
+    case skills = "スキルが使うコマンド・診断"
+    case evaluation = "評価・検証（開発用）"
 }
 
 /// コマンドの説明（`vc --help`・`vc <コマンド> --help`）。
@@ -29,9 +28,8 @@ protocol Command {
 /// コマンドの一覧。`vc --help` の表示順（グループの中の並び）は、この並び。
 enum Commands {
     static let all: [any Command.Type] = [
-        SkillsCommand.self, RunCommand.self, ListenCommand.self, ChatCommand.self, ChatAgentCommand.self, DictateCommand.self, ShowCommand.self, ShotCommand.self, PreviewCommand.self, FindCommand.self, PickCommand.self, TranscribeCommand.self,
-        HotkeyCheckCommand.self, HudPreviewCommand.self, SettingsPreviewCommand.self, EvalGateCommand.self, EvalPlanCommand.self,
-        DoctorCommand.self, ModelCommand.self, HotkeyCommand.self, SttCommand.self, MuteCommand.self, HandsFreeCommand.self, RecheckCommand.self, SpeakCommand.self, CaptionCommand.self, FillersCommand.self, PlanCommand.self, EngineCommand.self,
+        SkillsCommand.self, RunCommand.self, ShowCommand.self, PreviewCommand.self, FindCommand.self, PickCommand.self, DoctorCommand.self,
+        ChatCommand.self, TranscribeCommand.self, HotkeyCheckCommand.self, HudPreviewCommand.self, SettingsPreviewCommand.self, EvalGateCommand.self, EvalPlanCommand.self,
     ]
 
     static func find(_ name: String) -> (any Command.Type)? { all.first { $0.info.name == name } }

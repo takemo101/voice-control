@@ -18,6 +18,11 @@ import Foundation
         }
     }
 
+    public func invalidate() {
+        onPress = nil; onRelease = nil
+        triggers.forEach { $0.invalidate() }
+    }
+
     private func press(_ pressed: String) {
         guard active == nil else { return }   // 別のトリガーで、録音中
         active = pressed

@@ -1,6 +1,6 @@
 import VCSpeech
 
-/// `vc listen --hotkey`・`vc dictate` の、トリガーの組み立て：手放し（ダブルタップ）で包む・2 つ以上なら `ModeTrigger`（トリガーで、声で頼む／音声入力を切り替える）にまとめる。
+/// 声の入力（アプリ） の、トリガーの組み立て：手放し（ダブルタップ）で包む・2 つ以上なら `ModeTrigger`（トリガーで、声で頼む／音声入力を切り替える）にまとめる。
 @MainActor struct VoiceTriggers {
     /// `VoiceLoop` に渡すトリガー。
     let trigger: PushToTalkTrigger

@@ -6,17 +6,17 @@ import Testing
     @Test func defaultsWhenNothingIsGiven() {
         var a = Arguments(["skills"])
         let o = CommonOptions(consuming: &a)
-        #expect(o.model == nil && o.trigger == nil && o.floor == nil)
+        #expect(o.model == nil && o.floor == nil)
         #expect(o.length == 1024)
-        #expect(!o.yes && !o.hotkey && !o.dryRun)
+        #expect(!o.yes && !o.dryRun)
         #expect(a.remaining == ["skills"])
     }
 
     @Test func takesEveryCommonOptionFromAnyPositionAndLeavesTheRest() {
-        var a = Arguments(["--model", "m", "run", "削除して", "--length", "512", "--floor", "0.3", "--yes", "--trigger", "f5", "--hotkey"])
+        var a = Arguments(["--model", "m", "run", "削除して", "--length", "512", "--floor", "0.3", "--yes"])
         let o = CommonOptions(consuming: &a)
-        #expect(o.model == "m" && o.length == 512 && o.floor == 0.3 && o.trigger == "f5")
-        #expect(o.yes && o.hotkey)
+        #expect(o.model == "m" && o.length == 512 && o.floor == 0.3)
+        #expect(o.yes)
         #expect(a.remaining == ["run", "削除して"])
     }
 
@@ -54,24 +54,13 @@ import Testing
     }
 }
 
-/// 音声入力のトリガー（`--dictate-trigger`）：どの位置でも取り除く。
-@Suite struct DictateTriggerOptionTests {
-    @Test func theDictateTriggerIsTakenFromAnyPositionAndTheDefaultIsNone() {
-        var a = Arguments(["listen", "--dictate-trigger", "ctrl", "--hotkey"])
-        #expect(CommonOptions(consuming: &a).dictateTrigger == "ctrl")
-        #expect(a.remaining == ["listen"])
-        var b = Arguments(["listen"])
-        #expect(CommonOptions(consuming: &b).dictateTrigger == nil)
-    }
-}
-
 /// 使う音声認識（`--stt`）：どの位置でも取り除く。名前の検査は `SpeechChoice.parse`（`VCSpeechTests`）。
 @Suite struct SttOptionTests {
     @Test func theSttOptionIsTakenFromAnyPositionAndTheDefaultIsNone() {
-        var a = Arguments(["listen", "--stt", "whisper-large-v3-turbo", "--hotkey"])
+        var a = Arguments(["transcribe", "--stt", "whisper-large-v3-turbo"])
         #expect(CommonOptions(consuming: &a).stt == "whisper-large-v3-turbo")
-        #expect(a.remaining == ["listen"])
-        var b = Arguments(["listen"])
+        #expect(a.remaining == ["transcribe"])
+        var b = Arguments(["transcribe"])
         #expect(CommonOptions(consuming: &b).stt == nil)
     }
 }

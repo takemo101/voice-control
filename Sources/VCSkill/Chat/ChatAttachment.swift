@@ -15,6 +15,8 @@ public enum ChatAttachments {
 
     /// 何を添えたいか。**画像の言葉があれば、画像**（「コピーした画像」の「コピー」は、画像の取り先を決めるだけ）。なければ、文章の言葉で、コピーした文章。
     public static func wants(_ request: String) -> Wants {
+        // ファイル名（`note.txt`）が出ているときの「コピー」は、ファイルのコピー（クリップボードの文章ではない）
+        if FileNames.contains(in: request) { return Wants(image: false, text: false) }
         if imageWords.contains(where: request.contains) { return Wants(image: true, text: false) }
         if textWords.contains(where: request.contains) { return Wants(image: false, text: true) }
         return Wants(image: false, text: false)

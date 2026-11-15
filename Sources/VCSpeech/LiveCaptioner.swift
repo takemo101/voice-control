@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Speech
 
-/// **録音中の文字（途中経過）**を出すための、リアルタイムの認識（`vc caption`。実験。F54）。録音の音（マイクの入力）を、そのまま `SpeechAnalyzer` に流して、**途中の文字**（確定前を含む）を、次々に返す。
+/// **録音中の文字（途中経過）**を出すための、リアルタイムの認識（録音中の文字の表示。実験。F54）。録音の音（マイクの入力）を、そのまま `SpeechAnalyzer` に流して、**途中の文字**（確定前を含む）を、次々に返す。
 /// 最終の文字は、いつもどおり、録音したファイルを認識した結果（`FileTranscriber`）：この認識は、**表示だけ**（結果・実行には使わない）。失敗しても、何も起きない（表示が出ないだけ）。音声は、この Mac の外へ出さない。
 /// `@unchecked Sendable` の理由：可変な状態は、すべて `lock` で守る。`feed` は、音声のスレッドから呼ばれる。
 public final class LiveCaptioner: @unchecked Sendable {

@@ -6,12 +6,13 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case keys, voice, models, skills, general
+    case general, keys, voice, chat, models, skills
     var id: String { rawValue }
     var title: String {
         switch self {
         case .keys: return "キー"
         case .voice: return "音声"
+        case .chat: return "会話"
         case .models: return "モデル"
         case .skills: return "スキル"
         case .general: return "一般"
@@ -21,6 +22,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .keys: return "keyboard"
         case .voice: return "waveform"
+        case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"
         case .general: return "gearshape"
@@ -40,8 +42,14 @@ enum DownloadState: Equatable {
     @Published private(set) var settings: Settings
     /// 設定ファイルを読めない・書けない理由（読めないファイルは、上書きしない）。
     @Published private(set) var problem: String?
-    @Published private(set) var needsRestart = false
-    @Published var page: SettingsPage = .keys
+    /// 変えた設定を、声の入力へ反映している様子（アプリが動いているときだけ。再起動は、要らない）。
+    enum ApplyState: Equatable { case idle, applying, applied, failed(String) }
+    @Published private(set) var applyState = ApplyState.idle
+    private var pendingApply = false
+    private var runtimeToken: AnyObject?
+    /// インストールできるスキル（GitHub から取る。状態は、別の型）。入れたら、スキルの一覧を読み直す。
+    lazy var skillCatalog = SkillCatalog(onInstalled: { [weak self] in self?.revision += 1 })
+    @Published var page: SettingsPage = .general
     /// キー欄の入力中の文字と、その問題。
     @Published var keyDrafts: [KeyKind: String] = [:]
     @Published private(set) var keyProblems: [KeyKind: String] = [:]
@@ -53,12 +61,40 @@ enum DownloadState: Equatable {
     /// 許可の状態などを、画面を開くたびに読み直すための印。
     @Published private(set) var revision = 0
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// キーを記録しているところ（「クリックして、キーを押す」）。
+    @Published private(set) var recording: KeyKind?
+    @Published private(set) var recordingHint: String?
+    /// ログイン時の起動を変えられなかった理由。
+    @Published private(set) var loginMessage: String?
+    private var recorder = KeyRecorder()
+    private var monitor: Any?
 
     init() {
         let loaded = Settings.loadOrDefault()
         settings = loaded.settings
         problem = loaded.problem?.description
         syncDrafts()
+        runtimeToken = AppRuntime.shared.observe { [weak self] in MainActor.assumeIsolated { self?.runtimeChanged() } }
+    }
+
+    private func runtimeChanged() {
+        guard pendingApply else { return }
+        switch AppRuntime.shared.state {
+        case .starting: applyState = .applying
+        case .listening:
+            pendingApply = false
+            applyState = .applied
+            Task { try? await Task.sleep(for: .seconds(3)); if applyState == .applied { applyState = .idle } }
+        case let .stopped(reason):
+            pendingApply = false
+            applyState = .failed(reason)
+        }
+    }
+
+    /// 反映に失敗したとき、もう一度、反映する。
+    func retryApply() {
+        pendingApply = AppRuntime.shared.scheduleReload()
+        if pendingApply { applyState = .applying }
     }
 
     /// ファイルから読み直す（ウィンドウを開くとき）。
@@ -89,7 +125,10 @@ enum DownloadState: Equatable {
             try next.save()
             settings = next
             problem = nil
-            if restart { needsRestart = true }
+            if restart {
+                pendingApply = AppRuntime.shared.scheduleReload()
+                if pendingApply { applyState = .applying }
+            }
         } catch {
             problem = "\(error)"
         }
@@ -108,6 +147,62 @@ enum DownloadState: Equatable {
         if let why = SettingsRules.keyProblem(kind, text: text, in: settings) { keyProblems[kind] = why; return }
         keyProblems[kind] = nil
         update { $0[keyPath: kind.keyPath] = text.isEmpty ? nil : text }
+    }
+
+    func setLoginItem(_ on: Bool) {
+        loginMessage = AppActions.setLoginItem(on)
+        reload()
+    }
+
+    // MARK: キーの記録
+
+    func startRecording(_ kind: KeyKind) {
+        stopRecording()
+        recording = kind
+        recordingHint = nil
+        recorder = KeyRecorder()
+        keyProblems[kind] = nil
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            MainActor.assumeIsolated { self?.handle(event) }
+            return nil   // 記録中の入力は、ほかへ渡さない
+        }
+    }
+
+    func stopRecording() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = nil
+        recordingHint = nil
+    }
+
+    private func handle(_ event: NSEvent) {
+        guard let kind = recording else { return }
+        let input: KeyRecorder.Input
+        let flags = event.modifierFlags
+        switch event.type {
+        case .flagsChanged:
+            guard let info = HotKeySpec.modifier(forCode: event.keyCode) else { return }
+            let flag: NSEvent.ModifierFlags = [.command: .command, .shift: .shift, .option: .option, .control: .control][info.modifier]!
+            input = .modifier(code: event.keyCode, down: flags.contains(flag))
+        case .keyDown:
+            if event.isARepeat { return }
+            var mods: Set<HotKeySpec.Modifier> = []
+            if flags.contains(.control) { mods.insert(.control) }
+            if flags.contains(.option) { mods.insert(.option) }
+            if flags.contains(.shift) { mods.insert(.shift) }
+            if flags.contains(.command) { mods.insert(.command) }
+            input = .key(code: event.keyCode, modifiers: mods)
+        default: return
+        }
+        switch recorder.handle(input) {
+        case .waiting: break
+        case .cancelled: stopRecording()
+        case let .rejected(reason): recordingHint = reason
+        case let .recorded(text):
+            stopRecording()
+            setDraft(kind, text)
+            commitKey(kind)
+        }
     }
 
     // MARK: エンジン
@@ -159,6 +254,38 @@ enum DownloadState: Equatable {
         do { try FileManager.default.removeItem(at: ModelStore.defaultDirectory(for: spec)) } catch { downloads[id] = .failed("消せませんでした: \(error.localizedDescription)") }
         if settings.stt == id { update { $0.stt = nil } }
         revision += 1
+    }
+
+    // MARK: 会話の道具
+
+    var chatToolLevel: ChatToolLevel { settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none }
+    var chatFolderPath: String { settings.chatFolder ?? ExternalChatBackend.defaultFolder.path }
+
+    /// 会話のエージェントに開ける道具の段階を決める。**すべて**は、聞き間違い・Web のページの命令で、意図しない操作が起きえるので、確認を出す。
+    func setChatTools(_ level: ChatToolLevel) {
+        if level == .all {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "すべての道具を、開けますか？"
+            let apple = ChatAgent.parse(settings.chatAgent ?? "apple") == .apple
+            alert.informativeText = apple ? "Apple のモデルが、作業フォルダの中への書き込みと、コマンドの実行まで、できるようになります。\n\n既存ファイルの上書きと、安全でないコマンドは、毎回、確認します。小さなモデルは、聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります（確認の内容を、よく読んでください）。\n\n作業フォルダ：\(chatFolderPath)" : "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）"
+            alert.addButton(withTitle: "開ける")
+            alert.addButton(withTitle: "やめる")
+            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+        }
+        update { $0.chatTools = level == .none ? nil : level.rawValue }
+    }
+
+    func chooseChatFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "このフォルダにする"
+        panel.message = "会話のエージェントが、読む・書く、作業フォルダを選んでください（大切なファイルのあるフォルダは、避けてください）"
+        panel.directoryURL = URL(fileURLWithPath: chatFolderPath)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        update { $0.chatFolder = url.path }
     }
 
     // MARK: 音声

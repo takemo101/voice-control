@@ -15,7 +15,7 @@ public struct SpeechEngine: Sendable {
         case cannotOpen(String)
         public var description: String {
             switch self {
-            case let .modelMissing(model): return "音声認識モデル \(model.name) を取得していません（vc model download \(model.id)。約 \(model.file.bytes / 1_048_576) MB）。Apple に戻すなら vc stt reset"
+            case let .modelMissing(model): return "音声認識モデル \(model.name) を取得していません（設定ウィンドウ > モデル。約 \(model.file.bytes / 1_048_576) MB）。Apple に戻すなら 設定ウィンドウ > モデル > 音声認識"
             case let .cannotOpen(reason): return "音声認識のモデルを開けません（\(reason)）"
             }
         }

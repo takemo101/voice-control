@@ -6,8 +6,8 @@ Module の責務・依存の向き・状態の所有・時間と並行・失敗�
 
 ```mermaid
 flowchart TB
-    subgraph CLI[vc（実行ファイル）]
-        main[main.swift<br/>引数を読んで、コマンドを探して、実行する]
+    subgraph CLI[vc（実行ファイル＝アプリの中の vc と同じ）]
+        main[main.swift<br/>引数なし＋アプリの中：メニューバーのアプリ<br/>引数あり：コマンドを探して、実行する（CLI）]
     end
     subgraph Targets[SwiftPM ターゲット]
         Skill[VCSkill<br/>SKILL.md・ポリシー・実行]
@@ -26,7 +26,7 @@ flowchart TB
     Decision -.-> GPU[MPSGraph / Metal]
 ```
 
-流れは、スキルの 1 つ：Tiny-Jev がスキルを選び、Apple の言語モデルがコマンドを実行する（入口は `vc skills`・`vc run`・`vc listen`。[スキル](skills.md)）。PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SPEC](../SPEC.md)）。agent-desktop は、Swift のコードからは呼ばず、スキルが許可したコマンドとして、言語モデルが呼ぶ。
+流れは、スキルの 1 つ：Tiny-Jev がスキルを選び、Apple の言語モデルがコマンドを実行する（入口は `vc skills`・`vc run`・声の入力（メニューバーのアプリ）。[スキル](skills.md)）。PC 操作は、2026-11-04 に廃止し、既定スキルに一本化した（[SPEC](../SPEC.md)）。agent-desktop は、Swift のコードからは呼ばず、スキルが許可したコマンドとして、言語モデルが呼ぶ。
 
 ## Module の責務
 
@@ -39,7 +39,7 @@ flowchart TB
 | `VCDecision`（`Choice/`） | `OptionScorer`（選択肢に確率を返す口）、`Chooser`（32 個を超える候補の勝ち抜き戦）、`Gate`（確信度のしきい値：選ぶ下限・確認なしで実行してよい下限・取り消しにくさの下限。`SkillResolver` が使う）、`Confirmation`（声の返事が「はい」か。確信度 0.8 以上の「はい」だけ true。スキルの声の流れが使う） | 選択肢の中身 |
 | `VCDecision`（`Model/`） | `ModelStore`（Tiny-Jev のモデルの置き場所・取得・検証） | 選択・実行 |
 | `VCSkill` | `SkillStore`・`Skill`・`FrontMatter`（SKILL.md の読込・検証）、`Engine`・`ChatModel`（モデルとの通信のアダプター：`OllamaChat`・`OpenAICompatibleChat`。`LocalServer` が、127.0.0.1 に固定）・`ToolLoopAgent`（道具を呼ぶ流れ。どのアダプターでも同じ）・`SkillAgent`（Apple のモデル。`FoundationModels` が流れを持つ）。**スクリーンショット**：`ImageOps`（切り抜き・サイズ変更・回転・変換。ImageIO・CoreGraphics）・`ImageEditing`（`vc image`：引数の検査と保存先の固定）・`VisionModel`（`vc see`：Apple の `fm respond --image` か Ollama の `images`。**Mac の中だけ**）・`ScreenText`（Vision の文字認識）。`vc see`・`vc image` は、`InternalCommands` が処理し、`vc see` の答えは `CommandSession.producedDocument` を通って、`SkillRunner` がウィンドウに出す。**複数ステップ**：`LLMPlanner`（言語モデルが、依頼を、切り出した文の並びに分ける。`RequestPlanning`：差し替え口）・`PlanValidator`（出力の検査：**言語モデルの出力を、型にする 1 か所**）・`PlanRunner`（分け方を受けて、ステップごとに `SkillRunner` を通す。最初の失敗で止まる）・`PreviousResult`（前の結果の囲み）。許可の照合・実行・整形は、`CommandSession` が共有、`FileSearch`（`vc find`：Spotlight とフォルダをたどる探し方）・`Picker`（`vc pick`：Tiny-Jev で候補から選ぶ）・`InternalCommands`（スキルの中の `vc find`・`vc pick`：`vc` 自身が処理する。直前の候補の記憶）・`RemoteSkills`（GitHub からスキルを取得）、`SkillInstaller`（取得したスキルを、グローバルへ置く）、`ResultNote`（`result: markdown-note` の保存）、`CommandPolicy`（許可の照合）、`CommandRunner`（許可済みのコマンドの実行。`ProcessRunner` の上）、`OutputCompactor`・`RefAliases`（出力の整形）、`SkillRouter`・`SkillResolver`・`DefaultSkill`（Tiny-Jev で選ぶ・既定スキル）、`AppleIntelligence`（言語モデルが使えるかと、使えない理由・直す手順）、`SkillRunner`（選ぶ → 確認 → 実行 → 結果の流れと、その判断。経過を `RunEvent` にして `RunReporter` へ送る）、`SkillExecuting`（実行者の口）・`SkillAgent`（その実装：言語モデルと `run_command`） | 表示・終了コード・声の読み上げ |
-| `VCSpeech` | **音声認識のアダプター**：差し込み口 `Transcribing` の実装 `FileTranscriber`（Apple の文字起こし）と `LocalTranscriber`（ダウンロードしたモデル。transcribe.cpp）、選ぶ口 `SpeechChoice`・`SpeechModelCatalog`（モデルの一覧。版・SHA-256 を固定）・`SpeechEngine`（選んだものを開き、**`GatedTranscriber` で包む**）、`ClipboardPaste`（`vc dictate`：前面のアプリへ、クリップボード＋⌘V で入力し、元のクリップボードへ戻す）、`SpeechPresence`（声があるか。無音・一定の雑音を認識に渡さない）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`（Esc の受け付け）、`VoiceLoop`（声の流れの**調整**：トリガー・録音・Esc・認識の待ち行列・発話ごとの `Task`。`VoiceActivity`・`VoiceInputQueue` は、その内部の状態と列）、差し替え口（`Transcribing`・`Recording`・`EscapeSource`）と出来事（`VoiceLoopEvent`）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断・スキル・画面の表示（`VoiceLoop` は、発話の処理を `UtteranceHandler` として外から受ける） |
+| `VCSpeech` | **音声認識のアダプター**：差し込み口 `Transcribing` の実装 `FileTranscriber`（Apple の文字起こし）と `LocalTranscriber`（ダウンロードしたモデル。transcribe.cpp）、選ぶ口 `SpeechChoice`・`SpeechModelCatalog`（モデルの一覧。版・SHA-256 を固定）・`SpeechEngine`（選んだものを開き、**`GatedTranscriber` で包む**）、`ClipboardPaste`（音声入力：前面のアプリへ、クリップボード＋⌘V で入力し、元のクリップボードへ戻す）、`SpeechPresence`（声があるか。無音・一定の雑音を認識に渡さない）、`MicRecorder`・`RecordingSession`、`HotKey`・`ModifierHold`・`HotKeySpec`（押している間だけ聞く入口と、その書き方）、`EscapeKey`（Esc の受け付け）、`VoiceLoop`（声の流れの**調整**：トリガー・録音・Esc・認識の待ち行列・発話ごとの `Task`。`VoiceActivity`・`VoiceInputQueue` は、その内部の状態と列）、差し替え口（`Transcribing`・`Recording`・`EscapeSource`）と出来事（`VoiceLoopEvent`）、`Settings+HotKey`（設定の書き方の解釈） | 操作の判断・スキル・画面の表示（`VoiceLoop` は、発話の処理を `UtteranceHandler` として外から受ける） |
 | `vc` | 引数の解釈（`Arguments`・`CommonOptions`）、コマンド（`Command`・`Commands.all`・`Commands/`）と、その共有物（`CommandContext`）、流れの組み立て（`Commands/Listen.swift` の `listen`：`--hotkey` では、`VoiceLoop` に、`SkillRunner`＋`HUDReporter` による発話の処理（`UtteranceHandler`）と、出来事の表示を渡す。Enter で録音する通常モードは、録音 → 文字起こし → `SkillRunner`＋`TerminalReporter`。`Commands/Run.swift` の `run`：引数の解釈と表示だけ）、スキルの実行の表示（`TerminalReporter`・`HUDReporter`。`SkillSupport.swift` の `LoadedSkills`：スキルを読み、問題を標準エラーへ出す）、ヘルプ（`Help.swift`）、表示の整形（`Output.swift`：色・表・見出し・エラー）、終了コード | 規則・判断（各ターゲットに置く）。Markdown のウィンドウ（`MarkdownRenderer`・`MarkdownWindow`・`DocumentWindow`＝別のプロセスで開く・`vc show`）と、パネルと共有する見た目（`HUDStyle`）、確認のボタンと声の競合（`ConfirmationRace`） |
 | `Fixture` | 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。製品の一部ではない | — |
 | `TestSupport`（`Tests/TestSupport/`。テスト専用） | 複数のテストターゲットが使う偽物：`OptionScorer` の偽物（`TargetScorer`・`OptionSpy`・`SkillScorer`）、集める道具（`Collected`・`plain`）。`VCDecision` に依存し、公開 API だけで作る。`@testable` が要る偽物は、そのテストターゲットに置く | 本番のターゲット・成果物（`vc`）には入らない。テストターゲットだけが依存する |
@@ -50,19 +50,18 @@ flowchart TB
 ### `vc` のコマンドの構造
 
 - **`Arguments`**（値型）：`CommandLine.arguments` の 2 番目以降を、起動のとき 1 回だけ読む。グローバルの状態はない。`option("--x")`（`--x` と次の 1 語を取り除いて、その語を返す）・`flag("--x")`（最初の 1 つを取り除く）は、取り除く形で、取り除いた順番が、残りの語（位置引数 `positionals`。コマンド名を除く）を変える。`--x=値` の形は扱わない。知らないオプションは取り除かず、位置引数になる。細部は、`Arguments` の doc コメントと `Tests/vcTests`。
-- **`CommonOptions`**：どのコマンドにも効く共通のオプション（`--model`・`--length`・`--floor`・`--yes`・`--hotkey`・`--trigger`・`--dry-run`）。起動の最初に、決まった順番で取り除く（引数の読み方のテストが、この順番を固定する）。
+- **`CommonOptions`**：どのコマンドにも効く共通のオプション（`--model`・`--length`・`--floor`・`--yes`・`--dry-run`）。起動の最初に、決まった順番で取り除く（引数の読み方のテストが、この順番を固定する）。
 - **`Command`**：`static let info`（名前・グループ・使い方・説明・オプション・例）と、`run(_:_:)`。`Commands.all`（`Command.swift`）が一覧で、`vc --help`・`vc <コマンド> --help` は、各コマンドの `info` から作る（並びも、この一覧の並び。`help` は、コマンドではなく、`Help` が、コマンドを探す前に処理する）。`Commands/` に、`skills`・`run`・`listen`・`hotkey`・`hotkey-check`・`hud-preview`・`doctor`・`model`・`eval-gate` の 9 つを置く。`main.swift` は、起動の流れだけ。
 - **`CommandContext`**：1 回の起動で共有するものを、1 つにまとめる。`CommonOptions`・ゲート（`--floor` を反映）、モデルの場所（`resolveModelDir`）・Tiny-Jev の読み込み（`loadJev`）・設定の読み取り（`currentSettings`。壊れていれば警告を 1 回だけ）・スキルの読み込み（`loadSkills`：読んだスキルと設定。有効なスキル・読めなかった理由の表示）・トリガーの解決（`resolveHotKey`）。`main.swift` が作って、コマンドへ渡す。終了（`fail`＝終了コード 1・`usageError`＝2）は、状態を持たない関数のまま、`Output.swift` に置く。
 
 ### スキルの実行の流れ（`SkillRunner`）
 
-「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・`vc listen`（Enter で録音する通常モード。端末）・声の流れ（`vc listen --hotkey`。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。
+「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・声の入力（メニューバーのアプリ）（Enter で録音する通常モード。端末）・声の流れ（声の入力（メニューバーのアプリ）。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。
 
 ```mermaid
 flowchart LR
     Run[vc run] --> R[SkillRunner]
-    Enter[vc listen<br/>Enter で録音] --> R
-    Listen[vc listen --hotkey] --> R
+    App[メニューバーのアプリ<br/>VoiceSession] --> R
     R -->|選ぶ| Res[SkillResolver<br/>Tiny-Jev・既定スキル]
     R -->|確認が要る| C[confirm<br/>呼び出し側のクロージャ]
     R -->|実行| E[SkillExecuting<br/>SkillAgent]
@@ -75,8 +74,21 @@ flowchart LR
 - **`RunEvent`**：`forced`・`matched`（選ばれた。確率）・`fellBack`（既定スキルへ回した。操作の依頼の確率・取り消しにくさ）・`declined`（実行しない。理由・既定スキルが使えるか）・`confirmRequired`（確認が要る。理由）・`confirmationDeclined`・`confirmed`・`started`・`command`・`result`・`denied`（拒否）・`reply`（返事・実行したコマンドの数・所要）・`failed`・`cancelled`。かかった時間は、出来事が持つ（表示の書式は、受け手が決める）。
 - **投げるものと、出来事にするもの**：実行者の失敗・取りやめは、`failed`・`cancelled` の出来事。スキルを選ぶ段の失敗と、`confirm` の失敗（声の確認の文字起こしの失敗など）は、`run` が投げる（呼び出し側が、従来どおり扱う）。
 - **2 つの表示の違いは、受け手の側に置く**（利用者に見える出力を変えないため）：`TerminalReporter` は、`vc run` では見出し（`▶ 実行`・`▶ 結果`）と説明を出し、実行者の失敗は標準エラーへ出す（終了コードは `vc run` が `RunOutcome` で決める。最初の見出し `▶ スキルの選択` は、モデルの読み込みの前に出すので、`Run.swift` が出す）。声の流れ（`--hotkey`）では、見出しなしで、失敗は標準出力へ出す。当てはまるスキルがなく、既定スキルも使えないときも、`→ 実行しない（理由）` を出す（ほかの流れへは回さない）。`HUDReporter` は、声の流れ用の `TerminalReporter` を内に持ち、各出来事で `HUDSession` を更新する（確認が要るときは、先に問いかけを読み上げる。実行しないときは、画面の上に、既定スキルが使えるなら「操作の依頼ではありませんでした」、使えないなら「どのスキルでもありません」を出す）。Enter で録音する通常モードは、`vc run` と同じ表示（`TerminalReporter` の `.command`）を使う。
-- **確認の問い合わせは、呼び出し側が持つ**：`vc run`・Enter で録音する `vc listen` は、端末で `[y/N]` を読む（`--yes` なら、聞かない。`askOnTerminal`）。`vc listen --hotkey` は、次の発話を待って、Tiny-Jev で「はい」かを判定する（`Confirmation`）。
+- **確認の問い合わせは、呼び出し側が持つ**：`vc run`・声の入力（メニューバーのアプリ） は、端末で `[y/N]` を読む（`--yes` なら、聞かない。`askOnTerminal`）。声の入力（メニューバーのアプリ） は、次の発話を待って、Tiny-Jev で「はい」かを判定する（`Confirmation`）。
 - 実行者は `SkillExecuting`（実装は `SkillAgent`＝Apple のモデルと、`ToolLoopAgent`＝ローカルのサーバーのモデル〔`ChatModel` のアダプター〕の 2 つ。どちらも `VCSkill` の内側の型で、`vc` は `SkillRunner` だけを呼ぶ）。`SkillRunner` のテストは、`@testable` で偽の実行者を渡し、偽の `OptionScorer`（`TestSupport` の `SkillScorer`）と合わせて、判断（一致・既定スキル・会話・確認・dry-run・取りやめ・失敗）を確かめる。表示との対応は、`Tests/vcTests/TerminalReporterTests.swift`・`HUDReporterTests.swift`。
+
+## アプリ・会話・設定の構成（`vc` と `VCSkill` の、新しい部分）
+
+メニューバーのアプリ（`VoiceControl.app`）・会話・設定ウィンドウが増えたので、**どこに何があるか**を、ここに書く（責務の表の補足）。
+
+### `vc/App/`（アプリ本体）
+- `AppRuntime`（起動・設定の反映・停止）→ `VoiceSession`（トリガー・Esc・録音・認識・発話の処理の 1 式。`stop()` が、キーの受け付けを**いますぐ**外す：`deinit` 任せにしない。設定を変えて作り直すとき、同じキーを登録し直すため）。`StatusMenu`（メニュー）・`AppActions`（メニューと設定が呼ぶ操作）・`CommandLineTool`（`/usr/local/bin/vc`）。
+- `Settings/`：`SettingsWindow`（枠とサイドバー）／`SettingsComponents`（カード・行・札・スイッチなどの部品）／ページごとに 1 ファイル（`SettingsGeneralPage`・`…KeysPage`・`…VoicePage`・`…ModelsPage`・`…SkillsPage`）／`SettingsModel`（設定ファイルの読み書き・反映の状態）／`SkillCatalog`（インストールできるスキルの一覧と、インストール。`SettingsModel` から分けた：状態が別）／`SettingsRules`（検査の規則：画面なしでテストできる）。
+
+### 会話（`vc` 側と `VCSkill/Chat/`）
+- `vc`：`ChatMode`（会話の状態の所有者：エージェント・道具の段階・フォルダ・`ChatConversation`）／`ChatVoice`（声の流れの 1 発話：パネル・ウィンドウ・読み上げ・確認）／`ChatWindow`（記録の状態と、ウィンドウの出し入れ）／`ChatView`（SwiftUI の見た目）／`SpokenText`（答えを、**声で読む文**にする：記号・コード・URL を除き、全文を塊にする）／`SaySpeaker`（読み上げ。**種類（`SpeechChannel`）つきで覚える**：会話のウィンドウは、会話の答えの読み上げだけに反応する。スキルの結果・確認の問いかけには、反応しない）。
+- `VCSkill/Chat/`（画面を持たない）：`ChatConversation`（要約つきの会話）・`ChatBackend`（答える側の口）→ `AppleChatBackend`（Apple のモデル＋道具）・`ExternalChatBackend`（外のエージェントの CLI）。`ChatAgent`・`ChatToolLevel`（段階）。**実行中の操作は型つき**（`ChatActivity`：種類＋中身。表示のアイコンと「何かを変えたか」の判定を、文字の先頭の読み取りでしない）。`AgentStream`（6 つの CLI の出力の読み取り。純粋）。
+- Apple の道具の部品：`AppleChatTools`（道具そのものと、指示の文）／`WebText`・`URLGuard`（検索結果・ページの文字の取り出しと、取ってよい URL）／`FolderReader`（作業フォルダの中だけ）／`CommandGate`（コマンドを、実行・確認・拒否に分ける）／`ToolUseGuard`（**道具を呼ばなかった答え**〔作り話〕を、返さない判断。状態遷移で書いた純粋な関数：モデルなしでテストできる）。
 
 ## 状態の所有
 
@@ -86,10 +98,10 @@ flowchart LR
 | スキルの有効・無効・信頼したプロジェクト | `Settings`（`~/.voice-control/settings.json`） | ファイル。`vc skills enable/disable/trust/untrust` だけが書く。有効・無効は既定が有効（無効だけを記録する）。信頼は既定が未信頼（信頼したものだけを記録する。読めないファイルは、信頼なしとして扱う） |
 | Tiny-Jev の重み・GPU のグラフ | `TinyJev`（`QwenDecision`） | プロセスの間。起動のたびに、数秒かけて読む |
 | 録音 | `RecordingSession` の一時ファイル | 文字起こしのあと、削除 |
-| 範囲選択の画面・画像のパネル | `ScreenSelector`（ディスプレイごとの全面のパネル・`SelectorView`・`ChromeView`。メインアクター。選び終わると、画像だけを返す）・`ScreenGeometry`（幾何：純粋な計算）・`ScreenGrab`（`ScreenCaptureKit` の静止画・ウィンドウの一覧）。`ImageWindow`・`ImageCard`（別のプロセス `vc preview`。`ImagePanel` が起こし、PNG を標準入力で渡す。起こし方は `DetachedChild`〔`DocumentWindow` と共通〕）。結果の見せ先（ウィンドウ・パネル）は `ResultPresenters` で、`HUDReporter`・`TerminalReporter` に差し込む。声のトリガーの組み立ては `VoiceTriggers`（手放しで包む・`ModeTrigger` にまとめる）・キーどうしの重なりの検査は `KeyConflicts`。手放しの録音（ちょっと押すと、黙るまで）：`HandsFreeTrigger`（キーのトリガーを包む。離しを遅らせるだけ：`VoiceLoop` は、知らない）・`TapHoldGesture`（ちょっと押す／押し続けるの見分け：純粋）・`SilenceEndpoint`（黙ったかの判定：純粋） | 画面ごとの静止画（選び終わると、解放）・前回の範囲（`vc listen` のプロセスの中だけ）。パネルの画像は、パネルのプロセスの中だけ |
-| いまのスクリーンショット | `ScreenshotStore`（`~/.voice-control/shot/current.png`）。置くのは、`ScreenCapture`（`vc`。`ScreenSelector` が選び、`ScreenGrab` が静止画を撮る）と、`vc image`（加工の結果で置き換える）。読むのは、`vc see`・`vc image` | 1 枚だけ・自分だけが読める・**180 秒で使えない**・`vc listen` の終了（シグナルを含む）で削除。`vc ocr` の画像は、読み取ったらすぐ削除。ログ・文書に残さない |
-| モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。`vc model download` が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
-| ホットキーの設定 | `~/.voice-control/settings.json` の `hotkey`（`Settings`）。`--trigger` が、その回だけ優先 | 利用者の設定。`vc hotkey` が書く |
+| 範囲選択の画面・画像のパネル | `ScreenSelector`（ディスプレイごとの全面のパネル・`SelectorView`・`ChromeView`。メインアクター。選び終わると、画像だけを返す）・`ScreenGeometry`（幾何：純粋な計算）・`ScreenGrab`（`ScreenCaptureKit` の静止画・ウィンドウの一覧）。`ImageWindow`・`ImageCard`（別のプロセス `vc preview`。`ImagePanel` が起こし、PNG を標準入力で渡す。起こし方は `DetachedChild`〔`DocumentWindow` と共通〕）。結果の見せ先（ウィンドウ・パネル）は `ResultPresenters` で、`HUDReporter`・`TerminalReporter` に差し込む。声のトリガーの組み立ては `VoiceTriggers`（手放しで包む・`ModeTrigger` にまとめる）・キーどうしの重なりの検査は `KeyConflicts`。手放しの録音（ちょっと押すと、黙るまで）：`HandsFreeTrigger`（キーのトリガーを包む。離しを遅らせるだけ：`VoiceLoop` は、知らない）・`TapHoldGesture`（ちょっと押す／押し続けるの見分け：純粋）・`SilenceEndpoint`（黙ったかの判定：純粋） | 画面ごとの静止画（選び終わると、解放）・前回の範囲（声の入力（メニューバーのアプリ） のプロセスの中だけ）。パネルの画像は、パネルのプロセスの中だけ |
+| いまのスクリーンショット | `ScreenshotStore`（`~/.voice-control/shot/current.png`）。置くのは、`ScreenCapture`（`vc`。`ScreenSelector` が選び、`ScreenGrab` が静止画を撮る）と、`vc image`（加工の結果で置き換える）。読むのは、`vc see`・`vc image` | 1 枚だけ・自分だけが読める・**180 秒で使えない**・声の入力（メニューバーのアプリ） の終了（シグナルを含む）で削除。`vc ocr` の画像は、読み取ったらすぐ削除。ログ・文書に残さない |
+| モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。設定ウィンドウ > モデル が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
+| ホットキーの設定 | `~/.voice-control/settings.json` の `hotkey`（`Settings`） | 利用者の設定。設定ウィンドウ > キー が書く |
 | 録音中・実行の経過・結果の表示 | `HUD`（`NSPanel`。1 つを使い回す。**窓の管理〔位置・フェード・Space・キー・クリックを通すか〕は AppKit、中身は SwiftUI**〔`HUDSwiftUI.swift`：Liquid Glass のカード。状態は参照型の `HUDModel`：この環境には SwiftUI の `@State` のマクロのプラグインがない〕。**トリガーのキー監視を入れる前に、`warmUp()` で 1 回出しておく**：先に監視を入れると、確認のボタンが、クリックを受けられない〔実測〕）と、中身を持つ `HUDSession`（更新はロックで守る）。声の流れでは、`HUDReporter` が、1 回の発話ごとに 1 つ持つ | プロセスの間だけ。クリックを通し、フォーカスを奪わない。聞こえた文・コマンド・出力の先頭 1 行・返事は、画面に出すだけで、保存しない |
 
 ## 時間と並行
@@ -99,7 +111,7 @@ flowchart LR
 - **外部コマンドの実行は、`ProcessRunner`（VCCore）が 1 か所で持つ**：シェルなし（`/usr/bin/env` で PATH から探す。見つからなければ env が 127 で終わる）・出力は別のスレッドで読み切りながら終了を待つ（パイプが詰まらない）・`timeout`（出力が終わるまでの秒数。超えたら `terminate`。`nil` は上限なし）・`CancelToken` で `terminate`（取りやめ済みなら起動しない）・`env` を起動できなければ終了コード 127。呼び出したスレッドは、終わるまで止まる。標準入力は、空（/dev/null）。上限と標準エラーの扱いは、呼び出し側が決める：`CommandRunner` は 30 秒・標準エラーをまとめる。
 - **テストが使う OS の機能は、CI の VM で動くか確かめる**：CI の macOS の VM には、GPU・Neural Engine がない。Vision の文字認識と HEIC の書き出しを使うテストは、VM で戻らず、**全部のテストが、37 分、止まった**（手元では、動く）。これらのテストは、`RunEnvironment.isCI` で、CI では動かさない（手元でだけ）。テストの手順にも、15 分の上限を付け、止まったときに、すぐ失敗にする。原因は、戻らない呼び出しが、テストの実行に使うスレッドを塞ぐこと（共有のスレッドの枯渇）と**推定**している（直接の証拠は、取っていない。動かさないことにして、CI は通った）。
 - **`ProcessRunner` の出力の読み取りは、専用のスレッド（`Thread.detachNewThread`）で行う**。GCD の共有のスレッドは使わない。CI は、全ターゲットのテストを 1 つのプロセスで並行に動かす。読み取りを GCD の共有のスレッドで行っていた版は、CI の単体テストで、`ProcessRunner` のテストが、出力が終わらず時間の上限に達して失敗した。専用のスレッドに変えたあと、CI は通った。原因は、呼び出し側が同じ共有のスレッドを塞いで、読む側が動けなくなったこと（共有のスレッドの枯渇）と**推定**している。**直接の証拠は、取っていない**。
-- **声の流れ（`vc listen --hotkey`）の調整は、`VoiceLoop`（VCSpeech）が 1 か所で持つ**：トリガー（押した・離した）・録音・Esc・認識の待ち行列（`VoiceInputQueue`）・状態（`VoiceActivity`）・発話ごとの `Task`。スキル・画面の表示は知らず、外から受ける：処理は `UtteranceHandler`（`(発話, CancelToken, 次の発話を待つ関数) async -> Void`）、表示は `VoiceLoopEvent`（録音中・取りやめ・認識中・聞こえた…）。実機でしか動かないもの（録音・文字起こし・Esc）は、口（`Recording`・`Transcribing`・`EscapeSource`。実装は `RecordingSession`・`FileTranscriber`・`EscapeKey`）で差し替えられ、トリガーは `PushToTalkTrigger`。偽物をつないだ単体テストが、下の不変条件と、Esc の場面（録音中・認識中・実行中・確認の待ち・古い取りやめの合図・たまった音声）を固定する（`Tests/VCSpeechTests/VoiceLoopTests.swift`）。`vc` 側は `Commands/Listen.swift`：`SkillRunner`＋`HUDReporter` による発話の処理を `UtteranceHandler` にして渡し、出来事を画面の上と端末に出す（当てはまるスキルがなく、既定スキルも使えないときは、実行せず、そう示す）。
+- **声の流れ（声の入力（メニューバーのアプリ））の調整は、`VoiceLoop`（VCSpeech）が 1 か所で持つ**：トリガー（押した・離した）・録音・Esc・認識の待ち行列（`VoiceInputQueue`）・状態（`VoiceActivity`）・発話ごとの `Task`。スキル・画面の表示は知らず、外から受ける：処理は `UtteranceHandler`（`(発話, CancelToken, 次の発話を待つ関数) async -> Void`）、表示は `VoiceLoopEvent`（録音中・取りやめ・認識中・聞こえた…）。実機でしか動かないもの（録音・文字起こし・Esc）は、口（`Recording`・`Transcribing`・`EscapeSource`。実装は `RecordingSession`・`FileTranscriber`・`EscapeKey`）で差し替えられ、トリガーは `PushToTalkTrigger`。偽物をつないだ単体テストが、下の不変条件と、Esc の場面（録音中・認識中・実行中・確認の待ち・古い取りやめの合図・たまった音声）を固定する（`Tests/VCSpeechTests/VoiceLoopTests.swift`）。`vc` 側は `Commands/Listen.swift`：`SkillRunner`＋`HUDReporter` による発話の処理を `UtteranceHandler` にして渡し、出来事を画面の上と端末に出す（当てはまるスキルがなく、既定スキルも使えないときは、実行せず、そう示す）。
 - **ホットキーのイベントは、メインスレッド**（`NSApplication.run()` のイベントループ）。録音の開始・停止だけをそこで行い、文字起こし・計画・実行は、メインアクターの別の `Task` で、1 つずつ処理する（`VoiceInputQueue` で受ける。1 つの発話の処理と、確認の返事の待ちは、同じ列を読む）。**処理中に新しい発話が来たら、実行中の処理を取りやめて（`CancelToken.supersede()`：理由は「新しい依頼」。表示は「取りやめました」を出さない）、新しい発話を、そのあとに処理する**。同時には動かない（前の処理が終わってから）。確認の返事を待っている間（`VoiceActivity` の `awaitingReply`）は、中断せず、返事として列から取り出す。
 - **`NSApplication.run()` の前に、`await` を挟まない**（実際に起きた不具合。不変条件 1）。`await` のあとの処理は、メインキューのブロックの中で動き、そこから `run()` を呼ぶと、`DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）が、一切動かない（長押しも、画面の表示も、無反応になる）。そのため、マイクの許可は同期（`MicRecorder.authorize()`）で、`run()` の前に済ませる。`VoiceLoop.run(onReady:)` は同期の関数で（`async` にするとテストがコンパイルできない）、配線 → 準備の表示 → `run()` の順を、1 か所で持つ。
 - **トリガーと Esc は、`run()` の間、手放さない**（不変条件 2）：`VoiceLoop` が持ち、`run()` を `withExtendedLifetime` で包む（最適化で、最後の使用のあとに解放され、ホットキーが死ぬのを防ぐ）。
@@ -137,14 +149,14 @@ flowchart LR
 | agent-desktop | 子プロセス。Swift のコードからは呼ばない。スキルの `allowed-commands`（既定スキルは `agent-desktop`・`open`・`say`・`ls`・`pwd`・`date`）で許可されたコマンドとして、言語モデルが `run_command` で呼ぶ（`snapshot`・`click`・`type` など） | アプリ一覧に壊れた記録があると、`snapshot`・`launch` などが TIMEOUT する（実測）。`launch` は使わない |
 | Apple FoundationModels | `LanguageModelSession`＋動的スキーマ（`DynamicGenerationSchema`）。`@Generable` は、マクロのプラグインが Command Line Tools に無く、使えない | 道具の呼び出しは、**英語の指示**のほうが確実（測定） |
 | Apple Speech | `SpeechTranscriber`（オンデバイス）。言語のモデルが未取得なら OS が取得（初回、Apple のサーバーから） | |
-| transcribe.cpp（`CTranscribe`） | ダウンロードした音声認識のモデル（Whisper）の推論。C++（ggml・Metal）の静的ライブラリ。固定した commit を `scripts/build-native.sh` でビルド。モデルの取得は、`VCCore` の `ModelStore`（SHA-256 検証・再開）。**開いたまま `exit` すると、ggml の後始末が abort する**ので、`SpeechEngine.close()` を、終わる前に呼ぶ（`vc listen` の終了・シグナル） | モデルのファイルが壊れていれば、開くときに失敗（使うときではなく）。取得していなければ、黙って Apple に切り替えず、止まる |
+| transcribe.cpp（`CTranscribe`） | ダウンロードした音声認識のモデル（Whisper）の推論。C++（ggml・Metal）の静的ライブラリ。固定した commit を `scripts/build-native.sh` でビルド。モデルの取得は、`VCCore` の `ModelStore`（SHA-256 検証・再開）。**開いたまま `exit` すると、ggml の後始末が abort する**ので、`SpeechEngine.close()` を、終わる前に呼ぶ（声の入力（メニューバーのアプリ） の終了・シグナル） | モデルのファイルが壊れていれば、開くときに失敗（使うときではなく）。取得していなければ、黙って Apple に切り替えず、止まる |
 | AppKit / Carbon | `RegisterEventHotKey`（修飾キー＋キー）、`NSEvent` のグローバルモニタ（修飾キーだけの長押し。アクセシビリティの許可が要る）、`NSPanel`（画面の上の表示） | 画面の表示には、許可が要らない |
-| Tiny-Jev のモデル | Hugging Face（`lostargon/Tiny-Jev`・版を固定）。`vc model download`（`URLSession`）が、SHA-256 を検証して取得する。**これが、取得時の唯一の外部通信** | ライセンスの条件は未確認 |
+| Tiny-Jev のモデル | Hugging Face（`lostargon/Tiny-Jev`・版を固定）。設定ウィンドウ > モデル（`URLSession`）が、SHA-256 を検証して取得する。**これが、取得時の唯一の外部通信** | ライセンスの条件は未確認 |
 
 ## 既知の構造上の負債
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。ファイルの分割・設定の失敗の扱い・ターゲットの分割と依存の向き・`vc` の薄型化・`SkillRunner`・`VoiceLoop`・`ProcessRunner`・名前の整理・並行性の監査・テストの置き場所で解消したものは、ここから消してある。残っているのは、次のとおり。
 
-- `ProcessRunner` に載せていない `Process` の呼び出しが、2 か所ある（意図した対象外。理由は、コードのコメント）：`SaySpeaker`（`say`）は、鳴り終わるまで待たず、取りやめで止める。`DetachedChild`（`vc show --wait`・`vc preview --wait` を別のプロセスで起こして、標準入力で本文・PNG を渡す。`DocumentWindow`・`ImagePanel` が使う）は、呼び出し元の終了後も、ウィンドウが残るので、待たない。いまの `ProcessRunner` に載せると、挙動が変わる。
+- `ProcessRunner` に載せていない `Process` の呼び出しが、残っている（意図した対象外。理由は、コードのコメント）：アプリの `AppActions`（終了後に、`sleep` してから、自分を開き直す `sh -c`）・`AppLaunch`（`open` でアプリを開く。終わりを待たない）。`DetachedChild`（`vc show --wait`・`vc preview --wait` を別のプロセスで起こして、標準入力で本文・PNG を渡す。`DocumentWindow`・`ImagePanel` が使う）は、呼び出し元の終了後も、ウィンドウが残るので、待たない。いまの `ProcessRunner` に載せると、挙動が変わる。
 - `Decision/` の 5 ファイルは、meeting-analyzer からの複製で、変えない決まり。`QwenDecision` は、自前のロックを持たず、`TinyJev` の `lock` が呼び出しを直列にする前提で動く（`QwenDecision` を使うのは `TinyJev` だけで、`internal`）。この前提は、複製の側では、型で守れない（直すなら、元の側で直して、複製し直す）。
 - Swift 6 の言語モードに上げられない（言語モードは Swift 5 のまま）。`-Xswiftc -strict-concurrency=complete` を付けた `swift build`（ローカルの Swift 6.4）で、診断が出るのは、`vc` の 4 か所（`confirm` クロージャを渡す `Commands/Run.swift`・`Commands/Listen.swift`〔2 か所〕の `sending`。`Command.swift` の `Commands.all`：`[any Command.Type]` が Sendable でない）と、`Fixture` の `main.swift`（`@MainActor` でない `Fixture` クラス〔`NSApplicationDelegate`〕が、主アクターの AppKit の API を使う。20 か所。検証用の部品で、直していない）。ライブラリの 4 ターゲットは 0 件。`swiftLanguageModes` を `[.v6]` にした作業コピーで、4 ターゲット（`Decision/` の複製を含む）と、そのテストは、ビルドできた（`vc`・`Fixture` は通らない。`vcTests` は、`vc` に依存するので、未確認）。通常のビルドの警告は、CI（Xcode 26.6・Swift 6.3.3）で 0。

@@ -32,11 +32,11 @@
 | 「Safari を開いて」 | アプリを開く | 自分で書く（[例](#自分のスキルを書く)） |
 | 上のどれでもない依頼 | 組み込みの `default` スキルが、基本のコマンドで実行する | `default` |
 
-- **音声入力だけ**：Shift を押している間だけ録音し、離すと、文字にして、**いま使っているアプリへ、そのまま入力**します（`vc dictate`。スキルは使いません）。
-- **声で頼む**：Shift を押している間だけ録音し、離すと実行します（`vc listen --hotkey`）。Esc で取りやめられます。
+- **音声入力だけ**：Shift を押している間だけ録音し、離すと、文字にして、**いま使っているアプリへ、そのまま入力**します（スキルは使いません）。
+- **声で頼む**：Shift を押している間だけ録音し、離すと実行します。Esc で取りやめられます。
 - **文で頼む**：`vc run "次の曲にして"`。何をするかだけ見たいときは `--dry-run`。
-- **音声認識を替えられる**：既定は Apple のオンデバイスの認識。雑音が軽いとき・英字の語に強い Whisper を、ダウンロードして使えます（`vc model download whisper-large-v3-turbo`、`vc stt set …`）。どちらも、音声は Mac の外へ出ません。
-- **モデルを替えられる**：既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などに替えられます（`--engine`。任意）。
+- **音声認識を替えられる**：既定は Apple のオンデバイスの認識。雑音が軽いとき・英字の語に強い Whisper を、ダウンロードして使えます（設定 > モデル）。どちらも、音声は Mac の外へ出ません。
+- **モデルを替えられる**：既定は Apple のオンデバイスのモデル。複雑な指示は、この Mac の Ollama・LM Studio などに替えられます（設定 > モデル > エンジン。`--engine`。任意）。
 
 ## 画面のイメージ
 
@@ -107,105 +107,81 @@ flowchart LR
 **1. 必要なものをそろえる**
 
 - macOS 26 以降・Apple silicon の Mac。
-- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。スキルの実行に Ollama などのモデルを使う（`vc engine set`）なら、要りません。
+- Apple Intelligence を**オン**にしておく（システム設定 > Apple Intelligence と Siri。オンにすると、言語モデルのダウンロードが始まります）。スキルの実行に Ollama などのモデルを使うなら、要りません（設定ウィンドウ > モデル > エンジン）。
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。
-- アクセシビリティ・マイクの許可（`vc doctor` が、足りないものを教えます）。
 
-**2. インストールする**（ビルドは要りません）
+**2. アプリを入れる**（ビルドは要りません）
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/takemo101/voice-control/main/install.sh | bash
-```
-
-最新の [Release](https://github.com/takemo101/voice-control/releases) を取得して SHA-256 を照合し、`vc` を `~/.local/bin` に置き、Tiny-Jev のモデル（約 1.2 GB）を取得して、環境を確かめます。
+1. 最新の [Release](https://github.com/takemo101/voice-control/releases) の **dmg** を開いて、`VoiceControl.app` を「アプリケーション」へドラッグします。
+2. 署名は ad-hoc（Developer ID の署名・公証なし）です。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine /Applications/VoiceControl.app`。
+3. `VoiceControl.app` を開くと、**メニューバーにマイクのアイコン**が出ます（Dock には出ません）。初回は、**設定… > モデル** で Tiny-Jev（約 1.2 GB。SHA-256 を検証）を取得します。
+4. **マイク・アクセシビリティの許可は、アプリ自身（voice-control）に付きます**。ターミナルアプリには、よりません（CLI の `vc` だと、動かしている端末アプリの許可が要り、別の端末・ヘルパー経由では下りないことがありました）。
 
 **3. 試す**
 
+メニューバーのアイコン > **設定…** で、キー・音声・モデル・スキルを決めます（変えた設定は、すぐ保存され、声の入力へ、**再起動なしで、すぐ反映されます**）。**Shift を単独で 0.35 秒以上押し続けている間だけ**録音し、離すと、実行します。
+
+**スキルは、設定 > スキル > 「スキルをインストール」からも入れられます**（一覧に、許可するコマンドと、外へ送るかが出ます。入れ済みは「更新」）。
+
+ターミナルから `vc`（スキルが使うコマンド）を使うなら、設定 > 一般 の「コマンド vc」を**インストール**します（`/usr/local/bin/vc` → アプリの実行ファイル。管理者のパスワードを求められることがあります）。
+
 ```sh
-vc doctor                                        # 必要なものが、そろっているか
+vc doctor                                        # 必要なものが、そろっているか（アプリ自身の許可の状態は、メニューの「診断を見る」）
 vc skills install spotify clipboard-note file-search   # スキルを入れる（名前なしで、一覧）
 vc skills install --all                                  # リポジトリの、すべてのスキルを入れる
 vc run "次の曲にして" --dry-run                  # 何を実行しようとするか、だけ見る
-vc listen --hotkey                               # 声で頼む（Shift を押している間だけ録音）
 ```
-
-詳しい必要なもの・インストールの別の方法は、下の折りたたみにあります。
 
 <details>
 <summary>必要なもの（詳しく）</summary>
 
 - macOS 26 以降・Apple silicon。ソースからビルドするときは、Swift 6.2 以降（Xcode または Command Line Tools）。
-- [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（`agent-desktop permissions`）。
-- Apple Intelligence（FoundationModels）が使える Mac。**オンにしておく**：システム設定 > Apple Intelligence と Siri（オンにすると、言語モデルのダウンロードが始まる）。オフ・準備中・非対応のとき、`vc run`・`vc listen` は、理由と手順を示して終わる。
-- Tiny-Jev 0.6B のモデル（約 1.2 GB。`vc model download` で `~/.voice-control/models/` に取得）。
-- 任意：[just](https://github.com/casey/just)（開発用）・Ollama などのローカルのモデルのサーバー（`--engine` を使うとき）。
+- [agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`）。アクセシビリティの許可が要る（アプリ自身に付く）。
+- Apple Intelligence（FoundationModels）が使える Mac。**オンにしておく**：システム設定 > Apple Intelligence と Siri（オンにすると、言語モデルのダウンロードが始まる）。オフ・準備中・非対応のとき、アプリは、理由と手順をダイアログで出します（`vc doctor` でも確かめられます）。
+- Tiny-Jev 0.6B のモデル（約 1.2 GB。設定 > モデル で `~/.voice-control/models/` に取得）。
+- 任意：[just](https://github.com/casey/just)（開発用）・Ollama などのローカルのモデルのサーバー（設定 > モデル > エンジンで使うとき）。
 
 </details>
 
 <details>
-<summary>インストールの詳細（オプション・手で入れる・ソースから・取り除く）</summary>
-
-**インストールスクリプトがすること**：Release の tar.gz を取得して SHA-256 を照合し、`vc` を `~/.local/bin` へ置き、Tiny-Jev のモデルを取得し、`vc doctor` で環境を確かめる（[install.sh](install.sh)。中身は短いので、実行前に読める）。設定・スキル・許可には触れない。
-
-- オプション：`--no-model`（モデルを取得しない）・`--version <版>`・`--bin-dir <場所>`。例：`curl -fsSL …/install.sh | bash -s -- --no-model`
-- `~/.local/bin` が PATH にないときは、そう知らせる。
-
-**手で入れる**（[v0.4.6](https://github.com/takemo101/voice-control/releases/tag/v0.4.6) の例）：
-
-```sh
-V=0.4.6
-curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz
-curl -fsSLO https://github.com/takemo101/voice-control/releases/download/v$V/vc-$V-macos-arm64.tar.gz.sha256
-shasum -a 256 -c vc-$V-macos-arm64.tar.gz.sha256      # SHA-256 を照合
-tar -xzf vc-$V-macos-arm64.tar.gz
-mkdir -p ~/.local/bin && install -m 755 vc-$V-macos-arm64/vc ~/.local/bin/vc   # ~/.local/bin を PATH に入れておく
-vc model download     # Tiny-Jev を取得（SHA-256 を検証。途中からの再開ができる）
-vc --help
-```
-
-署名は ad-hoc（Developer ID の署名・公証なし）。ブラウザでダウンロードして Gatekeeper に止められたら、`xattr -dr com.apple.quarantine ~/.local/bin/vc`。上の `curl` なら、止められない。
+<summary>インストールの詳細（ソースから・取り除く・許可のやり直し）</summary>
 
 **ソースから入れる**（リポジトリを clone して。Swift 6.2 以降が要る）：
 
 ```sh
-just install          # vc を ~/.local/bin へ入れる（初回は、音声認識の実行環境 transcribe.cpp のビルドで、数分かかる。git・cmake が要る〔cmake がなければ、自動で入れる〕）
-vc model download
+just install          # アプリを ~/Applications へ入れて、起動する（コマンド vc は ~/.local/bin へリンク。初回は、音声認識の実行環境 transcribe.cpp のビルドで、数分かかる。git・cmake が要る〔cmake がなければ、自動で入れる〕）
 just test             # 単体テスト
+just dmg              # 配布用の dmg を dist/ に作って、検査する
 ```
 
 配布物の作り方：[開発手順](docs/development.md#リリース)。
 
-**取り除く**：`rm ~/.local/bin/vc`（モデル・設定・スキルは `~/.voice-control` に残る）。
+**取り除く**：`just uninstall`（アプリ・コマンドのリンク・許可を取り除く。モデル・設定・スキルは `~/.voice-control` に残る）。手で入れたなら、`VoiceControl.app` を捨てる。メニュー・設定でコマンド vc を入れていたら、先に外す。
+
+**許可が効かないとき**：設定ではオンなのに「許可されていません」と出るなら、`just reset-permissions`（このアプリの許可だけを取り消す。次の起動で、確認が出る）。**以前の tar.gz 版を入れていた**なら、`~/.local/bin/vc`（リンクではない古い実行ファイル）を消してください（PATH で先に当たると、古いものが動きます）。
 
 </details>
 
 ## 使い方
 
-### 音声入力だけ（`vc dictate`）
+### 音声入力だけ
 
 しゃべった言葉を、**そのまま文字にして、いま使っているアプリへ入力**します（メモ・メール・ブラウザの入力欄など）。スキルも言語モデルも使わないので、起動が速く、すぐ使えます。
 
-```sh
-vc dictate                                    # Shift を押している間だけ録音 → 離すと入力
-vc dictate --stt whisper-large-v3-turbo       # 認識を Whisper にする
-vc dictate --dry-run                          # 入力せずに、認識した文字を、パネルに出すだけ（確認用）
-```
+設定 > キー の「音声入力」に、キー（例：`rshift`）を決めると、**そのキーを押している間だけ録音 → 離すと入力**します（Shift の長押し＝声で頼む、は、そのまま。キーによって切り替わります）。認識の替え方・「入力せずに確認」は、設定 > モデル > 音声認識。
 
 - 入力は、**クリップボードに書いて ⌘V を送り、貼り付け先が文字を読んだのを確かめてから、元のクリップボードへ戻す**方式です。戻す前に、あなたが別のものをコピーしていたら、戻しません（上書きしません）。クリップボードの履歴アプリには、記録されない印をつけます。
 - **読まれなかったとき**（入力欄がない・セキュア入力・アプリの不調）は、⌘V を一度だけ送り直し、それでもだめなら、「入力できませんでした」と出して、**文字をクリップボードに残します**（⌘V で、手で貼れます）。成功に見せかけません。
 - 録音中は波形が動き、離すと「認識中…」、入力したら「入力しました」と出ます。Esc で取りやめます。
 - アクセシビリティの許可（トリガーの検出と ⌘V の送信）とマイクの許可が要ります。
 - 入力した文字は、画面の上のパネルにだけ出します（ファイル・ログ・端末には残しません）。声のない録音は、入力しません。
-- **つなぎ言葉（「えーと」「あのー」「um」など）を、消せます**（既定は off。辞書にある語を、文字列の一致で消すだけで、言語モデルは使いません）。`vc fillers on`。辞書は、`vc fillers add あのさ`・`vc fillers remove えー` で足し引きします（`vc fillers` で一覧）。**声でも足せます**：`vc skills install filler-add` →「『あのさ』をつなぎ言葉に追加して」。声で頼む依頼文には、かけません。詳しくは [docs/skills.md](docs/skills.md#つなぎ言葉を消す辞書vc-fillers音声でも足すfiller-add)。
+- **つなぎ言葉（「えーと」「あのー」「um」など）を、消せます**（既定は off。辞書にある語を、文字列の一致で消すだけで、言語モデルは使いません）。設定 > 音声 の「つなぎ言葉を消す」。辞書は、設定 > 音声 で足し引きします（設定ウィンドウ > 音声 で一覧）。**声でも足せます**：`vc skills install filler-add` →「『あのさ』をつなぎ言葉に追加して」。声で頼む依頼文には、かけません。詳しくは [docs/skills.md](docs/skills.md#つなぎ言葉を消す辞書vc-fillers音声でも足すfiller-add)。
   - **既定の辞書（19 語）**：日本語は「えーっと」「ええっと」「えーと」「えっと」「ええと」「あのー」「あのう」「そのー」「うーんと」「うーん」「んー」「えー」、英語は `uh`・`um`・`uhm`・`umm`・`uhh`・`hmm`・`erm`。「あの」「その」「まあ」は、ふつうの語でもあるので、入れていません。
-  - 設定に辞書がなければ、この既定を使います。`vc fillers add` で 1 語足すと、**既定の語も含めた辞書の全体**が `settings.json` に保存されます（あとで既定が変わっても、反映されません。`vc fillers reset` で、既定に戻します。足した語は消えます）。
+  - 設定に辞書がなければ、この既定を使います。設定 > 音声 の辞書を編集して保存すると、**その全体**が `settings.json` に保存されます（あとで既定が変わっても、反映されません。設定ウィンドウ > 音声 で、既定に戻します。足した語は消えます）。
 
 ### キーの決め方（右側のキーだけにもできます）
 
-```sh
-vc hotkey set rcmd              # 右 Command の長押しだけ（左 Command では、反応しない）
-vc hotkey set-dictate rshift    # 右 Shift の長押し＝音声入力
-```
+設定ウィンドウ > キー で、4 つのキー（声で頼む・音声入力・会話・画面撮影）を決めます。入力欄に書いて「適用」（Enter）か、「候補」から選びます。書き方と重なりは、その場で検査されます。
 
 | 書き方 | 反応するキー |
 |---|---|
@@ -215,33 +191,26 @@ vc hotkey set-dictate rshift    # 右 Shift の長押し＝音声入力
 
 - 普段の入力で使わない右側のキーにすると、誤作動が減ります。
 - `shift` と `rshift` のように、同じキーに反応しうる 2 つは、声で頼むキーと音声入力のキーに、同時に設定できません（エラーになります）。
-- 確かめる：`vc hotkey-check`（押して、離すと、画面に出ます）。
+- 確かめる：`vc hotkey-check`（開発用。押して、離すと、画面に出ます）。
 
 ### キーで、声で頼む／音声入力を切り替える
 
-別のキーを決めると、**1 つの `vc listen --hotkey` で、キーによって切り替わります**。
-
-```sh
-vc hotkey set-dictate ctrl      # Ctrl の長押し＝音声入力（Shift の長押し＝声で頼む、は、そのまま）
-vc listen --hotkey              # 起動したまま、キーで使い分ける
-```
+別のキーを決めると、**1 つのアプリで、キーによって切り替わります**。
 
 | 押すキー | 起きること |
 |---|---|
-| Shift の長押し（既定。`vc hotkey set` で変更） | 声で頼む：スキルを選んで実行する |
-| Ctrl の長押し（`vc hotkey set-dictate` で決める） | 音声入力：文字にして、前面のアプリへ入力する（スキルは使わない） |
+| Shift の長押し（既定。設定 > キー で変更） | 声で頼む：スキルを選んで実行する |
+| Ctrl の長押し（設定 > キー の「音声入力」で決める） | 音声入力：文字にして、前面のアプリへ入力する（スキルは使わない） |
 
 - 押しているキーで、パネルの表示も変わります（音声入力は「離すと、文字にして入力します」）。
 - 録音中は、もう一方のキーは無視します。確認の返事（「はい」）は、どちらのキーで話しても、返事になります。
-- 音声入力のキーを外す：`vc hotkey reset-dictate`。そのときだけ：`vc listen --hotkey --dictate-trigger ctrl`。
+- 音声入力のキーを外す：設定 > キー の「音声入力」を空にして適用。
 
 ### 声で頼む
 
-```sh
-vc listen --hotkey
-```
+アプリを起動すると、すぐ使えます（メニューバーのマイクのアイコンが「聞いています」）。
 
-- **Shift を押している間だけ**録音します（0.35 秒以上、Shift だけを押し続けたとき。変更：`vc hotkey set ctrl+opt+space`）。離すと、文字にして、実行します。
+- **Shift を押している間だけ**録音します（0.35 秒以上、Shift だけを押し続けたとき。変更：設定 > キー）。離すと、文字にして、実行します。
 - **実行中に、新しく話すと、前の処理を中断して、新しい依頼を実行します**（確認の返事を待っている間は、中断せず、返事として扱います）。
 - **Esc で取りやめ**：録音中は録音を捨て、認識中・実行中・確認の待ちは、処理を止めます。録音中（Shift を押している間）の Esc には、アクセシビリティの許可が要ります。
 - **確認が出たら**、次のどれかで答えます（先に答えたほうが決まります）。
@@ -282,14 +251,7 @@ $ vc run テスト
 
 ### 音声認識を替える（Whisper）
 
-既定は Apple のオンデバイスの認識です。**Whisper large-v3-turbo**（約 0.9 GB・MIT）をダウンロードして、替えられます。
-
-```sh
-vc model list                                  # 取得できるモデル
-vc model download whisper-large-v3-turbo       # 取得（SHA-256 を検証。途中から再開できる）
-vc stt set whisper-large-v3-turbo              # 常にこれを使う（戻す：vc stt reset）
-vc listen --hotkey --stt whisper-large-v3-turbo   # その実行だけ替える
-```
+既定は Apple のオンデバイスの認識です。**Whisper large-v3-turbo**（約 0.9 GB・MIT）をダウンロードして、替えられます。設定 > モデル の「モデルの取得」で「取得」（SHA-256 を検証。途中から再開できる）→ 「使う音声認識」で選びます。
 
 - 自作の合成音声 480 件での測定では、Whisper は、**雑音が軽いとき・英字の語**（Safari・PDF）で、Apple より誤りが少なく（全体の文字誤り率 6.9% 対 8.6%）、1 件の認識に 0.5 秒ほどかかります（Apple は 0.06 秒）。**実際の声での比較は、していません**。[検証記録](docs/verification.md)
 - どちらの認識でも、**声のない録音（無音・一定の雑音）は、認識に渡しません**（認識が「はい」などの文を作るため）。
@@ -297,24 +259,23 @@ vc listen --hotkey --stt whisper-large-v3-turbo   # その実行だけ替える
 
 ### 使うモデルと、録音中の音を、設定する
 
-起動のたびに指定しなくても、**設定に保存して、常にそうする**ことができます（`~/.voice-control/settings.json`）。
+**設定ウィンドウ**（メニューバーのアイコン > 設定…。`~/.voice-control/settings.json` を読み書きします）で、常にそうする設定ができます。
 
-| 決めること | 設定 | その実行だけ替える |
-|---|---|---|
-| 音声入力（音声認識） | `vc stt set whisper-large-v3-turbo`（既定：`apple`） | `--stt` |
-| 分析・実行のモデル（言語モデル） | `vc engine set ollama:qwen3.5:4b`（既定：`apple`） | `--engine` |
-| 1 つの依頼を、複数のステップに分けるか | `vc plan on`（分ける。既定）／`vc plan off` | `vc run` の `--no-plan` |
-| 音声入力で、つなぎ言葉を消すか・辞書 | `vc fillers on`（既定：off）・`vc fillers add <語>` | なし（常に設定） |
-| 録音中に、ほかの音を消すか | `vc mute on`（消す。既定）／`vc mute off`（流したまま） | `--mute`・`--no-mute` |
+| 決めること | 場所 |
+|---|---|
+| キー（声で頼む・音声入力・会話・画面撮影）・手放し（ダブルタップ） | キー |
+| 録音中に、ほかの音を消すか・録音中の文字・聞き取りの確認・読み上げと声・つなぎ言葉の辞書 | 音声 |
+| 会話のエージェント・道具（なし・Web・＋読む・すべて）・作業フォルダ・会話のリセット | 会話 |
+| 分析・実行のモデル（Apple・Ollama・OpenAI 互換）・複数ステップ・音声認識・モデルの取得 | モデル |
+| スキルの有効・無効・インストール | スキル |
+| 許可の状態・ログイン時に起動・コマンド vc・診断 | 一般 |
 
-`vc stt`・`vc engine`・`vc plan`・`vc mute`・`vc fillers` だけを実行すると、いまの設定が分かります。`vc listen` の起動時にも、使っているものが表示されます。
+その実行だけ替えるなら、`vc run` の `--engine`・`--stt`・`--no-plan`。
+**変えた設定は、再起動なしで、すぐ反映されます**（声の流れを作り直します。録音中・認識中・実行中なら、終わってから。反映できなかったときだけ、「もう一度」「再起動」が出ます）。
 
 ### スクリーンショットに声で頼む／文字起こし
 
-```sh
-vc hotkey set-shot ctrl+opt+s   # 範囲を選んで撮る（そのあと声で頼む／パネルで文字起こし）
-vc listen --hotkey              # この中で、ショートカットが動く
-```
+設定 > キー の「画面撮影」に、`ctrl+opt+s` のような組み合わせを決めます（範囲を選んで撮る。そのあと声で頼む／パネルで文字起こし）。
 
 `ctrl+opt+s` → 画面が静止して暗くなる → **ドラッグで範囲**（⇧ 正方形・⌥ 中心から）・**ウィンドウをクリック**・↩ 全画面・Z 拡大鏡（色のコピー）。大きさが「1000 × 300」のように出ます。撮れると、画像のパネル（画像・パスのコピー）が出て、「続けて、声で頼んでください」と案内が出ます。**声のトリガー（Shift の長押しなど）を押して**、3 分以内に頼みます（**ダブルタップ**なら、話し終わるまで聞きます：手放し）。「**この画像の文字を書き出して**」「これは何？」「**右半分を切り抜いて**」「横幅を 800 に」「JPEG に変換して」。答えは、ウィンドウに出ます（切り抜きなどは、`~/Pictures/voice-control` に保存）。`ctrl+opt+t` は、範囲の文字だけを、そのままウィンドウに出します（macOS の文字認識。言語モデルを通しません）。**画像は、Mac の中のモデルだけ**に渡ります（Apple のモデル、または画像対応の Ollama）。画面収録の許可が要ります（`vc doctor`）。詳しくは [スキル](docs/skills.md#画像に声で頼むimage-askimage-edit任意)。
 
@@ -358,7 +319,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 - **スキルの置き場所**：グローバル（`~/.voice-control/skills/<name>/SKILL.md`）と、プロジェクト（`<vc を起動した場所>/.voice-control/skills/<name>/SKILL.md`）。同じ名前なら、プロジェクトが上書きします。外から来るリポジトリのスキルは、許可したコマンドを実行できるので、**`vc skills trust` したプロジェクトだけ**読み込みます（既定は未信頼）。[詳細](docs/skills.md#置き場所)
 - **既定スキル**：どのスキルにも当てはまらない依頼は、組み込みの `default` スキルが、`agent-desktop` と基本のコマンド（`open`・`say`・`ls`・`pwd`・`date`）で実行します。会話・独り言は実行せず、取り消しにくい依頼（削除・送信・購入など）は確認します。使わないなら `vc skills disable default`。[詳細](docs/skills.md#既定スキルdefault)
-- **1 つの依頼で、複数のスキルを順に実行できます**（マルチステップ）：「Claude で Rust の所有権を調べて、そのあと Spotify で次の曲にして」。**言語モデルが、依頼を、実行する順のステップに分け**、ステップごとに、いつもの流れ（Tiny-Jev が選ぶ → 確認 → 実行）で実行します。許可と確認は、ステップごとです。最初の失敗で止まります（済んだ分は、元に戻しません）。前のステップの結果は、**受け取ると宣言したスキル**（`accepts-previous: true`。いまは `web-search`）にだけ、信頼しないデータとして渡します（「今の曲を教えて、それをウィキペディアで検索して」）。止めるには `vc plan off`。[詳しく](docs/skills.md#複数のステップの依頼マルチステップ)
+- **1 つの依頼で、複数のスキルを順に実行できます**（マルチステップ）：「Claude で Rust の所有権を調べて、そのあと Spotify で次の曲にして」。**言語モデルが、依頼を、実行する順のステップに分け**、ステップごとに、いつもの流れ（Tiny-Jev が選ぶ → 確認 → 実行）で実行します。許可と確認は、ステップごとです。最初の失敗で止まります（済んだ分は、元に戻しません）。前のステップの結果は、**受け取ると宣言したスキル**（`accepts-previous: true`。いまは `web-search`）にだけ、信頼しないデータとして渡します（「今の曲を教えて、それをウィキペディアで検索して」）。止めるには 設定 > モデル の「複数のステップ」をオフ。[詳しく](docs/skills.md#複数のステップの依頼マルチステップ)
 - **結果を Markdown で見せる**：スキルのフロントマターに `result: markdown-window`（整形したウィンドウ）・`result: markdown-note`（ファイル）。[詳細](docs/skills.md#markdown-のウィンドウvc-showresult-markdown-window)
 - **モデルを替える**（任意）：`--engine ollama:qwen3.5:4b`（Ollama）・`--engine openai:<モデル>@<ポート>`（LM Studio・llama.cpp など、OpenAI 互換）。通信先は、この Mac の 127.0.0.1 だけで、クラウドのモデルは使えません。許可の照合・上限・確認は、モデルに関わらず同じです。確認：`vc doctor --engine …`。[詳細](docs/skills.md#実行するモデルを替えるローカルのサーバー任意)
 
@@ -366,50 +327,21 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 ヘルプ：`vc --help`（一覧・共通のオプション・環境変数）、`vc <コマンド> --help`（使い方・オプション・例）。出力は、端末なら色つき（`NO_COLOR=1` で無効）。
 
-**実行する**
+**vc（CLI）は、スキルが使うコマンドと診断だけです**。**声の入力・設定は、メニューバーのアプリ**（`VoiceControl.app`）にあります。アプリの中の実行ファイルが `vc` と同じものなので、アプリを入れると、コマンドも使えます（設定 > 一般 の「コマンド vc」）。引数なしで `vc` を動かすと、アプリを起動します。
 
 | コマンド | 内容 |
 |---|---|
 | `vc run "<依頼>" [--skill <name>] [--dry-run] [--yes]` | スキルを選び、実行する |
-| `vc dictate [--trigger <キー>] [--stt …] [--dry-run]` | **音声入力だけ**：押している間だけ録音し、文字にして、前面のアプリへ入力する（⌘V。クリップボードは、あとで戻す）。スキル・言語モデルは使わない |
-| `vc listen [--hotkey] [--trigger <キー>] [--dry-run] [--yes]` | マイクから聞いて、スキルで実行する（既定：Enter で録音。`--hotkey`：押している間だけ録音。[声の入力](docs/skills.md#声の入力vc-listen)） |
-| `vc preview <画像>` | 画像を、パネルに表示する（画像・パスのコピー・Finder で表示）。撮ったあと・`image-edit` の結果は、自動で出る |
-| `vc shot` | 範囲を選んでスクリーンショットを撮る（画像のパネルが出る。そのあと声で頼むか、パネルの「文字起こし」） |
-| `vc show [--file <パス>] [--text <Markdown>] [--title <題名>] [--wait]` | Markdown を整形して、一時的なウィンドウに表示する（`pbpaste \| vc show`）。選択して ⌘C・コピーのボタン・Esc で閉じる |
+| `vc show [--file <パス>] [--text <Markdown>] [--title <題名>] [--wait]` | Markdown を整形して、一時的なウィンドウに表示する（コピーもできる）。スキルのスクリプトが使う |
+| `vc preview <画像>` | 画像を、パネルに表示する（画像・パスのコピー・Finder で表示） |
+| `vc find [--name …] [--in …] [--ext …] [--since …]` | ファイルを探す（Spotlight。読み取りだけ） |
+| `vc pick --query … --option …` | 短い候補の中から、依頼に合うものを、Tiny-Jev で選ぶ（確信できたときだけ） |
+| `vc skills [list]` / `show <name>` / `enable` / `disable` / `install` / `trust` / `untrust` | スキルの一覧・詳細・有効／無効・GitHub のスキル（`takemo101/voice-control`）のインストール・プロジェクトのスキルの信頼 |
+| `vc doctor [--engine …]` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめる |
 
-`vc run`・`vc listen`・`vc doctor` の共通：`--engine <エンジン>`（スキルを実行するモデル。下の「モデルを替える」）。
+`vc run`・`vc doctor` の共通：`--engine <エンジン>`（スキルを実行するモデル。下の「モデルを替える」）・`--stt <音声認識>`（`vc transcribe`）。
 
-**スキルを管理する**
-
-| コマンド | 内容 |
-|---|---|
-| `vc skills [list]` | スキルの一覧（name・置き場所・description・有効／無効） |
-| `vc skills show <name>` | 許可するコマンド・確認の要否・置き場所・場所 |
-| `vc skills enable <name>` / `disable <name>` | Tiny-Jev の選択肢にするか（既定は有効） |
-| `vc find [--name …] [--in …] [--ext …] [--since …]` | ファイルを探す（Spotlight。読み取りだけ）。スキル `file-search` が、`vc pick` と組み合わせて、探して開く |
-| `vc pick --query … --option …` | 短い候補の中から、依頼に合うものを、Tiny-Jev で選ぶ（確信できたときだけ選ぶ。標準入力の行も可） |
-| `vc skills install [<name>…\|--all] [--force] [--ref <版>]` | GitHub のスキル（`takemo101/voice-control`）を、グローバル（`~/.voice-control/skills`）へ入れる（名前なしは一覧。`--all` は、すべて：発話を外へ送るスキルを入れたら、注意が出る）。リポジトリは、手元になくてよい |
-| `vc skills trust` / `untrust` | このプロジェクト（`vc` を起動した場所）の `.voice-control/skills` を、読み込んでよいか |
-
-**設定・診断**
-
-| コマンド | 内容 |
-|---|---|
-| `vc doctor [--engine …]` | 動かすのに必要なもの（Apple Intelligence・Tiny-Jev・agent-desktop・許可・設定ファイル）が、そろっているかを確かめ、使えないものは直す手順を示す（必須が使えなければ、終了コード 1） |
-| `vc model [list\|status\|download\|path\|delete] [<ID>]` | モデルの一覧・確認・取得・削除（`~/.voice-control/models`）。Tiny-Jev（ID を省くと、これ）と、音声認識のモデル（`whisper-large-v3-turbo`） |
-| `vc stt [show\|set <apple\|ID>\|reset]` | 使う音声認識の確認・変更（既定：Apple。取得していないモデルは、選べない） |
-| `vc engine [show\|set <エンジン>\|reset]` | スキルを実行するモデル（分析・実行の言語モデル）を、常にこれにする（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`） |
-| `vc fillers [show\|on\|off\|add\|remove\|reset]` | 音声入力で消す、つなぎ言葉（えーと・um など）の辞書の確認・足し引き・オン／オフ（既定は off） |
-| `vc plan [show\|on\|off\|reset]` | 1 つの依頼を、複数のステップに分けて実行するか（既定 on。分け方は言語モデルが決める） |
-| `vc caption [show\|on\|off\|reset]` | 録音中に、聞こえている文字を、上のパネルに出すか（既定 on。実験） |
-| `vc chat-agent [show\|set <名前>\|reset]` | 会話に使うエージェント（既定 apple＝この Mac の中。agy・claude・codex・grok・opencode・pi を選ぶと、**会話の発話が提供元へ送られる**。実験） |
-| `vc chat` / `vc hotkey set-chat <キー>` | 会話（スキルを選ばず、質問を重ねる。古いやり取りは要約して続ける。画像・コピーした文章も添えられる。記録はメモリだけ。実験） |
-| `vc speak [show\|on\|off\|voices\|voice\|test]` | 読み上げの声（入っている中で、品質がいちばん高い日本語の声を自動で）と、結果を読み上げるか（既定 off。実験） |
-| `vc recheck [show\|on\|off\|reset]` | 聞き取りに自信がないとき、実行の前に、聞こえた文を確かめる（既定 on。実験） |
-| `vc handsfree [show\|on\|off\|reset]` | ダブルタップで、黙るまで録音する（手放し。既定 on）か、押している間だけか |
-| `vc mute [show\|on\|off\|reset]` | 録音中に、ほかの音を消す（on。既定）か、流したままにする（off）か |
-| `vc transcribe <音声ファイル> [--stt …]` | 音声ファイルを文字にする（音声認識の確認用） |
-| `vc hotkey [show\|set <キー>\|reset]` | 押している間だけ聞くトリガーの確認・変更（既定：Shift の長押し。例：`vc hotkey set ctrl+opt+space`）。`set-dictate`（音声入力）・`set-shot`（範囲を撮る）も同じ形 |
+**開発用**（評価・検証）：`vc transcribe`（音声ファイルを文字に）・`vc hotkey-check`（キーが届くか）・`vc hud-preview`・`vc settings-preview`（見た目を PNG に）・`vc eval-gate`・`vc eval-plan`（当たり率）・`vc chat`（会話の試験用の REPL）。
 
 ## 安全のしくみ
 
@@ -431,7 +363,9 @@ flowchart TB
 - 言語モデルの出力・画面の内容・依頼文・コピーした文章は、**非信頼のデータ**として扱います。取り消しにくい操作は、確認を挟みます。
 - `allowed-commands` は、言語モデルの暴走への歯止めです。許可したコマンドの中身（`rm` を許可すれば `rm` が動く）までは、守りません。
 - 発話・画面の内容・入れた文字を、ファイルやログに**残しません**（画面にだけ表示）。**例外：自分で範囲を選んで撮ったスクリーンショット**は、自分だけが読める場所に 1 枚だけ置き、3 分で使えなくなり、終了で消えます（画像は、Mac の中のモデルだけに渡します）。`result: markdown-note` のスキルだけは、結果を一時ディレクトリのファイルに残します（利用者だけが読める。消しません）。
-- 通信は、スキルの取得（`vc skills install`）・モデルの取得（`vc model download`）と、この Mac の 127.0.0.1 への通信（`--engine`）**だけ**です。音声・画面の内容を、ネットワークへ出しません。**例外は、あなたが入れたときだけの `ask-agent`・`web-search`・`ask-agent-image`**（`ask-agent-image` は、撮った画面の画像を、選んだエージェントへ送ります。**実行のたびに確認します**）（`web-search` は、検索する言葉が、選んだサイトへ、ブラウザから送られます。`ask-agent` は、「〇〇について調べて」「クロードで〇〇を調べて」を、コーディングエージェントの CLI〔`agy`・`claude`・`codex`・`grok`・`opencode`・`pi`〕に頼む。調べることの文が、選んだエージェントの提供元へ送られます。[詳しく](docs/skills.md#調べものをコーディングエージェントに頼むask-agent任意)）。
+- **Apple の会話にも、道具を開けられます**（設定 > モデル > 会話 > 道具。既定は、なし）：**Web**（日時・検索・ページの取得）・**＋読む**（作業フォルダのファイルを読む）・**すべて**（作業フォルダの中への書き込みと、コマンドの実行。**既存ファイルの上書きと、読むだけでないコマンドは、毎回、確認します**。シェル・インタプリタ・通信のコマンドは、実行できません）。外へ出るのは、**モデルが作った検索語と、開いたページの URL だけ**です（発話・画面・ファイルの中身は、送りません）。小さなモデルは、道具を呼ばずに作り話をすることがあるので、検索・ファイルの依頼で道具が呼ばれなければ、答えを出さずに、失敗として知らせます。
+- **会話の外のエージェント**（設定 > モデル > 会話。既定は、この Mac の Apple のモデル）：選ぶと、発話が、その提供元へ送られます。**道具の段階**は、なし（既定）・Web・＋ファイルを読む・**すべて**（ファイルの書き込み・コマンドの実行も）。**「すべて」は、聞き間違いや、検索したページの命令で、意図しない操作が起きえます**（オンにするとき、確認します。作業フォルダは、選べます）。実行した操作は、答えの下に出ます（`claude`・`codex`・`grok`）。
+- 通信は、スキルの取得（`vc skills install`）・モデルの取得（設定 > モデル）と、この Mac の 127.0.0.1 への通信（`--engine`）**だけ**です。音声・画面の内容を、ネットワークへ出しません。**例外は、あなたが入れたときだけの `ask-agent`・`web-search`・`ask-agent-image`**（`ask-agent-image` は、撮った画面の画像を、選んだエージェントへ送ります。**実行のたびに確認します**）（`web-search` は、検索する言葉が、選んだサイトへ、ブラウザから送られます。`ask-agent` は、「〇〇について調べて」「クロードで〇〇を調べて」を、コーディングエージェントの CLI〔`agy`・`claude`・`codex`・`grok`・`opencode`・`pi`〕に頼む。調べることの文が、選んだエージェントの提供元へ送られます。[詳しく](docs/skills.md#調べものをコーディングエージェントに頼むask-agent任意)）。
 
 ## 機能の層
 
@@ -439,9 +373,9 @@ flowchart TB
 
 | 層 | 含むもの |
 |---|---|
-| **中核** | スキルの選択と実行・許可と確認の判断・`vc run`・`vc listen`（声で頼む）・スキルの管理 |
+| **中核** | スキルの選択と実行・許可と確認の判断・`vc run`・声で頼む・スキルの管理 |
 | **任意** | 音声入力・スクリーンショットと画像のスキル・結果のウィンドウ・ファイル検索・スキルのインストール |
-| **実験**（予告なく変わります） | 外へ送るスキル（`ask-agent`・`ask-agent-image`・`web-search`）・手放し（ダブルタップ）・複数ステップの依頼・ローカルのサーバーのモデル（`--engine`）・画像の背景除去（「背景を消して」）・聞き取りの確認（`vc recheck`）・結果の読み上げ（`vc speak`）・録音中の文字の表示（`vc caption`）・会話（`vc chat`・会話のキー） |
+| **実験**（予告なく変わります） | 外へ送るスキル（`ask-agent`・`ask-agent-image`・`web-search`）・手放し（ダブルタップ）・複数ステップの依頼・ローカルのサーバーのモデル（`--engine`）・画像の背景除去（「背景を消して」）・聞き取りの確認・結果の読み上げ・録音中の文字の表示・会話（会話のキー）・メニューバーのアプリ（dmg）と設定ウィンドウ |
 
 ## いまの状況
 
@@ -450,11 +384,11 @@ flowchart TB
 | 機能 | 状態 |
 |---|---|
 | スキル（`vc skills`・`vc run`） | 自作ウィンドウで確認。**実アプリ・複数スキルの取り違えは未確認** |
-| 声の入力（`vc listen`） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.2.4）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
+| 声の入力（メニューバーのアプリ） | 実装済み（ホットキー・Esc・確認のボタンとキー）。確認のボタンのクリックは、利用者の環境で動作を確認（v0.2.4）。**マイクの実録音の網羅的な確認・声の「はい」の確認は未確認** |
 | Markdown のウィンドウ（`vc show`・`clipboard-note`） | 実装済み（見た目は自作の内容で確認）。**コピーのボタン・⌘C の実機の操作は未確認** |
-| 音声認識の切り替え（`vc stt`・Whisper） | 合成音声での測定と、実マイク（スピーカーの音）での 1 回の確認。**実際の声での比較は未確認** |
+| 音声認識の切り替え（設定 > モデル・Whisper） | 合成音声での測定と、実マイク（スピーカーの音）での 1 回の確認。**実際の声での比較は未確認** |
 | ファイル検索（`vc find`・`vc pick`・`file-search`） | 自作のフォルダで確認（Ollama 9/10・Apple 9/10。同じ場面で調整）。**実際のホームでの検索の質は未確認** |
-| スクリーンショット・コピーした画像に声で頼む（`vc shot`・`image-ask`・`image-edit`）・パネルの文字起こし | 自作の画像で確認（Apple と Ollama で答えさせ、切り抜き・サイズ変更・変換を続けて実行。スキルの測定：Apple 90〜94%・Ollama 100%）。**実際の範囲選択・ショートカット・画面収録の許可の流れは未確認** |
+| スクリーンショット・コピーした画像に声で頼む（画面撮影のショートカット・`image-ask`・`image-edit`）・パネルの文字起こし | 自作の画像で確認（Apple と Ollama で答えさせ、切り抜き・サイズ変更・変換を続けて実行。スキルの測定：Apple 90〜94%・Ollama 100%）。**実際の範囲選択・ショートカット・画面収録の許可の流れは未確認** |
 | `--engine`（Ollama・OpenAI 互換） | Ollama（`qwen3.5:4b`）で確認。**LM Studio・llama.cpp など、ほかのサーバーは未確認** |
 
 PC 操作は、2026-11-04 に廃止し、既定スキルに一本化しました。詳細な要件と状態は [SPEC](SPEC.md)、測定と未確認は [検証手順と記録](docs/verification.md)。

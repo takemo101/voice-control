@@ -370,3 +370,34 @@ final class EventTags: @unchecked Sendable {
     }
     func tags(of kind: String) -> [String] { lock.lock(); defer { lock.unlock() }; return items.filter { $0.0 == kind }.map(\.1) }
 }
+
+/// 設定を変えたときの、声の流れの作り直し：止めた `VoiceLoop` は、手放せる（トリガー・Esc が、解放されて、登録が外れる）。
+@MainActor @Suite(.timeLimit(.minutes(1))) struct VoiceLoopStopTests {
+    @Test func aStoppedLoopCanBeReleasedSoItsTriggersAreFreed() async {
+        weak var weakLoop: VoiceLoop?
+        weak var weakTrigger: FakeTrigger?
+        do {
+            let handled = Mailbox<String>()
+            let h = Harness { utterance, _, _, _ in handled.put(utterance) }
+            weakLoop = h.loop
+            weakTrigger = h.trigger
+            h.speak("a1")
+            #expect(await handled.take() == "text-a1")   // 止める前は、普通に動く
+            while h.loop.isBusy { await Task.yield() }
+            h.loop.stop()
+        }
+        // `consume` の Task が終わって、ループを手放すまで、少し譲る
+        for _ in 0..<200 where weakLoop != nil { await Task.yield() }
+        #expect(weakLoop == nil)
+        #expect(weakTrigger == nil)
+    }
+
+    @Test func audioArrivingAfterStopIsNotHandled() async {
+        let handled = Mailbox<String>()
+        let h = Harness { utterance, _, _, _ in handled.put(utterance) }
+        h.loop.stop()
+        h.speak("late")
+        for _ in 0..<50 { await Task.yield() }
+        #expect(!h.log.labels.contains("recognized:text-late"))
+    }
+}

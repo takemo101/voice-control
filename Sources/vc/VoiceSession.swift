@@ -5,8 +5,8 @@ import VCDecision
 import VCSkill
 import VCSpeech
 
-/// 声の入力の 1 式（トリガー・録音・認識・発話の処理・画面の表示）。**`vc listen --hotkey`（端末）と、メニューバーのアプリが、同じものを使う**。
-/// 違いは、イベントループを、だれが回すか：端末の `vc listen` は `loop.run`（`NSApplication.run()` まで）、アプリは、アプリ自身のループの上で `loop.begin`。
+/// 声の入力の 1 式（トリガー・録音・認識・発話の処理・画面の表示）。**声の入力（端末）と、メニューバーのアプリが、同じものを使う**。
+/// 違いは、イベントループを、だれが回すか：端末の 声の入力 は `loop.run`（`NSApplication.run()` まで）、アプリは、アプリ自身のループの上で `loop.begin`。
 /// 同期の関数：`await` を挟まない（`VoiceLoop.run` の不変条件 1）。
 @MainActor final class VoiceSession {
     let loop: VoiceLoop
@@ -17,8 +17,17 @@ import VCSpeech
     /// 端末に出す、いまの設定の案内（アプリでは、メニューの状態に使う）。
     let hint: String
 
-    private init(loop: VoiceLoop, retained: [Any], hint: String, onReady: @escaping () -> Void) {
-        self.loop = loop; self.retained = retained; self.hint = hint; self.onReady = onReady
+    /// 画面撮影のショートカット（`stop` で、受け付けを外す）。
+    private let screenTriggers: [any PushToTalkTrigger]
+
+    private init(loop: VoiceLoop, retained: [Any], screenTriggers: [any PushToTalkTrigger], hint: String, onReady: @escaping () -> Void) {
+        self.loop = loop; self.retained = retained; self.screenTriggers = screenTriggers; self.hint = hint; self.onReady = onReady
+    }
+
+    /// 止める：トリガー・Esc・画面撮影のショートカットの受け付けを、いますぐ外す（設定を変えて、作り直すとき）。
+    func stop() {
+        loop.stop()
+        screenTriggers.forEach { $0.invalidate() }
     }
 
     static func make(context: CommandContext, jev: TinyJev, muter: OutputMuter, speech: SpeechEngine) throws -> VoiceSession {
@@ -29,31 +38,49 @@ import VCSpeech
         let shotSpec = context.resolveShotHotKey()
         let chatSpec = context.resolveChatHotKey()
         let chatAgent = context.resolveChatAgent()
-        if chatSpec != nil { ChatMode.shared.configure(agent: chatAgent) }
+        // 会話の設定（エージェント・道具）：会話のキーがなくても、入力欄・メニューから、会話できる
+        let chat = context.resolveChatTools()
+        ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder)
+        ChatWindow.shared.setKeyHint(chatSpec?.displayName)
         if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
         HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
         var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
         if let dictateSpec { keys.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }
         if let chatSpec { keys.append((VoiceMode.chat, try makeTrigger(chatSpec))) }
-        // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`vc handsfree`）
+        // 手放し：ダブルタップで、黙るまで録音する（押し続けるのは、従来どおり）。設定 `handsFree`（既定 on。`設定ウィンドウ > キー`）
         let handsFreeOn = context.currentSettings().handsFree ?? true
         let triggers = VoiceTriggers.make(keys, handsFreeEnabled: handsFreeOn)
         let handsFree = triggers.handsFree
         // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
         let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
+        let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
+        // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
+        ChatWindow.shared.submit = { text in
+            Task { @MainActor in
+                guard !ChatWindow.shared.hasPending else { return }
+                let token = CancelToken()
+                let box = TypedTask()
+                let waitForever: NextUtterance = { try await Task.sleep(for: .seconds(86_400)); return nil }
+                // 声の質問が来たら、この質問は、中断する（処理も止める）
+                let cancel: () -> Void = { token.supersede(); box.task?.cancel() }
+                box.task = Task { @MainActor in
+                    await ChatVoice.handle(text, token: token, context: context, chip: "入力", speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel)
+                }
+            }
+        }
         let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip, VoiceMode.chat: chatSpec?.displayName ?? chip]
         let paste = ClipboardPaste()
         let session = RecordingSession()
         session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
-        LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（`vc caption`）
+        LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（録音中の文字の表示）
         session.setBufferHandler { LiveCaption.shared.feed($0) }
         let loop = VoiceLoop(
             trigger: triggers.trigger, escape: EscapeKey(), recorder: PopRecorder(session, muter: muter), transcriber: speech.transcriber,
-            handler: { [listen = ListenCommand.utteranceHandler(context, jev: jev, chip: chip)] utterance, token, next, tag in
+            handler: { [listen = VoiceHandlers.utterance(context, jev: jev, chip: chip)] utterance, token, next, tag in
                 if tag == VoiceMode.dictate {
-                    await DictateCommand.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
+                    await DictationFlow.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
                 } else if tag == VoiceMode.chat {
-                    await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false)
+                    await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false, confirmation: chatConfirmation, next: next)
                 } else {
                     await listen(utterance, token, next, tag)
                 }
@@ -62,7 +89,7 @@ import VCSpeech
                 if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
                 VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate, chat: tag == VoiceMode.chat)
             })
-        loop.uncertainty = ListenCommand.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
+        loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
             HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
         }
@@ -78,11 +105,16 @@ import VCSpeech
             fflush(stdout)
             // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
             if spec.isHold && !ModifierHold.isTrusted {
-                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このターミナルを許可して、開き直してください。許可なしなら vc hotkey set ctrl+opt+space", chip: chip), hideAfter: 15)
+                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このアプリを許可して、開き直してください。許可なしなら、設定ウィンドウ > キー で、ctrl+opt+space のような組み合わせにします", chip: chip), hideAfter: 15)
             } else {
                 HUD.shared.show(HUDContent(phase: .info, title: "準備できました", hint: "\(holdInstruction(spec))ている間だけ聞きます", chip: chip), hideAfter: 3.5)
             }
         }
-        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
+        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], screenTriggers: screenTriggers, hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
     }
+}
+
+/// 文字で送った質問の `Task`（取りやめの手続きが、あとから参照する）。メインスレッドだけで触る。
+@MainActor private final class TypedTask {
+    var task: Task<Void, Never>?
 }

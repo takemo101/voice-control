@@ -5,7 +5,7 @@ import VCSkill
 
 /// 範囲を選んで、スクリーンショットを撮る（`ScreenSelector`：静止画を暗くして、ドラッグ・ウィンドウのクリック・全画面で選ぶ）。
 /// 撮った画像は、この Mac の中だけに置く（`ScreenshotStore`）。**画面収録の許可**が要る（ターミナルなど、`vc` を動かしているアプリに）。
-/// イベントのループ（`NSApplication.run()`）が回っているときに呼ぶ（`vc listen --hotkey`。単独のコマンドは、`ScreenSelector.runStandalone`）。
+/// イベントのループ（`NSApplication.run()`）が回っているときに呼ぶ（声の入力。単独のコマンドは、`ScreenSelector.runStandalone`）。
 @MainActor enum ScreenCapture {
     enum Outcome {
         case captured(width: Int, height: Int)
@@ -15,7 +15,7 @@ import VCSkill
 
     nonisolated static var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
 
-    nonisolated static let permissionHint = "システム設定 > プライバシーとセキュリティ > 画面収録 で、vc を動かしているターミナルを許可してください（許可したら、ターミナルを開き直す）"
+    nonisolated static let permissionHint = "システム設定 > プライバシーとセキュリティ > 画面収録 で、voice-control（端末から動かしているなら、その端末アプリ）を許可してください（許可したら、アプリを開き直してください）"
 
     /// 範囲を選んで撮り、`destination`（PNG）へ書く。
     static func capture(to destination: URL) async -> Outcome {

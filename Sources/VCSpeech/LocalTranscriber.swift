@@ -8,7 +8,7 @@ enum NativeSpeechError: Error, Equatable, CustomStringConvertible {
     case run(String)
     var description: String {
         switch self {
-        case let .load(reason): return "モデルを開けません（\(reason)）。壊れているか、形式が違います（vc model status --verify）"
+        case let .load(reason): return "モデルを開けません（\(reason)）。壊れているか、形式が違います（設定ウィンドウ > モデル で取り直す）"
         case let .run(reason): return "認識に失敗しました（\(reason)）"
         }
     }

@@ -1,7 +1,7 @@
 import FoundationModels
 
 /// Apple の言語モデル（FoundationModels。スキルの実行に使う）が、いま使えるか。使えないとき、理由と、直す手順を返す。
-/// Tiny-Jev のモデルが無いときに `vc model download` を案内するのと同じ形：使えないまま実行して、実行の途中で失敗させない。
+/// Tiny-Jev のモデルが無いときに 設定ウィンドウ > モデル での取得を案内するのと同じ形：使えないまま実行して、実行の途中で失敗させない。
 public enum AppleIntelligence {
     public enum Status: Equatable, Sendable {
         case available

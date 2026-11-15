@@ -3,8 +3,8 @@ import Foundation
 import VCCore
 import VCSpeech
 
-/// 声の流れ（`vc listen --hotkey`・`vc dictate`）に共通の、画面の上と端末の表示・終了の後始末・録音の開始の音。
-/// 録音を始めたトリガーの印（`ModeTrigger`）。`vc listen --hotkey` は、トリガーで、声で頼む／音声入力を切り替える。
+/// 声の流れ（声の入力（アプリ））に共通の、画面の上と端末の表示・終了の後始末・録音の開始の音。
+/// 録音を始めたトリガーの印（`ModeTrigger`）。声の入力 は、トリガーで、声で頼む／音声入力を切り替える。
 enum VoiceMode {
     static let listen = "listen"
     static let dictate = "dictate"
@@ -12,7 +12,7 @@ enum VoiceMode {
 }
 
 enum VoiceUI {
-    /// 録音中に、ほかの音を消すか：`--mute`・`--no-mute`（その実行だけ）→ 設定（`vc mute`）→ 既定（消す）。
+    /// 録音中に、ほかの音を消すか：`--mute`・`--no-mute`（その実行だけ）→ 設定（設定ウィンドウ > 音声）→ 既定（消す）。
     static func muter(_ arguments: inout Arguments, _ context: CommandContext, command: String) -> OutputMuter {
         let flag: Bool?
         switch (arguments.flag("--mute"), arguments.flag("--no-mute")) {
@@ -26,11 +26,13 @@ enum VoiceUI {
 
     /// `VoiceLoop` の出来事を、画面の上と端末に出す。
     static func show(_ event: VoiceLoopEvent, chip: String, muter: OutputMuter, dictation: Bool = false, chat: Bool = false) {
+        if chat { MainActor.assumeIsolated { ChatWindow.shared.setVoiceState(chatVoiceState(for: event)) } }   // 会話のウィンドウの、下の案内（聞いている・文字にしている）
         switch event {
         case .recordingStarted:
+            SaySpeaker.shared.stop()   // 読み上げの最中にトリガーを押したら、止める（マイクが、読み上げの声を拾わないように）
             LiveCaption.shared.begin()   // 録音中の文字（途中経過）
             var content = HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : (chat ? "離すと、会話として質問します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）"), chip: chip)
-            content.captionSlot = LiveCaption.shared.enabled   // 録音中の文字の欄（`vc caption`）
+            content.captionSlot = LiveCaption.shared.enabled   // 録音中の文字の欄（録音中の文字の表示）
             HUD.shared.show(content)
         case .recordingDiscarded:
             LiveCaption.shared.end()
@@ -64,6 +66,15 @@ enum VoiceUI {
             // 画面の上は、新しい発話の「認識中」のまま（上書きしない）。読み上げだけ止める
             SaySpeaker.shared.stop()
             print("  " + Style.dim("前の処理を中断して、新しい依頼を受けました"))
+        }
+    }
+
+    /// 会話のキーの出来事から、ウィンドウの案内の状態を決める。
+    static func chatVoiceState(for event: VoiceLoopEvent) -> ChatVoiceState {
+        switch event {
+        case .recordingStarted: return .listening
+        case .recognizing: return .recognizing
+        default: return .idle   // 離した・捨てた・取りやめた・文字になった：案内を、もとへ戻す
         }
     }
 

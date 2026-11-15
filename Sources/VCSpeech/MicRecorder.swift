@@ -5,7 +5,7 @@ public enum MicError: Error { case writeFailed(String), noInput }
 
 /// マイクの音を、ファイルへ録音する（ホットキー・ウェイクワードの前の、最小の入力）。音声は、この Mac の外へ出さない。
 /// `@unchecked Sendable` の理由：音声のスレッドと呼び出し側の両方が触る `file`・`writeError` は、`lock` で守る。
-/// `engine` は `start`・`stop` だけが触る（呼び出し側が直列にする：`RecordingSession` はロック、`vc listen` の Enter 録音は単独のスレッド）。
+/// `engine` は `start`・`stop` だけが触る（呼び出し側が直列にする：`RecordingSession` はロック、声の入力 の Enter 録音は単独のスレッド）。
 /// `lock` を持ったまま `engine` を止めない（止める側が、音声のスレッドを待つため、タップと詰まる）。
 public final class MicRecorder: @unchecked Sendable {
     private let engine = AVAudioEngine()
@@ -55,7 +55,7 @@ public final class MicRecorder: @unchecked Sendable {
         return text
     }
 
-    /// マイクの許可。未決なら、macOS の確認を出して、答えを待つ（この関数を呼ぶのは、利用者が `vc listen` を実行したときだけ）。
+    /// マイクの許可。未決なら、macOS の確認を出して、答えを待つ（この関数を呼ぶのは、利用者が 声の入力 を実行したときだけ）。
     /// **同期**にしてある：`await` を挟むと、そのあとの処理は、メインキューのブロックの中で動き、続けて呼ぶ `NSApplication.run()` が、
     /// `DispatchQueue.main` に回した処理（画面の表示・長押しの判定の遅延）を動かせない。
     public static func authorize() -> Bool {

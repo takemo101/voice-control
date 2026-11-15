@@ -28,7 +28,7 @@ import SwiftUI
         window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 380, height: 280)
-        window.collectionBehavior = [.fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // Space（デスクトップ）を移動しても、ついてくる
         configureTextView()
         let root = DocumentView(
             title: title, state: state, textView: textView,
@@ -202,7 +202,7 @@ struct PillButton: View {
 }
 
 /// 本文（`NSTextView` を、スクロールの中に入れる）。
-private struct TextBody: NSViewRepresentable {
+struct TextBody: NSViewRepresentable {
     let textView: NSTextView
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -220,8 +220,10 @@ private struct TextBody: NSViewRepresentable {
 }
 
 /// 枠のないウィンドウ：キーを受けられる。⌘C（選択をコピー）・⌘A（すべて選択）・⌘W（閉じる）を受ける（メニューバーのないアプリは、これらが、効かない）。Esc でも閉じる。
-private final class DocumentWindowFrame: NSWindow {
+final class DocumentWindowFrame: NSWindow {
     weak var textView: NSTextView?
+    /// Esc を、先に受ける（true なら、受けた：閉じない）。会話のウィンドウが、読み上げを止めるのに使う。
+    var onEscape: (() -> Bool)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -229,17 +231,17 @@ private final class DocumentWindowFrame: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
-        case "c": textView?.copy(nil); return true
-        case "a": textView?.selectAll(nil); return true
+        case "c": if let textView { textView.copy(nil) } else { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) }; return true
+        case "a": if let textView { textView.selectAll(nil) } else { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) }; return true
         case "w": close(); return true
         default: return super.performKeyEquivalent(with: event)
         }
     }
 
-    override func cancelOperation(_ sender: Any?) { close() }
+    override func cancelOperation(_ sender: Any?) { if onEscape?() != true { close() } }
 
     /// Esc：最初の応答者が、SwiftUI の面（ボタンを押したあと）でも、閉じる（`cancelOperation` が、窓まで届かないことがある）。
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { close() } else { super.keyDown(with: event) }
+        if event.keyCode == 53 { if onEscape?() != true { close() } } else { super.keyDown(with: event) }
     }
 }

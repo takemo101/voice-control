@@ -141,3 +141,28 @@ public struct HotKeySpec: Equatable, Sendable {
         return ModifierHold(modifier: modifierFlags, side: side)
     }
 }
+
+// MARK: キーの記録（設定画面）：押されたキーから、書き方の名前を求める
+
+extension HotKeySpec {
+    /// 仮想キーコード → 書き方の名前（対応しているキーだけ。なければ `nil`）。
+    public static func keyName(forCode code: UInt16) -> String? {
+        keyCodes.first { $0.value == UInt32(code) }?.key
+    }
+
+    /// 修飾キーの仮想キーコード → 修飾キーと、右側のキーか（修飾キーでなければ `nil`）。
+    public static func modifier(forCode code: UInt16) -> (modifier: Modifier, right: Bool)? {
+        switch code {
+        case 54: return (.command, true)
+        case 55: return (.command, false)
+        case 56: return (.shift, false)
+        case 60: return (.shift, true)
+        case 58: return (.option, false)
+        case 61: return (.option, true)
+        case 59: return (.control, false)
+        case 62: return (.control, true)
+        default: return nil
+        }
+    }
+}
+

@@ -6,6 +6,8 @@
 	<string>voice-control</string>
 	<key>CFBundleExecutable</key>
 	<string>vc</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.takemo101.voice-control</string>
 	<key>CFBundleName</key>

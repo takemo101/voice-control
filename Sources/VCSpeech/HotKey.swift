@@ -47,10 +47,15 @@ import os
         guard reg == noErr else { throw Failure.register(reg) }
     }
 
-    isolated deinit {
+    /// 登録を、いますぐ外す（手放すのを待たない：設定を変えて作り直すとき、同じキーを、すぐ登録し直せるように。外さないと `register(-9878)`＝登録済み、になる）。
+    public func invalidate() {
+        onPress = nil; onRelease = nil
         if let ref { UnregisterEventHotKey(ref) }
         if let handler { RemoveEventHandler(handler) }
+        ref = nil; handler = nil
     }
+
+    isolated deinit { invalidate() }
 }
 
 /// 修飾キー（Shift など）だけを押し続ける間、押している扱いにする。通常の入力（大文字を打つための Shift）で、誤って始まらないよう：
@@ -84,7 +89,16 @@ import os
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in MainActor.assumeIsolated { self?.cancelPending() }; return e } as Any)
     }
 
-    isolated deinit { monitors.forEach { NSEvent.removeMonitor($0) } }
+    /// 見張りを、いますぐ外す（手放すのを待たない）。
+    public func invalidate() {
+        onPress = nil; onRelease = nil; onTap = nil
+        cancelPending()
+        monitors.forEach { NSEvent.removeMonitor($0) }
+        monitors = []
+        active = false
+    }
+
+    isolated deinit { invalidate() }
 
     private func flagsChanged(_ event: NSEvent) {
         if Self.matches(raw: event.modifierFlags.rawValue, modifier: modifier, side: side) {
@@ -136,7 +150,10 @@ import os
 @MainActor public protocol PushToTalkTrigger: AnyObject {
     var onPress: (@Sendable () -> Void)? { get set }
     var onRelease: (@Sendable () -> Void)? { get set }
+    /// キーの受け付けを、いますぐ外す（設定を変えて作り直すとき）。既定は、何もしない（外す対象がないもの）。
+    func invalidate()
 }
+extension PushToTalkTrigger { public func invalidate() {} }
 /// 短く押して離した（タップ）も、知らせるトリガー（修飾キーだけのトリガー：短い押しは、「押した」にならない）。
 @MainActor public protocol TapReporting: PushToTalkTrigger {
     var onTap: (@Sendable () -> Void)? { get set }

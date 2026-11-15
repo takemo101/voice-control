@@ -19,7 +19,7 @@ public enum ScreenshotStore {
         case expired(seconds: Int)
         public var description: String {
             switch self {
-            case .none: return "スクリーンショットがありません。先に、ショートカットで撮ってください（vc hotkey set-shot。いま撮るなら vc shot）"
+            case .none: return "スクリーンショットがありません。先に、ショートカットで撮ってください（設定ウィンドウ > キー）"
             case let .expired(seconds): return "スクリーンショットが古いです（\(seconds) 秒前。\(Int(ScreenshotStore.timeToLive)) 秒まで）。撮り直してください"
             }
         }
