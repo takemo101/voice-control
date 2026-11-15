@@ -38,7 +38,7 @@ import VCSkill
         state.warning = warning
         state.tools = tools
         var entry = ChatEntry(question: question)
-        entry.thumbnail = state.image?.thumbnail   // 添えてある画像を、質問に付ける（どの画像についての質問か、分かるように）
+        entry.image = state.image.map { EntryImage(thumbnail: $0.thumbnail) }   // 添えてある画像を、質問に付ける（どの画像についての質問か、分かるように）
         state.entries.append(entry)
         state.scrollToken += 1
     }
@@ -50,7 +50,13 @@ import VCSkill
     }
 
     /// 答えが来た。`startedNew`：しばらく話さなかったので、前の会話は、終わった（古い記録を消す）。
-    func finish(answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool) {
+    /// 質問に使う画像が分かった（言葉で頼んだ画像など）：待ちの質問に、画像を付ける（添えてある画像は、`begin` で付いている）。
+    func attachImageToPending(_ file: URL) {
+        guard hasPending, state.entries[state.entries.count - 1].image == nil, let thumbnail = HUDImage.load(file, sendsOut: false)?.thumbnail else { return }
+        state.entries[state.entries.count - 1].image = EntryImage(thumbnail: thumbnail)
+    }
+
+    func finish(answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
         guard hasPending else { return }
         if startedNew { state.entries = [state.entries[state.entries.count - 1]] }
         let last = state.entries.count - 1
@@ -59,6 +65,7 @@ import VCSkill
         state.entries[last].rendered = Self.render(answer)
         state.entries[last].activities = activities
         state.entries[last].notes = notes
+        state.entries[last].image?.route = imageRoute   // 画像が、どう扱われたか（この Mac の中で読んだ・送った・断った）
         state.scrollToken += 1
     }
 
@@ -177,7 +184,9 @@ import VCSkill
             return true
         }
         state.image = AttachedImage(thumbnail: sample, takenAt: Date().addingTimeInterval(-40))
-        state.entries[0].thumbnail = sample
+        state.entries[0].image = EntryImage(thumbnail: sample, route: .sent("claude"))
+        state.entries[1].image = EntryImage(thumbnail: sample, route: .local)
+        state.entries[2].image = EntryImage(thumbnail: sample, route: nil)
         if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
         state.solid = true
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -241,6 +250,13 @@ import VCSkill
 
 // MARK: 状態
 
+/// 質問に付いた画像（サムネイルと、どう扱われたか）。
+struct EntryImage {
+    let thumbnail: NSImage
+    /// 答えが出たあとに決まる（それまでは、nil：「読んでいます」）。
+    var route: ChatMode.ImageRoute?
+}
+
 /// 会話に添えた画像。
 struct AttachedImage: Identifiable {
     let id = UUID()
@@ -259,8 +275,8 @@ struct ChatEntry: Identifiable {
     var answer: String?
     var activities: [ChatActivity] = []
     var notes: [String] = []
-    /// この質問に付けた、画像（サムネイル）。
-    var thumbnail: NSImage?
+    /// この質問に付けた、画像。
+    var image: EntryImage?
     /// 答えを整形した結果（描き直しのたびに、作り直さない）。
     var rendered: NSAttributedString?
 }

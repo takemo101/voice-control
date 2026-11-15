@@ -47,7 +47,19 @@ import VCSkill
     static func isShort(_ answer: String) -> Bool { answer.count <= 110 && !answer.contains("\n") }
 
     /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
-    struct Outcome { var answer: String; var notes: [String]; var activities: [ChatActivity] = []; var startedNew = false }
+    struct Outcome { var answer: String; var notes: [String]; var activities: [ChatActivity] = []; var startedNew = false; var imageRoute: ImageRoute? }
+
+    /// 質問に使った画像が、**どう扱われたか**（会話のウィンドウの、画像の札に出す）。
+    enum ImageRoute: Equatable {
+        /// この Mac の中で、文字にして、質問に入れた（Apple の会話）。
+        case local
+        /// 外のエージェント（名前）へ送った（確認して）。
+        case sent(String)
+        /// 送る確認を、断った。
+        case declined(String)
+        /// 使えなかった（理由）。
+        case notUsed(String)
+    }
 
     /// 画像を、外のエージェントへ送ってよいか、利用者に確かめる（送るたびに：画像と、送り先を見せる）。送ってよければ true。
     typealias ImageSendConfirm = @Sendable (_ image: URL, _ agent: ChatAgent) async -> Bool
@@ -55,11 +67,12 @@ import VCSkill
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     /// - `attachedImage`：会話のウィンドウに、添えてある画像（「この画面」と言わなくても、使う）。
     /// - `confirmImage`：**外のエージェントへ画像を送る前の確認**（なければ、送らない）。Apple の会話は、画像を、この Mac の中で文字にするので、確認は要らない。
-    func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, progress: @escaping @MainActor (String) -> Void,
+    func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, onImage: (@MainActor (URL) -> Void)? = nil, progress: @escaping @MainActor (String) -> Void,
              confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         var imageToSend: URL?
+        var route: ImageRoute?
         var cleanup: [() -> Void] = []
         defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
         let wants = ChatAttachments.wants(utterance)
@@ -72,29 +85,30 @@ import VCSkill
                 let source = ImageSource.any.resolve(for: utterance)
                 switch source.materialize(for: utterance) {
                 case let .success(found): file = found; cleanup.append { source.discard() }
-                case let .failure(missing): file = nil; notes.append("画像がないので、画像なしで答えます（\(missing)）")
+                case let .failure(missing): file = nil; route = .notUsed("画像がありません"); notes.append("画像がないので、画像なしで答えます（\(missing)）")
                 }
             }
             if let file {
+                onImage?(file)   // 質問に使う画像を、ウィンドウに出す（言葉で頼んだ画像も、添えたように見せる）
                 if agent.isExternal {
                     // 外へ出る：**送るたびに確認する**（画像と送り先を見せる）。確認できなければ（端末など）、送らない
                     if let confirmImage {
-                        if await confirmImage(file, agent) { imageToSend = file; notes.append("画像を、\(agent.rawValue) へ送りました") }
-                        else { notes.append("画像は、送りませんでした") }
+                        if await confirmImage(file, agent) { imageToSend = file; route = .sent(agent.rawValue) }
+                        else { route = .declined(agent.rawValue) }
                     } else {
-                        notes.append("確認できないので、画像は、\(agent.rawValue) へ送りません")
+                        route = .notUsed("確認できないので、送りません")
                     }
                 } else if tools != .none {
-                    notes.append("道具（Web 検索）を開けている間は、画像を渡しません（検索語に混ざって、外へ出ないため）")
+                    route = .notUsed("Web 検索の道具を開けている間は、渡しません")
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
-                    if attached.contains(key) { if wants.image { notes.append("同じ画像は、すでに会話に入っています") } }
+                    if attached.contains(key) { route = .local; if wants.image { notes.append("同じ画像は、すでに会話に入っています") } }
                     else {
                         progress("画像を読んでいます…")
                         let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
                         switch digest {
-                        case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key)
-                        case let .failure(failure): notes.append("画像を読めませんでした（\(failure.message)）。画像なしで答えます")
+                        case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key); route = .local
+                        case let .failure(failure): route = .notUsed("読めませんでした"); notes.append("画像を読めませんでした（\(failure.message)）。画像なしで答えます")
                         }
                     }
                 }
@@ -120,7 +134,7 @@ import VCSkill
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }
-        return Outcome(answer: reply.text, notes: notes, activities: log.items, startedNew: reply.startedNew)
+        return Outcome(answer: reply.text, notes: notes, activities: log.items, startedNew: reply.startedNew, imageRoute: route)
     }
 }
 

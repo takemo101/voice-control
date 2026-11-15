@@ -62,7 +62,7 @@ import VCSpeech
             let confirmImage: ChatMode.ImageSendConfirm = { file, sendTo in
                 await askToSendImage(file, agent: sendTo, chip: chip, confirmation: confirmation, next: next, restore: working)
             }
-            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, progress: { text in
+            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImageToPending($0) }, progress: { text in
                 content.title = text
                 HUD.shared.show(content)
                 window.setStatus(text)
@@ -73,7 +73,7 @@ import VCSpeech
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
             // 会話のウィンドウ（1 つだけ）に、答えを足す。短い答えで、操作もなければ、上のパネルだけ（ウィンドウが出ていれば、そこに足す）
             let wasVisible = window.isVisible
-            window.finish(answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew)
+            window.finish(answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew, imageRoute: outcome.imageRoute)
             let spoken = speakResults ? SpokenText.chunks(from: outcome.answer) : []
             var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
             if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }

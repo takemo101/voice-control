@@ -116,6 +116,52 @@ struct ChatView: View {
     }
 }
 
+/// 質問に付いた画像：**添付されているように**見せる（クリップのアイコン・サムネイル・下に、どう扱われたかの札）。
+private struct AttachmentCard: View {
+    let image: EntryImage
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            Image(nsImage: image.thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 200, height: 116).clipped()
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.7))
+                Text("画像").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                Spacer(minLength: 4)
+                RouteChip(route: image.route)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(.black.opacity(0.35))
+        }
+        .frame(width: 200)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.28), lineWidth: 0.8))
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+    }
+}
+
+/// 画像が、どう扱われたか（読んでいる・この Mac の中で読んだ・外へ送った・送っていない）。
+private struct RouteChip: View {
+    let route: ChatMode.ImageRoute?
+
+    var body: some View {
+        let (text, symbol, color): (String, String, Color) = {
+            switch route {
+            case nil: return ("読んでいます…", "ellipsis", .white.opacity(0.6))
+            case .local?: return ("この Mac の中で読みました", "lock.fill", Color(red: 0.35, green: 0.85, blue: 0.6))
+            case let .sent(agent)?: return ("\(agent) へ送信", "arrow.up.forward.circle.fill", ChatPalette.orange)
+            case let .declined(agent)?: return ("\(agent) へは、送っていません", "xmark.circle.fill", .white.opacity(0.6))
+            case let .notUsed(reason)?: return (reason, "exclamationmark.triangle.fill", .white.opacity(0.6))
+            }
+        }()
+        HStack(spacing: 4) {
+            Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+            Text(text).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+        }
+        .foregroundStyle(color)
+    }
+}
+
 /// 会話に添えてある画像：サムネイルと、使えなくなるまでの時間。外のエージェントへは、**送るたびに確認する**ことを、断る。
 private struct AttachmentBar: View {
     let image: AttachedImage
@@ -214,11 +260,7 @@ private struct EntryView: View {
         HStack {
             Spacer(minLength: 56)
             VStack(alignment: .trailing, spacing: 4) {
-                if let thumbnail = entry.thumbnail {
-                    Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 150, height: 94).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.7))
-                        .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
-                }
+                if let image = entry.image { AttachmentCard(image: image) }
                 Text(entry.question)
                     .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
                     .textSelection(.enabled)
