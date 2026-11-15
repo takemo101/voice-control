@@ -108,6 +108,7 @@ struct CommandContext {
         let jev = try TinyJev(directory: directory, length: options.length)
         _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // グラフのコンパイルを、計測の外へ出す
         eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), options.length)))
+        ImageSourceJudge.shared.install(jev)   // 画像の取り先（スクリーンショットか、コピーした画像か）の選び方
         return jev
     }
 

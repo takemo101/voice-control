@@ -17,8 +17,10 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable, Hashable {
 
     /// 実際に見る取り先（`any` を、依頼の文と、いまあるものから決める。`screenshot`・`clipboard` は、そのまま）。**言語モデルが、決めない**：画面の上のパネルに出す画像と、`vc see` が見る画像が、必ず同じになる。
     /// 「コピー」と言ったのに、コピーした画像がないときは、スクリーンショットで代わりにしない（案内が出る）。
-    public func resolve(for request: String, unavailable: (ImageSource) -> Missing? = { $0.missing }) -> ImageSource {
+    /// - `judge`：**両方あるとき**、依頼が、どちらの画像についてか（Tiny-Jev。`ImageSourceJudge`）。決められなければ nil：下の、言葉の決め方。
+    public func resolve(for request: String, unavailable: (ImageSource) -> Missing? = { $0.missing }, judge: (String) -> ImageSource? = { ImageSourceJudge.shared.pick($0) }) -> ImageSource {
         guard self == .any else { return self }
+        if unavailable(.screenshot) == nil, unavailable(.clipboard) == nil, let picked = judge(request) { return picked }
         if ImageSource.clipboardWords.contains(where: request.contains) { return .clipboard }
         if unavailable(.screenshot) == nil { return .screenshot }
         if unavailable(.clipboard) == nil { return .clipboard }

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import VCCore
+import VCDecision
 import VCSkill
 
 /// 会話（声の入力 の会話のトリガー・`vc chat`）：**スキルを選ばずに、会話として質問できる**。古い往復は、要約して、続けられる（`ChatConversation`）。
@@ -16,8 +17,8 @@ import VCSkill
     /// 外のエージェントに開けている道具の段階と、作業フォルダ。
     private(set) var tools = ChatToolLevel.none
     private(set) var folder: URL?
-    /// 撮ったスクリーンショットを、質問に使うかの判定（Tiny-Jev）。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
-    var imageJudge: ChatImageUse?
+    /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
+    var scorer: OptionScorer?
     /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
     private var shots = ScreenshotLedger()
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
@@ -105,7 +106,7 @@ import VCSkill
         defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
         let wants = ChatAttachments.wants(utterance)
         // 画像を使うか：「画面を撮る」で添えたものは、そのまま使う。撮ったスクリーンショット（ショートカット）は、**Tiny-Jev が、この質問に使うか判定する**。判定できなければ、言葉で決める
-        let judge = imageJudge.map { judge in { try judge.probability(request: utterance) } }
+        let judge = scorer.map { scorer in { try ChatImageUse(scorer: scorer).probability(request: utterance) } }
         // 撮ったスクリーンショットは、1 度使ったら、次の質問では、判定せずに使わない（判定が外れて、どの質問にも付く、を防ぐ）
         var shotKey: String?
         if case let .success(shot) = ScreenshotStore.current() { shotKey = ChatAttachments.fingerprint(shot) }
@@ -172,7 +173,7 @@ import VCSkill
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff))
+        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } }))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }

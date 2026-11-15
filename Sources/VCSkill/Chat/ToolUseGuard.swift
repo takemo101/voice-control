@@ -9,6 +9,8 @@ struct ToolUseGuard {
     let folder: URL
     /// Web の道具が、この質問で使えるか（使えないとき、Web の依頼でも、「道具を呼ばなかった」とは、扱わない）。
     var allowsWeb = true
+    /// Tiny-Jev が、「最新の情報が要る質問」と判定した（言葉の一致では、そうでない）。**失敗にはしない**：道具を使うよう 1 度促し、それでも呼ばれなければ、答えを、そのまま返す（誤判定で、正しい答えを消さないため）。
+    var judgedWeb = false
 
     /// いま、どこまで進んだか。
     enum Step { case start, afterNudge, afterActNudge }
@@ -30,7 +32,7 @@ struct ToolUseGuard {
         let needed = Self.needsTool(user, level: level, allowsWeb: allowsWeb)
         switch step {
         case .start:
-            if calls == 0, needed || Self.looksLikeAPromise(reply) { return .nudge(Self.nudge, then: .afterNudge) }
+            if calls == 0, needed || judgedWeb || Self.looksLikeAPromise(reply) { return .nudge(Self.nudge, then: .afterNudge) }
             return afterCalls(needed: needed, calls: calls, acted: acted)
         case .afterNudge:
             return afterCalls(needed: needed, calls: calls, acted: acted)

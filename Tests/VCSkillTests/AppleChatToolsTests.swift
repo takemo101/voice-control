@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import VCDecision
 @testable import VCSkill
 
 /// Apple のモデルの会話の道具：検索の結果の読み取り・取ってよい URL・作業フォルダの外へ出ない・道具なしでは答えられない依頼の判定。
@@ -121,6 +122,25 @@ import Testing
 
     @Test func noToolsMeansTheReplyIsAlwaysAccepted() {
         #expect(guardFor("ギフティのニュースを調べて", .none).next(.start, calls: 0, acted: false, reply: "調べます") == .done)
+    }
+
+    @Test func aQuestionOnlyTheJudgeCallsFreshIsNudgedOnceButNeverRefused() {
+        // 「今日の阪神の試合は？」：言葉の一致では、道具が要る依頼ではない。Tiny-Jev が「最新の情報」と判定した：1 度促す。呼ばれなくても、答えを消さない（誤判定で、正しい答えを失わないため）
+        var g = ToolUseGuard(level: .web, user: "今日の阪神の試合は？", folder: URL(fileURLWithPath: "/tmp/vc-guard-none"), judgedWeb: true)
+        guard case let .nudge(_, then) = g.next(.start, calls: 0, acted: false, reply: "知っている範囲では…") else { Issue.record("促すはず"); return }
+        #expect(g.next(then, calls: 0, acted: false, reply: "分かりません") == .done)           // 促しても呼ばれない：そのまま返す（失敗にしない）
+        #expect(g.next(.start, calls: 1, acted: false, reply: "結果です") == .done)             // 呼ばれた：そのまま
+        g.judgedWeb = false
+        #expect(g.next(.start, calls: 0, acted: false, reply: "知識で答えます") == .done)        // 判定なし：促さない
+        #expect(guardFor("ギフティのニュースを調べて", .web).next(.afterNudge, calls: 0, acted: false, reply: "x") != .done)   // 言葉の一致は、これまでどおり、失敗にする
+    }
+
+    @Test func theWebNeedJudgeReadsTheFirstOptionAndFailsSafelyToNo() throws {
+        struct Fixed: OptionScorer { let p: Double; func score(state: String, question: String, options: [String]) throws -> [Double] { [p] + Array(repeating: (1 - p) / Double(options.count - 1), count: options.count - 1) } }
+        struct Broken: OptionScorer { func score(state: String, question: String, options: [String]) throws -> [Double] { throw NSError(domain: "x", code: 1) } }
+        #expect(ChatWebNeed(scorer: Fixed(p: ChatWebNeed.threshold)).needsWeb("今日の阪神の試合は？"))
+        #expect(!ChatWebNeed(scorer: Fixed(p: 0.59)).needsWeb("日本の首都は？"))
+        #expect(!ChatWebNeed(scorer: Broken()).needsWeb("今日の阪神の試合は？"))   // 判定できなければ、「要らない」
     }
 
     @Test func aSearchRequestWithoutAnyToolCallIsNudgedOnceThenRefused() {

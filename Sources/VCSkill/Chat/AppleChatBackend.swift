@@ -45,7 +45,7 @@ public struct AppleChatBackend: ActivityReporting {
         do {
             var reply = try await session.respond(to: user).content
             // 道具を呼ばなかった答え（作り話・予告だけ）を、返さない（`ToolUseGuard`）
-            let guardrail = ToolUseGuard(level: tools, user: user, folder: folder, allowsWeb: allowsWeb)
+            let guardrail = ToolUseGuard(level: tools, user: user, folder: folder, allowsWeb: allowsWeb, judgedWeb: allowsWeb && tools != .none && (options.needsWeb?(user) ?? false))
             var step = ToolUseGuard.Step.start
             while true {
                 switch guardrail.next(step, calls: calls.count, acted: calls.acted, reply: reply) {
