@@ -56,6 +56,41 @@ import Testing
         #expect(events(.grok, lines) == [.activity("一覧: /tmp/work"), .activity("読む: /tmp/work/note.txt")])
     }
 
+    @Test func agyToolStepsStartOnlyAndTheResultIsTheAnswer() {
+        let lines = [
+            #"{"event":"init","init":{"model":"m","tools":["read_file"]}}"#,
+            #"{"event":"step_update","step_update":{"step_index":2,"state":"ACTIVE","step_type":"tool","tool_name":"read_file","tool_info":{"name":"read_file","parameters":{"Path":"/tmp/work/note.txt"}}}}"#,
+            #"{"event":"step_update","step_update":{"step_index":2,"state":"DONE","step_type":"tool","tool_name":"read_file","tool_info":{"name":"read_file","parameters":{"Path":"/tmp/work/note.txt"}}}}"#,
+            #"{"event":"step_update","step_update":{"step_index":4,"state":"ACTIVE","step_type":"tool","tool_name":"write_file","tool_info":{"name":"write_file","parameters":{"Path":"/tmp/work/done.txt"}}}}"#,
+            #"{"event":"result","result":{"status":"SUCCESS","response":"読みました"}}"#,
+        ]
+        #expect(events(.agy, lines) == [.activity("読む: /tmp/work/note.txt"), .activity("書く: /tmp/work/done.txt"), .final("読みました")])
+        #expect(events(.agy, [#"{"event":"result","result":{"status":"ERROR"}}"#]) == [.failure("ERROR")])
+    }
+
+    @Test func opencodeToolUseAndTheLastTextAreRead() {
+        let lines = [
+            #"{"type":"step_start","part":{"type":"step-start"}}"#,
+            #"{"type":"tool_use","part":{"tool":"read","state":{"status":"completed","input":{"path":"note.txt"}}}}"#,
+            #"{"type":"tool_use","part":{"tool":"patch","state":{"status":"completed","input":{"patchText":"*** Begin Patch\n*** Add File: done.txt\n+確認済み\n*** End Patch"}}}}"#,
+            #"{"type":"tool_use","part":{"tool":"bash","state":{"status":"completed","input":{"command":"ls -la"}}}}"#,
+            #"{"type":"text","part":{"text":"作成しました"}}"#,
+        ]
+        #expect(events(.opencode, lines) == [.activity("読む: note.txt"), .activity("書く: done.txt"), .activity("実行: ls -la"), .final("作成しました")])
+    }
+
+    @Test func piToolExecutionsAndTheLastAssistantMessageAreRead() {
+        let lines = [
+            #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"x"}}"#,
+            #"{"type":"tool_execution_start","toolName":"read","args":{"path":"note.txt","offset":1}}"#,
+            #"{"type":"tool_execution_start","toolName":"write","args":{"path":"done.txt","content":"確認済み"}}"#,
+            #"{"type":"message_end","message":{"role":"assistant","content":[{"type":"toolCall","name":"write"}]}}"#,
+            #"{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"作成しました。"}]}}"#,
+            #"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"依頼"}]}}"#,
+        ]
+        #expect(events(.pi, lines) == [.activity("読む: note.txt"), .activity("書く: done.txt"), .final("作成しました。")])
+    }
+
     @Test func linesSplitAcrossChunksAreJoinedAndGarbageIsIgnored() {
         var stream = AgentStream(agent: .claude)
         let line = #"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/a.txt"}}]}}"# + "\n"
@@ -69,6 +104,6 @@ import Testing
         let long = String(repeating: "a", count: 200)
         let shown = events(.claude, [#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"\#(long)"}}]}}"#])
         #expect(shown.count == 1 && { if case let .activity(text) = shown[0] { return text.count <= 90 } else { return false } }())
-        #expect(events(.pi, [#"{"type":"assistant"}"#]).isEmpty)
+        #expect(events(.apple, [#"{"type":"assistant"}"#]).isEmpty)
     }
 }

@@ -50,7 +50,13 @@ public enum ProcessRunner {
         let p = Process()
         p.executableURL = launcher
         p.arguments = [executable] + arguments
-        if let workingDirectory { p.currentDirectoryURL = workingDirectory }
+        if let workingDirectory {
+            p.currentDirectoryURL = workingDirectory
+            // `$PWD` も合わせる（`PWD` を見て、作業フォルダを決めるツールがある：親の `PWD` のままだと、別のフォルダで動く）
+            var environment = ProcessInfo.processInfo.environment
+            environment["PWD"] = workingDirectory.path
+            p.environment = environment
+        }
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = mergeStderr ? pipe : FileHandle.nullDevice

@@ -10,7 +10,7 @@ struct SettingsPreviewCommand: Command {
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
         ],
-        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く")],
+        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
         examples: ["VC_HOME=/tmp/demo-home vc settings-preview /tmp/settings-shots"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -19,6 +19,7 @@ struct SettingsPreviewCommand: Command {
         let icon = arguments.option("--icon")
         let diagnostics = arguments.flag("--diagnostics")
         let recording = arguments.flag("--recording")
+        let catalog = arguments.flag("--catalog")
         guard let directory = arguments.positionals.first else { usageError("settings-preview", "出力のフォルダを渡してください") }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         _ = NSApplication.shared
@@ -38,6 +39,7 @@ struct SettingsPreviewCommand: Command {
         let model = SettingsModel()
         for page in SettingsPage.allCases where only == nil || only == page.rawValue {
             model.page = page
+            if catalog, page == .skills { model.loadCatalog(); for _ in 0..<60 { if case .loading = model.catalog { Self.spin(seconds: 0.5) } else { break } } }
             if recording, page == .keys { model.startRecording(.dictate) } else { model.stopRecording() }
             let window = SettingsWindow.makeWindow(model: model)
             guard let hosting = window.contentView else { fail("描けません（\(page.rawValue)）") }

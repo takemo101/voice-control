@@ -29,7 +29,7 @@ import VCCore
         #expect(args(.grok, .all).contains("--always-approve") && !args(.grok, .all).contains("plan"))
         // agy・opencode・pi
         #expect(args(.agy, .read).contains("plan") && args(.agy, .all).contains("--dangerously-skip-permissions"))
-        #expect(args(.opencode, .web) == ["run", "--agent", "plan", "P"] && args(.opencode, .all).contains("--auto") && args(.opencode, .all).contains("build"))
+        #expect(args(.opencode, .web) == ["run", "--agent", "plan", "--format", "json", "P"] && args(.opencode, .all).contains("--auto") && args(.opencode, .all).contains("build"))
         #expect(args(.pi, .none).contains("--no-tools") && args(.pi, .read).contains("read") && !args(.pi, .all).contains("--no-tools"))
         #expect(args(.pi, .web).contains("--no-tools"))   // pi は、検索の道具がない：Web は、なしと同じ
     }

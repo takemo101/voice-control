@@ -35,6 +35,14 @@ enum DownloadState: Equatable {
     case failed(String)
 }
 
+/// インストールできるスキルの一覧の状態（GitHub の公開リポジトリ。取得は、利用者が押したときだけ）。
+enum CatalogState {
+    case idle
+    case loading
+    case loaded(RemoteInstall.Listing)
+    case failed(String)
+}
+
 /// 設定ウィンドウの状態。設定ファイル（`~/.voice-control/settings.json`）を読み書きする（CLI の `vc` と同じファイル）。**変えた設定は、すぐ保存する**。声の入力は、起動のときに設定を読むので、**反映には、再起動が要る**（`needsRestart`）。
 @MainActor final class SettingsModel: ObservableObject {
     @Published private(set) var settings: Settings
@@ -53,6 +61,11 @@ enum DownloadState: Equatable {
     @Published var engineRest = ""
     @Published private(set) var engineProblem: String?
     @Published private(set) var downloads: [String: DownloadState] = [:]
+    @Published private(set) var catalog = CatalogState.idle
+    /// インストール中のスキルの名前。
+    @Published private(set) var installing: Set<String> = []
+    /// インストールの結果（成功・失敗）。名前ごとに、最後の 1 件。
+    @Published private(set) var installResults: [String: (ok: Bool, text: String)] = [:]
     @Published var fillersText = ""
     /// 許可の状態などを、画面を開くたびに読み直すための印。
     @Published private(set) var revision = 0
@@ -298,6 +311,117 @@ enum DownloadState: Equatable {
     // MARK: スキル
 
     func loadedSkills() -> SkillStore.Loaded { SkillStore.loadAll(projectRoot: VoiceControlHome.launchDirectory, settings: settings) }
+
+    // MARK: スキルのインストール（`vc skills install` と同じ流れ：`RemoteInstall`）
+
+    private var installRef: String { "v\(AppInfo.version)" }
+
+    /// インストールできるスキルの一覧を取る（GitHub への通信：押したときだけ）。
+    func loadCatalog() {
+        if case .loading = catalog { return }
+        catalog = .loading
+        let ref = installRef
+        Task {
+            do {
+                let listing = try await RemoteInstall.list(explicitRef: nil, defaultRef: ref)
+                catalog = .loaded(listing)
+            } catch {
+                catalog = .failed(Self.describe(error))
+            }
+        }
+    }
+
+    var installingIsEmpty: Bool { installing.isEmpty }
+
+    /// 許可するコマンドの表示：取得のための一時フォルダの名前は出さず、`${SKILL_DIR}`（スキルのフォルダ）にする。
+    static func commands(of skill: Skill) -> String {
+        let directory = skill.file.deletingLastPathComponent().resolvingSymlinksInPath().path
+        let raw = skill.allowedCommands.map { $0.replacingOccurrences(of: skill.file.deletingLastPathComponent().path, with: "${SKILL_DIR}").replacingOccurrences(of: directory, with: "${SKILL_DIR}") }
+        return raw.isEmpty ? "（なし）" : raw.joined(separator: "、")
+    }
+
+    func isInstalled(skill name: String) -> Bool {
+        FileManager.default.fileExists(atPath: VoiceControlHome.skillsDirectory.appendingPathComponent(name).path)
+    }
+
+    /// 1 つ入れる（同名があれば、置き換える：「更新」）。**入れる前に、許可するコマンド・確認・外へ送るかを見せて、確かめる**（入れたスキルは、信頼の手続きなしで、いつも読み込まれるため）。
+    func install(_ skill: Skill) {
+        guard !installing.contains(skill.name), case let .loaded(listing) = catalog else { return }
+        let replacing = isInstalled(skill: skill.name)
+        guard Self.confirmInstall([skill], replacing: replacing, source: listing.source) else { return }
+        run(names: [skill.name], listing: listing, overwrite: replacing)
+    }
+
+    /// 一覧の、まだ入れていないスキルを、すべて入れる。
+    func installMissing() {
+        guard case let .loaded(listing) = catalog, installing.isEmpty else { return }
+        let missing = listing.skills.filter { !isInstalled(skill: $0.name) }
+        guard !missing.isEmpty, Self.confirmInstall(missing, replacing: false, source: listing.source) else { return }
+        run(names: missing.map(\.name).sorted(), listing: listing, overwrite: false)
+    }
+
+    private func run(names: [String], listing: RemoteInstall.Listing, overwrite: Bool) {
+        installing.formUnion(names)
+        names.forEach { installResults[$0] = nil }
+        Task {
+            do {
+                // 一覧と同じ版で取る（タグがなく、main に切り替えた場合も、同じ）
+                let report = try await RemoteInstall.install(names: names, explicitRef: listing.source.ref, defaultRef: installRef, overwrite: overwrite)
+                for outcome in report.outcomes {
+                    switch outcome.result {
+                    case let .success(installed): installResults[outcome.name] = (true, installed.overwritten ? "置き換えました" : "入れました")
+                    case let .failure(failure): installResults[outcome.name] = (false, Self.describe(failure))
+                    }
+                }
+            } catch {
+                names.forEach { installResults[$0] = (false, Self.describe(error)) }
+            }
+            installing.subtract(names)
+            revision += 1   // 一覧（有効・無効）を、読み直す
+        }
+    }
+
+    /// 入れる前の確認（許可するコマンド・確認の有無・外へ送るか）。入れてよければ true。
+    private static func confirmInstall(_ skills: [Skill], replacing: Bool, source: RemoteInstall.Source) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = skills.contains { $0.external != nil } ? .warning : .informational
+        if skills.count == 1, let skill = skills.first {
+            alert.messageText = "スキル「\(skill.name)」を、\(replacing ? "置き換え" : "入れ")ますか？"
+            var lines = [skill.description, "", "許可するコマンド：" + commands(of: skill), "実行の前の確認：" + (skill.confirm ? "必須" : "なし")]
+            if let notice = skill.externalNotice { lines.append("外へ送ります：" + notice) }
+            lines += ["", "取得元：github.com/\(RemoteSkills.repository) @ \(source.ref)", "入れたスキルは、信頼の手続きなしで、どこでも、いつも読み込まれます。"]
+            alert.informativeText = lines.joined(separator: "\n")
+        } else {
+            alert.messageText = "\(skills.count) 個のスキルを、入れますか？"
+            let external = skills.filter { $0.external != nil }
+            var lines = [skills.map(\.name).sorted().joined(separator: "、"), ""]
+            if !external.isEmpty { lines.append("使うと、発話や画面の画像を、この Mac の外へ送ります：" + external.map { "\($0.name)（\($0.externalNotice ?? "")）" }.joined(separator: "、")) }
+            lines += ["取得元：github.com/\(RemoteSkills.repository) @ \(source.ref)", "許可するコマンドは、各スキルの SKILL.md で決まります（一覧の各行で、確かめられます）。"]
+            alert.informativeText = lines.joined(separator: "\n")
+        }
+        alert.addButton(withTitle: replacing ? "置き換える" : "入れる")
+        alert.addButton(withTitle: "やめる")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private static func describe(_ failure: SkillInstaller.Failure) -> String {
+        switch failure {
+        case .notFound: return "リポジトリに、読めるスキルがありません"
+        case let .unreadable(_, why): return "SKILL.md が読めません（\(why)）"
+        case .alreadyInstalled: return "すでに入っています"
+        case let .containsSymlink(_, path): return "シンボリックリンク（\(path)）を含むので、置きません"
+        case let .copyFailed(_, why): return "置けません（\(why)）"
+        }
+    }
+
+    private static func describe(_ error: Error) -> String {
+        guard let failure = error as? RemoteSkills.Failure else { return "取得できません：\(error.localizedDescription)" }
+        switch failure {
+        case let .network(reason): return "GitHub から取得できません（\(reason)）。ネットワークを確かめてください"
+        case let .refNotFound(missing): return "版 \(missing) が、リポジトリにありません"
+        default: return "取得できません：\(failure)"
+        }
+    }
 
     func setSkill(_ name: String, enabled: Bool) {
         update(restart: false) { $0.setEnabled(name, enabled) }   // スキルは、発話のたびに読み直す：再起動は要らない

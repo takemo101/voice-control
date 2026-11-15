@@ -51,7 +51,7 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     public var canSearchWeb: Bool { self != .pi }
 
     /// 実行中の様子（いま何をしているか）を、読み取れるエージェントか。
-    public var streamsActivity: Bool { self == .claude || self == .codex || self == .grok }
+    public var streamsActivity: Bool { isExternal }
 
     /// このエージェントで、実際に使う段階（`pi` は、検索がないので、「Web」は、「なし」になる）。
     /// Apple のモデルには、書き込み・コマンドの実行を開けない（`all` は、`read`）。
@@ -170,7 +170,7 @@ public struct ExternalChatBackend: ActivityReporting {
         switch agent {
         case .apple: return []
         case .agy:
-            return ["-p", prompt, "--model", agyModel] + (level == .all ? ["--mode", "auto", "--dangerously-skip-permissions"] : ["--mode", "plan", "--sandbox"]) + ["--print-timeout", "100s"]
+            return ["-p", prompt, "--model", agyModel, "--output-format", "stream-json"] + (level == .all ? ["--mode", "auto", "--dangerously-skip-permissions"] : ["--mode", "plan", "--sandbox"]) + ["--print-timeout", "100s"]
         case .claude:
             // 道具：なし＝空・web＝検索と取得・read＝＋読む・all＝すべて（確認を飛ばす）
             var args = ["-p", prompt, "--output-format", "stream-json", "--verbose"]
@@ -186,10 +186,10 @@ public struct ExternalChatBackend: ActivityReporting {
         case .grok:
             return ["-p", prompt, "--cwd", directory.path, "--output-format", "streaming-json"] + (level == .all ? ["--always-approve"] : ["--permission-mode", "plan"]) + (level.searchesWeb ? [] : ["--disable-web-search"])
         case .opencode:
-            return ["run", "--agent", level == .all ? "build" : "plan"] + (level == .all ? ["--auto"] : []) + [prompt]
+            return ["run", "--agent", level == .all ? "build" : "plan", "--format", "json"] + (level == .all ? ["--auto"] : []) + [prompt]
         case .pi:
             let toolArgs: [String] = level == .all ? [] : (level == .read ? ["--tools", "read"] : ["--no-tools"])
-            return ["-p", prompt] + toolArgs + ["--no-session", "--no-extensions", "--no-skills", "--no-context-files"]
+            return ["-p", prompt, "--mode", "json"] + toolArgs + ["--no-session", "--no-extensions", "--no-skills", "--no-context-files"]
         }
     }
 

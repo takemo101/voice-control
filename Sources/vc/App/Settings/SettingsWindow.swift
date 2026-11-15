@@ -605,9 +605,9 @@ private struct SkillsPage: View {
 
     var body: some View {
         let loaded = model.loadedSkills()
-        Card("スキル", footer: "有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得・作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。") {
+        Card("スキル", footer: "有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。") {
             if loaded.skills.isEmpty {
-                Row("スキルが、まだありません", detail: "ターミナルで vc skills install --all を実行するか、フォルダに置いてください") { EmptyView() }
+                Row("スキルが、まだありません", detail: "下の「スキルをインストール」から入れるか、フォルダに置いてください") { EmptyView() }
             }
             ForEach(Array(loaded.skills.enumerated()), id: \.element.name) { index, skill in
                 if index > 0 { RowDivider() }
@@ -620,7 +620,66 @@ private struct SkillsPage: View {
                 Label("読めないスキル: \(problem.location)：\(problem.reason)", systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(14)
             }
         }
+        CatalogCard(model: model)
         Button { NSWorkspace.shared.open(VoiceControlHome.root.appendingPathComponent("skills")) } label: { Label("スキルのフォルダを開く", systemImage: "folder") }.controlSize(.small)
+    }
+}
+
+/// インストールできるスキル（GitHub の公開リポジトリ。`vc skills install` と同じ）。一覧の取得は、押したときだけ通信する。入れる前に、許可するコマンドなどを見せて、確かめる。
+private struct CatalogCard: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        Card("スキルをインストール", footer: "GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。入れる前に、許可するコマンドを確かめます。") {
+            switch model.catalog {
+            case .idle:
+                Row("インストールできるスキル", detail: "一覧を、GitHub から取ります") {
+                    Button("一覧を取得") { model.loadCatalog() }.controlSize(.small)
+                }
+            case .loading:
+                Row("取得しています…", detail: nil) { ProgressView().controlSize(.small) }
+            case let .failed(reason):
+                Row("取得できませんでした", detail: reason) {
+                    Button("もう一度") { model.loadCatalog() }.controlSize(.small)
+                }
+            case let .loaded(listing):
+                if listing.skills.isEmpty {
+                    Row("スキルが、ありません", detail: "リポジトリ（\(listing.source.ref)）に、読めるスキルがありません") { EmptyView() }
+                }
+                ForEach(Array(listing.skills.enumerated()), id: \.element.name) { index, skill in
+                    if index > 0 { RowDivider() }
+                    skillRow(skill)
+                }
+                if listing.skills.contains(where: { !model.isInstalled(skill: $0.name) }) {
+                    RowDivider()
+                    Row("まだ入れていないスキルを、すべて", detail: nil) {
+                        Button("すべて入れる…") { model.installMissing() }.controlSize(.small).disabled(!model.installingIsEmpty)
+                    }
+                }
+            }
+        }
+    }
+
+    private func skillRow(_ skill: Skill) -> some View {
+        let installed = model.isInstalled(skill: skill.name)
+        let detail = skill.description + "\n許可するコマンド：" + SettingsModel.commands(of: skill) + (skill.confirm ? "（実行の前に、確認）" : "")
+        return VStack(alignment: .leading, spacing: 0) {
+            Row(skill.name, detail: detail) {
+                HStack(spacing: 8) {
+                    if skill.external != nil { Pill(text: "外へ送る", color: Brand.warn) }
+                    if model.installing.contains(skill.name) {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        if installed { Pill(text: "入れ済み", color: Brand.ok) }
+                        Button(installed ? "更新" : "入れる…") { model.install(skill) }.controlSize(.small)
+                    }
+                }
+            }
+            if let result = model.installResults[skill.name] {
+                Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.system(size: 11)).foregroundStyle(result.ok ? Brand.ok : .red).padding(.horizontal, 14).padding(.bottom, 8)
+            }
+        }
     }
 }
 

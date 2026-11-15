@@ -37,7 +37,10 @@ public struct AgentStream: Sendable {
         case .claude: return claude(object)
         case .codex: return codex(object)
         case .grok: return grok(object)
-        default: return []
+        case .agy: return agy(object)
+        case .opencode: return opencode(object)
+        case .pi: return pi(object)
+        case .apple: return []
         }
     }
 
@@ -85,6 +88,58 @@ public struct AgentStream: Sendable {
         }
     }
 
+    // MARK: agy（`--output-format stream-json`）
+
+    private static func agy(_ o: [String: Any]) -> [Event] {
+        switch o["event"] as? String {
+        case "step_update":
+            // 道具の呼び出し：始まったとき（ACTIVE）だけ（終わりは、重ねない）
+            guard let step = o["step_update"] as? [String: Any], step["step_type"] as? String == "tool", step["state"] as? String == "ACTIVE",
+                  let name = step["tool_name"] as? String else { return [] }
+            let parameters = (step["tool_info"] as? [String: Any])?["parameters"] as? [String: Any] ?? [:]
+            return [.activity(describe(tool: name, input: Dictionary(uniqueKeysWithValues: parameters.map { ($0.key.lowercased(), $0.value) })))]
+        case "result":
+            guard let result = o["result"] as? [String: Any] else { return [] }
+            if (result["status"] as? String) != "SUCCESS" { return [.failure((result["status"] as? String) ?? "失敗しました")] }
+            return (result["response"] as? String).map { [.final($0)] } ?? []
+        default: return []
+        }
+    }
+
+    // MARK: opencode（`run --format json`）
+
+    private static func opencode(_ o: [String: Any]) -> [Event] {
+        guard let part = o["part"] as? [String: Any] else { return [] }
+        switch o["type"] as? String {
+        case "tool_use":
+            guard let name = part["tool"] as? String else { return [] }
+            var input = (part["state"] as? [String: Any])?["input"] as? [String: Any] ?? [:]
+            // `patch` は、パッチの文章の中に、ファイル名がある（`*** Add File: done.txt`）
+            if name == "patch", let patch = input["patchText"] as? String,
+               let line = patch.split(separator: "\n").first(where: { $0.hasPrefix("*** ") && $0.contains("File: ") }), let range = line.range(of: "File: ") {
+                input["path"] = String(line[range.upperBound...])
+            }
+            return [.activity(describe(tool: name, input: input))]
+        case "text": return (part["text"] as? String).map { [.final($0)] } ?? []   // 最後の文章が、答え
+        default: return []
+        }
+    }
+
+    // MARK: pi（`--mode json`）
+
+    private static func pi(_ o: [String: Any]) -> [Event] {
+        switch o["type"] as? String {
+        case "tool_execution_start":
+            guard let name = o["toolName"] as? String else { return [] }
+            return [.activity(describe(tool: name, input: o["args"] as? [String: Any] ?? [:]))]
+        case "message_end":
+            guard let message = o["message"] as? [String: Any], message["role"] as? String == "assistant" else { return [] }
+            let text = ((message["content"] as? [[String: Any]]) ?? []).compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined()
+            return text.isEmpty ? [] : [.final(text)]   // 最後の、文章のある返事が、答え
+        default: return []
+        }
+    }
+
     // MARK: 共通
 
     /// 道具の名前と入力から、短い説明にする（名前は、CLI ごとに違う：`Bash`・`run_terminal_command` など）。
@@ -94,11 +149,11 @@ public struct AgentStream: Sendable {
             keys.compactMap { input[$0] as? String }.first ?? ["file_path", "target_file", "target_directory", "path", "query", "url", "command", "pattern"].compactMap { input[$0] as? String }.first ?? input.values.compactMap { $0 as? String }.first
         }
         switch tool.lowercased() {
-        case "bash", "run_terminal_command", "shell", "execute": return "実行: " + clip(string("command") ?? "")
-        case "websearch", "web_search": return "検索: " + clip(string("query") ?? "")
-        case "webfetch", "web_fetch": return "取得: " + clip(string("url") ?? "")
-        case "read", "read_file": return "読む: " + clip(string("file_path", "path") ?? "")
-        case "write", "edit", "multiedit", "search_replace", "apply_patch": return "書く: " + clip(string("file_path", "path") ?? "")
+        case "bash", "run_terminal_command", "shell", "execute", "run_command": return "実行: " + clip(string("command", "commandline") ?? "")
+        case "websearch", "web_search", "search_web": return "検索: " + clip(string("query") ?? "")
+        case "webfetch", "web_fetch", "read_url_content": return "取得: " + clip(string("url") ?? "")
+        case "read", "read_file", "view_file", "view_file_outline": return "読む: " + clip(string("file_path", "path") ?? "")
+        case "write", "edit", "multiedit", "search_replace", "apply_patch", "patch", "write_file", "replace_file_content", "write_to_file", "multi_replace_file_content": return "書く: " + clip(string("file_path", "path") ?? "")
         case "glob", "list_dir", "ls": return "一覧: " + clip(string("pattern", "path") ?? "")
         case "grep": return "探す: " + clip(string("pattern") ?? "")
         default: return clip(tool + (string("description", "command") ?? "").prefixed(": "))
