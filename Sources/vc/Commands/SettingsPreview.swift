@@ -10,7 +10,7 @@ struct SettingsPreviewCommand: Command {
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
         ],
-        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
+        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--chat-late", "ウィンドウを作る前に会話してから開いた状態を描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
         examples: ["VC_HOME=/tmp/demo-home vc settings-preview /tmp/settings-shots"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -24,8 +24,9 @@ struct SettingsPreviewCommand: Command {
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         _ = NSApplication.shared
         if let icon, let image = NSImage(contentsOfFile: icon) { NSApplication.shared.applicationIconImage = image }
-        if arguments.flag("--chat") {
-            let window = ChatWindow.shared.previewWindow()
+        let late = arguments.flag("--chat-late")
+        if arguments.flag("--chat") || late {
+            let window = late ? ChatWindow.shared.previewLateWindow() : ChatWindow.shared.previewWindow()
             guard let hosting = window.contentView else { fail("描けません（会話）") }
             Self.spin(seconds: 0.4)
             hosting.layoutSubtreeIfNeeded()

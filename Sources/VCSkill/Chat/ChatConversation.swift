@@ -92,6 +92,8 @@ public actor ChatConversation {
             text = try await respond(user, options)
         }
         let answer = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 空の答えは、答えにしない（画面に、何も出ない往復を、記録に入れない）
+        guard !answer.isEmpty else { throw ConversationError.failed("答えが空でした。もう一度、聞いてください（言い方を変えると、答えることがあります）") }
         turns.append(ChatTurn(user: user, assistant: answer))
         lastActivity = now()
         stats.turns += 1

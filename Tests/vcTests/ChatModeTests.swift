@@ -17,12 +17,6 @@ enum HotKeySpecTestHelper {
         }
     }
 
-    @Test func shortSingleLineAnswersGoToThePanelAndLongOnesToTheWindow() {
-        #expect(ChatMode.isShort("青です。"))
-        #expect(!ChatMode.isShort(String(repeating: "あ", count: 111)))
-        #expect(!ChatMode.isShort("一行目\n二行目"))
-    }
-
     @Test func aChatKeyThatOverlapsAnotherIsRefused() throws {
         let listen = try HotKeySpecTestHelper.parse("rshift"), dictate = try HotKeySpecTestHelper.parse("rcmd")
         #expect(KeyConflicts.message(listen: listen, dictate: dictate, shot: nil, chat: try HotKeySpecTestHelper.parse("ropt")) == nil)

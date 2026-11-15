@@ -60,7 +60,7 @@ struct ModelsPage: View {
                 .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
         if !agent.isExternal, model.chatToolLevel != .none {
-            Label("Web 検索の検索語と、開いたページの URL が、この Mac の外へ送られます（発話そのもの・画面・ファイルの中身は、送りません）。道具を開けている間は、画像・コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
+            Label("Web 検索の検索語と、開いたページの URL が、この Mac の外へ送られます（発話そのもの・画面・ファイルの中身は、送りません）。画像・コピーした文章を使う会話では、Web 検索は、使いません。", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
         if agent.isExternal, model.chatToolLevel == .all {

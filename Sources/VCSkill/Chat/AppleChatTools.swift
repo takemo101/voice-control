@@ -184,9 +184,10 @@ struct ChatCommandTool: Tool {
 
 enum AppleChatTools {
     /// 段階に応じた道具。`none` は、なし。
-    static func make(level: ChatToolLevel, folder: URL, web: WebAccess = .live, confirm: ToolConfirm? = nil, activity: @escaping ToolActivity) -> [any Tool] {
+    static func make(level: ChatToolLevel, folder: URL, web: WebAccess = .live, allowsWeb: Bool = true, confirm: ToolConfirm? = nil, activity: @escaping ToolActivity) -> [any Tool] {
         guard level != .none else { return [] }
-        var tools: [any Tool] = [CurrentDateTool(activity: activity), WebSearchTool(web: web, activity: activity), FetchPageTool(web: web, activity: activity)]
+        var tools: [any Tool] = [CurrentDateTool(activity: activity)]
+        if allowsWeb { tools += [WebSearchTool(web: web, activity: activity), FetchPageTool(web: web, activity: activity)] }
         if level.usesFolder {
             let reader = FolderReader(root: folder)
             tools += [ListFilesTool(reader: reader, activity: activity), ReadFileTool(reader: reader, activity: activity)]

@@ -157,4 +157,12 @@ import Testing
         #expect(g.next(.afterNudge, calls: 3, acted: true, reply: "作成しました") == .done)                    // 書く道具を呼んだ（確認を断られた場合も）
         #expect(guardFor("done.txt というファイルに書いて", .read).next(.afterNudge, calls: 1, acted: false, reply: "できません") == .done)   // 書く道具は、read にはない
     }
+
+    @Test func webToolsAreLeftOutWhenScreenContentIsInTheConversation() {
+        let folder = URL(fileURLWithPath: "/tmp")
+        let names = AppleChatTools.make(level: .all, folder: folder, allowsWeb: false, activity: { _ in }).map(\.name).sorted()
+        #expect(names == ["current_date_time", "list_files", "read_file", "run_command", "write_file"])   // 検索・ページの取得は、外す。ファイル・コマンドは、この Mac の中だけなので、残す
+        let g = ToolUseGuard(level: .web, user: "ギフティのニュースを調べて", folder: folder, allowsWeb: false)
+        #expect(g.next(.afterNudge, calls: 0, acted: false, reply: "調べられません") == .done)   // 検索の道具がないのに、「道具を呼ばなかった」と、失敗にしない
+    }
 }

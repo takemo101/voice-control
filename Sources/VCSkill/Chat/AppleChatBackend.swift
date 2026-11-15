@@ -27,13 +27,15 @@ public struct AppleChatBackend: ActivityReporting {
 
     /// 画像は、Apple の会話では、**文字にして、質問に入れてある**（`ChatAttachments`）ので、`options.image` は、使わない。
     public func respond(instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
-        let onActivity = options.onActivity, confirm = options.confirm
+        let onActivity = options.onActivity, confirm = options.confirm, allowsWeb = options.allowsWeb
         if case let .unavailable(reason) = AppleIntelligence.current() { throw ConversationError.unavailable("\(reason.summary)。\(reason.remedy)") }
         if tools.usesFolder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
         let calls = CallCounter()
-        let available = AppleChatTools.make(level: tools, folder: folder, web: web, confirm: confirm.map { ask -> ToolConfirm in { @Sendable detail in calls.markAsked(); return await ask(detail) } },
+        let available = AppleChatTools.make(level: tools, folder: folder, web: web, allowsWeb: allowsWeb, confirm: confirm.map { ask -> ToolConfirm in { @Sendable detail in calls.markAsked(); return await ask(detail) } },
                                             activity: { calls.record($0); onActivity?($0) })
         let definitions = available.map { Transcript.ToolDefinition(tool: $0) }
+        // Web の道具を外した質問：モデルに、そう伝える（検索を約束して、道具がなく、困らないように）
+        let instructions = allowsWeb || tools == .none ? instructions : instructions + "\n\nFor this conversation the web tools are turned off (the user shared a screenshot or copied text, which must not leave this Mac). Do not search the web; answer from the shared content and your own knowledge, and say so if you cannot."
         var entries: [Transcript.Entry] = [.instructions(Transcript.Instructions(segments: [.text(.init(content: instructions))], toolDefinitions: definitions))]
         for turn in turns {
             entries.append(.prompt(Transcript.Prompt(segments: [.text(.init(content: turn.user))])))
@@ -43,7 +45,7 @@ public struct AppleChatBackend: ActivityReporting {
         do {
             var reply = try await session.respond(to: user).content
             // 道具を呼ばなかった答え（作り話・予告だけ）を、返さない（`ToolUseGuard`）
-            let guardrail = ToolUseGuard(level: tools, user: user, folder: folder)
+            let guardrail = ToolUseGuard(level: tools, user: user, folder: folder, allowsWeb: allowsWeb)
             var step = ToolUseGuard.Step.start
             while true {
                 switch guardrail.next(step, calls: calls.count, acted: calls.acted, reply: reply) {

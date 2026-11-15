@@ -39,9 +39,11 @@ public struct ChatCallOptions: Sendable {
     public var confirm: ToolConfirm?
     /// 外のエージェントに見せる画像（**利用者が、送ることを確かめたもの**。作業フォルダへ、一時的にコピーして渡し、終わったら消す）。
     public var image: URL?
+    /// Web の道具（検索・ページの取得）を使ってよいか（Apple の会話だけ）。**画像・コピーした文章が、会話に入っているとき**は、使わない：画面の内容が、モデルの作る検索語に混ざって、外へ出ないように。
+    public var allowsWeb = true
 
-    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil) {
-        self.onActivity = onActivity; self.confirm = confirm; self.image = image
+    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true) {
+        self.onActivity = onActivity; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb
     }
 }
 

@@ -43,9 +43,6 @@ import VCSkill
         ChatWindow.shared.clear()
     }
 
-    /// 答えの見せ方：短ければ上のパネル、長ければウィンドウ。
-    static func isShort(_ answer: String) -> Bool { answer.count <= 110 && !answer.contains("\n") }
-
     /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
     struct Outcome { var answer: String; var notes: [String]; var activities: [ChatActivity] = []; var startedNew = false; var imageRoute: ImageRoute? }
 
@@ -76,7 +73,6 @@ import VCSkill
         var cleanup: [() -> Void] = []
         defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
         let wants = ChatAttachments.wants(utterance)
-        let outside = agent.isExternal || tools != .none   // 画像・文章が、外へ出うる
         let wantsImage = wants.image || attachedImage != nil
         if wantsImage {
             // 画像のもと：添えてある画像、なければ、言葉から（撮ったスクリーンショット／コピーした画像）
@@ -98,8 +94,6 @@ import VCSkill
                     } else {
                         route = .notUsed("確認できないので、送りません")
                     }
-                } else if tools != .none {
-                    route = .notUsed("Web 検索の道具を開けている間は、渡しません")
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
                     if attached.contains(key) { route = .local; if wants.image { notes.append("同じ画像は、すでに会話に入っています") } }
@@ -114,9 +108,9 @@ import VCSkill
                 }
             }
         } else if wants.text {
-            if outside {
+            if agent.isExternal {
                 // 外へ出さない決まり：コピーした文章は、この Mac の中のモデルにだけ渡す
-                notes.append("コピーした文章は、道具（Web 検索）・外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話で、道具なしなら、使えます）")
+                notes.append("コピーした文章は、外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます）")
             } else if let clip = TextClipboard.read(), let attachment = ChatAttachments.textAttachment(from: clip) {
                 if attached.contains(attachment.key) { notes.append("同じ文章は、すでに会話に入っています") }
                 else { attachments.append(attachment); attached.insert(attachment.key) }
@@ -126,11 +120,14 @@ import VCSkill
         }
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
+        // Apple の会話で、画像・コピーした文章が、会話に入っている間は、Web の道具を外す（画面の内容が、モデルの作る検索語に混ざって、外へ出ないため）
+        let webOff = !agent.isExternal && tools != .none && !attached.isEmpty
+        if webOff && !attachments.isEmpty { notes.append("画像・コピーした文章を使うので、この会話では、Web 検索を使いません（画面の内容が、検索語に混ざって、外へ出ないため）") }
         let log = ActivityLog()
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm, image: imageToSend))
+        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }

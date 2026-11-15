@@ -138,7 +138,8 @@ import VCSkill
         if !window.isVisible {
             window.alphaValue = 0
             window.setFrame(ScreenPlacement.centeredFrame(size: window.frame.size, in: ScreenPlacement.currentVisibleFrame()), display: false)
-            window.makeKeyAndOrderFront(nil)
+            // 利用者の操作を、邪魔しない：自動で出すとき（`activate` なし）は、キーを奪わない
+            if activate { window.makeKeyAndOrderFront(nil) } else { window.orderFrontRegardless() }
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.18
                 window.animator().alphaValue = 1
@@ -161,6 +162,17 @@ import VCSkill
     func windowWillClose(_ notification: Notification) {}
 
     /// 見た目の確認用（`vc settings-preview --chat`）：見本の会話を入れて、画面の外に置いたウィンドウを返す（利用者の画面には、出ない）。
+    /// 見た目の確認用：**ウィンドウを作る前に**、質問と答えを記録しておいて、そのあと、ウィンドウを出す（パネルが出ていない間に会話して、あとから開く流れ）。
+    func previewLateWindow() -> NSWindow {
+        let id = begin(question: "ウィンドウがないときの質問", agent: "Apple のモデル", warning: nil, tools: nil)
+        finish(id, answer: "答えは、ウィンドウを作る前に、届きました。**これが見えれば、よい**です。", activities: [], notes: [], startedNew: false)
+        let window = makeWindowIfNeeded()
+        state.solid = true
+        window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
     func previewWindow(pendingOnly: Bool = false) -> NSWindow {
         let window = makeWindowIfNeeded()
         state.agent = "Claude Code"

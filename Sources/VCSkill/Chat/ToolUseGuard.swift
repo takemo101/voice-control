@@ -7,6 +7,8 @@ struct ToolUseGuard {
     let level: ChatToolLevel
     let user: String
     let folder: URL
+    /// Web の道具が、この質問で使えるか（使えないとき、Web の依頼でも、「道具を呼ばなかった」とは、扱わない）。
+    var allowsWeb = true
 
     /// いま、どこまで進んだか。
     enum Step { case start, afterNudge, afterActNudge }
@@ -25,7 +27,7 @@ struct ToolUseGuard {
     /// `calls`：道具が呼ばれた回数。`acted`：書く・実行する道具が呼ばれた（か、確認を求めた）。`reply`：いまの答え。
     func next(_ step: Step, calls: Int, acted: Bool, reply: String) -> Action {
         guard level != .none else { return .done }
-        let needed = Self.needsTool(user, level: level)
+        let needed = Self.needsTool(user, level: level, allowsWeb: allowsWeb)
         switch step {
         case .start:
             if calls == 0, needed || Self.looksLikeAPromise(reply) { return .nudge(Self.nudge, then: .afterNudge) }
@@ -59,13 +61,14 @@ struct ToolUseGuard {
     static let nudgeToAct = "You have not done it yet. Call write_file (path and the full content) or run_command now, then report the tool result. Do not just say you will."
 
     /// 依頼が、道具なしには答えられないものか（ファイル・フォルダの名前や、検索・最新のニュース）。道具を呼ばずに答えたら、作り話になる。
-    static func needsTool(_ request: String, level: ChatToolLevel) -> Bool {
+    static func needsTool(_ request: String, level: ChatToolLevel, allowsWeb: Bool = true) -> Bool {
         guard level != .none else { return false }
         if level.usesFolder {
             if ["ファイル", "フォルダ", "ディレクトリ", "作業フォルダ"].contains(where: request.contains) { return true }
             if FileNames.contains(in: request) { return true }
         }
         if level == .all, ["コマンド", "ターミナル", "実行して", "を実行"].contains(where: request.contains) { return true }
+        guard allowsWeb else { return false }
         return ["調べて", "調べ", "検索", "ニュース", "最新", "最近の", "http://", "https://", "天気", "株価"].contains(where: request.contains)
     }
 
