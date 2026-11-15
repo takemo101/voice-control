@@ -108,7 +108,7 @@ import VCSpeech
             try? await Task.sleep(for: .milliseconds(500))
             if Task.isCancelled { return }
         }
-        weak var old = session?.loop
+        weak let old = session?.loop
         session?.loop.stop()
         session = nil
         // 古い声の流れが、手放されて、トリガー・Esc の登録が外れるまで、待つ（同じキーを、二重に登録しない）
