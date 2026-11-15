@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import VCCore
+import VCDecision
 import VCSkill
 
 /// 会話（声の入力 の会話のトリガー・`vc chat`）：**スキルを選ばずに、会話として質問できる**。古い往復は、要約して、続けられる（`ChatConversation`）。
@@ -16,6 +17,10 @@ import VCSkill
     /// 外のエージェントに開けている道具の段階と、作業フォルダ。
     private(set) var tools = ChatToolLevel.none
     private(set) var folder: URL?
+    /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
+    var scorer: OptionScorer?
+    /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
+    private var shots = ScreenshotLedger()
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
@@ -38,6 +43,7 @@ import VCSkill
         self.folder = folder
         conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder))
         attached = []
+        shots = ScreenshotLedger()
     }
 
     /// **質問のたびに**、選んだエージェントが、使えるか確かめる（CLI が、アンインストールなどで、なくなっていないか）。
@@ -62,6 +68,7 @@ import VCSkill
     func end() async {
         await conversation.reset()
         attached = []
+        shots = ScreenshotLedger()
         SaySpeaker.shared.stop()
         ChatWindow.shared.clear()
     }
@@ -98,11 +105,23 @@ import VCSkill
         var cleanup: [() -> Void] = []
         defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
         let wants = ChatAttachments.wants(utterance)
-        let wantsImage = wants.image || attachedImage != nil
-        if wantsImage {
-            // 画像のもと：添えてある画像、なければ、言葉から（撮ったスクリーンショット／コピーした画像）
+        // 画像を使うか：「画面を撮る」で添えたものは、そのまま使う。撮ったスクリーンショット（ショートカット）は、**Tiny-Jev が、この質問に使うか判定する**。判定できなければ、言葉で決める
+        let judge = scorer.map { scorer in { try ChatImageUse(scorer: scorer).probability(request: utterance) } }
+        // 撮ったスクリーンショットは、1 度使ったら、次の質問では、判定せずに使わない（判定が外れて、どの質問にも付く、を防ぐ）
+        var shotKey: String?
+        if case let .success(shot) = ScreenshotStore.current() { shotKey = ChatAttachments.fingerprint(shot) }
+        let plan = ChatAttachments.imagePlan(request: utterance, hasAttached: attachedImage != nil, screenshotAvailable: shotKey.map { shots.isFresh($0) } ?? false, judge: judge)
+        if let shotKey {
+            switch plan {
+            case .screenshot, .attached: shots.markUsed(shotKey)
+            case .skippedScreenshot: if shots.shouldNoteSkip(shotKey) { notes.append("撮ったスクリーンショットは、この質問には使いませんでした（使うときは、会話のウィンドウの「画面を撮る」で添えてください）") }
+            default: break
+            }
+        }
+        if plan.usesImage {
+            // 画像のもと：添えてある画像、判定したスクリーンショット、なければ、言葉から（コピーした画像・撮ったスクリーンショット）
             let file: URL?
-            if let attachedImage { file = attachedImage } else {
+            if let attachedImage, plan == .attached { file = attachedImage } else if plan == .screenshot, case let .success(found) = ImageSource.screenshot.materialize() { file = found } else {
                 let source = ImageSource.any.resolve(for: utterance)
                 switch source.materialize(for: utterance) {
                 case let .success(found): file = found; cleanup.append { source.discard() }
@@ -122,7 +141,7 @@ import VCSkill
                     }
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
-                    if attached.contains(key) { route = .local; if wants.image { notes.append("同じ画像は、すでに会話に入っています") } }
+                    if attached.contains(key) { route = .local; if plan != .attached { notes.append("同じ画像は、すでに会話に入っています") } }
                     else {
                         progress("画像を読んでいます…")
                         let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
@@ -154,7 +173,7 @@ import VCSkill
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff))
+        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } }))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }

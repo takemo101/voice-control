@@ -53,6 +53,7 @@ import VCSpeech
         let handsFree = triggers.handsFree
         // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
         let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
+        ChatMode.shared.scorer = jev   // 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）
         let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
         // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
         ChatWindow.shared.submit = { text in

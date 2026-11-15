@@ -41,9 +41,11 @@ public struct ChatCallOptions: Sendable {
     public var image: URL?
     /// Web の道具（検索・ページの取得）を使ってよいか（Apple の会話だけ）。**画像・コピーした文章が、会話に入っているとき**は、使わない：画面の内容が、モデルの作る検索語に混ざって、外へ出ないように。
     public var allowsWeb = true
+    /// この質問に、最新の情報（Web）が要るか（Tiny-Jev の判定。Apple の会話だけ）。言葉の一致で拾えない言い方を、補う。
+    public var needsWeb: (@Sendable (String) -> Bool)?
 
-    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true) {
-        self.onActivity = onActivity; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb
+    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true, needsWeb: (@Sendable (String) -> Bool)? = nil) {
+        self.onActivity = onActivity; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb; self.needsWeb = needsWeb
     }
 }
 

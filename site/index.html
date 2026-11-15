@@ -49,7 +49,7 @@
   <div class="orbs" aria-hidden="true"><span class="orb orb-a"></span><span class="orb orb-b"></span><span class="orb orb-c"></span></div>
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="pill"><i aria-hidden="true"></i><b>試作版</b><span>v0.5.1</span><span>macOS 26 以降 / Apple シリコン</span></p>
+      <p class="pill"><i aria-hidden="true"></i><b>試作版</b><span>v0.5.2</span><span>macOS 26 以降 / Apple シリコン</span></p>
       <h1><span class="line"><span class="nb">押しながら</span><span class="nb">話すと、</span></span><span class="line"><em class="hl">Mac が動く。</em></span></h1>
       <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章でお願いするだけで、Mac の操作を代わりにやってくれる、メニューバーのアプリです。聞きたいことは、<strong>会話</strong>で答えてくれます。音声認識も AI モデルも、初期設定では Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
       <p class="lead sub">何を実行してよいかは、AI の判断ではなく、あらかじめ決めた<strong>許可リスト</strong>で制限します。</p>
@@ -154,7 +154,7 @@
           <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>画面を撮って、見せる</h3><p>「画面を撮る」で範囲を選ぶと、画像について聞けます。Apple のモデルは、<strong>Mac の中で</strong>読みます。外のエージェントへは、<strong>送るたびに、画像と送り先を見せて、確認</strong>します。</p></div></li>
           <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-chip"/></svg><div><h3>答える側を選べる</h3><p>初期設定は、Mac の中の Apple のモデル。<code>claude</code>・<code>codex</code>・<code>grok</code>・<code>agy</code>・<code>opencode</code>・<code>pi</code> のうち、<strong>Mac に入っているものだけ</strong>が選べます。選んだものがなくなったら、Apple のモデルで答えます。外のエージェントを選ぶと、<strong>発話がその提供元へ送られます</strong>（ヘッダーに印が出ます）。</p></div></li>
         </ul>
-        <p class="note-small reveal">会話の記録は、メモリだけです（ファイルにもログにも残しません）。「会話を終わって」・リセット・5 分間話さない・アプリの終了で消えます。</p>
+        <p class="note-small reveal">会話の記録は、メモリだけです（ファイルにもログにも残しません）。「会話を終わって」・「新しい会話」・5 分間話さない・アプリの終了で消えます。</p>
       </div>
     </div>
   </div>
@@ -424,7 +424,7 @@ allowed-commands:
 ---
 Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
       <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
-      <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う、ウィンドウの「リセット」、5 分間話さない、アプリを終える、のどれかで消えます。長くなったときは、古いやり取りを要約して続けます。</p></div></details>
+      <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う、ウィンドウ右上の「…」>「新しい会話を始める」、5 分間話さない、アプリを終える、のどれかで消えます。長くなったときは、古いやり取りを要約して続けます。</p></div></details>
       <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 の選択肢には、<strong>この Mac に入っているエージェントだけ</strong>が出ます。入れていれば出ます（<code>PATH</code> と、<code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで、アンインストールしたら、Apple のモデルで答えます（設定は変わりません）。</p></div></details>
       <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。</p></div></details>
       <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声」で、「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面の辞書で足し引きできます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
