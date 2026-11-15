@@ -47,7 +47,7 @@ import VCCore
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
         menu.addItem(.separator())
-        if SaySpeaker.shared.isSpeaking { menu.addItem(action("読み上げを止める", #selector(stopSpeaking))) }
+        if SaySpeaker.shared.isSpeaking() { menu.addItem(action("読み上げを止める", #selector(stopSpeaking))) }
         menu.addItem(action("会話を開く", #selector(openChat)))
         menu.addItem(action("会話をリセット", #selector(resetConversation)))
         menu.addItem(action("診断…", #selector(showDoctor)))

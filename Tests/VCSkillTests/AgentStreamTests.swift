@@ -17,7 +17,7 @@ import Testing
             #"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"WebSearch","input":{"query":"サイバーセキュリティ ニュース"}}]}}"#,
             #"{"type":"result","subtype":"success","is_error":false,"result":"note.txt"}"#,
         ]
-        #expect(events(.claude, lines) == [.activity("実行: ls"), .activity("検索: サイバーセキュリティ ニュース"), .final("note.txt")])
+        #expect(events(.claude, lines) == [.activity(.run("ls")), .activity(.search("サイバーセキュリティ ニュース")), .final("note.txt")])
     }
 
     @Test func claudeErrorsAreReported() {
@@ -32,7 +32,7 @@ import Testing
             #"{"type":"item.started","item":{"type":"command_execution","command":"/bin/zsh -lc 'cat note.txt'"}}"#,
             #"{"type":"item.completed","item":{"type":"agent_message","text":"done"}}"#,
         ]
-        #expect(events(.codex, lines) == [.activity("実行: ls"), .activity("実行: cat note.txt")])   // 始まったときだけ（終わりは、重ねない）
+        #expect(events(.codex, lines) == [.activity(.run("ls")), .activity(.run("cat note.txt"))])   // 始まったときだけ（終わりは、重ねない）
     }
 
     @Test func grokToolCallsAndTextChunksAreRead() {
@@ -45,7 +45,7 @@ import Testing
             #"{"type":"text","data":"ダ"}"#,
             #"{"type":"end","stopReason":"end_turn"}"#,
         ]
-        #expect(events(.grok, lines) == [.activity("実行: ls -1"), .activity("取得: https://example.com/news"), .text("フォル"), .text("ダ")])
+        #expect(events(.grok, lines) == [.activity(.run("ls -1")), .activity(.fetch("https://example.com/news")), .text("フォル"), .text("ダ")])
     }
 
     @Test func grokReadAndListUseTheirOwnFieldNames() {
@@ -53,7 +53,7 @@ import Testing
             #"{"type":"tool_call","toolName":"list_dir","rawInput":{"target_directory":"/tmp/work"}}"#,
             #"{"type":"tool_call","toolName":"read_file","rawInput":{"target_file":"/tmp/work/note.txt"}}"#,
         ]
-        #expect(events(.grok, lines) == [.activity("一覧: /tmp/work"), .activity("読む: /tmp/work/note.txt")])
+        #expect(events(.grok, lines) == [.activity(.list("/tmp/work")), .activity(.read("/tmp/work/note.txt"))])
     }
 
     @Test func agyToolStepsStartOnlyAndTheResultIsTheAnswer() {
@@ -64,7 +64,7 @@ import Testing
             #"{"event":"step_update","step_update":{"step_index":4,"state":"ACTIVE","step_type":"tool","tool_name":"write_file","tool_info":{"name":"write_file","parameters":{"Path":"/tmp/work/done.txt"}}}}"#,
             #"{"event":"result","result":{"status":"SUCCESS","response":"読みました"}}"#,
         ]
-        #expect(events(.agy, lines) == [.activity("読む: /tmp/work/note.txt"), .activity("書く: /tmp/work/done.txt"), .final("読みました")])
+        #expect(events(.agy, lines) == [.activity(.read("/tmp/work/note.txt")), .activity(.write("/tmp/work/done.txt")), .final("読みました")])
         #expect(events(.agy, [#"{"event":"result","result":{"status":"ERROR"}}"#]) == [.failure("ERROR")])
     }
 
@@ -76,7 +76,7 @@ import Testing
             #"{"type":"tool_use","part":{"tool":"bash","state":{"status":"completed","input":{"command":"ls -la"}}}}"#,
             #"{"type":"text","part":{"text":"作成しました"}}"#,
         ]
-        #expect(events(.opencode, lines) == [.activity("読む: note.txt"), .activity("書く: done.txt"), .activity("実行: ls -la"), .final("作成しました")])
+        #expect(events(.opencode, lines) == [.activity(.read("note.txt")), .activity(.write("done.txt")), .activity(.run("ls -la")), .final("作成しました")])
     }
 
     @Test func piToolExecutionsAndTheLastAssistantMessageAreRead() {
@@ -88,7 +88,7 @@ import Testing
             #"{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"作成しました。"}]}}"#,
             #"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"依頼"}]}}"#,
         ]
-        #expect(events(.pi, lines) == [.activity("読む: note.txt"), .activity("書く: done.txt"), .final("作成しました。")])
+        #expect(events(.pi, lines) == [.activity(.read("note.txt")), .activity(.write("done.txt")), .final("作成しました。")])
     }
 
     @Test func linesSplitAcrossChunksAreJoinedAndGarbageIsIgnored() {
@@ -96,14 +96,14 @@ import Testing
         let line = #"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/a.txt"}}]}}"# + "\n"
         let bytes = Array(line.utf8)
         #expect(stream.feed(Data(bytes[0..<30])).isEmpty)                         // 途中：まだ、決まらない
-        #expect(stream.feed(Data(bytes[30...])) == [.activity("読む: /tmp/a.txt")])
+        #expect(stream.feed(Data(bytes[30...])) == [.activity(.read("/tmp/a.txt"))])
         #expect(stream.feed(Data("これは JSON ではない\n{壊れた\n".utf8)).isEmpty)   // 読めない行は、読み捨てる
     }
 
     @Test func longCommandsAreClippedAndOtherAgentsShowNothing() {
         let long = String(repeating: "a", count: 200)
         let shown = events(.claude, [#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"\#(long)"}}]}}"#])
-        #expect(shown.count == 1 && { if case let .activity(text) = shown[0] { return text.count <= 90 } else { return false } }())
+        #expect(shown.count == 1 && { if case let .activity(activity) = shown[0] { return activity.detail.count <= 90 } else { return false } }())
         #expect(events(.apple, [#"{"type":"assistant"}"#]).isEmpty)
     }
 }

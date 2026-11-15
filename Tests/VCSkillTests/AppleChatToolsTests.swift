@@ -47,17 +47,17 @@ import Testing
         for escape in ["../secret.txt", "/etc/passwd", "~/x", "sub/../../secret.txt", "link.txt"] {
             #expect(throws: FolderReader.Failure.self, "\(escape)") { _ = try reader.read(escape) }   // `link.txt`（外へのシンボリックリンク）も、読めない
         }
-        #expect(AppleChatTools.mentionedFile(in: "note.txt には何が書いてある？", folder: root) == "note.txt")
-        #expect(AppleChatTools.mentionedFile(in: "secret.txt を読んで", folder: root) == nil)
+        #expect(ToolUseGuard.mentionedFile(in: "note.txt には何が書いてある？", folder: root) == "note.txt")
+        #expect(ToolUseGuard.mentionedFile(in: "secret.txt を読んで", folder: root) == nil)
     }
 
     @Test func requestsThatNeedAToolAreRecognizedOnlyWhenToolsAreOn() {
-        #expect(AppleChatTools.needsTool("ギフティのニュースを調べて", level: .web))
-        #expect(AppleChatTools.needsTool("memo.txt を読んで", level: .read))
-        #expect(!AppleChatTools.needsTool("memo.txt を読んで", level: .web))        // ファイルの道具は、web にはない
-        #expect(!AppleChatTools.needsTool("ギフティのニュースを調べて", level: .none))
-        #expect(!AppleChatTools.needsTool("こんにちは", level: .read))
-        #expect(AppleChatTools.looksLikeAPromise("まず、一覧にします。") && !AppleChatTools.looksLikeAPromise("青い鳥の話です。"))
+        #expect(ToolUseGuard.needsTool("ギフティのニュースを調べて", level: .web))
+        #expect(ToolUseGuard.needsTool("memo.txt を読んで", level: .read))
+        #expect(!ToolUseGuard.needsTool("memo.txt を読んで", level: .web))        // ファイルの道具は、web にはない
+        #expect(!ToolUseGuard.needsTool("ギフティのニュースを調べて", level: .none))
+        #expect(!ToolUseGuard.needsTool("こんにちは", level: .read))
+        #expect(ToolUseGuard.looksLikeAPromise("まず、一覧にします。") && !ToolUseGuard.looksLikeAPromise("青い鳥の話です。"))
     }
 
     @Test func writeAndCommandToolsExistOnlyAtTheAllLevel() {
@@ -105,13 +105,56 @@ import Testing
         }
         #expect(try String(contentsOf: base.appendingPathComponent("outside.txt"), encoding: .utf8) == "外")
         #expect(throws: FolderReader.Failure.self) { try reader.write(String(repeating: "あ", count: 200_001), to: new.url) }
-        #expect(AppleChatTools.wantsToChange("memo.txt に確認済みと書いて") && !AppleChatTools.wantsToChange("memo.txt には何が書いてある？"))
+        #expect(ToolUseGuard.wantsToChange("memo.txt に確認済みと書いて") && !ToolUseGuard.wantsToChange("memo.txt には何が書いてある？"))
     }
 
     @Test func attachmentMarksThePanelMimickedAreRemovedAndFileCopiesAreNotClipboardRequests() {
-        #expect(AppleChatTools.cleaned("【添付：】『done.txt』を作成しました。") == "『done.txt』を作成しました。")
-        #expect(AppleChatTools.cleaned("【添付：画像】\n要点です") == "要点です")
+        #expect(ToolUseGuard.cleaned("【添付：】『done.txt』を作成しました。") == "『done.txt』を作成しました。")
+        #expect(ToolUseGuard.cleaned("【添付：画像】\n要点です") == "要点です")
         #expect(ChatAttachments.wants("note.txt を note2.txt にコピーして") == .init(image: false, text: false))
         #expect(ChatAttachments.wants("コピーした文章を要約して").text)
+    }
+
+    // MARK: 作り話を返さない判断（`ToolUseGuard`。モデルなしで、流れを確かめる）
+
+    private func guardFor(_ user: String, _ level: ChatToolLevel, folder: URL = URL(fileURLWithPath: "/tmp/vc-guard-none")) -> ToolUseGuard { ToolUseGuard(level: level, user: user, folder: folder) }
+
+    @Test func noToolsMeansTheReplyIsAlwaysAccepted() {
+        #expect(guardFor("ギフティのニュースを調べて", .none).next(.start, calls: 0, acted: false, reply: "調べます") == .done)
+    }
+
+    @Test func aSearchRequestWithoutAnyToolCallIsNudgedOnceThenRefused() {
+        let g = guardFor("ギフティのニュースを調べて", .web)
+        guard case let .nudge(_, then) = g.next(.start, calls: 0, acted: false, reply: "知っている範囲では…") else { Issue.record("促すはず"); return }
+        #expect(then == .afterNudge)
+        if case .fail = g.next(.afterNudge, calls: 0, acted: false, reply: "やはり知っている範囲では…") {} else { Issue.record("失敗にするはず") }   // 作り話を返さない
+        #expect(g.next(.afterNudge, calls: 2, acted: false, reply: "検索の結果です") == .done)                                                 // 呼ばれていれば、よい
+        #expect(g.next(.start, calls: 1, acted: false, reply: "検索の結果です") == .done)
+    }
+
+    @Test func aPromiseOnlyReplyIsNudgedEvenWhenTheRequestDoesNotNeedATool() {
+        let g = guardFor("こんにちは", .web)
+        if case .nudge = g.next(.start, calls: 0, acted: false, reply: "確認します。") {} else { Issue.record("予告だけは、促す") }
+        #expect(g.next(.start, calls: 0, acted: false, reply: "こんにちは！") == .done)
+        #expect(g.next(.afterNudge, calls: 0, acted: false, reply: "どうも") == .done)   // 道具が要る依頼ではないので、呼ばれなくても、失敗にしない
+    }
+
+    @Test func aMentionedFileIsReadByTheCodeOnlyForReadRequests() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vc-guard-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try "確認済み".write(to: root.appendingPathComponent("memo.txt"), atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(guardFor("memo.txt には何が書いてある？", .read, folder: root).next(.afterNudge, calls: 0, acted: false, reply: "作り話") == .readFile(name: "memo.txt", text: "確認済み"))
+        if case .fail = guardFor("memo.txt に「上書き」と書いて", .read, folder: root).next(.afterNudge, calls: 0, acted: false, reply: "書きました") {} else { Issue.record("書く依頼は、読んで答えない") }
+    }
+
+    @Test func aWriteRequestNeedsAWriteOrCommandCallNotJustAList() {
+        let g = guardFor("done.txt というファイルに「確認済み」と書いて作って", .all)
+        guard case let .nudge(_, then) = g.next(.afterNudge, calls: 1, acted: false, reply: "作成します") else { Issue.record("促すはず"); return }   // 一覧だけ呼んだ
+        #expect(then == .afterActNudge)
+        if case .fail = g.next(.afterActNudge, calls: 2, acted: false, reply: "作成します") {} else { Issue.record("した、とは言わせない") }
+        #expect(g.next(.afterActNudge, calls: 3, acted: true, reply: "作成しました") == .done)
+        #expect(g.next(.afterNudge, calls: 3, acted: true, reply: "作成しました") == .done)                    // 書く道具を呼んだ（確認を断られた場合も）
+        #expect(guardFor("done.txt というファイルに書いて", .read).next(.afterNudge, calls: 1, acted: false, reply: "できません") == .done)   // 書く道具は、read にはない
     }
 }

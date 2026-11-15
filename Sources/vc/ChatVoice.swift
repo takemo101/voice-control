@@ -53,7 +53,7 @@ import VCSpeech
             }, confirm: confirm)
             if token.isCancelled || token.isSuperseded { window.discardPending(); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
-            for activity in outcome.activities { print("  " + Style.dim("▸ " + activity)) }
+            for activity in outcome.activities { print("  " + Style.dim("▸ " + activity.text)) }
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
             // 会話のウィンドウ（1 つだけ）に、答えを足す。短い答えで、操作もなければ、上のパネルだけ（ウィンドウが出ていれば、そこに足す）
             let wasVisible = window.isVisible
@@ -74,7 +74,7 @@ import VCSpeech
                 if !spoken.isEmpty { done.hint = (done.hint.map { $0 + "・" } ?? "") + "読み上げ中（Esc で止める）" }
                 HUD.shared.show(done, hideAfter: 4)
             }
-            if !spoken.isEmpty { SaySpeaker.shared.say(chunks: spoken) }   // 全文を読む（止めるには、Esc・ウィンドウのボタン・メニュー・トリガー）
+            if !spoken.isEmpty { window.speakLatest(spoken) }   // 全文を読む（止めるには、Esc・ウィンドウのボタン・メニュー・トリガー）
         } catch {
             window.discardPending()
             if token.isSuperseded { return }

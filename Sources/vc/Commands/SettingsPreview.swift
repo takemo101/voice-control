@@ -51,7 +51,7 @@ struct SettingsPreviewCommand: Command {
         let model = SettingsModel()
         for page in SettingsPage.allCases where only == nil || only == page.rawValue {
             model.page = page
-            if catalog, page == .skills { model.loadCatalog(); for _ in 0..<60 { if case .loading = model.catalog { Self.spin(seconds: 0.5) } else { break } } }
+            if catalog, page == .skills { model.skillCatalog.loadCatalog(); for _ in 0..<60 { if case .loading = model.skillCatalog.state { Self.spin(seconds: 0.5) } else { break } } }
             if recording, page == .keys { model.startRecording(.dictate) } else { model.stopRecording() }
             let window = SettingsWindow.makeWindow(model: model)
             guard let hosting = window.contentView else { fail("描けません（\(page.rawValue)）") }

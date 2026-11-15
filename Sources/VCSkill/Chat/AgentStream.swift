@@ -6,7 +6,7 @@ import Foundation
 public struct AgentStream: Sendable {
     public enum Event: Equatable, Sendable {
         /// いまの操作（例：「実行: ls」）。
-        case activity(String)
+        case activity(ChatActivity)
         /// 答えの文字（`grok` は、細かい塊で届く）。
         case text(String)
         /// 最終の答え（`claude` の result）。
@@ -69,9 +69,9 @@ public struct AgentStream: Sendable {
         case "command_execution":
             var command = (item["command"] as? String) ?? ""
             for prefix in ["/bin/zsh -lc ", "/bin/bash -lc ", "zsh -lc ", "bash -lc "] where command.hasPrefix(prefix) { command = String(command.dropFirst(prefix.count)); break }
-            return [.activity("実行: " + clip(unquote(command)))]
-        case "web_search": return [.activity("検索: " + clip((item["query"] as? String) ?? ""))]
-        case "file_change": return [.activity("ファイルを変更")]
+            return [.activity(.run(clip(unquote(command))))]
+        case "web_search": return [.activity(.search(clip((item["query"] as? String) ?? "")))]
+        case "file_change": return [.activity(.write("（ファイルを変更）"))]
         default: return []
         }
     }
@@ -142,21 +142,23 @@ public struct AgentStream: Sendable {
 
     // MARK: 共通
 
-    /// 道具の名前と入力から、短い説明にする（名前は、CLI ごとに違う：`Bash`・`run_terminal_command` など）。
-    static func describe(tool: String, input: [String: Any]) -> String {
+    /// 道具の名前と入力から、いまの操作にする（名前は、CLI ごとに違う：`Bash`・`run_terminal_command` など）。
+    static func describe(tool: String, input: [String: Any]) -> ChatActivity {
         // CLI ごとに、入力の名前が違う（`file_path`・`target_file`・`path` など）。知っている名前を先に探し、なければ、最初の文字列
-        func string(_ keys: String...) -> String? {
-            keys.compactMap { input[$0] as? String }.first ?? ["file_path", "target_file", "target_directory", "path", "query", "url", "command", "pattern"].compactMap { input[$0] as? String }.first ?? input.values.compactMap { $0 as? String }.first
+        func string(_ keys: String...) -> String {
+            keys.compactMap { input[$0] as? String }.first ?? ["file_path", "target_file", "target_directory", "path", "query", "url", "command", "pattern"].compactMap { input[$0] as? String }.first ?? input.values.compactMap { $0 as? String }.first ?? ""
         }
         switch tool.lowercased() {
-        case "bash", "run_terminal_command", "shell", "execute", "run_command": return "実行: " + clip(string("command", "commandline") ?? "")
-        case "websearch", "web_search", "search_web": return "検索: " + clip(string("query") ?? "")
-        case "webfetch", "web_fetch", "read_url_content": return "取得: " + clip(string("url") ?? "")
-        case "read", "read_file", "view_file", "view_file_outline": return "読む: " + clip(string("file_path", "path") ?? "")
-        case "write", "edit", "multiedit", "search_replace", "apply_patch", "patch", "write_file", "replace_file_content", "write_to_file", "multi_replace_file_content": return "書く: " + clip(string("file_path", "path") ?? "")
-        case "glob", "list_dir", "ls": return "一覧: " + clip(string("pattern", "path") ?? "")
-        case "grep": return "探す: " + clip(string("pattern") ?? "")
-        default: return clip(tool + (string("description", "command") ?? "").prefixed(": "))
+        case "bash", "run_terminal_command", "shell", "execute", "run_command": return .run(clip(string("command", "commandline")))
+        case "websearch", "web_search", "search_web": return .search(clip(string("query")))
+        case "webfetch", "web_fetch", "read_url_content": return .fetch(clip(string("url")))
+        case "read", "read_file", "view_file", "view_file_outline": return .read(clip(string("file_path", "path")))
+        case "write", "edit", "multiedit", "search_replace", "apply_patch", "patch", "write_file", "replace_file_content", "write_to_file", "multi_replace_file_content": return .write(clip(string("file_path", "path")))
+        case "glob", "list_dir", "ls": return .list(clip(string("pattern", "path")))
+        case "grep": return .find(clip(string("pattern")))
+        default:
+            let extra = (input["description"] as? String) ?? (input["command"] as? String) ?? ""
+            return .other(clip(tool + (extra.isEmpty ? "" : ": " + extra)))
         }
     }
 
@@ -169,8 +171,4 @@ public struct AgentStream: Sendable {
         let flat = text.replacingOccurrences(of: "\n", with: " ")
         return flat.count > 80 ? String(flat.prefix(80)) + "…" : flat
     }
-}
-
-private extension String {
-    func prefixed(_ prefix: String) -> String { isEmpty ? "" : prefix + self }
 }

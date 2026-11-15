@@ -71,7 +71,7 @@ public actor ChatConversation {
 
     /// 質問する。**添付（画像・文章）は、質問の文字に、すでに入れてある**ことを前提にする。
     /// `onActivity`：外のエージェントが、いま何をしているか（実行したコマンド・検索など）。
-    public func ask(_ user: String, onActivity: (@Sendable (String) -> Void)? = nil, confirm: ToolConfirm? = nil) async throws -> Reply {
+    public func ask(_ user: String, onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil) async throws -> Reply {
         var startedNew = false
         if let last = lastActivity, now().timeIntervalSince(last) > idleLimit, hasConversation {
             reset(); startedNew = true
@@ -99,7 +99,7 @@ public actor ChatConversation {
     }
 
     /// 答えを作る（外のエージェントなら、実行中の様子を、知らせる）。
-    private func respond(_ user: String, _ onActivity: (@Sendable (String) -> Void)?, _ confirm: ToolConfirm?) async throws -> String {
+    private func respond(_ user: String, _ onActivity: ActivityHandler?, _ confirm: ToolConfirm?) async throws -> String {
         if let reporting = backend as? ActivityReporting, onActivity != nil || confirm != nil {
             return try await reporting.respond(instructions: fixedInstructions(), turns: turns, user: user, onActivity: onActivity, confirm: confirm)
         }

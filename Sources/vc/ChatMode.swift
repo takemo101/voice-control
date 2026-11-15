@@ -47,7 +47,7 @@ import VCSkill
     static func isShort(_ answer: String) -> Bool { answer.count <= 110 && !answer.contains("\n") }
 
     /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
-    struct Outcome { var answer: String; var notes: [String]; var activities: [String] = []; var startedNew = false }
+    struct Outcome { var answer: String; var notes: [String]; var activities: [ChatActivity] = []; var startedNew = false }
 
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void, confirm: ToolConfirm? = nil) async throws -> Outcome {
@@ -85,9 +85,9 @@ import VCSkill
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
         let log = ActivityLog()
-        let reply = try await conversation.ask(question, onActivity: { text in
-            log.add(text)
-            Task { @MainActor in progress(text) }
+        let reply = try await conversation.ask(question, onActivity: { activity in
+            log.add(activity)
+            Task { @MainActor in progress(activity.text) }
         }, confirm: confirm)
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
@@ -112,20 +112,10 @@ extension CommandContext {
     }
 }
 
-extension CommandContext {
-    /// 会話に開ける道具の段階（設定 `chatTools`）と、作業フォルダ。書き方が違えば、なし。
-    func resolveChatTools() -> (level: ChatToolLevel, folder: URL?) {
-        let settings = currentSettings()
-        let level = settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none
-        let folder = settings.chatFolder.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
-        return (level, folder)
-    }
-}
-
 /// 実行した操作の記録（その会話の 1 回分。メモリだけ）。
 final class ActivityLog: @unchecked Sendable {
     private let lock = NSLock()
-    private var stored: [String] = []
-    func add(_ text: String) { lock.lock(); if stored.last != text { stored.append(text) }; lock.unlock() }
-    var items: [String] { lock.lock(); defer { lock.unlock() }; return stored }
+    private var stored: [ChatActivity] = []
+    func add(_ activity: ChatActivity) { lock.lock(); if stored.last != activity { stored.append(activity) }; lock.unlock() }
+    var items: [ChatActivity] { lock.lock(); defer { lock.unlock() }; return stored }
 }

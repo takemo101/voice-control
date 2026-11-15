@@ -7,13 +7,15 @@ enum SpokenText {
     static func chunks(from markdown: String, maxLength: Int = 200) -> [String] {
         var lines: [String] = []
         var inCode = false
+        var skippedCode = false
         for raw in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
             let trimmed = raw.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inCode.toggle(); continue }
-            if inCode { continue }   // コードは、読まない
+            if inCode { skippedCode = true; continue }   // コードは、読まない（画面に出ている：最後に、そう伝える）
             guard let line = spoken(trimmed) else { continue }
             lines.append(line)
         }
+        if skippedCode, !lines.isEmpty { lines.append("コードは、画面に出しています。") }
         // 行を、塊にまとめる（長い行は、句点で割る）
         var chunks: [String] = []
         var current = ""

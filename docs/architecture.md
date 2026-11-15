@@ -77,6 +77,19 @@ flowchart LR
 - **確認の問い合わせは、呼び出し側が持つ**：`vc run`・声の入力（メニューバーのアプリ） は、端末で `[y/N]` を読む（`--yes` なら、聞かない。`askOnTerminal`）。声の入力（メニューバーのアプリ） は、次の発話を待って、Tiny-Jev で「はい」かを判定する（`Confirmation`）。
 - 実行者は `SkillExecuting`（実装は `SkillAgent`＝Apple のモデルと、`ToolLoopAgent`＝ローカルのサーバーのモデル〔`ChatModel` のアダプター〕の 2 つ。どちらも `VCSkill` の内側の型で、`vc` は `SkillRunner` だけを呼ぶ）。`SkillRunner` のテストは、`@testable` で偽の実行者を渡し、偽の `OptionScorer`（`TestSupport` の `SkillScorer`）と合わせて、判断（一致・既定スキル・会話・確認・dry-run・取りやめ・失敗）を確かめる。表示との対応は、`Tests/vcTests/TerminalReporterTests.swift`・`HUDReporterTests.swift`。
 
+## アプリ・会話・設定の構成（`vc` と `VCSkill` の、新しい部分）
+
+メニューバーのアプリ（`VoiceControl.app`）・会話・設定ウィンドウが増えたので、**どこに何があるか**を、ここに書く（責務の表の補足）。
+
+### `vc/App/`（アプリ本体）
+- `AppRuntime`（起動・設定の反映・停止）→ `VoiceSession`（トリガー・Esc・録音・認識・発話の処理の 1 式。`stop()` が、キーの受け付けを**いますぐ**外す：`deinit` 任せにしない。設定を変えて作り直すとき、同じキーを登録し直すため）。`StatusMenu`（メニュー）・`AppActions`（メニューと設定が呼ぶ操作）・`CommandLineTool`（`/usr/local/bin/vc`）。
+- `Settings/`：`SettingsWindow`（枠とサイドバー）／`SettingsComponents`（カード・行・札・スイッチなどの部品）／ページごとに 1 ファイル（`SettingsGeneralPage`・`…KeysPage`・`…VoicePage`・`…ModelsPage`・`…SkillsPage`）／`SettingsModel`（設定ファイルの読み書き・反映の状態）／`SkillCatalog`（インストールできるスキルの一覧と、インストール。`SettingsModel` から分けた：状態が別）／`SettingsRules`（検査の規則：画面なしでテストできる）。
+
+### 会話（`vc` 側と `VCSkill/Chat/`）
+- `vc`：`ChatMode`（会話の状態の所有者：エージェント・道具の段階・フォルダ・`ChatConversation`）／`ChatVoice`（声の流れの 1 発話：パネル・ウィンドウ・読み上げ・確認）／`ChatWindow`（記録の状態と、ウィンドウの出し入れ）／`ChatView`（SwiftUI の見た目）／`SpokenText`（答えを、**声で読む文**にする：記号・コード・URL を除き、全文を塊にする）／`SaySpeaker`（読み上げ。**種類（`SpeechChannel`）つきで覚える**：会話のウィンドウは、会話の答えの読み上げだけに反応する。スキルの結果・確認の問いかけには、反応しない）。
+- `VCSkill/Chat/`（画面を持たない）：`ChatConversation`（要約つきの会話）・`ChatBackend`（答える側の口）→ `AppleChatBackend`（Apple のモデル＋道具）・`ExternalChatBackend`（外のエージェントの CLI）。`ChatAgent`・`ChatToolLevel`（段階）。**実行中の操作は型つき**（`ChatActivity`：種類＋中身。表示のアイコンと「何かを変えたか」の判定を、文字の先頭の読み取りでしない）。`AgentStream`（6 つの CLI の出力の読み取り。純粋）。
+- Apple の道具の部品：`AppleChatTools`（道具そのものと、指示の文）／`WebText`・`URLGuard`（検索結果・ページの文字の取り出しと、取ってよい URL）／`FolderReader`（作業フォルダの中だけ）／`CommandGate`（コマンドを、実行・確認・拒否に分ける）／`ToolUseGuard`（**道具を呼ばなかった答え**〔作り話〕を、返さない判断。状態遷移で書いた純粋な関数：モデルなしでテストできる）。
+
 ## 状態の所有
 
 | 状態 | 所有者 | 寿命・保存 |
@@ -144,6 +157,6 @@ flowchart LR
 
 見直しの候補。優先順位や実施の約束ではない（[リファクタリングの観点](refactoring.md)）。ファイルの分割・設定の失敗の扱い・ターゲットの分割と依存の向き・`vc` の薄型化・`SkillRunner`・`VoiceLoop`・`ProcessRunner`・名前の整理・並行性の監査・テストの置き場所で解消したものは、ここから消してある。残っているのは、次のとおり。
 
-- `ProcessRunner` に載せていない `Process` の呼び出しが、2 か所ある（意図した対象外。理由は、コードのコメント）：`SaySpeaker`（`say`）は、鳴り終わるまで待たず、取りやめで止める。`DetachedChild`（`vc show --wait`・`vc preview --wait` を別のプロセスで起こして、標準入力で本文・PNG を渡す。`DocumentWindow`・`ImagePanel` が使う）は、呼び出し元の終了後も、ウィンドウが残るので、待たない。いまの `ProcessRunner` に載せると、挙動が変わる。
+- `ProcessRunner` に載せていない `Process` の呼び出しが、残っている（意図した対象外。理由は、コードのコメント）：アプリの `AppActions`（終了後に、`sleep` してから、自分を開き直す `sh -c`）・`AppLaunch`（`open` でアプリを開く。終わりを待たない）。`DetachedChild`（`vc show --wait`・`vc preview --wait` を別のプロセスで起こして、標準入力で本文・PNG を渡す。`DocumentWindow`・`ImagePanel` が使う）は、呼び出し元の終了後も、ウィンドウが残るので、待たない。いまの `ProcessRunner` に載せると、挙動が変わる。
 - `Decision/` の 5 ファイルは、meeting-analyzer からの複製で、変えない決まり。`QwenDecision` は、自前のロックを持たず、`TinyJev` の `lock` が呼び出しを直列にする前提で動く（`QwenDecision` を使うのは `TinyJev` だけで、`internal`）。この前提は、複製の側では、型で守れない（直すなら、元の側で直して、複製し直す）。
 - Swift 6 の言語モードに上げられない（言語モードは Swift 5 のまま）。`-Xswiftc -strict-concurrency=complete` を付けた `swift build`（ローカルの Swift 6.4）で、診断が出るのは、`vc` の 4 か所（`confirm` クロージャを渡す `Commands/Run.swift`・`Commands/Listen.swift`〔2 か所〕の `sending`。`Command.swift` の `Commands.all`：`[any Command.Type]` が Sendable でない）と、`Fixture` の `main.swift`（`@MainActor` でない `Fixture` クラス〔`NSApplicationDelegate`〕が、主アクターの AppKit の API を使う。20 か所。検証用の部品で、直していない）。ライブラリの 4 ターゲットは 0 件。`swiftLanguageModes` を `[.v6]` にした作業コピーで、4 ターゲット（`Decision/` の複製を含む）と、そのテストは、ビルドできた（`vc`・`Fixture` は通らない。`vcTests` は、`vc` に依存するので、未確認）。通常のビルドの警告は、CI（Xcode 26.6・Swift 6.3.3）で 0。

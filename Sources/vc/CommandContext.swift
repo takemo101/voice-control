@@ -129,3 +129,13 @@ struct CommandContext {
         return settings
     }
 }
+
+extension CommandContext {
+    /// 会話に開ける道具の段階（設定 `chatTools`）と、作業フォルダ。書き方が違えば、なし。
+    func resolveChatTools() -> (level: ChatToolLevel, folder: URL?) {
+        let settings = currentSettings()
+        let level = settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none
+        let folder = settings.chatFolder.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        return (level, folder)
+    }
+}

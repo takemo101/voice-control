@@ -12,6 +12,7 @@ import Testing
     @Test func codeBlocksUrlsAndTableRulesAreSkippedLinksKeepTheirLabel() {
         let markdown = "コマンドは次です。\n```sh\nrm -rf /tmp/x\n```\n詳しくは [公式の説明](https://example.com/doc) と https://example.com/raw を見て。\n\n| 名前 | 値 |\n|---|---|\n| a | 1 |"
         let text = spoken(markdown)
+        #expect(text.hasSuffix("コードは、画面に出しています。"))   // 読まなかったコードが、画面にあることを、伝える
         #expect(!text.contains("rm") && !text.contains("http") && !text.contains("---") && !text.contains("|"))
         #expect(text.contains("公式の説明") && text.contains("名前、値") && text.contains("a、1"))
     }
@@ -26,6 +27,6 @@ import Testing
 
     @Test func nothingToReadGivesNoChunks() {
         #expect(SpokenText.chunks(from: "").isEmpty)
-        #expect(SpokenText.chunks(from: "```\ncode only\n```\n---").isEmpty)
+        #expect(SpokenText.chunks(from: "```\ncode only\n```\n---").isEmpty)   // コードだけなら、何も読まない（「画面に出しています」だけを、読まない）
     }
 }

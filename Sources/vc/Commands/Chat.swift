@@ -52,7 +52,7 @@ struct ChatCommand: Command {
                 } : nil
                 let outcome = try await chat.ask(text, engine: context.engine, token: nil, progress: { if interactive { eprint(Style.dim($0)) } }, confirm: confirm)
                 for note in outcome.notes { eprint(Style.dim(note)) }
-                for activity in outcome.activities { eprint(Style.dim("▸ " + activity)) }
+                for activity in outcome.activities { eprint(Style.dim("▸ " + activity.text)) }
                 print(outcome.answer)
                 if delimit { print("\u{1e}"); fflush(stdout) }
             } catch { eprint(Style.red("失敗: ") + "\(error)"); if delimit { print("\u{1e}"); fflush(stdout) } }
