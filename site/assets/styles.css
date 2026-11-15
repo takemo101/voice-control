@@ -244,6 +244,7 @@ details .body .cmd { margin-top: var(--space-3); max-width: none; }
 /* ───── closing + footer ───── */
 .closing { text-align: center; }
 .closing h2 { font-size: var(--text-3xl); }
+.closing .lead { margin-inline: auto; text-wrap: balance; }   /* .lead は、幅の上限だけを持つので、中央に置く（左に寄って見えていた） */
 .closing .cmd { margin-inline: auto; text-align: left; }
 .closing .cta-row { justify-content: center; }
 .site-footer { border-top: 1px solid var(--color-line); padding-block: var(--space-10); color: var(--color-ink-3); font-size: var(--text-sm); }
