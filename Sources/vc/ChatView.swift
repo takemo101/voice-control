@@ -33,12 +33,10 @@ struct ChatView: View {
             transcript
             if let image = state.image {
                 Rule()
-                AttachmentBar(image: image, external: state.warning != nil, detach: detach)
+                AttachmentBar(image: image, external: state.warning != nil, retake: attach, detach: detach)
             }
             Rule()
-            ComposerBar(state: state)
-            Rule()
-            footer
+            ComposerBar(state: state, attach: attach)
         }
         .modifier(Surface(solid: state.solid, shape: shape))
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), ChatPalette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
@@ -63,10 +61,9 @@ struct ChatView: View {
                 }
             }
             Spacer(minLength: 8)
-            if state.speaking { SpeakingBadge() }
-            Button(action: close) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 20)).foregroundStyle(.white.opacity(0.45))
-            }.buttonStyle(.plain).accessibilityLabel("閉じる")
+            if state.speaking { StopSpeakingButton(action: stopSpeaking) }
+            moreMenu
+            HeaderIconButton(symbol: "xmark", help: "閉じる（Esc）", cancel: !state.speaking, action: close)
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
         .background(DragArea())
@@ -105,21 +102,101 @@ struct ChatView: View {
         }
     }
 
-    // MARK: フッター
+    // MARK: 「…」メニュー（たまにしか使わない操作：会話全体のコピーと、新しい会話）
 
-    private var footer: some View {
-        HStack(spacing: 10) {
-            if state.speaking {
-                PillButton(title: "読み上げを止める  esc", symbol: "speaker.slash.fill", flashed: false, action: stopSpeaking)
-            }
-            PillButton(title: state.image == nil ? "画面を撮る" : "撮り直す", symbol: "camera.viewfinder", flashed: false, action: attach)
-            PillButton(title: "コピー", symbol: "doc.on.doc", flashed: state.copied, action: copyAll)
-            PillButton(title: "リセット", symbol: "arrow.counterclockwise", flashed: false, action: reset)
-            Spacer(minLength: 8)
-            PillButton(title: "閉じる", symbol: "xmark", flashed: false, cancel: !state.speaking, action: close)
+    private var moreMenu: some View {
+        Menu {
+            Button(action: copyAll) { Label("会話全体をコピー", systemImage: "doc.on.doc") }
+                .disabled(state.entries.isEmpty)
+            Divider()
+            Button(role: .destructive, action: reset) { Label("新しい会話を始める（いまの記録を消す）", systemImage: "arrow.counterclockwise") }
+                .disabled(state.entries.isEmpty)
+        } label: {
+            Image(systemName: state.copied ? "checkmark" : "ellipsis")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(state.copied ? ChatPalette.accent : .white.opacity(0.85))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(.white.opacity(0.10)))
+                .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(DragArea())
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help(state.copied ? "コピーしました" : "会話全体のコピー・新しい会話")
+        .accessibilityLabel("そのほかの操作")
+    }
+}
+
+/// 入力欄の左の、「画面を撮る」ボタン（撮った画像は、質問に添えられる）。添えているときは、色が付く。撮っている間は、押せない。
+private struct AttachButton: View {
+    let attached: Bool
+    let capturing: Bool
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "camera.viewfinder").font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(attached ? ChatPalette.accent : .white.opacity(0.85))
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(attached ? ChatPalette.accent.opacity(0.18) : .white.opacity(hover.on ? 0.20 : 0.10)))
+                .overlay(Circle().strokeBorder(attached ? ChatPalette.accent.opacity(0.5) : .white.opacity(0.14), lineWidth: 0.7))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain).disabled(capturing).onHover { hover.on = $0 }
+        .help(attached ? "画面を撮り直して、質問に添える" : "画面を撮って、質問に添える")
+        .accessibilityLabel("画面を撮る")
+    }
+}
+
+/// ヘッダーの、小さな丸いボタン（閉じる）。
+private struct HeaderIconButton: View {
+    let symbol: String
+    let help: String
+    var cancel = false
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        let button = Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.85))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(.white.opacity(hover.on ? 0.22 : 0.10)))
+                .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain).help(help).accessibilityLabel(help)
+        .onHover { hover.on = $0 }
+        // Esc：キー操作（`.cancelAction`）。最初の応答者が、どこでも、効く
+        if cancel { button.keyboardShortcut(.cancelAction) } else { button }
+    }
+}
+
+/// 読み上げ中の、「止める」ボタン（動く波形つき）。読み上げている間は、Esc が、これを押す（閉じるのではなく）。
+private struct StopSpeakingButton: View {
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                TimelineView(.animation) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
+                    HStack(spacing: 2.5) {
+                        ForEach(0..<4, id: \.self) { i in
+                            Capsule().fill(ChatPalette.accent).frame(width: 2.5, height: 5 + 9 * abs(sin(t * 5 + Double(i) * 0.9)))
+                        }
+                    }
+                    .frame(height: 14)
+                }
+                Text("読み上げを止める").font(.system(size: 11, weight: .semibold)).foregroundStyle(ChatPalette.accent)
+                Text("esc").font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(ChatPalette.accent.opacity(0.7))
+            }
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .background(Capsule().fill(ChatPalette.accent.opacity(hover.on ? 0.26 : 0.14)))
+            .overlay(Capsule().strokeBorder(ChatPalette.accent.opacity(0.35), lineWidth: 0.7))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).keyboardShortcut(.cancelAction).onHover { hover.on = $0 }
+        .accessibilityLabel("読み上げを止める")
     }
 }
 
@@ -141,14 +218,16 @@ private struct OutcomeNote: View {
 /// 下の入力帯：**いま何ができるか・何が起きているか**を、1 行で見せる（キーの案内・聞いている・認識中・考えている）と、文字で質問する欄。
 private struct ComposerBar: View {
     @ObservedObject var state: ChatWindowState
+    let attach: () -> Void
 
     private var busy: Bool { state.entries.hasPending }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             guide
-            if state.submit != nil {
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
+                if state.submit != nil {
                     TextField(busy ? "考えている間は、送れません（話して、中断もできます）" : "メッセージを入力（Enter で送信）", text: $state.draft)
                         .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -160,6 +239,8 @@ private struct ComposerBar: View {
                         Image(systemName: "arrow.up.circle.fill").font(.system(size: 26)).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
                     }
                     .buttonStyle(.plain).disabled(!canSend).accessibilityLabel("送信")
+                } else {
+                    Spacer(minLength: 0)
                 }
             }
         }
@@ -251,6 +332,7 @@ private struct AttachmentBar: View {
     let image: AttachedImage
     /// 外のエージェントか（送る前に、確認する）。
     let external: Bool
+    let retake: () -> Void
     let detach: () -> Void
 
     var body: some View {
@@ -266,6 +348,7 @@ private struct AttachmentBar: View {
                 }
             }
             Spacer(minLength: 8)
+            PillButton(title: "撮り直す", symbol: "camera.viewfinder", flashed: false, action: retake)
             PillButton(title: "外す", symbol: "xmark", flashed: false, action: detach)
         }
         .padding(.horizontal, 16).padding(.vertical, 9)
@@ -291,24 +374,6 @@ private struct Chip: View {
 }
 
 /// 読み上げ中の、波打つ棒。
-private struct SpeakingBadge: View {
-    var body: some View {
-        HStack(spacing: 7) {
-            TimelineView(.animation) { context in
-                let t = context.date.timeIntervalSinceReferenceDate
-                HStack(spacing: 2.5) {
-                    ForEach(0..<4, id: \.self) { i in
-                        Capsule().fill(ChatPalette.accent).frame(width: 2.5, height: 5 + 9 * abs(sin(t * 5 + Double(i) * 0.9)))
-                    }
-                }
-                .frame(height: 14)
-            }
-            Text("読み上げ中").font(.system(size: 11, weight: .semibold)).foregroundStyle(ChatPalette.accent)
-        }
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(Capsule().fill(ChatPalette.accent.opacity(0.14)))
-    }
-}
 
 private struct EmptyState: View {
     var body: some View {
