@@ -45,7 +45,12 @@ struct ChatCommand: Command {
             if text == "/reset" { await chat.end(); print(Style.dim("（会話を終えました）")); continue }
             if text == "/summary" { print(await chat.conversation.currentSummary ?? Style.dim("（要約は、まだありません）")); continue }
             do {
-                let outcome = try await chat.ask(text, engine: context.engine, token: nil) { if interactive { eprint(Style.dim($0)) } }
+                // 確認が要る操作（上書き・安全でないコマンド）は、端末で聞く（端末でなければ、確認できないので、その操作は、しない）
+                let confirm: ToolConfirm? = interactive ? { detail in
+                    eprint(Style.yellow("確認：\(detail)。実行しますか？ [y/N] "))
+                    return (readLine() ?? "").lowercased().hasPrefix("y")
+                } : nil
+                let outcome = try await chat.ask(text, engine: context.engine, token: nil, progress: { if interactive { eprint(Style.dim($0)) } }, confirm: confirm)
                 for note in outcome.notes { eprint(Style.dim(note)) }
                 for activity in outcome.activities { eprint(Style.dim("▸ " + activity)) }
                 print(outcome.answer)

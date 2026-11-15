@@ -276,7 +276,8 @@ enum CatalogState {
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = "すべての道具を、開けますか？"
-            alert.informativeText = "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）"
+            let apple = ChatAgent.parse(settings.chatAgent ?? "apple") == .apple
+            alert.informativeText = apple ? "Apple のモデルが、作業フォルダの中への書き込みと、コマンドの実行まで、できるようになります。\n\n既存ファイルの上書きと、安全でないコマンドは、毎回、確認します。小さなモデルは、聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります（確認の内容を、よく読んでください）。\n\n作業フォルダ：\(chatFolderPath)" : "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）"
             alert.addButton(withTitle: "開ける")
             alert.addButton(withTitle: "やめる")
             guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }

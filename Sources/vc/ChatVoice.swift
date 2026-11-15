@@ -1,10 +1,24 @@
 import Foundation
 import VCCore
+import VCDecision
 import VCSkill
+import VCSpeech
 
 /// 声の流れ（声の入力 の会話のトリガー）で、1 回の発話を、会話として処理する：上のパネルに、考えている様子と、答えを出す。
 @MainActor enum ChatVoice {
-    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool) async {
+    /// 会話の道具が、**確認が要る操作**（既存ファイルの上書き・安全でないコマンド）の前に、利用者に聞く：パネルのボタンか、声の「はい」。答えがなければ（取りやめ・エラー）、しない。
+    private static func askToConfirm(_ detail: String, chip: String, confirmation: Confirmation, next: @escaping NextUtterance, restore: HUDContent) async -> Bool {
+        say("確認です。" + detail)
+        var content = HUDContent(phase: .confirm, title: "実行しますか？", hint: detail + "。" + ConfirmGuide.howToAnswer, chip: chip)
+        content.choices = true
+        HUD.shared.show(content)
+        notice("会話の道具の確認：\(detail)。パネルの\(ConfirmGuide.howToAnswer)")
+        let yes = (try? await VoiceHandlers.askByPanelOrVoice(confirmation: confirmation, next: next)) ?? false
+        HUD.shared.show(yes ? restore : HUDContent(phase: .info, title: "やめました", chip: chip), hideAfter: yes ? nil : 2)
+        return yes
+    }
+
+    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance) async {
         guard !utterance.isEmpty else {
             notice("聞き取れなかった")
             HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
@@ -25,11 +39,15 @@ import VCSkill
         var content = HUDContent(phase: .working, title: "考えています…", chip: chip, heard: utterance, skill: name)
         HUD.shared.show(content)
         do {
-            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token) { text in
+            let working = content
+            let confirm: ToolConfirm = { detail in
+                await askToConfirm(detail, chip: chip, confirmation: confirmation, next: next, restore: working)
+            }
+            let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, progress: { text in
                 content.title = text
                 HUD.shared.show(content)
                 window.setStatus(text)
-            }
+            }, confirm: confirm)
             if token.isCancelled || token.isSuperseded { window.discardPending(); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity)) }

@@ -50,6 +50,7 @@ import VCSpeech
         let handsFree = triggers.handsFree
         // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
         let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
+        let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
         let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip, VoiceMode.chat: chatSpec?.displayName ?? chip]
         let paste = ClipboardPaste()
         let session = RecordingSession()
@@ -62,7 +63,7 @@ import VCSpeech
                 if tag == VoiceMode.dictate {
                     await DictationFlow.handle(utterance, token, context: context, chip: chips[tag] ?? chip, paste: paste)
                 } else if tag == VoiceMode.chat {
-                    await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false)
+                    await ChatVoice.handle(utterance, token: token, context: context, chip: chips[tag] ?? chip, speakResults: context.currentSettings().speakResults ?? false, confirmation: chatConfirmation, next: next)
                 } else {
                     await listen(utterance, token, next, tag)
                 }

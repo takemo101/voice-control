@@ -54,11 +54,7 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     public var streamsActivity: Bool { isExternal }
 
     /// このエージェントで、実際に使う段階（`pi` は、検索がないので、「Web」は、「なし」になる）。
-    /// Apple のモデルには、書き込み・コマンドの実行を開けない（`all` は、`read`）。
-    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel {
-        if self == .apple { return tools == .all ? .read : tools }
-        return tools == .web && !canSearchWeb ? .none : tools
-    }
+    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel { tools == .web && !canSearchWeb ? .none : tools }
 }
 
 /// 会話のエージェントに開ける**道具の段階**（設定 `chatTools`）。外のエージェントのときだけ。
@@ -124,9 +120,12 @@ public struct AgentCall: Sendable {
     }
 }
 
+/// 利用者への確認（道具が、上書き・安全でないコマンドの前に聞く）。実行してよければ true。`detail`：何をするか（画面に出す）。
+public typealias ToolConfirm = @Sendable (_ detail: String) async -> Bool
+
 public protocol ActivityReporting: ChatBackend {
-    /// `onActivity`：いまの操作（例：「実行: ls」）。
-    func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?) async throws -> String
+    /// `onActivity`：いまの操作（例：「実行: ls」）。`confirm`：確認が要る操作の前に、利用者に聞く（なければ、確認が要る操作は、しない：Apple の会話の道具だけが使う）。
+    func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?, confirm: ToolConfirm?) async throws -> String
 }
 
 public struct ExternalChatBackend: ActivityReporting {
@@ -204,10 +203,11 @@ public struct ExternalChatBackend: ActivityReporting {
     }
 
     public func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String {
-        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil)
+        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil, confirm: nil)
     }
 
-    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?) async throws -> String {
+    /// 外のエージェントは、確認を、自分の CLI の設定で決める（`confirm` は、使わない）。
+    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?, confirm: ToolConfirm?) async throws -> String {
         let model = agent == .agy ? try agyModel() : ""
         let prompt = Self.prompt(instructions: instructions, turns: turns, user: user)
         let cancel = CancelToken()

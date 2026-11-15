@@ -508,16 +508,20 @@ private struct ModelsPage: View {
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
             }
             RowDivider()
-            Row("道具", detail: agent.isExternal ? model.chatToolLevel.title : (model.chatToolLevel == .none ? "なし（会話だけ）" : (model.chatToolLevel == .web ? "Web 検索・日時" : "＋ ファイルを読む（作業フォルダ）"))) {
+            Row("道具", detail: agent.isExternal ? model.chatToolLevel.title : (model.chatToolLevel == .none ? "なし（会話だけ）" : (model.chatToolLevel == .web ? "Web 検索・日時" : (model.chatToolLevel == .read ? "＋ ファイルを読む（作業フォルダ）" : "すべて（書き込み・コマンド。確認つき）")))) {
                 Picker("", selection: Binding(get: { agent.effective(model.chatToolLevel) }, set: { model.setChatTools($0) })) {
                     Text("なし").tag(ChatToolLevel.none)
                     if agent.canSearchWeb { Text("Web").tag(ChatToolLevel.web) }
                     Text("＋読む").tag(ChatToolLevel.read)
-                    if agent.isExternal { Text("すべて").tag(ChatToolLevel.all) }
+                    Text("すべて").tag(ChatToolLevel.all)
                 }
                 .labelsHidden().pickerStyle(.segmented).frame(width: 250)
             }
-            if !agent.isExternal, model.chatToolLevel != .none {
+            if !agent.isExternal, model.chatToolLevel == .all {
+            Label("作業フォルダの中への書き込みと、コマンドの実行ができます。既存ファイルの上書きと、安全でないコマンドは、毎回、確認します。シェル・インタプリタ・通信のコマンドは、実行できません。", systemImage: "exclamationmark.octagon.fill")
+                .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+        }
+        if !agent.isExternal, model.chatToolLevel != .none {
             Label("Web 検索の検索語と、開いたページの URL が、この Mac の外へ送られます（発話そのもの・画面・ファイルの中身は、送りません）。道具を開けている間は、画像・コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }

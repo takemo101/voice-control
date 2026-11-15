@@ -36,28 +36,29 @@ public struct AppleChatBackend: ActivityReporting {
     public let folder: URL
     private let web: WebAccess
 
-    /// `tools`：開ける道具の段階（`web`・`read` まで。`all` は、`read` と同じ：Apple のモデルには、書き込み・コマンドの実行を開けない）。
+    /// `tools`：開ける道具の段階。`all` は、作業フォルダの中への書き込みと、コマンドの実行まで（**上書き・安全でないコマンドは、毎回、利用者に確認する**：`CommandGate`）。
     public init(tools: ChatToolLevel = .none, folder: URL? = nil) {
-        self.tools = tools == .all ? .read : tools
+        self.tools = tools
         self.folder = folder ?? ExternalChatBackend.defaultFolder
         self.web = .live
     }
 
     init(tools: ChatToolLevel, folder: URL, web: WebAccess) {
-        self.tools = tools == .all ? .read : tools; self.folder = folder; self.web = web
+        self.tools = tools; self.folder = folder; self.web = web
     }
 
     public var capabilityNote: String { AppleChatTools.note(tools) }
 
     public func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String {
-        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil)
+        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil, confirm: nil)
     }
 
-    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?) async throws -> String {
+    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?, confirm: ToolConfirm?) async throws -> String {
         if case let .unavailable(reason) = AppleIntelligence.current() { throw ConversationError.unavailable("\(reason.summary)。\(reason.remedy)") }
         if tools.usesFolder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
         let calls = CallCounter()
-        let available = AppleChatTools.make(level: tools, folder: folder, web: web, activity: { calls.increment(); onActivity?($0) })
+        let available = AppleChatTools.make(level: tools, folder: folder, web: web, confirm: confirm.map { ask in { detail in calls.markAsked(); return await ask(detail) } },
+                                            activity: { calls.record($0); onActivity?($0) })
         let definitions = available.map { Transcript.ToolDefinition(tool: $0) }
         var entries: [Transcript.Entry] = [.instructions(Transcript.Instructions(segments: [.text(.init(content: instructions))], toolDefinitions: definitions))]
         for turn in turns {
@@ -75,15 +76,23 @@ public struct AppleChatBackend: ActivityReporting {
             // それでも道具を呼ばなかった：**作り話の答え**（読んでいないファイルの中身・調べていないニュース）を、返さない
             if !available.isEmpty, calls.count == 0, needed {
                 // 名前の出たファイルは、コードが読んで、結果を渡す（モデルが、道具を呼ばなくても、読めるように）
-                if tools.usesFolder, let name = AppleChatTools.mentionedFile(in: user, folder: folder), let text = try? FolderReader(root: folder).read(name) {
+                if tools.usesFolder, !AppleChatTools.wantsToChange(user), let name = AppleChatTools.mentionedFile(in: user, folder: folder), let text = try? FolderReader(root: folder).read(name) {
                     onActivity?("読む: " + name)
                     return try await session.respond(to: AppleChatTools.fileResult(name: name, text: text)).content
                 }
                 throw ConversationError.failed("道具（検索・ファイル）を使えませんでした。言い方を変えて、もう一度お願いします（例：「note.txt を読んで」「〇〇のニュースを検索して」）")
             }
-            return reply
+            // 書く・実行する依頼なのに、書く道具・コマンドの道具が、呼ばれていない（「作成します」と予告だけ）：1 回促し、それでも呼ばなければ、した、とは言わず、失敗として知らせる
+            if tools == .all, needed, AppleChatTools.wantsToChange(user), !calls.acted {
+                reply = try await session.respond(to: AppleChatTools.nudgeToAct).content
+                if !calls.acted {
+                    throw ConversationError.failed("ファイルの書き込み・コマンドの実行は、できませんでした（モデルが、道具を呼びませんでした）。もう一度、具体的に頼んでください（例：「done.txt に『確認済み』と書いて作って」）")
+                }
+            }
+            return AppleChatTools.cleaned(reply)
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error { throw ConversationError.contextOverflow }
+            if case .guardrailViolation = error { throw ConversationError.failed("Apple のモデルの安全機能が、この依頼を止めました。言い方を変えて、もう一度お願いします") }
             throw ConversationError.failed(error.localizedDescription)
         } catch let error as ConversationError {
             throw error
@@ -99,6 +108,13 @@ public struct AppleChatBackend: ActivityReporting {
 private final class CallCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
-    func increment() { lock.lock(); value += 1; lock.unlock() }
+    private var acting = false
+    /// 道具の呼び出しを、記録する（「書く」「実行」は、書き込み・コマンドの道具）。
+    func record(_ activity: String) {
+        lock.lock(); value += 1; if activity.hasPrefix("書く") || activity.hasPrefix("実行") { acting = true }; lock.unlock()
+    }
+    /// 利用者に、確認を求めた（断られた場合も、道具は、呼ばれている）。
+    func markAsked() { lock.lock(); acting = true; lock.unlock() }
     var count: Int { lock.lock(); defer { lock.unlock() }; return value }
+    var acted: Bool { lock.lock(); defer { lock.unlock() }; return acting }
 }

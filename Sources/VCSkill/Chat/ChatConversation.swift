@@ -71,7 +71,7 @@ public actor ChatConversation {
 
     /// 質問する。**添付（画像・文章）は、質問の文字に、すでに入れてある**ことを前提にする。
     /// `onActivity`：外のエージェントが、いま何をしているか（実行したコマンド・検索など）。
-    public func ask(_ user: String, onActivity: (@Sendable (String) -> Void)? = nil) async throws -> Reply {
+    public func ask(_ user: String, onActivity: (@Sendable (String) -> Void)? = nil, confirm: ToolConfirm? = nil) async throws -> Reply {
         var startedNew = false
         if let last = lastActivity, now().timeIntervalSince(last) > idleLimit, hasConversation {
             reset(); startedNew = true
@@ -83,13 +83,13 @@ public actor ChatConversation {
         }
         let text: String
         do {
-            text = try await respond(user, onActivity)
+            text = try await respond(user, onActivity, confirm)
         } catch ConversationError.contextOverflow {
             // 見積もりより、実際が大きかった：残す量を半分にして、要約して、1 度だけ、やり直す
             let cut = max(1, min(turns.count - 1, turns.count / 2 + 1))
             guard turns.count >= 2 else { throw ConversationError.contextOverflow }
             if await compact(upTo: cut) { compacted = true } else { failed = true }
-            text = try await respond(user, onActivity)
+            text = try await respond(user, onActivity, confirm)
         }
         let answer = text.trimmingCharacters(in: .whitespacesAndNewlines)
         turns.append(ChatTurn(user: user, assistant: answer))
@@ -99,9 +99,9 @@ public actor ChatConversation {
     }
 
     /// 答えを作る（外のエージェントなら、実行中の様子を、知らせる）。
-    private func respond(_ user: String, _ onActivity: (@Sendable (String) -> Void)?) async throws -> String {
-        if let reporting = backend as? ActivityReporting, onActivity != nil {
-            return try await reporting.respond(instructions: fixedInstructions(), turns: turns, user: user, onActivity: onActivity)
+    private func respond(_ user: String, _ onActivity: (@Sendable (String) -> Void)?, _ confirm: ToolConfirm?) async throws -> String {
+        if let reporting = backend as? ActivityReporting, onActivity != nil || confirm != nil {
+            return try await reporting.respond(instructions: fixedInstructions(), turns: turns, user: user, onActivity: onActivity, confirm: confirm)
         }
         return try await backend.respond(instructions: fixedInstructions(), turns: turns, user: user)
     }

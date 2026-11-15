@@ -50,7 +50,7 @@ import VCSkill
     struct Outcome { var answer: String; var notes: [String]; var activities: [String] = []; var startedNew = false }
 
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
-    func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void) async throws -> Outcome {
+    func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void, confirm: ToolConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         let wants = ChatAttachments.wants(utterance)
@@ -88,7 +88,7 @@ import VCSkill
         let reply = try await conversation.ask(question, onActivity: { text in
             log.add(text)
             Task { @MainActor in progress(text) }
-        })
+        }, confirm: confirm)
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }
