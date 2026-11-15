@@ -28,7 +28,7 @@ import SwiftUI
         window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 380, height: 280)
-        window.collectionBehavior = [.fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // Space（デスクトップ）を移動しても、ついてくる
         configureTextView()
         let root = DocumentView(
             title: title, state: state, textView: textView,

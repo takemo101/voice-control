@@ -206,7 +206,7 @@ import VCSkill
         window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 420, height: 380)
-        window.collectionBehavior = [.fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // Space（デスクトップ）を移動しても、ついてくる（どの Space でも、同じ位置に出る）
         window.onEscape = {
             guard SaySpeaker.shared.isSpeaking(.conversation) else { return false }
             SaySpeaker.shared.stop()
