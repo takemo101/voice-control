@@ -42,6 +42,7 @@ public enum ProcessRunner {
         timeout: TimeInterval?,
         cancel: CancelToken? = nil,
         workingDirectory: URL? = nil,
+        environment extra: [String: String] = [:],
         onOutput: (@Sendable (Data) -> Void)? = nil
     ) -> ProcessResult {
         if cancel?.isCancelled == true {
@@ -50,11 +51,14 @@ public enum ProcessRunner {
         let p = Process()
         p.executableURL = launcher
         p.arguments = [executable] + arguments
-        if let workingDirectory {
-            p.currentDirectoryURL = workingDirectory
-            // `$PWD` も合わせる（`PWD` を見て、作業フォルダを決めるツールがある：親の `PWD` のままだと、別のフォルダで動く）
+        if workingDirectory != nil || !extra.isEmpty {
             var environment = ProcessInfo.processInfo.environment
-            environment["PWD"] = workingDirectory.path
+            if let workingDirectory {
+                p.currentDirectoryURL = workingDirectory
+                // `$PWD` も合わせる（`PWD` を見て、作業フォルダを決めるツールがある：親の `PWD` のままだと、別のフォルダで動く）
+                environment["PWD"] = workingDirectory.path
+            }
+            environment.merge(extra) { _, new in new }
             p.environment = environment
         }
         let pipe = Pipe()

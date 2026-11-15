@@ -55,6 +55,7 @@ struct ChatCommand: Command {
                     eprint(Style.yellow("画像を、\(agent.rawValue) へ送ります（この Mac の外へ出ます）。送りますか？ [y/N] "))
                     return (readLine() ?? "").lowercased().hasPrefix("y")
                 } : nil
+                if let note = await chat.settleAgent() { eprint(Style.yellow(note)) }
                 let outcome = try await chat.ask(text, engine: context.engine, token: nil, attachedImage: imageFile, progress: { if interactive { eprint(Style.dim($0)) } }, confirm: confirm, confirmImage: confirmImage)
                 for note in outcome.notes { eprint(Style.dim(note)) }
                 for activity in outcome.activities { eprint(Style.dim("▸ " + activity.text)) }

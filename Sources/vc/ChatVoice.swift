@@ -44,6 +44,7 @@ import VCSpeech
             if speakResults { say("会話を終わりました") }
             return
         }
+        let fallbackNote = await ChatMode.shared.settleAgent()   // 選んだエージェントが、なくなっていたら、Apple で答える
         let agent = ChatMode.shared.agent
         let window = ChatWindow.shared
         let level = ChatMode.shared.tools
@@ -67,7 +68,7 @@ import VCSpeech
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity.text)) }
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
-            window.finish(id, answer: outcome.answer, activities: outcome.activities, notes: outcome.notes, startedNew: outcome.startedNew, imageRoute: outcome.imageRoute)
+            window.finish(id, answer: outcome.answer, activities: outcome.activities, notes: outcome.notes + (fallbackNote.map { [$0] } ?? []), startedNew: outcome.startedNew, imageRoute: outcome.imageRoute)
             let spoken = speakResults ? SpokenText.chunks(from: outcome.answer) : []
             if !spoken.isEmpty { window.speakLatest(spoken) }   // 全文を読む（止めるには、Esc・ウィンドウのボタン・メニュー・トリガー）
         } catch {

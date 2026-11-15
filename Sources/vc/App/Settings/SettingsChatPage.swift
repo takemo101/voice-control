@@ -11,13 +11,23 @@ struct ChatPage: View {
     var body: some View {
         Callout(symbol: "bubble.left.and.bubble.right.fill", text: "会話のキーを押している間だけ話すか、会話のウィンドウ（メニューバー > 会話を開く）で、文字で質問できます。ウィンドウの「画面を撮る」で、画像について話すこともできます。")
         Card("エージェントと道具", footer: "画像：Apple のモデルは、この Mac の中で文字にして読みます。外のエージェントへは、送るたびに、画像と送り先を確認します。") {
-            Row("会話に使うエージェント", detail: nil) {
+            // 選べるのは、この Mac に入っているエージェントだけ。選んだものが、なくなっていたら（アンインストールなど）、見つからない印つきで残し、Apple のモデルで答える
+            let installed = AgentLocator.available()
+            let selected = ChatAgent.parse(model.settings.chatAgent ?? "apple") ?? .apple
+            let missing = selected.isExternal && !installed.contains(selected)
+            Row("会話に使うエージェント", detail: installed.count == 1 ? "claude・codex などが、この Mac に入っていれば、ここに出ます" : nil) {
                 Picker("", selection: Binding(get: { model.settings.chatAgent ?? "apple" }, set: { value in model.update { $0.chatAgent = value == "apple" ? nil : value } })) {
-                    ForEach(ChatAgent.allCases, id: \.rawValue) { Text($0.rawValue == "apple" ? "Apple（この Mac の中）" : $0.rawValue).tag($0.rawValue) }
+                    ForEach(installed + (missing ? [selected] : []), id: \.rawValue) { choice in
+                        Text(choice == .apple ? "Apple（この Mac の中）" : (choice == selected && missing ? "\(choice.rawValue)（見つかりません）" : choice.rawValue)).tag(choice.rawValue)
+                    }
                 }
                 .labelsHidden().frame(width: 190)
             }
-            let agent = ChatAgent.parse(model.settings.chatAgent ?? "apple") ?? .apple
+            if missing {
+                Label("\(selected.rawValue) が、この Mac に見つかりません（アンインストールされた？）。いまは、Apple のモデルで答えます。入れ直すと、また使えます。", systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+            }
+            let agent: ChatAgent = missing ? .apple : selected   // 道具の選択肢などは、実際に使うエージェントで決める
             if agent.isExternal {
                 Label("会話の発話が、この Mac の外（そのエージェントの提供元）へ送られます。画像は、送るたびに確認します。コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
