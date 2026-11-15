@@ -506,10 +506,30 @@ private struct ModelsPage: View {
                 Label("会話の発話が、この Mac の外（そのエージェントの提供元）へ送られます。画像・コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
                 RowDivider()
-                if agent.canSearchWeb {
-                    SwitchRow(model: model, title: "Web 検索を使う", detail: "ニュースや最新の情報を、エージェントが検索して答えます（検索は、そのエージェントの提供元が行います）。オフだと、検索できないと答えます", value: model.settings.chatWeb ?? false) { $0.chatWeb = $1 }
-                } else {
-                    Row("Web 検索", detail: "このエージェントは、検索の道具を持っていません") { Pill(text: "使えません", color: Color.secondary) }
+                Row("道具", detail: model.chatToolLevel.title) {
+                    Picker("", selection: Binding(get: { model.chatToolLevel }, set: { model.setChatTools($0) })) {
+                        Text("なし").tag(ChatToolLevel.none)
+                        if agent.canSearchWeb { Text("Web").tag(ChatToolLevel.web) }
+                        Text("＋読む").tag(ChatToolLevel.read)
+                        Text("すべて").tag(ChatToolLevel.all)
+                    }
+                    .labelsHidden().pickerStyle(.segmented).frame(width: 250)
+                }
+                if model.chatToolLevel == .all {
+                    Label("ファイルの書き込み・コマンドの実行まで、確認なしで、できます。聞き間違いや、Web のページの命令で、意図しない操作が起きえます。実行した操作は、答えの下に出ます。", systemImage: "exclamationmark.octagon.fill")
+                        .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+                }
+                if model.chatToolLevel.usesFolder {
+                    RowDivider()
+                    Row("作業フォルダ", detail: model.chatFolderPath) {
+                        HStack(spacing: 8) {
+                            Button("選ぶ…") { model.chooseChatFolder() }.controlSize(.small)
+                            Button("開く") {
+                                try? FileManager.default.createDirectory(atPath: model.chatFolderPath, withIntermediateDirectories: true)
+                                NSWorkspace.shared.open(URL(fileURLWithPath: model.chatFolderPath))
+                            }.controlSize(.small)
+                        }
+                    }
                 }
             }
             RowDivider()

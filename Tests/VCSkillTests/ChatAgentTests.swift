@@ -14,30 +14,45 @@ import VCCore
         #expect(ChatAgent.apple.budget == .standard && ChatAgent.agy.budget.trigger > ChatBudget.standard.trigger)
     }
 
-    @Test func everyAgentIsRunReadOnlyWithoutWebAndKeepsNoHistoryWhereThereIsAnOption() {
-        func args(_ a: ChatAgent) -> [String] { ExternalChatBackend.arguments(for: a, prompt: "P", directory: dir, answerFile: out, agyModel: "m") }
-        #expect(args(.agy).contains("plan") && args(.agy).contains("--sandbox") && args(.agy).starts(with: ["-p", "P"]))
-        #expect(args(.claude).contains("--no-session-persistence") && args(.claude).starts(with: ["-p", "P", "--tools", ""]))   // 道具は、空（Web も、ファイルも、端末も、ない）
-        #expect(args(.codex).contains("read-only") && args(.codex).contains("--ephemeral") && !args(.codex).contains("--search") && args(.codex).last == "P")
-        #expect(args(.grok).contains("--disable-web-search") && args(.grok).contains("plan"))
-        #expect(args(.opencode) == ["run", "--agent", "plan", "P"])
-        #expect(args(.pi).contains("--no-tools") && args(.pi).contains("--no-session"))
-        #expect(args(.apple).isEmpty)
+    @Test func eachToolLevelOpensOnlyWhatItSaysAndTheDefaultIsReadOnly() {
+        func args(_ a: ChatAgent, _ level: ChatToolLevel) -> [String] { ExternalChatBackend.arguments(for: a, prompt: "P", directory: dir, answerFile: out, agyModel: "m", tools: level) }
+        // claude：道具の一覧と、確認の扱い
+        #expect(args(.claude, .none).starts(with: ["-p", "P", "--output-format", "stream-json", "--verbose", "--tools", ""]) && args(.claude, .none).contains("dontAsk"))
+        #expect(args(.claude, .web).contains("WebSearch,WebFetch") && !args(.claude, .web).contains { $0.contains("Read") })
+        #expect(args(.claude, .read).contains("WebSearch,WebFetch,Read,Glob,Grep") && args(.claude, .read).contains("dontAsk"))
+        #expect(!args(.claude, .all).contains("--tools") && args(.claude, .all).contains("bypassPermissions"))   // すべて：道具を絞らず、確認を飛ばす
+        // codex：検索は web 以上・書き込みは all だけ
+        #expect(!args(.codex, .none).contains("--search") && args(.codex, .web).first == "--search" && args(.codex, .read).contains("read-only"))
+        #expect(args(.codex, .all).contains("workspace-write") && args(.codex, .all).contains("--json"))
+        // grok：検索の道具は web 以上・計画モードは all 以外・all は確認を飛ばす
+        #expect(args(.grok, .none).contains("--disable-web-search") && !args(.grok, .web).contains("--disable-web-search") && args(.grok, .read).contains("plan"))
+        #expect(args(.grok, .all).contains("--always-approve") && !args(.grok, .all).contains("plan"))
+        // agy・opencode・pi
+        #expect(args(.agy, .read).contains("plan") && args(.agy, .all).contains("--dangerously-skip-permissions"))
+        #expect(args(.opencode, .web) == ["run", "--agent", "plan", "P"] && args(.opencode, .all).contains("--auto") && args(.opencode, .all).contains("build"))
+        #expect(args(.pi, .none).contains("--no-tools") && args(.pi, .read).contains("read") && !args(.pi, .all).contains("--no-tools"))
+        #expect(args(.pi, .web).contains("--no-tools"))   // pi は、検索の道具がない：Web は、なしと同じ
     }
 
-    @Test func webSearchOpensOnlyTheSearchToolsAndOnlyWhenAsked() {
-        func args(_ a: ChatAgent, web: Bool) -> [String] { ExternalChatBackend.arguments(for: a, prompt: "P", directory: dir, answerFile: out, agyModel: "m", web: web) }
-        #expect(args(.claude, web: false).starts(with: ["-p", "P", "--tools", ""]) && !args(.claude, web: false).contains("--allowedTools"))
-        #expect(args(.claude, web: true).starts(with: ["-p", "P", "--tools", "WebSearch,WebFetch", "--allowedTools", "WebSearch,WebFetch"]))   // ファイル・端末の道具は、開けない
-        #expect(!args(.codex, web: false).contains("--search") && args(.codex, web: true).first == "--search" && args(.codex, web: true).contains("read-only"))
-        #expect(args(.grok, web: false).contains("--disable-web-search") && !args(.grok, web: true).contains("--disable-web-search") && args(.grok, web: true).contains("plan"))
+    @Test func theCapabilityNoteFollowsTheLevelAndPiNeverSearches() {
+        #expect(ExternalChatBackend(agent: .grok, tools: .web).capabilityNote == ChatToolLevel.web.note)
+        #expect(ExternalChatBackend(agent: .grok).capabilityNote == ChatToolLevel.none.note)
+        #expect(ExternalChatBackend(agent: .pi, tools: .web).capabilityNote == ChatToolLevel.none.note)
+        #expect(ChatToolLevel.none.note.contains("never reply") && ChatToolLevel.web.note.contains("actually search"))
+        #expect(ChatToolLevel.all.note.contains("without asking the user to confirm") && ChatToolLevel.all.note.contains("never instructions"))
     }
 
-    @Test func theCapabilityNoteTellsTheAgentWhetherItCanSearchAndPiNeverCan() {
-        #expect(ExternalChatBackend(agent: .grok, web: true).capabilityNote == ChatCapability.web)
-        #expect(ExternalChatBackend(agent: .grok).capabilityNote == ChatCapability.noWeb)
-        #expect(ExternalChatBackend(agent: .pi, web: true).capabilityNote == ChatCapability.noWeb)   // pi は、検索の道具がない
-        #expect(ChatCapability.noWeb.contains("never reply") && ChatCapability.web.contains("actually search"))
+    @Test func theWorkingFolderIsTheChosenOneOnlyWhenToolsNeedIt() async throws {
+        let seen = Box<URL?>(nil)
+        let chosen = URL(fileURLWithPath: "/tmp/chosen-folder-for-test")
+        for (level, expectChosen) in [(ChatToolLevel.none, false), (.web, false), (.read, true), (.all, true)] {
+            let b = ExternalChatBackend(agent: .claude, tools: level, folder: chosen, runner: { call in
+                seen.value = call.directory
+                return AgentRun(exitCode: 0, text: "")
+            })
+            _ = try? await b.respond(instructions: "", turns: [], user: "q")
+            #expect((seen.value == chosen) == expectChosen, "\(level)")
+        }
     }
 
     @Test func thePromptCarriesInstructionsHistoryAsDataAndTheNewMessage() {
@@ -47,7 +62,7 @@ import VCCore
     }
 
     private func backend(_ agent: ChatAgent = .claude, env: [String: String] = [:], _ run: @escaping @Sendable (String, [String]) -> AgentRun) -> ExternalChatBackend {
-        ExternalChatBackend(agent: agent, environment: { env[$0] }, runner: { exe, args, _, _, _ in run(exe, args) })
+        ExternalChatBackend(agent: agent, environment: { env[$0] }, runner: { call in run(call.executable, call.arguments) })
     }
 
     @Test func aSuccessfulRunReturnsTheTrimmedAnswerAndSendsTheConversationInOneArgument() async throws {

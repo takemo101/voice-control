@@ -87,7 +87,7 @@ import Testing
         #expect(second.text.hasPrefix("答え："))
         let calls = backend.chatCalls
         #expect(calls[0].turns.isEmpty && calls[1].turns == [ChatTurn(user: "私の名前はミカです", assistant: "答え：私の名前はミカで")])
-        #expect(calls[1].instructions.hasPrefix(ChatConversation.instructions) && calls[1].instructions.hasSuffix(ChatCapability.noWeb))   // 指示のあとに、Web についての決まりが付く
+        #expect(calls[1].instructions.hasPrefix(ChatConversation.instructions) && calls[1].instructions.hasSuffix(ChatToolLevel.none.note))   // 指示のあとに、Web についての決まりが付く
         let count = await chat.turnCount
         #expect(count == 2)
     }

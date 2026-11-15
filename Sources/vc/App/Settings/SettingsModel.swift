@@ -252,6 +252,37 @@ enum DownloadState: Equatable {
         revision += 1
     }
 
+    // MARK: 会話の道具
+
+    var chatToolLevel: ChatToolLevel { settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none }
+    var chatFolderPath: String { settings.chatFolder ?? ExternalChatBackend.defaultFolder.path }
+
+    /// 会話のエージェントに開ける道具の段階を決める。**すべて**は、聞き間違い・Web のページの命令で、意図しない操作が起きえるので、確認を出す。
+    func setChatTools(_ level: ChatToolLevel) {
+        if level == .all {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "すべての道具を、開けますか？"
+            alert.informativeText = "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）"
+            alert.addButton(withTitle: "開ける")
+            alert.addButton(withTitle: "やめる")
+            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+        }
+        update { $0.chatTools = level == .none ? nil : level.rawValue }
+    }
+
+    func chooseChatFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "このフォルダにする"
+        panel.message = "会話のエージェントが、読む・書く、作業フォルダを選んでください（大切なファイルのあるフォルダは、避けてください）"
+        panel.directoryURL = URL(fileURLWithPath: chatFolderPath)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        update { $0.chatFolder = url.path }
+    }
+
     // MARK: 音声
 
     func saveFillers() {

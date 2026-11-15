@@ -18,7 +18,8 @@ import VCSkill
             return
         }
         let agent = ChatMode.shared.agent
-        let name = agent.isExternal ? "会話（\(agent.rawValue)・外へ送信）" : "会話"
+        let toolNote = ChatMode.shared.tools == .none ? "" : "・" + (ChatMode.shared.tools == .all ? "全ツール" : ChatMode.shared.tools.rawValue)
+        let name = agent.isExternal ? "会話（\(agent.rawValue)・外へ送信\(toolNote)）" : "会話"
         var content = HUDContent(phase: .working, title: "考えています…", chip: chip, heard: utterance, skill: name)
         HUD.shared.show(content)
         do {
@@ -28,14 +29,17 @@ import VCSkill
             }
             if token.isCancelled || token.isSuperseded { return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
+            for activity in outcome.activities { print("  " + Style.dim("▸ " + activity)) }
             print("  " + Style.bold("回答") + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
-            if ChatMode.isShort(outcome.answer) {
+            if ChatMode.isShort(outcome.answer) && outcome.activities.isEmpty {
                 var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
                 done.reply = outcome.answer
                 if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }
                 HUD.shared.show(done, hideAfter: HUDSession.readingTime(for: outcome.answer))
             } else {
-                if let why = DocumentWindow.present(markdown: "> 会話：\(utterance)\n\n" + outcome.answer) { eprint("ウィンドウを出せません: \(why)") }
+                // 道具を使ったときは、**実行した操作**を、答えの下に出す（何が実行されたかを、確かめられるように。記録には残さない）
+                let actions = outcome.activities.isEmpty ? "" : "\n\n---\n\n**実行した操作**\n\n" + outcome.activities.map { "- `\($0)`" }.joined(separator: "\n")
+                if let why = DocumentWindow.present(markdown: "> 会話：\(utterance)\n\n" + outcome.answer + actions) { eprint("ウィンドウを出せません: \(why)") }
                 var done = HUDContent(phase: .success, title: "会話", chip: chip, heard: utterance, skill: name)
                 done.reply = "回答を、ウィンドウに出しました"
                 if !outcome.notes.isEmpty { done.hint = outcome.notes.joined(separator: "・") }

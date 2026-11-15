@@ -14,7 +14,7 @@ struct ChatCommand: Command {
             "**会話では、スキルを実行しない**（Spotify を操作する・ファイルを開く、などは、アプリの声で頼むキーで）。調べものは、ask-agent。小さなモデル（約 3B）なので、事実の質問は、間違える。整理・要約・言い換え・手元の画像や文章についての質問が、得意。",
             "--stats：終わるときに、往復の数・要約の回数・要約の長さを、標準エラーに出す。入力の /reset：会話を終える・/summary：いまの要約を見る（確認用）。",
         ],
-        options: [("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > モデル）"), ("--web", "外のエージェントに、Web 検索をさせる（既定は、設定）"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
+        options: [("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > モデル）"), ("--tools <段階>", "外のエージェントに開ける道具：none・web・read・all（既定は、設定）"), ("--folder <フォルダ>", "道具を開けたときの作業フォルダ"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
         examples: ["vc chat", "echo '私の好きな色は青です' | vc chat"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -26,8 +26,14 @@ struct ChatCommand: Command {
             guard let chosen = ChatAgent.parse(name) else { fail("--agent「\(name)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）") }
             agent = chosen
         }
-        ChatMode.shared.configure(agent: agent, web: arguments.flag("--web") || (context.currentSettings().chatWeb ?? false))
-        if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.web ? "（Web 検索あり）" : "")) }
+        var chatTools = context.resolveChatTools()
+        if let name = arguments.option("--tools") {
+            guard let level = ChatToolLevel(rawValue: name) else { fail("--tools「\(name)」は、使えません（\(ChatToolLevel.allCases.map(\.rawValue).joined(separator: "・"))）") }
+            chatTools.level = level
+        }
+        if let folder = arguments.option("--folder") { chatTools.folder = URL(fileURLWithPath: (folder as NSString).expandingTildeInPath) }
+        ChatMode.shared.configure(agent: agent, tools: chatTools.level, folder: chatTools.folder)
+        if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.tools == .none ? "" : "（道具：\(ChatMode.shared.tools.title)）")) }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
         let chat = ChatMode.shared
@@ -40,6 +46,7 @@ struct ChatCommand: Command {
             do {
                 let outcome = try await chat.ask(text, engine: context.engine, token: nil) { if interactive { eprint(Style.dim($0)) } }
                 for note in outcome.notes { eprint(Style.dim(note)) }
+                for activity in outcome.activities { eprint(Style.dim("▸ " + activity)) }
                 print(outcome.answer)
                 if delimit { print("\u{1e}"); fflush(stdout) }
             } catch { eprint(Style.red("失敗: ") + "\(error)"); if delimit { print("\u{1e}"); fflush(stdout) } }

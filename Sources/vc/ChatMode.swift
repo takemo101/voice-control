@@ -10,8 +10,9 @@ import VCSkill
     private(set) var conversation = ChatConversation()
     /// いま使っているエージェント。`configure` で替える（替えると、会話は、新しくなる）。
     private(set) var agent = ChatAgent.apple
-    /// 外のエージェントに、Web 検索をさせているか。
-    private(set) var web = false
+    /// 外のエージェントに開けている道具の段階と、作業フォルダ。
+    private(set) var tools = ChatToolLevel.none
+    private(set) var folder: URL?
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
@@ -25,12 +26,13 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent, web: Bool = false) {
-        let web = web && agent.canSearchWeb
-        guard agent != self.agent || web != self.web else { return }
+    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil) {
+        let tools = agent.isExternal ? agent.effective(tools) : .none
+        guard agent != self.agent || tools != self.tools || folder != self.folder else { return }
         self.agent = agent
-        self.web = web
-        conversation = ChatConversation(backend: agent.makeBackend(web: web))
+        self.tools = tools
+        self.folder = folder
+        conversation = ChatConversation(backend: agent.makeBackend(tools: tools, folder: folder))
         attached = []
     }
 
@@ -42,7 +44,8 @@ import VCSkill
     /// 答えの見せ方：短ければ上のパネル、長ければウィンドウ。
     static func isShort(_ answer: String) -> Bool { answer.count <= 110 && !answer.contains("\n") }
 
-    struct Outcome { var answer: String; var notes: [String] }
+    /// `activities`：外のエージェントが、実際にやった操作（実行したコマンド・検索・読んだファイルなど）。道具を開けているときの、確認用。
+    struct Outcome { var answer: String; var notes: [String]; var activities: [String] = [] }
 
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     func ask(_ utterance: String, engine: Engine, token: CancelToken?, progress: @escaping @MainActor (String) -> Void) async throws -> Outcome {
@@ -79,11 +82,15 @@ import VCSkill
         }
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
-        let reply = try await conversation.ask(question)
+        let log = ActivityLog()
+        let reply = try await conversation.ask(question, onActivity: { text in
+            log.add(text)
+            Task { @MainActor in progress(text) }
+        })
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }
-        return Outcome(answer: reply.text, notes: notes)
+        return Outcome(answer: reply.text, notes: notes, activities: log.items)
     }
 }
 
@@ -101,4 +108,22 @@ extension CommandContext {
         }
         return agent
     }
+}
+
+extension CommandContext {
+    /// 会話に開ける道具の段階（設定 `chatTools`）と、作業フォルダ。書き方が違えば、なし。
+    func resolveChatTools() -> (level: ChatToolLevel, folder: URL?) {
+        let settings = currentSettings()
+        let level = settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none
+        let folder = settings.chatFolder.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        return (level, folder)
+    }
+}
+
+/// 実行した操作の記録（その会話の 1 回分。メモリだけ）。
+final class ActivityLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    func add(_ text: String) { lock.lock(); if stored.last != text { stored.append(text) }; lock.unlock() }
+    var items: [String] { lock.lock(); defer { lock.unlock() }; return stored }
 }

@@ -34,13 +34,15 @@ public enum ProcessRunner {
     ///   上限が測るのは、出力が終わるまで。出力を閉じたあとの、終了待ちには、上限がない。
     /// - `cancel`: 取りやめられたら、実行中のコマンドを `terminate` する。すでに取りやめられていれば、起動しない。
     /// - `workingDirectory`: 作業フォルダ。`nil` なら、呼び出し側のまま。
+    /// - `onOutput`: 出力が届くたびに（読んだ塊ごとに。専用のスレッドから）呼ぶ。進み具合の表示用。最後に、全体も、`output` で返る。
     public static func run(
         executable: String,
         arguments: [String] = [],
         mergeStderr: Bool,
         timeout: TimeInterval?,
         cancel: CancelToken? = nil,
-        workingDirectory: URL? = nil
+        workingDirectory: URL? = nil,
+        onOutput: (@Sendable (Data) -> Void)? = nil
     ) -> ProcessResult {
         if cancel?.isCancelled == true {
             return ProcessResult(exitCode: cancelledExitCode, output: Data(), timedOut: false, cancelled: true, launchError: nil)
@@ -65,7 +67,15 @@ public enum ProcessRunner {
         let group = DispatchGroup()
         group.enter()
         Thread.detachNewThread {
-            collected.set(pipe.fileHandleForReading.readDataToEndOfFile())
+            if let onOutput {
+                let handle = pipe.fileHandleForReading
+                while let chunk = try? handle.read(upToCount: 4096), !chunk.isEmpty {
+                    collected.append(chunk)   // 時間切れのときも、そこまでの出力を、返せるように、少しずつ足す
+                    onOutput(chunk)
+                }
+            } else {
+                collected.set(pipe.fileHandleForReading.readDataToEndOfFile())
+            }
             group.leave()
         }
         var timedOut = false
@@ -91,5 +101,6 @@ private final class CollectedOutput: @unchecked Sendable {
     private var data = Data()
 
     func set(_ newValue: Data) { lock.lock(); data = newValue; lock.unlock() }
+    func append(_ chunk: Data) { lock.lock(); data.append(chunk); lock.unlock() }
     var value: Data { lock.lock(); defer { lock.unlock() }; return data }
 }

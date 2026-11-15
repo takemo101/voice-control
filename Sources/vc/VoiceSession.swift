@@ -29,7 +29,7 @@ import VCSpeech
         let shotSpec = context.resolveShotHotKey()
         let chatSpec = context.resolveChatHotKey()
         let chatAgent = context.resolveChatAgent()
-        if chatSpec != nil { ChatMode.shared.configure(agent: chatAgent, web: context.currentSettings().chatWeb ?? false) }
+        if chatSpec != nil { let chat = context.resolveChatTools(); ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder) }
         if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
         HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
         var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
