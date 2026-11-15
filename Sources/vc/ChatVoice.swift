@@ -19,9 +19,9 @@ import VCSkill
         }
         let agent = ChatMode.shared.agent
         let toolNote = ChatMode.shared.tools == .none ? "" : "・" + (ChatMode.shared.tools == .all ? "全ツール" : ChatMode.shared.tools.rawValue)
-        let name = agent.isExternal ? "会話（\(agent.rawValue)・外へ送信\(toolNote)）" : "会話"
+        let name = agent.isExternal ? "会話（\(agent.rawValue)・外へ送信\(toolNote)）" : (ChatMode.shared.tools == .none ? "会話" : "会話（検索語を外へ送信）")
         let window = ChatWindow.shared
-        window.begin(question: utterance, agent: agent.isExternal ? "\(agent.label) — この Mac の外へ送信" + (ChatMode.shared.tools == .none ? "" : "・" + ChatMode.shared.tools.title) : agent.label)
+        window.begin(question: utterance, agent: agent.isExternal ? "\(agent.label) — この Mac の外へ送信" + (ChatMode.shared.tools == .none ? "" : "・" + ChatMode.shared.tools.title) : (ChatMode.shared.tools == .none ? agent.label : agent.label + " — 道具：" + ChatMode.shared.tools.title + "（検索語を外へ送信）"))
         var content = HUDContent(phase: .working, title: "考えています…", chip: chip, heard: utterance, skill: name)
         HUD.shared.show(content)
         do {

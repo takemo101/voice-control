@@ -31,26 +31,74 @@ public enum ConversationError: Error, CustomStringConvertible, Equatable {
 }
 
 /// Apple の FoundationModels で、会話の答えを作る。
-public struct AppleChatBackend: ChatBackend {
-    public init() {}
+public struct AppleChatBackend: ActivityReporting {
+    public let tools: ChatToolLevel
+    public let folder: URL
+    private let web: WebAccess
+
+    /// `tools`：開ける道具の段階（`web`・`read` まで。`all` は、`read` と同じ：Apple のモデルには、書き込み・コマンドの実行を開けない）。
+    public init(tools: ChatToolLevel = .none, folder: URL? = nil) {
+        self.tools = tools == .all ? .read : tools
+        self.folder = folder ?? ExternalChatBackend.defaultFolder
+        self.web = .live
+    }
+
+    init(tools: ChatToolLevel, folder: URL, web: WebAccess) {
+        self.tools = tools == .all ? .read : tools; self.folder = folder; self.web = web
+    }
+
+    public var capabilityNote: String { AppleChatTools.note(tools) }
 
     public func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String {
+        try await respond(instructions: instructions, turns: turns, user: user, onActivity: nil)
+    }
+
+    public func respond(instructions: String, turns: [ChatTurn], user: String, onActivity: (@Sendable (String) -> Void)?) async throws -> String {
         if case let .unavailable(reason) = AppleIntelligence.current() { throw ConversationError.unavailable("\(reason.summary)。\(reason.remedy)") }
-        var entries: [Transcript.Entry] = [.instructions(Transcript.Instructions(segments: [.text(.init(content: instructions))], toolDefinitions: []))]
+        if tools.usesFolder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let calls = CallCounter()
+        let available = AppleChatTools.make(level: tools, folder: folder, web: web, activity: { calls.increment(); onActivity?($0) })
+        let definitions = available.map { Transcript.ToolDefinition(tool: $0) }
+        var entries: [Transcript.Entry] = [.instructions(Transcript.Instructions(segments: [.text(.init(content: instructions))], toolDefinitions: definitions))]
         for turn in turns {
             entries.append(.prompt(Transcript.Prompt(segments: [.text(.init(content: turn.user))])))
             entries.append(.response(Transcript.Response(assetIDs: [], segments: [.text(.init(content: turn.assistant))])))
         }
-        let session = LanguageModelSession(transcript: Transcript(entries: entries))
+        let session = LanguageModelSession(tools: available, transcript: Transcript(entries: entries))
         do {
-            return try await session.respond(to: user).content
+            var reply = try await session.respond(to: user).content
+            // 小さなモデルは、道具を呼ばずに、「調べます」「読み取ります」と、予告だけで終えることがある：1 回だけ、いま呼ぶよう促す
+            let needed = AppleChatTools.needsTool(user, level: tools)
+            if !available.isEmpty, calls.count == 0, needed || AppleChatTools.looksLikeAPromise(reply) {
+                reply = try await session.respond(to: AppleChatTools.nudge).content
+            }
+            // それでも道具を呼ばなかった：**作り話の答え**（読んでいないファイルの中身・調べていないニュース）を、返さない
+            if !available.isEmpty, calls.count == 0, needed {
+                // 名前の出たファイルは、コードが読んで、結果を渡す（モデルが、道具を呼ばなくても、読めるように）
+                if tools.usesFolder, let name = AppleChatTools.mentionedFile(in: user, folder: folder), let text = try? FolderReader(root: folder).read(name) {
+                    onActivity?("読む: " + name)
+                    return try await session.respond(to: AppleChatTools.fileResult(name: name, text: text)).content
+                }
+                throw ConversationError.failed("道具（検索・ファイル）を使えませんでした。言い方を変えて、もう一度お願いします（例：「note.txt を読んで」「〇〇のニュースを検索して」）")
+            }
+            return reply
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error { throw ConversationError.contextOverflow }
             throw ConversationError.failed(error.localizedDescription)
+        } catch let error as ConversationError {
+            throw error
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             throw ConversationError.failed(error.localizedDescription)
         }
     }
+}
+
+/// 道具が呼ばれた回数（道具は、別のスレッドで呼ばれる）。
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func increment() { lock.lock(); value += 1; lock.unlock() }
+    var count: Int { lock.lock(); defer { lock.unlock() }; return value }
 }

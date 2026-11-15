@@ -44,17 +44,21 @@ public enum ChatAgent: String, CaseIterable, Sendable {
 
     /// 答える側。`tools`・`folder`：外のエージェントに開ける道具の段階と、作業フォルダ（Apple には、効かない）。
     public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil) -> ChatBackend {
-        isExternal ? ExternalChatBackend(agent: self, tools: tools, folder: folder) : AppleChatBackend()
+        isExternal ? ExternalChatBackend(agent: self, tools: tools, folder: folder) : AppleChatBackend(tools: tools, folder: folder)
     }
 
-    /// Web 検索を、使えるエージェントか（`pi` は、検索の道具を持たない）。
-    public var canSearchWeb: Bool { isExternal && self != .pi }
+    /// Web 検索を、使えるエージェントか（`pi` は、検索の道具を持たない。Apple は、こちらが道具を渡す）。
+    public var canSearchWeb: Bool { self != .pi }
 
     /// 実行中の様子（いま何をしているか）を、読み取れるエージェントか。
     public var streamsActivity: Bool { self == .claude || self == .codex || self == .grok }
 
     /// このエージェントで、実際に使う段階（`pi` は、検索がないので、「Web」は、「なし」になる）。
-    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel { tools == .web && !canSearchWeb ? .none : tools }
+    /// Apple のモデルには、書き込み・コマンドの実行を開けない（`all` は、`read`）。
+    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel {
+        if self == .apple { return tools == .all ? .read : tools }
+        return tools == .web && !canSearchWeb ? .none : tools
+    }
 }
 
 /// 会話のエージェントに開ける**道具の段階**（設定 `chatTools`）。外のエージェントのときだけ。

@@ -27,7 +27,7 @@ import VCSkill
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
     func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil) {
-        let tools = agent.isExternal ? agent.effective(tools) : .none
+        let tools = agent.effective(tools)
         guard agent != self.agent || tools != self.tools || folder != self.folder else { return }
         self.agent = agent
         self.tools = tools
@@ -54,7 +54,7 @@ import VCSkill
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         let wants = ChatAttachments.wants(utterance)
-        if agent.isExternal && (wants.image || wants.text) {
+        if (agent.isExternal || self.tools != .none) && (wants.image || wants.text) {
             // 外へ出さない決まり：画像・コピーした文章は、この Mac の中のモデルにだけ渡す
             notes.append("\(agent.rawValue) には、画像・コピーした文章を渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます：設定ウィンドウ > モデル reset）")
         } else if wants.image {

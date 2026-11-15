@@ -33,6 +33,7 @@ struct ChatCommand: Command {
         }
         if let folder = arguments.option("--folder") { chatTools.folder = URL(fileURLWithPath: (folder as NSString).expandingTildeInPath) }
         ChatMode.shared.configure(agent: agent, tools: chatTools.level, folder: chatTools.folder)
+        if !agent.isExternal, ChatMode.shared.tools != .none { notice("Apple のモデル＋道具（\(ChatMode.shared.tools.title)）— 検索語と、開いたページの URL が、この Mac の外へ送られます") }
         if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.tools == .none ? "" : "（道具：\(ChatMode.shared.tools.title)）")) }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
