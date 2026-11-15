@@ -54,7 +54,7 @@ Sources/
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合（CommandPolicy）・実行（CommandRunner・OutputCompactor・RefAliases）・スキルを実行するモデル（SkillAgent＝Apple。ToolLoopAgent＋ChatModel のアダプター OllamaChat・OpenAICompatibleChat＝ローカルのサーバー。Engine：`--engine`。許可の照合・実行・整形は CommandSession が共有）・結果の扱い（ResultNote：メモのファイル。`result: markdown-window` は RunEvent.document）・スキルの取得とインストール（RemoteSkills・RemoteInstall・SkillInstaller）・スキルの選択（SkillRouter：Tiny-Jev で選ぶ。SkillResolver・DefaultSkill：選ばれなければ既定スキル）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
 Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
-corpus/                評価用の文（gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`）
+corpus/                評価用の文（gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`。chat-image.tsv・chat-image-holdout.tsv：会話で撮ったスクリーンショットを使うかの判定。`vc eval-image`）
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 .voice-control/

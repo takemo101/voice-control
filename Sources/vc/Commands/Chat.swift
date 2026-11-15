@@ -35,6 +35,8 @@ struct ChatCommand: Command {
         ChatMode.shared.configure(agent: agent, tools: chatTools.level, folder: chatTools.folder)
         if !agent.isExternal, ChatMode.shared.tools != .none { notice("Apple のモデル＋道具（\(ChatMode.shared.tools.title)）— 検索語と、開いたページの URL が、この Mac の外へ送られます") }
         if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.tools == .none ? "" : "（道具：\(ChatMode.shared.tools.title)）")) }
+        // 撮ったスクリーンショットを使うかの判定（Tiny-Jev）。読めなければ、言葉で決める
+        if let jev = try? context.tryLoadJev() { ChatMode.shared.imageJudge = ChatImageUse(scorer: jev) }
         let imageFile = arguments.option("--image").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         let interactive = isatty(STDIN_FILENO) != 0
         if interactive { notice("会話（空行・Ctrl+D で終わる。/reset・/summary）") }
