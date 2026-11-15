@@ -21,6 +21,8 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
 plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
+# アプリのアイコン（scripts/make-icon.sh で生成してコミットしたもの）
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 # スキルを作る・直すためのスキル（エージェントの skill フォルダへ、コピーして使う）
 cp -R skills/voice-control-skill-author "$APP/Contents/Resources/skills/"

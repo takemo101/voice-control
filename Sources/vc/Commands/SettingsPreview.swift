@@ -10,22 +10,27 @@ struct SettingsPreviewCommand: Command {
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
         ],
-        options: [("--page <名前>", "このページだけ（なければ、すべて）")],
+        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）")],
         examples: ["VC_HOME=/tmp/demo-home vc settings-preview /tmp/settings-shots"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var arguments = arguments
         let only = arguments.option("--page")
+        let icon = arguments.option("--icon")
         guard let directory = arguments.positionals.first else { usageError("settings-preview", "出力のフォルダを渡してください") }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         _ = NSApplication.shared
+        if let icon, let image = NSImage(contentsOfFile: icon) { NSApplication.shared.applicationIconImage = image }
         let model = SettingsModel()
         for page in SettingsPage.allCases where only == nil || only == page.rawValue {
             model.page = page
             let hosting = NSHostingView(rootView: SettingsView(model: model))
-            hosting.frame = NSRect(x: 0, y: 0, width: 780, height: 580)
-            let window = NSWindow(contentRect: hosting.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            hosting.frame = NSRect(x: 0, y: 0, width: 820, height: 600)
+            let window = NSWindow(contentRect: hosting.frame, styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.titlebarAppearsTransparent = true
             window.contentView = hosting
+            window.setFrameOrigin(NSPoint(x: -6000, y: -6000))   // 画面の外に置いて、アクティブな見た目で描く（利用者の画面には、出ない）
+            window.makeKeyAndOrderFront(nil)
             hosting.layoutSubtreeIfNeeded()
             // 描く前に、ランループを少し回す（SwiftUI の更新を、済ませる）
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))

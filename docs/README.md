@@ -39,6 +39,7 @@ SPEC.md                製品要件・受け入れ条件（実装の状態つき
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 Resources/
+  AppIcon.icns         アプリのアイコン（scripts/make-icon.sh の生成物）
   Info.plist           アプリの Info.plist（bundle ID・使用目的の説明・LSUIElement。版は、build-app.sh が入れる）
 Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
 justfile               開発用コマンド（build・test・app・dmg・install・uninstall・reset-permissions・eval・fixture・vc）
@@ -60,6 +61,7 @@ skills/
   skills/spotify/      このプロジェクトのスキルの例（Spotify の操作。AppleScript）
   skills/clipboard-note/  コピーした文章に、言われたとおりの処理をして、Markdown のウィンドウに表示する（pbpaste だけを許可）
 scripts/
+  make-icon.sh         アプリのアイコンを生成して、Resources/AppIcon.icns に置く（make-icon.swift が描く。生成物はコミットする）
   build-app.sh         build/VoiceControl.app を作る（Resources/Info.plist・指定要件を bundle ID だけにする署名）
   dmg.sh               配布用の dmg と SHA-256 を dist/ に作る
   verify-dmg.sh        dmg を検査する
