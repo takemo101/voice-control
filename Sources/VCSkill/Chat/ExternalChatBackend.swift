@@ -83,7 +83,7 @@ public struct ExternalChatBackend: ActivityReporting {
     public var budget: ChatBudget { agent.budget }
     public var capabilityNote: String { tools.note }
 
-    static let agyDefaultModel = "gemini-3.8-flash-medium"
+    static let agyDefaultModel = "gemini-4-hydrogen-medium"
 
     /// `agy` のモデル：環境変数 `ASK_AGENT_AGY_MODEL`（`ask-agent` と同じ）。オプションの注入を防ぐため、英小文字・数字・`.`・`-` だけ。
     func agyModel() throws -> String {

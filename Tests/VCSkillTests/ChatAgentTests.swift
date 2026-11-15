@@ -100,6 +100,7 @@ import VCCore
         let none = backend(.agy) { _, args in seen.value = args; return AgentRun(exitCode: 0, text: "ok") }
         _ = try await none.respond(instructions: "", turns: [], user: "q")
         #expect(seen.value.contains(ExternalChatBackend.agyDefaultModel))
+        #expect(ExternalChatBackend.agyDefaultModel.range(of: "^[a-z0-9][a-z0-9.-]*$", options: .regularExpression) != nil)   // 既定のモデル名も、安全な形（環境変数と同じ検査を、通る）
     }
 
     /// 偽の実行が、呼び出しの引数を書き残すための箱。

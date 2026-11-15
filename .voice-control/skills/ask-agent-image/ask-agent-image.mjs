@@ -64,7 +64,7 @@ const AGENTS = {
 };
 const IDS = Object.keys(AGENTS).join("・");
 // 使うモデル（agy だけ）：ask-agent と同じ（環境変数 ASK_AGENT_AGY_MODEL。オプションの注入を防ぐ）
-const agyModel = (process.env.ASK_AGENT_AGY_MODEL ?? "").trim() || "gemini-3.8-flash-medium";
+const agyModel = (process.env.ASK_AGENT_AGY_MODEL ?? "").trim() || "gemini-4-hydrogen-medium";
 if (!/^[a-z0-9][a-z0-9.-]*$/.test(agyModel)) fail(`ASK_AGENT_AGY_MODEL「${agyModel.slice(0, 40)}」は使えません（英小文字・数字・. と - だけ）`, 2);
 const DEFAULT_AGENT = "codex";
 
