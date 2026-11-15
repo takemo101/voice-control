@@ -231,8 +231,8 @@ final class DocumentWindowFrame: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
-        case "c": textView?.copy(nil); return true
-        case "a": textView?.selectAll(nil); return true
+        case "c": if let textView { textView.copy(nil) } else { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) }; return true
+        case "a": if let textView { textView.selectAll(nil) } else { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) }; return true
         case "w": close(); return true
         default: return super.performKeyEquivalent(with: event)
         }

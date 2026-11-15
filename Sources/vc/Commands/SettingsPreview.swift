@@ -34,6 +34,18 @@ struct SettingsPreviewCommand: Command {
             let file = URL(fileURLWithPath: directory).appendingPathComponent("chat.png")
             try rep.representation(using: .png, properties: [:])?.write(to: file)
             print(file.path)
+            // 考えている間（待ちの質問）と、読み上げていないとき
+            let pending = ChatWindow.shared.previewWindow(pendingOnly: true)
+            if let view = pending.contentView {
+                Self.spin(seconds: 0.4)
+                view.layoutSubtreeIfNeeded()
+                if let rep2 = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep2)
+                    let file2 = URL(fileURLWithPath: directory).appendingPathComponent("chat-pending.png")
+                    try rep2.representation(using: .png, properties: [:])?.write(to: file2)
+                    print(file2.path)
+                }
+            }
             return
         }
         let model = SettingsModel()
