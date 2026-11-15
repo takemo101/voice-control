@@ -84,12 +84,8 @@ struct ChatView: View {
                 .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 22)
             }
             .scrollIndicators(.never)
-            // 上下の端は、すっと消える（スクロールの途中で、文字が、線で切れない）
-            .mask(VStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 10)
-                Rectangle()
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 16)
-            })
+            // 上下の端は、すっと消える（スクロールの途中で、文字が、線で切れない）：OS 標準の端の効果。以前の `.mask(グラデーション)` は、スクロールの領域全体を、毎フレーム、画面の外に描き直すので、ガラスの上で、引っ掛かった
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
             // いちばん新しい往復の頭へ（答えが長くても、質問から読める）
             .onAppear {
                 guard let last = state.entries.last?.id else { return }
@@ -577,14 +573,18 @@ private struct RichText: NSViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, nsView view: NSTextView, context: Context) -> CGSize? {
         guard let current = view.textStorage else { return nil }
         let width = max(80, proposal.width ?? 400)
-        let storage = NSTextStorage(attributedString: current)
-        let layout = NSLayoutManager()
-        let container = NSTextContainer(size: NSSize(width: width, height: .greatestFiniteMagnitude))
-        container.lineFragmentPadding = 0
-        layout.addTextContainer(container)
-        storage.addLayoutManager(layout)
-        layout.ensureLayout(for: container)
-        return CGSize(width: width, height: ceil(layout.usedRect(for: container).height))
+        // 同じ幅・同じ文字は、測り直さない（レイアウトのたびに、文章全体を、新しく組み直していた。長い答え・表で、重い）
+        let height = TextHeightCache.height(width: width, text: current.string) {
+            let storage = NSTextStorage(attributedString: current)
+            let layout = NSLayoutManager()
+            let container = NSTextContainer(size: NSSize(width: width, height: .greatestFiniteMagnitude))
+            container.lineFragmentPadding = 0
+            layout.addTextContainer(container)
+            storage.addLayoutManager(layout)
+            layout.ensureLayout(for: container)
+            return ceil(layout.usedRect(for: container).height)
+        }
+        return CGSize(width: width, height: height)
     }
 }
 
