@@ -43,9 +43,14 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     }
 
     /// 答える側。`tools`・`folder`：外のエージェントに開ける道具の段階と、作業フォルダ（Apple には、効かない）。
-    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil) -> ChatBackend {
-        isExternal ? ExternalChatBackend(agent: self, tools: tools, folder: folder) : AppleChatBackend(tools: tools, folder: folder)
+    /// `acp`：ACP に対応したエージェント（`speaksACP`）は、常駐の ACP で話す（使えなければ、従来の方式へ戻る）。
+    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true) -> ChatBackend {
+        guard isExternal else { return AppleChatBackend(tools: tools, folder: folder) }
+        return acp && speaksACP ? ACPChatBackend(agent: self, tools: tools, folder: folder) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
     }
+
+    /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）。`opencode` も `acp` を持つが、読むだけの段階の強制を、確かめていないので、まだ使わない。`pi` は、独自の RPC（`--mode rpc`）。
+    public var speaksACP: Bool { self == .agy }
 
     /// Web 検索を、使えるエージェントか（`pi` は、検索の道具を持たない。Apple は、こちらが道具を渡す）。
     public var canSearchWeb: Bool { self != .pi }
