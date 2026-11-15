@@ -5,6 +5,7 @@ import VCCore
 @MainActor final class StatusMenu: NSObject, NSMenuDelegate {
     private let item: NSStatusItem
     private let runtime: AppRuntime
+    private var token: AnyObject?
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -13,7 +14,7 @@ import VCCore
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
-        runtime.onChange = { [weak self] in self?.refreshIcon() }
+        token = runtime.observe { [weak self] in self?.refreshIcon() }
         refreshIcon()
     }
 

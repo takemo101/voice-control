@@ -20,38 +20,101 @@ import VCSpeech
         case stopped(reason: String)
     }
 
-    private(set) var state = State.starting { didSet { onChange?() } }
-    var onChange: (() -> Void)?
+    private(set) var state = State.starting { didSet { for observer in observers.values { observer() } } }
+    private var observers: [UUID: () -> Void] = [:]
     private var session: VoiceSession?
     private var muter: OutputMuter?
     private var speech: SpeechEngine?
+    private var speechID: String?
+    private var jev: TinyJev?
+    private var reloadTask: Task<Void, Never>?
+    /// `start()` が呼ばれた（アプリとして動いている）。設定ウィンドウだけのプレビューなどでは、偽。
+    private(set) var isActive = false
+
+    /// 状態の変化を受け取る（メニュー・設定ウィンドウ）。返す印を持っている間だけ、届く。
+    func observe(_ handler: @escaping () -> Void) -> AnyObject {
+        let id = UUID()
+        observers[id] = handler
+        return ObserverToken { [weak self] in self?.observers[id] = nil }
+    }
+
+    private final class ObserverToken { let cancel: () -> Void; init(_ cancel: @escaping () -> Void) { self.cancel = cancel }; deinit { cancel() } }
 
     /// 声の入力を始める。失敗は、`state` と、ダイアログに出す（アプリは、終わらない：メニューから、直せる）。
     func start() {
+        isActive = true
         state = .starting
         FailurePresenter.show = { message in AppAlerts.show(title: "vc を続けられません", message: message, style: .critical) }
-        var arguments = Arguments([])
-        let options = CommonOptions(consuming: &arguments)
-        let context = CommandContext(options: options)
+        let context = Self.makeContext()
         do {
             let jev = try Self.preflight(context)
             // アクセシビリティ：許可がなければ、macOS の案内を出して、このアプリを、許可の一覧に載せる（載っていないと、利用者が見つけられない）
             if !ModifierHold.isTrusted { _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) }
-            let speech = try SpeechEngine.make(context.speechChoice)
-            var none = Arguments([])
-            let muter = VoiceUI.muter(&none, context, command: "app")
-            let session = try VoiceSession.make(context: context, jev: jev, muter: muter, speech: speech)
-            self.speech = speech
-            self.muter = muter
-            self.session = session
-            session.loop.begin(onReady: session.onReady)
-            state = .listening(hint: session.hint)
+            self.jev = jev
+            try bringUp(context)
         } catch {
             let reason = "\(error)"
             state = .stopped(reason: reason)
             AppAlerts.show(title: "声の入力を始められません", message: reason, style: .warning)
             // 直せる場所を、開く（モデルがなければ「モデル」・許可がなければ「一般」）
             if let page = (error as? StartupProblem)?.page { SettingsWindow.shared.show(page: page) }
+        }
+    }
+
+    private static func makeContext() -> CommandContext {
+        var arguments = Arguments([])
+        return CommandContext(options: CommonOptions(consuming: &arguments))
+    }
+
+    /// 設定を読んで、声の流れを作り、始める。Tiny-Jev・音声認識（変わっていなければ）は、使い回す。
+    private func bringUp(_ context: CommandContext) throws {
+        guard let jev else { throw StartupProblem("Tiny-Jev のモデルが、まだ読まれていません") }
+        let choice = context.speechChoice
+        if speech == nil || speechID != choice.id {
+            speech?.close()
+            speech = nil
+            speech = try SpeechEngine.make(choice)
+            speechID = choice.id
+        }
+        guard let speech else { throw StartupProblem("音声認識を、用意できません") }
+        var none = Arguments([])
+        let muter = VoiceUI.muter(&none, context, command: "app")
+        self.muter?.restore()
+        self.muter = muter
+        let session = try VoiceSession.make(context: context, jev: jev, muter: muter, speech: speech)
+        self.session = session
+        session.loop.begin(onReady: session.onReady)
+        state = .listening(hint: session.hint)
+    }
+
+    /// 設定が変わった：声の流れを、作り直す（再起動は、要らない）。続けて変えたときは、まとめる。処理の最中（録音・認識・実行）は、終わるのを待つ。アプリとして動いていなければ、何もしない（偽を返す）。
+    @discardableResult
+    func scheduleReload() -> Bool {
+        guard isActive else { return false }
+        reloadTask?.cancel()
+        state = .starting
+        reloadTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await self?.reload()
+        }
+        return true
+    }
+
+    private func reload() async {
+        guard jev != nil else { start(); return }   // 最初の起動が、できていなかった：全体を、やり直す
+        // 処理の最中は、待つ（最大 60 秒。それでも終わらなければ、そのまま作り直す）
+        for _ in 0..<120 where session?.loop.isBusy == true {
+            try? await Task.sleep(for: .milliseconds(500))
+            if Task.isCancelled { return }
+        }
+        weak var old = session?.loop
+        session?.loop.stop()
+        session = nil
+        // 古い声の流れが、手放されて、トリガー・Esc の登録が外れるまで、待つ（同じキーを、二重に登録しない）
+        for _ in 0..<60 where old != nil { try? await Task.sleep(for: .milliseconds(50)) }
+        do { try bringUp(Self.makeContext()) } catch {
+            state = .stopped(reason: "\(error)")
         }
     }
 

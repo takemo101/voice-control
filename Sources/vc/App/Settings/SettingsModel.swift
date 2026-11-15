@@ -40,7 +40,11 @@ enum DownloadState: Equatable {
     @Published private(set) var settings: Settings
     /// 設定ファイルを読めない・書けない理由（読めないファイルは、上書きしない）。
     @Published private(set) var problem: String?
-    @Published private(set) var needsRestart = false
+    /// 変えた設定を、声の入力へ反映している様子（アプリが動いているときだけ。再起動は、要らない）。
+    enum ApplyState: Equatable { case idle, applying, applied, failed(String) }
+    @Published private(set) var applyState = ApplyState.idle
+    private var pendingApply = false
+    private var runtimeToken: AnyObject?
     @Published var page: SettingsPage = .general
     /// キー欄の入力中の文字と、その問題。
     @Published var keyDrafts: [KeyKind: String] = [:]
@@ -66,6 +70,27 @@ enum DownloadState: Equatable {
         settings = loaded.settings
         problem = loaded.problem?.description
         syncDrafts()
+        runtimeToken = AppRuntime.shared.observe { [weak self] in MainActor.assumeIsolated { self?.runtimeChanged() } }
+    }
+
+    private func runtimeChanged() {
+        guard pendingApply else { return }
+        switch AppRuntime.shared.state {
+        case .starting: applyState = .applying
+        case .listening:
+            pendingApply = false
+            applyState = .applied
+            Task { try? await Task.sleep(for: .seconds(3)); if applyState == .applied { applyState = .idle } }
+        case let .stopped(reason):
+            pendingApply = false
+            applyState = .failed(reason)
+        }
+    }
+
+    /// 反映に失敗したとき、もう一度、反映する。
+    func retryApply() {
+        pendingApply = AppRuntime.shared.scheduleReload()
+        if pendingApply { applyState = .applying }
     }
 
     /// ファイルから読み直す（ウィンドウを開くとき）。
@@ -96,7 +121,10 @@ enum DownloadState: Equatable {
             try next.save()
             settings = next
             problem = nil
-            if restart { needsRestart = true }
+            if restart {
+                pendingApply = AppRuntime.shared.scheduleReload()
+                if pendingApply { applyState = .applying }
+            }
         } catch {
             problem = "\(error)"
         }

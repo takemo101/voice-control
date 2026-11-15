@@ -148,6 +148,8 @@ public final class VoiceLoop {
     private let scheduler: Scheduler
     private let rearmDelays: [TimeInterval]
     private let activity = VoiceActivity()
+    private var consumeTask: Task<Void, Never>?
+    private var stopped = false
     private let queue = VoiceInputQueue()
     /// 自信がないときの確認（なければ、確認しない）。`run` の前に、決める。
     public var uncertainty: Uncertainty?
@@ -179,6 +181,16 @@ public final class VoiceLoop {
         NSApplication.shared.setActivationPolicy(.accessory)
         // トリガーと Esc は、`run()` が終わるまで手放さない（不変条件 2）。
         withExtendedLifetime((trigger, escape)) { NSApplication.shared.run() }
+    }
+
+    /// 録音中・認識中・実行中・認識待ちの音声があるか（設定を反映するために、作り直してよいかの判断に使う）。
+    public var isBusy: Bool { activity.isActive }
+
+    /// 止める：待ち行列の処理を終えて、このループを手放せるようにする（トリガー・Esc は、このループが手放されると、解放されて、登録が外れる）。
+    /// **設定を変えたとき、作り直すために使う**。処理の最中は、呼ばない（`isBusy` が偽のときだけ）。止めたあとの `begin`・`run` は、できない。
+    @MainActor public func stop() {
+        stopped = true
+        queue.push(.cancel)   // 待っている `consume` を起こして、終わらせる
     }
 
     /// アプリ（メニューバーの vc.app）用：イベントループは、アプリが回す。配線して、準備の表示を出して、戻る。**トリガーと Esc は、アプリが生きている間、手放さない**（`VoiceSession` が持つ。`VoiceLoop` 自身が、Esc を持つ）。ここにも `await` を足さない。
@@ -242,13 +254,14 @@ public final class VoiceLoop {
             }
         }
 
-        Task { await self.consume() }
+        consumeTask = Task { await self.consume() }
     }
 
     /// 列の音声を、1 つずつ、順に処理する（発話ごとに、取りやめの合図と `Task` を作る。Esc は、これらを止める）。
     @MainActor private func consume() async {
-        while true {
-            guard case let .audio(file) = await queue.next() else { continue }   // 待っている処理がないときの Esc の合図は、読み捨てる
+        while !stopped {
+            guard case let .audio(file) = await queue.next() else { continue }
+            if stopped { try? FileManager.default.removeItem(at: file); break }   // 止めたあとに来た音声は、処理せず、捨てる   // 待っている処理がないときの Esc の合図は、読み捨てる
             let tag = tags.pop()
             let token = CancelToken()
             activity.beginWork(token)

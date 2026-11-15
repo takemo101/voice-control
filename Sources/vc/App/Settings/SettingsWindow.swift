@@ -230,15 +230,34 @@ struct SettingsView: View {
                     Label(problem, systemImage: "exclamationmark.triangle.fill").font(.system(size: 12)).foregroundStyle(.red)
                         .padding(10).frame(maxWidth: .infinity, alignment: .leading).background(Color.red.opacity(0.1))
                 }
-                if model.needsRestart {
-                    HStack {
-                        Image(systemName: "arrow.clockwise.circle.fill").foregroundStyle(Brand.rec2)
-                        Text("変えた設定を反映するには、再起動が要ります").font(.system(size: 12, weight: .medium))
+                switch model.applyState {
+                case .idle: EmptyView()
+                case .applying:
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("設定を反映しています…").font(.system(size: 12, weight: .medium))
                         Spacer()
-                        Button("今すぐ再起動") { AppActions.relaunch() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 9)
-                    .background(Brand.rec2.opacity(0.14))
+                    .padding(.horizontal, 16).padding(.vertical, 9).background(Brand.rec2.opacity(0.14))
+                case .applied:
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.ok)
+                        Text("反映しました").font(.system(size: 12, weight: .medium))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 9).background(Brand.ok.opacity(0.14))
+                case let .failed(reason):
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.rec1)
+                            Text("設定を反映できませんでした").font(.system(size: 12, weight: .semibold))
+                            Spacer()
+                            Button("もう一度") { model.retryApply() }.controlSize(.small)
+                            Button("再起動") { AppActions.relaunch() }.controlSize(.small)
+                        }
+                        Text(reason).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(3)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 9).background(Brand.rec1.opacity(0.12))
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
