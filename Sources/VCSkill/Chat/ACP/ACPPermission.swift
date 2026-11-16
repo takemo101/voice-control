@@ -29,16 +29,52 @@ enum ACPPermission {
         return .object(["outcome": .object(["outcome": .string("cancelled")])])
     }
 
-    /// 確認の文（何をするか）：種類と、ツールの題・場所。
-    static func detail(kind: String, toolCall: JSONValue) -> String {
+    /// 確認の文（何をするか）：種類と、**実際の場所・コマンド**。エージェントの題（`File ../../../private/var/…`）は、読みにくく、本当の場所を隠すので、使わない（場所がなければ、題）。
+    static func detail(kind: String, toolCall: JSONValue, folder: URL) -> String {
         let title = toolCall["title"]?.string ?? toolCall["name"]?.string ?? "操作"
+        let path = toolCall["locations"]?.array?.first?["path"]?.string.map { displayPath($0, folder: folder) }
         switch kind {
-        case "edit": return "ファイルを書き込む：\(title)"
-        case "delete": return "ファイルを削除する：\(title)"
-        case "move": return "ファイルを移動する：\(title)"
-        case "execute": return "コマンドを実行する：\(title)"
-        default: return "操作する：\(title)"
+        case "edit": return "ファイルを書き込む：\(path ?? title)"
+        case "delete": return "ファイルを削除する：\(path ?? title)"
+        case "move": return "ファイルを移動する：\(path ?? title)"
+        case "execute": return "コマンドを実行する：\(command(in: toolCall) ?? title)"
+        default: return "操作する：\(path ?? title)"
         }
+    }
+
+    /// 場所の見せ方：作業フォルダの中は、そこからの相対（`notes/a.txt`）。**外は、全部の場所に、「作業フォルダの外」を添える**（外への書き込みに、気づけるように）。
+    static func displayPath(_ path: String, folder: URL) -> String {
+        let root = canonicalPath(folder.path)
+        let target = canonicalPath(path)
+        if target == root { return "." }
+        if target.hasPrefix(root + "/") { return String(target.dropFirst(root.count + 1)) }
+        return target + "（作業フォルダの外）"
+    }
+
+    /// 実際の場所（シンボリックリンク・`..` を解いた形）。**まだない（これから作る）ファイル**は、いちばん近い、ある場所を解いて、残りをつなぐ。
+    /// `URL.resolvingSymlinksInPath` は、使わない：ある場所と、ない場所で、`/var` と `/private/var` の扱いが違い、作業フォルダの中を、「外」と、取り違えた（実機の確認で見つけた）。
+    static func canonicalPath(_ path: String) -> String {
+        var rest: [String] = []
+        var current = (path as NSString).standardizingPath
+        while true {
+            if let resolved = realpath(current, nil) {
+                defer { free(resolved) }
+                return ([String(cString: resolved)] + rest.reversed()).joined(separator: "/").replacingOccurrences(of: "//", with: "/")
+            }
+            let parent = (current as NSString).deletingLastPathComponent
+            guard parent != current, !parent.isEmpty else { return (path as NSString).standardizingPath }
+            rest.append((current as NSString).lastPathComponent)
+            current = parent
+        }
+    }
+
+    /// 実行するコマンド（入力の中の、コマンドらしい文字列）。
+    static func command(in toolCall: JSONValue) -> String? {
+        let input = toolCall["rawInput"]
+        for key in ["CommandLine", "commandLine", "command", "Command", "cmd"] {
+            if let text = input?[key]?.string, !text.isEmpty { return text.count > 200 ? String(text.prefix(200)) + "…" : text }
+        }
+        return nil
     }
 
     /// 実行中の操作（画面に出す）。出さないもの（考え中）は、nil。

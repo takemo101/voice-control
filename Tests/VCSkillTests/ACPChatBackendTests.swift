@@ -182,6 +182,25 @@ import Testing
         #expect(try await writer.respond(instructions: "", turns: [], user: "WRITE", options: ChatCallOptions(confirm: slowYes)).contains("result=wrote"))
     }
 
+    @Test func cancellingTheQuestionWhileAConfirmationIsPendingCancelsTheConfirmationToo() async throws {
+        // 相手からの要求（許可の確認）は、別のタスクで処理される。質問の取りやめ（Esc）が、確認の待ち（パネル）に、届かないと、パネルが、残る（実機の確認で見つけた）
+        let fx = try Fixture(); let writer = fx.backend(tools: .all); defer { writer.teardown() }
+        let started = Collected<String>(), sawCancellation = Collected<String>()
+        let waiting: ToolConfirm = { _ in
+            started.add("waiting")
+            while !Task.isCancelled { try? await Task.sleep(nanoseconds: 50_000_000) }   // 利用者が、答えない間
+            sawCancellation.add("cancelled")
+            return false
+        }
+        let task = Task { try await writer.respond(instructions: "", turns: [], user: "WRITE", options: ChatCallOptions(confirm: waiting)) }
+        while started.all.isEmpty { try await Task.sleep(nanoseconds: 50_000_000) }
+        task.cancel()
+        await #expect(throws: (any Error).self) { _ = try await task.value }
+        let deadline = Date().addingTimeInterval(3)
+        while sawCancellation.all.isEmpty, Date() < deadline { try await Task.sleep(nanoseconds: 50_000_000) }
+        #expect(sawCancellation.all == ["cancelled"])
+    }
+
     @Test func aProcessThatDiesMidTurnFailsTheQuestionAndTheNextOneStartsAFreshProcess() async throws {
         let fx = try Fixture(); let launches = Counter(); let backend = fx.backend(launches: launches); defer { backend.teardown() }
         await #expect(throws: ConversationError.self) { _ = try await backend.respond(instructions: "", turns: [], user: "EXIT") }
@@ -214,4 +233,32 @@ import Testing
         #expect(value["b"]?.bool == true && value["a"]?.int == 1 && value["a"]?.bool == nil)
         #expect(JSONValue.parse(value.serialized()!) == value)
     }
+
+    @Test func theConfirmationShowsTheRealPathRelativeToTheFolderAndMarksOutsidePaths() {
+        let folder = URL(fileURLWithPath: "/tmp/vc-acp-folder")
+        func edit(_ path: String) -> JSONValue { .object(["title": .string("File ../../x"), "locations": .array([.object(["path": .string(path)])])]) }
+        #expect(ACPPermission.detail(kind: "edit", toolCall: edit("/tmp/vc-acp-folder/notes/a.txt"), folder: folder) == "ファイルを書き込む：notes/a.txt")
+        #expect(ACPPermission.detail(kind: "delete", toolCall: edit("/tmp/vc-acp-folder"), folder: folder) == "ファイルを削除する：.")
+        let outside = ACPPermission.detail(kind: "edit", toolCall: edit("/etc/hosts"), folder: folder)
+        #expect(outside.hasPrefix("ファイルを書き込む：/") && outside.contains("etc/hosts") && outside.hasSuffix("（作業フォルダの外）"))   // 実際の場所（/private/etc/hosts）を、見せる
+        #expect(ACPPermission.detail(kind: "edit", toolCall: edit("/tmp/vc-acp-folder/../vc-acp-other/b.txt"), folder: folder).hasSuffix("（作業フォルダの外）"))   // ../ で、外へ出る道は、外
+        let run: JSONValue = .object(["title": .string("Run"), "rawInput": .object(["CommandLine": .string("ls -la")])])
+        #expect(ACPPermission.detail(kind: "execute", toolCall: run, folder: folder) == "コマンドを実行する：ls -la")
+        #expect(ACPPermission.detail(kind: "execute", toolCall: .object(["title": .string("Run something")]), folder: folder) == "コマンドを実行する：Run something")   // 場所・コマンドがなければ、題
+    }
+
+    @Test func pathsAreComparedByTheirRealLocationEvenForFilesThatDoNotExistYetAndThroughSymlinks() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("vc-acp-path-\(UUID().uuidString)")   // /var/folders/…（実際は /private/var/…）
+        let folder = base.appendingPathComponent("work"), outside = base.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("link"), withDestinationURL: outside)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let real = "/private" + folder.path   // エージェントが返す、実際の場所（まだないファイル）
+        #expect(ACPPermission.displayPath(real + "/new/a.txt", folder: folder) == "new/a.txt")                 // これから作る・深い場所でも、中
+        #expect(ACPPermission.displayPath(folder.appendingPathComponent("b.txt").path, folder: folder) == "b.txt")   // /var の形でも、中
+        #expect(ACPPermission.displayPath(folder.path + "/link/c.txt", folder: folder).hasSuffix("（作業フォルダの外）"))   // 中のリンク越しの外は、外
+        #expect(ACPPermission.displayPath(outside.appendingPathComponent("d.txt").path, folder: folder).hasSuffix("（作業フォルダの外）"))
+    }
 }
+

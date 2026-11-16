@@ -430,7 +430,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 `vc run`・`vc doctor` の共通：`--engine <エンジン>`（スキルを実行するモデル。下の「モデルを替える」）・`--stt <音声認識>`（`vc transcribe`）。
 
-**開発用**（評価・検証）：`vc transcribe`（音声ファイルを文字に）・`vc hotkey-check`（キーが届くか）・`vc hud-preview`・`vc chat-preview`・`vc settings-preview`（見た目の見本。`chat-preview --frames`・`settings-preview` は、画面に出さず PNG に描く）・`vc eval-gate`・`vc eval-plan`（当たり率）・`vc chat`（会話の試験用の REPL）。
+**開発用**（評価・検証）：`vc transcribe`（音声ファイルを文字に）・`vc hotkey-check`（キーが届くか）・`vc hud-preview`・`vc chat-preview`・`vc chat-check`（会話の確認パネルの経路を、実際のエージェントで試す）・`vc settings-preview`（見た目の見本。`chat-preview --frames`・`settings-preview` は、画面に出さず PNG に描く）・`vc eval-gate`・`vc eval-plan`（当たり率）・`vc chat`（会話の試験用の REPL）。
 
 ## 安全のしくみ
 

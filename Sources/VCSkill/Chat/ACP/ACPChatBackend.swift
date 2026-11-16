@@ -140,7 +140,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     // MARK: 1 回の質問
 
     private func prompt(session: (connection: ACPConnection, id: String, isNew: Bool), instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
-        let turn = TurnState(tools: tools, sessionID: session.id, confirm: options.confirm, onActivity: options.onActivity)
+        let turn = TurnState(tools: tools, folder: workingDirectory(), sessionID: session.id, confirm: options.confirm, onActivity: options.onActivity)
         session.connection.setHandlers(
             onRequest: { method, params in await turn.handleRequest(method, params) },
             onNotification: { method, params in turn.handleNotification(method, params) })
@@ -166,13 +166,14 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
                 }
             }
         }
-        defer { watchdog.cancel() }
+        defer { watchdog.cancel(); turn.cancelPendingConfirm() }
         let response: JSONValue
         do {
             response = try await withTaskCancellationHandler {
                 try await connection.request("session/prompt", .object(["sessionId": .string(id), "prompt": .array(blocks)]), timeout: 3600)
             } onCancel: {
                 connection.notify("session/cancel", .object(["sessionId": .string(id)]))   // Esc：エージェントを、本当に止める
+                turn.cancelPendingConfirm()                                                  // 確認を待っていたら、その待ち（パネル）も、取りやめる
             }
         } catch let error as ACPError {
             teardown()   // 接続が、閉じた・相手が、エラー：次は、新しく起動する
@@ -230,18 +231,22 @@ private final class TurnState: @unchecked Sendable {
     private var refused = 0
     private var lastProgress = Date()
     private var confirming = 0
+    private var confirmTask: Task<Bool, Never>?
     private let tools: ChatToolLevel
+    private let folder: URL
     private let sessionID: String
     private let confirm: ToolConfirm?
     private let onActivity: ActivityHandler?
 
-    init(tools: ChatToolLevel, sessionID: String, confirm: ToolConfirm?, onActivity: ActivityHandler?) {
-        self.tools = tools; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
+    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, onActivity: ActivityHandler?) {
+        self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
     }
 
     var text: String { lock.lock(); defer { lock.unlock() }; return collected }
     /// 相手から何も来ていない時間（秒）。**利用者の確認を待っている間は、0**。
     var idleSeconds: TimeInterval { lock.lock(); defer { lock.unlock() }; return confirming > 0 ? 0 : Date().timeIntervalSince(lastProgress) }
+    /// 確認の待ちを、取りやめる（Esc・時間切れ・終わり）。**相手からの要求は、別のタスクで処理されるので、質問の取りやめが、届かない**：ここで、確認の待ち（パネル）を、止める。
+    func cancelPendingConfirm() { lock.lock(); let task = confirmTask; lock.unlock(); task?.cancel() }
     private func touch() { lock.lock(); lastProgress = Date(); lock.unlock() }
     private func confirmStarted() { lock.lock(); confirming += 1; lock.unlock() }
     private func confirmEnded() { lock.lock(); confirming -= 1; lastProgress = Date(); lock.unlock() }
@@ -275,7 +280,11 @@ private final class TurnState: @unchecked Sendable {
         case .ask:
             guard let confirm else { refuse(); return ACPPermission.outcome(allow: false, options: options) }   // 確認できない：しない
             confirmStarted()
-            let allowed = await confirm(ACPPermission.detail(kind: kind, toolCall: toolCall))
+            let detail = ACPPermission.detail(kind: kind, toolCall: toolCall, folder: folder)
+            let task = Task { await confirm(detail) }   // 取りやめを、届けるため、自分のタスクで待つ
+            lock.withLock { confirmTask = task }
+            let allowed = await task.value
+            lock.withLock { confirmTask = nil }
             confirmEnded()
             if !allowed { refuse() }
             return ACPPermission.outcome(allow: allowed, options: options)
