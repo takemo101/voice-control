@@ -94,5 +94,17 @@ import Testing
         // 図は、面の中で、中央に置く（幅 600 より狭い図は、左に寄らない）
         #expect(rect.width < 590 ? abs(rect.midX - 300) < 80 : true)
     }
+
+    @Test func aDiagramInTextShrinksToTheAvailableWidthAndKeepsItsProportions() throws {
+        let image = try #require(MermaidImage.image(for: "graph LR\n A[とても長いラベルのノード 1] --> B[とても長いラベルのノード 2] --> C[とても長いラベルのノード 3]"))
+        let attachment = DiagramAttachment()
+        attachment.image = image
+        let container = NSTextContainer(size: NSSize(width: 300, height: 10_000))
+        let narrow = attachment.attachmentBounds(for: container, proposedLineFragment: CGRect(x: 0, y: 0, width: 300, height: 20), glyphPosition: .zero, characterIndex: 0)
+        #expect(narrow.width <= 300 && narrow.width > 200)                                       // 狭い場所：はみ出さない
+        #expect(abs(narrow.width / narrow.height - image.size.width / image.size.height) < 0.01)  // 縦横の比は、そのまま
+        let wide = attachment.attachmentBounds(for: container, proposedLineFragment: CGRect(x: 0, y: 0, width: 5000, height: 20), glyphPosition: .zero, characterIndex: 0)
+        #expect(abs(wide.width - image.size.width) < 0.5)                                         // 広い場所：大きいまま（拡大はしない）
+    }
 }
 

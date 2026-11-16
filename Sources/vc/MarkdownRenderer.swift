@@ -48,9 +48,8 @@ enum MarkdownRenderer {
             }
             if let id = piece.block.identity, let image = diagrams[id] {
                 if drawnDiagrams.insert(id).inserted {
-                    let attachment = NSTextAttachment()
+                    let attachment = DiagramAttachment()
                     attachment.image = image
-                    attachment.bounds = CGRect(x: 0, y: -2, width: image.size.width, height: image.size.height)
                     let drawn = NSMutableAttributedString(attachment: attachment)
                     var attributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
                     // 図は、面の中で、中央に置く（面の幅より小さいとき、左に寄らない）

@@ -9,8 +9,8 @@ import Foundation
 /// 注意：BeautifulMermaid の `renderImage` は、macOS で、**上下が逆**になる（上から下の座標を前提にした絵を、下から上の画像に、そのまま描く）。実際の画面でも、文字が逆さまに出た（実機の確認で、利用者が気づいた）。
 /// **`prepare` で、描く部品を受け取り、自分で、上下を反転したビットマップに描いて**、`NSImage(cgImage:)` にする（`NSImage` の描画ハンドラ〔`flipped: true`〕は、文章の中の画像として描かれるとき、反転が、二重になった）。
 @MainActor enum MermaidImage {
-    /// 図の最大の幅（これを超えたら、縮める）。
-    static let maxWidth: CGFloat = 560
+    /// 図の最大の幅（これを超えたら、縮める）。**文章の中では、置かれた場所の幅に、さらに合わせて縮む**（`DiagramAttachment`）。
+    static let maxWidth: CGFloat = 900
     /// 縮めたあとの、高さの上限と、縮める割合の下限（縦に長すぎる図・縮めて読めなくなる図は、コードのまま）。
     static let maxHeight: CGFloat = 1400
     static let minScale: CGFloat = 0.4

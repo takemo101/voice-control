@@ -6,6 +6,16 @@ extension NSAttributedString.Key {
     static let mermaidSource = NSAttributedString.Key("vc.mermaidSource")
 }
 
+/// 文章の中の図の画像：**置かれた場所の幅に合わせて、縮める**（広い窓では、大きいまま・狭い窓では、はみ出さず・切れずに、縮む）。縮めても、画像は、細かく描いてあるので、読める。
+final class DiagramAttachment: NSTextAttachment {
+    override func attachmentBounds(for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect, glyphPosition position: CGPoint, characterIndex charIndex: Int) -> CGRect {
+        guard let size = image?.size, size.width > 0 else { return super.attachmentBounds(for: textContainer, proposedLineFragment: lineFrag, glyphPosition: position, characterIndex: charIndex) }
+        let available = max(80, lineFrag.width - 2)   // 面の左右の余白は、行の幅に、含まれていない（端の 1〜2 点の誤差）
+        let scale = min(1, available / size.width)
+        return CGRect(x: 0, y: -2, width: size.width * scale, height: size.height * scale)
+    }
+}
+
 /// 文章の中の図を、**クリックすると、拡大の窓が開く**テキストビュー（`MarkdownWindow`・会話のウィンドウが使う）。それ以外のクリックは、ふつうの `NSTextView`（選択・リンク）。
 /// 図の上は、指のカーソルにする。
 final class DiagramTextView: NSTextView {
