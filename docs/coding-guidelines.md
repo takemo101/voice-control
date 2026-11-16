@@ -7,7 +7,7 @@
 - 依存は下向きだけ：`vc` → `VCSkill`・`VCSpeech`（互いには依存しない）、`VCSkill` → `VCDecision`（`Decision`・`Choice`・`Model`）、`VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）はどのターゲットも使ってよい。向きは `Package.swift` の `dependencies` で宣言し、コンパイラが強制する（宣言していない `import` は、ビルドが通らない。差分ビルドは `--explicit-target-dependency-import-check=error` が要る）。ターゲットの外へ出す面（`public`）は、他のターゲットが使うものに絞る（足すときの規則。既存の `QwenShape` のように、いまは外で使っていない `public` も残る）。
 - `vc`（実行ファイル）は、**引数の解釈（`Arguments`・`CommonOptions`）・コマンド（`Commands/`）・流れの組み立て・表示（`*Reporter`・`Output`）・終了コード**だけ。`main.swift` は、`Arguments` を読み、`Commands.all` からコマンドを探して実行するだけ。規則・判断は各ターゲットに置き、`vc` から切り離してテストできるようにする。
 - **コマンドを足す**ときは、`Sources/vc/Commands/<Name>.swift` に、`Command` を実装した型（`static let info`・`run(_:_:)`）を置き、`Commands.all`（`Command.swift`）へ足す。コマンドの中に、規則・判断を書かない（引数を読み、ターゲットを呼び、表示するだけ）。手順とテスト：[開発手順](development.md#コマンドの足し方)。
-- 新しい機能は、変わる理由で置き場所を決める：スキル（SKILL.md・許可の照合・実行）→ `VCSkill`、音声（録音・文字起こし・ホットキー・Esc・声の流れの調整）→ `VCSpeech`、選択・ゲート・Tiny-Jev の実行・モデルの取得 → `VCDecision`、場所・設定・取りやめ・外部コマンドの実行（どのターゲットも使う）→ `VCCore`、引数・表示・流れの組み立て → `vc`。`VCSkill`・`VCSpeech` は、互いに依存しない（共通のものは、`VCCore`・`VCDecision` へ）。新しい依存は、`Package.swift` に足す（向きは、コンパイラが検査する）。「util」「helper」に、無関係なものを集めない。
+- 新しい機能は、変わる理由で置き場所を決める：スキル（SKILL.md・許可の照合・実行）→ `VCSkill`、音声（録音・文字起こし・ホットキー・Esc・声の流れの調整）→ `VCSpeech`、選択・ゲート・Tiny-Jev の実行・モデルの取得 → `VCDecision`、場所・設定・取りやめ・外部コマンドの実行（どのターゲットも使う）→ `VCCore`、引数・表示・流れの組み立て → `vc`。`VCSkill`・`VCSpeech` は、互いに依存しない（共通のものは、`VCCore`・`VCDecision` へ）。新しい依存は、`Package.swift` に足す（向きは、コンパイラが検査する）。**外部の Swift パッケージは、Mermaid の BeautifulMermaid と elk-swift だけ**（`vc` だけが依存。例外の理由と範囲は、`AGENTS.md`）。「util」「helper」に、無関係なものを集めない。
 - `Decision/` の複製したファイルは、**変えない**（meeting-analyzer の版と、同じ内容を保つ）。変える必要があれば、元の側で直して、複製し直す。
 
 ## 型と境界

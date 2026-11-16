@@ -2,7 +2,7 @@ import AppKit
 import BeautifulMermaid
 import Foundation
 
-/// Mermaid の図を、**画像**にする（`MarkdownRenderer` が、コードブロックの代わりに、文章の中へ置く。クリックで、拡大の窓：`MermaidZoomWindow`）。
+/// Mermaid の図を、**画像**にする（`MarkdownRenderer` が、コードブロックの代わりに、文章の中へ置く。クリックで、拡大の窓：`ImageZoomWindow`）。
 /// 描くのは、**BeautifulMermaid**（Swift で書かれた Mermaid の描画。MIT）と、その配置エンジン **elk-swift**（Eclipse Layout Kernel の Swift への移植。EPL-2.0）：フローチャート・状態遷移図・シーケンス図・クラス図・ER 図・XY チャート。
 /// どちらも、WebView・JavaScript・ネットワークを使わない（この Mac の中で描く）。**円グラフだけ**は、対応していないので、自前（`PieDrawing`）。
 /// 描けない（対応しない種類・解析できない書き方・縮めると読めない）図は、`nil`：呼び出し側は、コードのまま見せる。

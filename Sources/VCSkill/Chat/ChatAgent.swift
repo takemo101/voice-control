@@ -51,7 +51,7 @@ public enum ChatAgent: String, CaseIterable, Sendable {
 
     /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）。`pi` は、独自の RPC（`--mode rpc`）・`codex` は、独自の `app-server`・`claude`・`grok` は、ACP を持たない。
     /// **段階の強制は、こちらの許可の返事で行う**（`ACPPermission`）：`opencode` は、何もしなければ、書き込みも、確認なしで行うので、起動のとき、全部を「聞く」設定にして、渡す（`ACPChatBackend.liveEnvironment`）。
-    public var speaksACP: Bool { self == .agy || self == .opencode }
+    public var speaksACP: Bool { ACPAgentProfile.of(self) != nil }
 
     /// Web 検索を、使えるエージェントか（`pi` は、検索の道具を持たない。Apple は、こちらが道具を渡す）。
     public var canSearchWeb: Bool { self != .pi }

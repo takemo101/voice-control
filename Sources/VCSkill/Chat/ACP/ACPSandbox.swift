@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話のエージェント（`agy`・`opencode`）を、**OS の制限（macOS の Seatbelt。`sandbox-exec`）つきで起動する**：**書き込みを、作業フォルダ（「すべて」のときだけ）と、エージェント自身の状態の置き場だけ**に限る。
 /// 許可の確認（`ACPPermission`）は、「エージェントが聞いてきたとき」だけ働く（仕様でも、許可の要求は助言）。**これは、エージェントの申告に頼らない、もう 1 つの壁**：確認で「はい」と答えても、作業フォルダの外へは、書けない。
@@ -7,8 +8,8 @@ import Foundation
 enum ACPSandbox {
     static let executable = "/usr/bin/sandbox-exec"
 
-    /// 制限をかけられるエージェント。
-    static func applies(to agent: ChatAgent) -> Bool { agent == .agy || agent == .opencode }
+    /// 制限をかけられるエージェント（ACP で話せるもの）。
+    static func applies(to agent: ChatAgent) -> Bool { ACPAgentProfile.of(agent) != nil }
 
     /// 起動の引数を、制限つきの起動に包む。
     static func wrap(_ argv: [String], agent: ChatAgent, level: ChatToolLevel, folder: URL, home: String = NSHomeDirectory()) -> [String] {
@@ -18,7 +19,7 @@ enum ACPSandbox {
     /// 制限の中身（Seatbelt の設定）。**純粋**。
     static func profile(agent: ChatAgent, level: ChatToolLevel, folder: URL, home: String) -> String {
         var writable: [String] = []
-        if level == .all { writable.append(ACPPermission.canonicalPath(folder.path)) }   // 書き込みの確認が出るのは「すべて」だけ。それ以外は、フォルダにも、書かせない
+        if level == .all { writable.append(RealPath.eventual(folder.path)) }   // 書き込みの確認が出るのは「すべて」だけ。それ以外は、フォルダにも、書かせない
         writable += stateDirectories(agent: agent, home: home)
         writable.append("/private/var/folders")   // 一時フォルダ（TMPDIR）
         let unreadable = [".ssh", ".aws", ".gnupg"].map { home + "/" + $0 }
@@ -32,11 +33,7 @@ enum ACPSandbox {
 
     /// エージェント自身が、書く場所（会話・認証・設定・キャッシュ）。
     static func stateDirectories(agent: ChatAgent, home: String) -> [String] {
-        switch agent {
-        case .agy: return [home + "/.gemini"]
-        case .opencode: return [".local/share/opencode", ".local/state/opencode", ".cache/opencode", ".config/opencode", ".opencode"].map { home + "/" + $0 }
-        default: return []
-        }
+        (ACPAgentProfile.of(agent)?.stateDirectories ?? []).map { home + "/" + $0 }
     }
 
     /// Seatbelt の文字列（`"` と `\` を逃がす）。

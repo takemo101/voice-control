@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import VCSkill
 
 /// Markdown を、整形した `NSAttributedString`（と、コピー用の文字）にする（`vc show`・`result: markdown-window` のウィンドウ）。
 /// Foundation の Markdown 解析（`AttributedString(markdown:)`）の結果を、見やすく整える：見出しの階層・読みやすい行間・箇条書きと番号・タスクリスト・引用（左の線）・コードブロック（面）・表（罫線）・区切り線。外部のライブラリは使わない。
@@ -8,8 +7,8 @@ import VCSkill
 enum MarkdownRenderer {
     // MARK: 入口
 
-    /// 整形した文章。解析できなければ、元の文字をそのまま。
-    @MainActor static func render(_ markdown: String) -> NSAttributedString {
+    /// 整形した文章。解析できなければ、元の文字をそのまま。`imageBase`：Markdown の画像の、相対の場所の基準（会話の作業フォルダ。なければ、絶対の場所だけ）。
+    @MainActor static func render(_ markdown: String, imageBase: URL? = nil) -> NSAttributedString {
         let pieces = Self.pieces(markdown)
         guard !pieces.isEmpty else { return NSAttributedString(string: markdown, attributes: [.font: bodyFont, .foregroundColor: HUDStyle.primary]) }
         let out = NSMutableAttributedString()
@@ -19,12 +18,7 @@ enum MarkdownRenderer {
         var lastPanel: Int?
         var lastItem: Int?
         // Mermaid の図：描けるものは、コードブロックの代わりに、画像にする（描けないものは、コードのまま）
-        var diagrams: [Int: NSImage] = [:]
-        var diagramSources: [Int: String] = [:]
-        for piece in pieces where piece.block.kind == .codeBlock && piece.block.language?.lowercased() == "mermaid" {
-            if let id = piece.block.identity { diagramSources[id, default: ""] += piece.text }
-        }
-        for (id, source) in diagramSources { if let image = MermaidImage.image(for: source) { diagrams[id] = image } }
+        let diagrams = diagramImages(in: pieces)
         var drawnDiagrams = Set<Int>()
         for piece in pieces {
             // 箇条書きの項目の、2 つ目以降の段落・コードブロックには、行頭の記号を付けない（字下げだけ）
@@ -47,33 +41,20 @@ enum MarkdownRenderer {
                     out.append(NSAttributedString(string: language.lowercased() + "\n", attributes: label))
                 }
             }
-            if let id = piece.block.identity, let image = diagrams[id] {
+            // 図（Mermaid）・画像：文章の中の、画像の 1 文字にする（図は、ブロックに 1 つだけ。画像は、この Mac の中の、読んでよいファイルだけ：それ以外は、リンクの文字のまま）
+            var picture: NSAttributedString?
+            if let id = piece.block.identity, let diagram = diagrams[id] {
                 if drawnDiagrams.insert(id).inserted {
-                    let attachment = DiagramAttachment()
-                    attachment.image = image
-                    let drawn = NSMutableAttributedString(attachment: attachment)
-                    var attributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
-                    // 図は、面の中で、中央に置く（面の幅より小さいとき、左に寄らない）
-                    if let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle { style.alignment = .center; attributes[.paragraphStyle] = style }
-                    attributes[.mermaidSource] = diagramSources[id] ?? ""
-                    attributes[.toolTip] = "クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）"
-                    drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
-                    out.append(drawn)
+                    picture = Self.attachment(diagram.image, block: piece.block, context: context, continuation: continuation, centered: true,
+                                              marks: [.mermaidSource: diagram.source, .toolTip: "クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）"])
                 }
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                if let picture { out.append(picture) }
                 continue
             }
-            // 画像：この Mac の中の、読んでよいファイルだけ、文章の中に出す（それ以外は、リンクの文字のまま）
-            if let imageURL = piece.imageURL, let file = MarkdownImage.file(for: imageURL, base: ChatMode.shared.folder ?? ExternalChatBackend.defaultFolder), let image = MarkdownImage.image(at: file) {
-                let attachment = DiagramAttachment()
-                attachment.image = image
-                let drawn = NSMutableAttributedString(attachment: attachment)
-                var attributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
-                attributes[.zoomImage] = image
-                attributes[.toolTip] = "クリックで拡大"
-                drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
-                out.append(drawn)
+            if let imageURL = piece.imageURL, let file = MarkdownImage.file(for: imageURL, base: imageBase), let image = MarkdownImage.image(at: file) {
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                out.append(Self.attachment(image, block: piece.block, context: context, continuation: continuation, centered: false, marks: [.zoomImage: image, .toolTip: "クリックで拡大"]))
                 continue
             }
             let text = Self.cleaned(piece)
@@ -90,6 +71,27 @@ enum MarkdownRenderer {
         }
         out.append(NSAttributedString(string: "\n", attributes: lastAttributes))   // 表・面を、閉じる
         return out
+    }
+
+    /// コードブロックの Mermaid の図（描けたものだけ）：ブロックの番号 → 画像と、元の文字。
+    @MainActor private static func diagramImages(in pieces: [Piece]) -> [Int: (image: NSImage, source: String)] {
+        var sources: [Int: String] = [:]
+        for piece in pieces where piece.block.kind == .codeBlock && piece.block.language?.lowercased() == "mermaid" {
+            if let id = piece.block.identity { sources[id, default: ""] += piece.text }
+        }
+        return sources.compactMapValues { source in MermaidImage.image(for: source).map { (image: $0, source: source) } }
+    }
+
+    /// 画像の 1 文字（`DiagramAttachment`：置かれた幅に合わせて縮む）。`marks`：クリックで拡大するための印・ツールチップ。`centered`：面の中で中央に置く（面の幅より小さい図が、左に寄らない）。
+    @MainActor private static func attachment(_ image: NSImage, block: Block, context: Context, continuation: Bool, centered: Bool, marks: [NSAttributedString.Key: Any]) -> NSAttributedString {
+        let attachment = DiagramAttachment()
+        attachment.image = image
+        let drawn = NSMutableAttributedString(attachment: attachment)
+        var attributes = Self.attributes(for: block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+        if centered, let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle { style.alignment = .center; attributes[.paragraphStyle] = style }
+        attributes.merge(marks) { _, new in new }
+        drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
+        return drawn
     }
 
     /// 描くあいだ、共有するもの：同じ表の列の幅・同じ引用の面（段落をまたいで、1 本の線になる）。

@@ -2,10 +2,9 @@ import AppKit
 import Foundation
 
 /// 円グラフ（`pie`）：BeautifulMermaid が、円グラフに対応していないので、自前で描く（小さい）。解析できなければ `nil`（コードのまま）。
-struct PieChart: Equatable {
+struct PieChart {
     var title: String?
     var slices: [(label: String, value: Double)] = []
-    static func == (lhs: PieChart, rhs: PieChart) -> Bool { lhs.title == rhs.title && lhs.slices.map(\.label) == rhs.slices.map(\.label) && lhs.slices.map(\.value) == rhs.slices.map(\.value) }
 
     /// `pie [showData] [title 題]` と、`"名前" : 数` の行。
     static func parse(_ source: String) -> PieChart? {

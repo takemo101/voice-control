@@ -270,7 +270,7 @@ import VCSkill
 
     /// 答えを整形する（終わりの、空の行は、除く：カードの下に、余白ができるため）。
     private static func render(_ markdown: String) -> NSAttributedString {
-        let rendered = NSMutableAttributedString(attributedString: MarkdownRenderer.render(markdown))
+        let rendered = NSMutableAttributedString(attributedString: MarkdownRenderer.render(markdown, imageBase: ChatMode.shared.folder ?? ExternalChatBackend.defaultFolder))
         while rendered.length > 0, rendered.string.last == "\n" { rendered.deleteCharacters(in: NSRange(location: rendered.length - 1, length: 1)) }
         return rendered
     }

@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話のエージェントが実行しようとする**コマンド**の、2 つの規則（**純粋**：シェルを動かさず、文字だけで見る）。
 /// - **断る**（`isCatastrophic`）：取り返しのつかない操作（ルート・ホーム・作業フォルダ・親フォルダの再帰削除、権限昇格、ディスクの消去、取ってきたものをシェルへ渡す…）。**段階・確認に関係なく、断る**（パネルも出さない）。
@@ -109,9 +110,9 @@ enum ACPCommandPolicy {
     /// 作業フォルダの中の場所か（相対の場所を、実際の場所に直して、比べる：`..`・リンクで外へ出る道は、外）。
     private static func isInside(_ operand: String, folder: URL) -> Bool {
         if operand.hasPrefix("/") { return false }
-        let root = ACPPermission.canonicalPath(folder.path)
-        let target = ACPPermission.canonicalPath(folder.appendingPathComponent(operand).path)
-        return target == root || target.hasPrefix(root + "/")
+        let root = RealPath.eventual(folder.path)
+        let target = RealPath.eventual(folder.appendingPathComponent(operand).path)
+        return RealPath.isInside(target, root: root)
     }
 
     // MARK: 文字の見方

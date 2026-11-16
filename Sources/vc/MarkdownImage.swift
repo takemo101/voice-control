@@ -48,8 +48,3 @@ enum MarkdownImage {
         return String(cString: resolved)
     }
 }
-
-extension NSAttributedString.Key {
-    /// 文章の中の画像の印：値は、拡大の窓で見せる画像（`NSImage`）。
-    static let zoomImage = NSAttributedString.Key("vc.zoomImage")
-}
