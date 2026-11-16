@@ -390,6 +390,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 | **Apple のモデル**（既定） | この Mac の中だけで動く。外へ何も出ない |
 | **`claude`・`codex`・`grok`・`agy`・`opencode`・`pi`** | 手元の**コーディングエージェントの CLI** に、1 回ずつ頼む。**発話が、そのエージェントの提供元へ送られる**（ヘッダーに「この Mac の外へ送信」と出る） |
 
+- **`agy`・`opencode` は、常駐の接続（ACP）で話します**（設定 > 会話 の「常駐の接続（ACP）で話す」。既定 on）：質問ごとに起動しないので、**速く**（実測：1 質問 約 10 秒 → 約 4 秒）、会話を向こうが覚えます。**書き込み・コマンドは、操作の前に、毎回、確認します**（従来は、「すべて」で確認なしでした）。使えないときは、自動で、従来の方式に戻ります。ほかのエージェントは、従来の方式です（`pi` は独自の RPC・`codex` は独自の `app-server`・`claude`・`grok` は ACP を持ちません）。`opencode` は、何もしないと、書き込み・コマンドも確認なしで行うので、起動のとき、全部を「聞く」設定にして、こちらの確認の経路に載せています。
 - **この Mac に入っているエージェントだけ**が、選択肢に出ます（`PATH` と、`~/.local/bin`・`~/.bun/bin`・`/opt/homebrew/bin` などを探します）。
 - 選んだエージェントが、**アンインストールなどで見つからなくなったら、設定は変えずに、Apple のモデルで答えます**（会話は続きます。答えに、断りが出ます）。入れ直すと、また使えます。
 
@@ -429,7 +430,7 @@ vc skills disable open-app                   # 選択肢から外す（enable �
 
 `vc run`・`vc doctor` の共通：`--engine <エンジン>`（スキルを実行するモデル。下の「モデルを替える」）・`--stt <音声認識>`（`vc transcribe`）。
 
-**開発用**（評価・検証）：`vc transcribe`（音声ファイルを文字に）・`vc hotkey-check`（キーが届くか）・`vc hud-preview`・`vc chat-preview`・`vc settings-preview`（見た目の見本。`chat-preview --frames`・`settings-preview` は、画面に出さず PNG に描く）・`vc eval-gate`・`vc eval-plan`（当たり率）・`vc chat`（会話の試験用の REPL）。
+**開発用**（評価・検証）：`vc transcribe`（音声ファイルを文字に）・`vc hotkey-check`（キーが届くか）・`vc hud-preview`・`vc chat-preview`・`vc chat-check`（会話の確認パネルの経路を、実際のエージェントで試す）・`vc settings-preview`（見た目の見本。`chat-preview --frames`・`settings-preview` は、画面に出さず PNG に描く）・`vc eval-gate`・`vc eval-plan`（当たり率）・`vc chat`（会話の試験用の REPL）。
 
 ## 安全のしくみ
 

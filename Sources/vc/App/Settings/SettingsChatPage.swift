@@ -28,6 +28,10 @@ struct ChatPage: View {
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
             }
             let agent: ChatAgent = missing ? .apple : selected   // 道具の選択肢などは、実際に使うエージェントで決める
+            if agent.speaksACP {
+                RowDivider()
+                SwitchRow(model: model, title: "常駐の接続（ACP）で話す", detail: "質問ごとに起動しないので、速くなります。書き込み・コマンドは、毎回、確認します。使えないときは、自動で、従来の方式に戻ります", value: model.settings.chatAcp ?? true) { $0.chatAcp = $1 }
+            }
             if agent.isExternal {
                 Label("会話の発話が、この Mac の外（そのエージェントの提供元）へ送られます。画像は、送るたびに確認します。コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
@@ -51,7 +55,10 @@ struct ChatPage: View {
                 .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
         if agent.isExternal, model.chatToolLevel == .all {
-                Label("ファイルの書き込み・コマンドの実行まで、確認なしで、できます。聞き間違いや、Web のページの命令で、意図しない操作が起きえます。実行した操作は、答えの下に出ます。", systemImage: "exclamationmark.octagon.fill")
+                // ACP で話すエージェントは、操作の前に、聞いてくる（毎回、確認する）。それ以外は、確認なし
+                let confirms = agent.speaksACP && (model.settings.chatAcp ?? true)
+                Label(confirms ? "ファイルの書き込み・コマンドの実行は、毎回、確認します（常駐の接続）。聞き間違いや、Web のページの命令で、意図しない操作を頼むことがあるので、確認の内容を、よく読んでください。"
+                               : "ファイルの書き込み・コマンドの実行まで、確認なしで、できます。聞き間違いや、Web のページの命令で、意図しない操作が起きえます。実行した操作は、答えの下に出ます。", systemImage: "exclamationmark.octagon.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
             }
             if model.chatToolLevel.usesFolder {

@@ -67,6 +67,9 @@ final class AnswerRoute: @unchecked Sendable {
 
     func set(_ handler: (@Sendable (Bool) -> Void)?) { lock.lock(); self.handler = handler; lock.unlock() }
 
+    /// 答えを待っているか（確認のパネルが出ていて、ボタン・キーの答えが、つながっている）。**動作の確認用**（`vc chat-check`）。
+    var isWaiting: Bool { lock.lock(); defer { lock.unlock() }; return handler != nil }
+
     /// 届ける（つないでいなければ、何もしない：確認を待っていないときの、古いボタン）。
     func deliver(_ yes: Bool) { lock.lock(); let current = handler; lock.unlock(); current?(yes) }
 }
