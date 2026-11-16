@@ -182,7 +182,7 @@ struct ImageCardView: View {
 }
 
 /// 主な操作のボタン（水色の面。キーの印つき）。
-private struct PrimaryPill: View {
+struct PrimaryPill: View {   // 拡大の窓（`ImageZoomWindow`）も使う
     let title: String
     let symbol: String
     let key: String
