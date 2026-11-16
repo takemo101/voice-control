@@ -140,7 +140,7 @@ import VCSkill
         let window = makeWindowIfNeeded()
         if !window.isVisible {
             window.alphaValue = 0
-            window.setFrame(ScreenPlacement.centeredFrame(size: window.frame.size, in: ScreenPlacement.currentVisibleFrame()), display: false)
+            window.setFrame(ScreenPlacement.windowFrame(size: window.frame.size, minSize: window.minSize, in: ScreenPlacement.currentVisibleFrame()), display: false)
             // 利用者の操作を、邪魔しない：自動で出すとき（`activate` なし）は、キーを奪わない
             if activate { window.makeKeyAndOrderFront(nil) } else { window.orderFrontRegardless() }
             NSAnimationContext.runAnimationGroup { ctx in
