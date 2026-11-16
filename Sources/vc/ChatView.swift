@@ -574,7 +574,12 @@ private struct RichText: NSViewRepresentable {
         guard let current = view.textStorage else { return nil }
         let width = max(80, proposal.width ?? 400)
         // 同じ幅・同じ文字は、測り直さない（レイアウトのたびに、文章全体を、新しく組み直していた。長い答え・表で、重い）
-        let height = TextHeightCache.height(width: width, text: current.string) {
+        // 図（Mermaid）は、文字が 1 つの印だけなので、画像の大きさも、鍵に入れる（別の図と、高さを取り違えない）
+        var attachmentSizes = ""
+        current.enumerateAttribute(.attachment, in: NSRange(location: 0, length: current.length)) { value, range, _ in
+            if let attachment = value as? NSTextAttachment { attachmentSizes += "|\(range.location):\(Int(attachment.bounds.width))x\(Int(attachment.bounds.height))" }
+        }
+        let height = TextHeightCache.height(width: width, text: current.string + attachmentSizes) {
             let storage = NSTextStorage(attributedString: current)
             let layout = NSLayoutManager()
             let container = NSTextContainer(size: NSSize(width: width, height: .greatestFiniteMagnitude))

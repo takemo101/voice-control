@@ -88,6 +88,12 @@ import Testing
     }
 
     /// 行末の空白 2 つ・バックスラッシュの改行は、段落を分けない改行（段落の間の空きが入らない）。コピーでは、ふつうの改行。
+    @Test func linesInsideAQuoteStayOnSeparateLinesButOrdinaryParagraphsJoin() {
+        #expect(MarkdownRenderer.render("> 一行目\n> 二行目").string.contains("一行目\u{2028}二行目"))   // 引用：行を残す
+        #expect(MarkdownRenderer.render("> 外\n> > 入れ子\n> 続き").string.contains("入れ子\u{2028}続き"))   // 入れ子の続きの行も、別の行
+        #expect(!MarkdownRenderer.render("一行目\n二行目").string.contains("\u{2028}"))                     // ふつうの段落は、つなぐ
+    }
+
     @Test func aHardBreakStaysInsideTheParagraph() {
         let text = MarkdownRenderer.render("上  \n下")
         #expect(text.string == "上\u{2028}下\n")
