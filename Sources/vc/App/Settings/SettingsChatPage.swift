@@ -31,6 +31,8 @@ struct ChatPage: View {
             if agent.speaksACP {
                 RowDivider()
                 SwitchRow(model: model, title: "常駐の接続（ACP）で話す", detail: "質問ごとに起動しないので、速くなります。書き込み・コマンドは、毎回、確認します。使えないときは、自動で、従来の方式に戻ります", value: model.settings.chatAcp ?? true) { $0.chatAcp = $1 }
+                RowDivider()
+                SwitchRow(model: model, title: "OS の制限つきで動かす（サンドボックス）", detail: "書き込みを、作業フォルダ（「すべて」のとき）とエージェント自身の置き場だけに限り、鍵の置き場（~/.ssh など）は読めなくします。確認で「はい」と答えても、外へは書けません。コマンドは、この制限の中で動くので、キャッシュの書き込み（npm install など）はできません", value: model.settings.chatSandbox ?? true) { $0.chatSandbox = $1 }
             }
             if agent.isExternal {
                 Label("会話の発話が、この Mac の外（そのエージェントの提供元）へ送られます。画像は、送るたびに確認します。コピーした文章は、渡しません。", systemImage: "exclamationmark.triangle.fill")

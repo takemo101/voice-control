@@ -154,7 +154,7 @@ import SwiftUI
     private func followScreen(force: Bool = false) {
         guard visible, let panel, let screen = ScreenPlacement.current() else { return }
         if !force && screen.frame.contains(NSPoint(x: panel.frame.midX, y: panel.frame.midY)) { return }   // すでに、その画面
-        panel.setFrame(windowFrame(in: screen.visibleFrame), display: true)
+        panel.setFrame(windowFrame(in: ScreenPlacement.visibleFrame(of: screen)), display: true)
     }
 
     private func fadeOut() {
@@ -225,7 +225,8 @@ import SwiftUI
         guard panel == nil else { return }
         let panel = HUDPanel(contentRect: NSRect(x: 0, y: 0, width: hudCardWidth + 2 * hudShadowMargin, height: 100), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
-        panel.level = .statusBar
+        // 会話・Markdown のウィンドウ（`.statusBar` の 1 つ上）より、さらに上：重なっても、確認のボタンが、覆われない
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false   // 影は、カード（SwiftUI）が描く

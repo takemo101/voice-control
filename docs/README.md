@@ -41,7 +41,7 @@ LICENSE                MIT
 Resources/
   AppIcon.icns         アプリのアイコン（scripts/make-icon.sh の生成物）
   Info.plist           アプリの Info.plist（bundle ID・使用目的の説明・LSUIElement。版は、build-app.sh が入れる）
-Package.swift          SwiftPM（macOS 26、外部の Swift パッケージなし）
+Package.swift          SwiftPM（macOS 26。外部の Swift パッケージは、Mermaid の BeautifulMermaid と elk-swift だけ）
 justfile               開発用コマンド（build・test・app・dmg・install・uninstall・reset-permissions・eval・fixture・vc）
 Sources/
   vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`doctor`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）

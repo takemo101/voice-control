@@ -19,6 +19,8 @@ import VCSkill
     private(set) var folder: URL?
     /// ACP に対応したエージェントを、常駐の接続で使うか（設定 `chatAcp`）。
     private(set) var acp = true
+    /// ACP のエージェントを、OS の制限（Seatbelt）つきで起動するか（設定 `chatSandbox`）。
+    private(set) var sandbox = true
     /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
     var scorer: OptionScorer?
     /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
@@ -36,15 +38,16 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true) {
-        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp else { return }
+    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true) {
+        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox else { return }
         configured = agent
         self.acp = acp
+        self.sandbox = sandbox
         requestedTools = tools
         self.agent = agent
         self.tools = agent.effective(tools)
         self.folder = folder
-        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp))
+        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox))
         attached = []
         shots = ScreenshotLedger()
     }
@@ -63,7 +66,7 @@ import VCSkill
         if agent != configured {   // 入れ直された：選んだエージェントへ戻す
             agent = configured
             tools = configured.effective(requestedTools)
-            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder, acp: acp))
+            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder, acp: acp, sandbox: sandbox))
         }
         return nil
     }
@@ -204,6 +207,11 @@ extension CommandContext {
 final class ActivityLog: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [ChatActivity] = []
-    func add(_ activity: ChatActivity) { lock.lock(); if stored.last != activity { stored.append(activity) }; lock.unlock() }
+    /// 同じ番号（`id`）の操作は、置き換える（結果が、あとから届く）。番号がなければ、直前と同じものは、足さない。
+    func add(_ activity: ChatActivity) {
+        lock.lock(); defer { lock.unlock() }
+        if let id = activity.id, let index = stored.firstIndex(where: { $0.id == id }) { stored[index] = activity; return }
+        if stored.last != activity { stored.append(activity) }
+    }
     var items: [ChatActivity] { lock.lock(); defer { lock.unlock() }; return stored }
 }

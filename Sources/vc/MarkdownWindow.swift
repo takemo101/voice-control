@@ -10,7 +10,7 @@ import SwiftUI
     private let markdown: String
     private let titleText: String
     private let window: DocumentWindowFrame
-    private let textView = NSTextView()
+    private let textView = DiagramTextView()   // 図（Mermaid）は、クリックで拡大
     private let state = DocumentState()
 
     private init(markdown: String, title: String) {
@@ -37,8 +37,8 @@ import SwiftUI
             close: { [unowned self] in window.close() })
         window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
         window.textView = textView
-        // いま使っている画面（マウスのある画面）の、真ん中
-        window.setFrame(ScreenPlacement.centeredFrame(size: window.frame.size, in: ScreenPlacement.currentVisibleFrame()), display: false)
+        // いま使っている画面（マウスのある画面）の、真ん中。小さい画面では、上のパネル（HUD）の分を空けて、高さを縮める
+        window.setFrame(ScreenPlacement.windowFrame(size: window.frame.size, minSize: window.minSize, in: ScreenPlacement.currentVisibleFrame()), display: false)
     }
 
     /// 表示して、ウィンドウが閉じられるまで、イベントのループを回す（終わらない：閉じると、プロセスを終える）。

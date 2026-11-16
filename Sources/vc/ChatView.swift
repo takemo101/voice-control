@@ -457,19 +457,11 @@ private struct EntryView: View {
                 Text("実行した操作").font(.system(size: 10, weight: .bold)).kerning(0.5)
             }
             .foregroundStyle(ChatPalette.orange)
-            ForEach(Array(entry.activities.enumerated()), id: \.offset) { _, activity in
-                HStack(spacing: 7) {
-                    Image(systemName: Self.symbol(for: activity.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(ChatPalette.orange.opacity(0.9)).frame(width: 14)
-                    Text(activity.text).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.white.opacity(0.72)).lineLimit(2).textSelection(.enabled)
-                }
-                .padding(.horizontal, 9).padding(.vertical, 5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.black.opacity(0.22)))
-            }
+            ForEach(Array(entry.activities.enumerated()), id: \.offset) { _, activity in ActivityRow(activity: activity) }
         }
     }
 
-    static func symbol(for kind: ChatActivity.Kind) -> String {
+    static func symbol(for kind: ChatActivity.Kind) -> String {  // `ActivityRow` も使う
         switch kind {
         case .run: return "terminal.fill"
         case .search: return "magnifyingglass"
@@ -546,7 +538,7 @@ private struct RichText: NSViewRepresentable {
     let attributed: NSAttributedString
 
     func makeNSView(context: Context) -> NSTextView {
-        let view = NSTextView(frame: .zero)
+        let view = DiagramTextView(frame: .zero)   // 図（Mermaid）は、クリックで拡大
         view.isEditable = false
         view.isSelectable = true
         view.isRichText = true
@@ -574,7 +566,12 @@ private struct RichText: NSViewRepresentable {
         guard let current = view.textStorage else { return nil }
         let width = max(80, proposal.width ?? 400)
         // 同じ幅・同じ文字は、測り直さない（レイアウトのたびに、文章全体を、新しく組み直していた。長い答え・表で、重い）
-        let height = TextHeightCache.height(width: width, text: current.string) {
+        // 図（Mermaid）は、文字が 1 つの印だけなので、画像の大きさも、鍵に入れる（別の図と、高さを取り違えない）
+        var attachmentSizes = ""
+        current.enumerateAttribute(.attachment, in: NSRange(location: 0, length: current.length)) { value, range, _ in
+            if let attachment = value as? NSTextAttachment { attachmentSizes += "|\(range.location):\(Int(attachment.bounds.width))x\(Int(attachment.bounds.height))" }
+        }
+        let height = TextHeightCache.height(width: width, text: current.string + attachmentSizes) {
             let storage = NSTextStorage(attributedString: current)
             let layout = NSLayoutManager()
             let container = NSTextContainer(size: NSSize(width: width, height: .greatestFiniteMagnitude))
@@ -601,3 +598,60 @@ private struct Surface: ViewModifier {
         }
     }
 }
+
+/// 実行した操作の 1 行。**結果（コマンドの出力・ファイルの差分）があれば、押して、開ける**（画面に出すだけ：記録には残さない）。
+private struct ActivityRow: View {
+    let activity: ChatActivity
+    @StateObject private var flag = OpenFlag()   // SwiftUI の `@State` は、この環境では使えない（ChatWindow.swift の注記）
+    private var open: Bool { flag.open }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 7) {
+                Image(systemName: EntryView.symbol(for: activity.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(ChatPalette.orange.opacity(0.9)).frame(width: 14)
+                Text(activity.text).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.white.opacity(0.72)).lineLimit(2).textSelection(.enabled)
+                if activity.output != nil {
+                    Spacer(minLength: 4)
+                    Text(activity.output?.isDiff == true ? "差分" : "出力").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
+                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { if activity.output != nil { withAnimation(.easeOut(duration: 0.15)) { flag.open.toggle() } } }
+            if open, let output = activity.output { ActivityOutput(output: output) }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.black.opacity(0.22)))
+    }
+}
+
+private final class OpenFlag: ObservableObject { @Published var open = false }
+
+/// 結果の本文（等幅。差分は、追加を緑・削除を赤・「…」を薄く）。長いときは、中でスクロール。
+private struct ActivityOutput: View {
+    let output: ChatActivity.Output
+
+    var body: some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(output.text.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
+                    Text(line.isEmpty ? " " : line).font(.system(size: 11, design: .monospaced)).foregroundStyle(color(of: line)).frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .textSelection(.enabled)
+            .padding(7)
+        }
+        .frame(maxHeight: 220)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(.black.opacity(0.28)))
+    }
+
+    private func color(of line: String) -> Color {
+        guard output.isDiff else { return .white.opacity(0.82) }
+        if line.hasPrefix("---") || line.hasPrefix("…") { return .white.opacity(0.45) }   // ファイル名の見出し（「--- 名前」）は、削除の行（「-」）より先に見分ける
+        if line.hasPrefix("+") { return Color(red: 0.55, green: 0.90, blue: 0.62) }
+        if line.hasPrefix("-") { return Color(red: 1.0, green: 0.55, blue: 0.55) }
+        return .white.opacity(0.78)
+    }
+}
+

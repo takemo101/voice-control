@@ -4,7 +4,7 @@ import Foundation
 /// コードブロックの色づけ（Markdown のウィンドウ）。言語ごとの字句解析ではなく、**コメント・文字列・数・キーワード・型・（JSON の）キー・シェルのオプション**を、言語ごとの小さな表で見分ける。
 /// 言語が分からない（書いていない・知らない）ときは、色をつけない（間違った色よりよい）。外部のライブラリは使わない。
 enum CodeHighlighter {
-    enum Kind: Equatable { case comment, string, number, keyword, type, key, option }
+    enum Kind: Equatable { case comment, string, number, keyword, type, key, option, added, removed }
 
     struct Token: Equatable {
         var range: NSRange
@@ -27,6 +27,8 @@ enum CodeHighlighter {
         var variables = false
         /// キーワードの大文字小文字を区別しない（SQL）。
         var caseInsensitive = false
+        /// 差分（`diff`）：行の頭で、追加（`+`）・削除（`-`）・場所（`@@`）・見出し（`diff`・`---`・`+++`・`index`）を、色にする。
+        var diff = false
     }
 
     private static let cLike: Set<String> = ["if", "else", "for", "while", "do", "switch", "case", "default", "break", "continue", "return", "true", "false", "null", "nil", "new", "this", "self", "super", "static", "const", "let", "var", "func", "function", "class", "struct", "enum", "interface", "protocol", "extension", "import", "export", "from", "as", "in", "is", "try", "catch", "throw", "throws", "async", "await", "public", "private", "protected", "internal", "final", "override", "init", "guard", "where", "typealias", "extends", "implements", "package", "void", "int", "bool", "string", "undefined", "typeof", "yield", "fn", "pub", "mut", "impl", "trait", "use", "mod", "match", "loop", "go", "defer", "chan", "map", "range", "fun", "val", "object", "when", "of", "type"]
@@ -43,6 +45,7 @@ enum CodeHighlighter {
         let css = Language(blockComment: ("/*", "*/"), keywords: [])
         let ruby = Language(lineComments: ["#"], keywords: ["def", "end", "class", "module", "if", "elsif", "else", "unless", "while", "until", "for", "in", "do", "return", "yield", "begin", "rescue", "ensure", "raise", "require", "include", "nil", "true", "false", "self", "then", "case", "when", "puts"], capitalizedTypes: true)
         var table: [String: Language] = [:]
+        for name in ["diff", "patch"] { table[name] = Language(diff: true) }
         for name in ["swift"] { table[name] = swift }
         for name in ["js", "javascript", "jsx", "ts", "typescript", "tsx", "mjs", "java", "kotlin", "kt", "scala", "dart", "go", "golang", "rust", "rs", "php"] { table[name] = js }
         for name in ["c", "cpp", "c++", "cc", "h", "hpp", "objc", "objective-c", "m", "cs", "csharp", "c#"] { table[name] = c }
@@ -65,6 +68,7 @@ enum CodeHighlighter {
 
     /// 色をつける範囲（`text` の中の位置。UTF-16）。重ならない。
     static func tokens(in text: String, language: Language) -> [Token] {
+        if language.diff { return diffTokens(in: text) }
         let s = Array(text.utf16)
         var tokens: [Token] = []
         var i = 0
@@ -152,6 +156,24 @@ enum CodeHighlighter {
         return tokens
     }
 
+    /// 差分：行の頭で、色にする。
+    static func diffTokens(in text: String) -> [Token] {
+        var tokens: [Token] = []
+        var location = 0
+        for line in text.components(separatedBy: "\n") {
+            let length = line.utf16.count
+            let kind: Kind?
+            if line.hasPrefix("+++") || line.hasPrefix("---") || line.hasPrefix("diff ") || line.hasPrefix("index ") { kind = .comment }
+            else if line.hasPrefix("@@") { kind = .type }
+            else if line.hasPrefix("+") { kind = .added }
+            else if line.hasPrefix("-") { kind = .removed }
+            else { kind = nil }
+            if let kind, length > 0 { tokens.append(Token(range: NSRange(location: location, length: length), kind: kind)) }
+            location += length + 1
+        }
+        return tokens
+    }
+
     /// 暗いガラスの上の、色。
     static func color(for kind: Kind) -> NSColor {
         switch kind {
@@ -162,6 +184,8 @@ enum CodeHighlighter {
         case .type: return NSColor(calibratedRed: 0.52, green: 0.84, blue: 0.92, alpha: 1)
         case .key: return NSColor(calibratedRed: 0.55, green: 0.78, blue: 1.0, alpha: 1)
         case .option: return NSColor(calibratedRed: 0.78, green: 0.70, blue: 1.0, alpha: 1)
+        case .added: return NSColor(calibratedRed: 0.55, green: 0.90, blue: 0.62, alpha: 1)
+        case .removed: return NSColor(calibratedRed: 1.0, green: 0.55, blue: 0.55, alpha: 1)
         }
     }
 }

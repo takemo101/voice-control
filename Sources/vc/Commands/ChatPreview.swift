@@ -5,9 +5,9 @@ import VCSkill
 struct ChatPreviewCommand: Command {
     static let info = CommandInfo(
         name: "chat-preview", group: .evaluation, summary: "会話のウィンドウの見本を出す（マイク・言語モデル・読み上げなし。見た目の確認・文書の動画用）",
-        usage: ["vc chat-preview [--seconds <秒>]"],
+        usage: ["vc chat-preview [--seconds <秒>] [--markdown <ファイル>]"],
         details: ["本物の会話のウィンドウを、画面の中央に出して、見本の会話（作り物の質問と答え）を、時間に沿って流す：声を聞く案内・考え中・調べている操作・答え・外のエージェント・画像つきの質問。既定は 34 秒。`scripts/site/capture.sh chat` が、自作の背景の上で撮る。"],
-        options: [("--seconds <秒>", "全体の長さ（既定 34）")],
+        options: [("--seconds <秒>", "全体の長さ（既定 34）"), ("--markdown <ファイル>", "見本の流れの代わりに、このファイルの Markdown を、答えとして、1 つだけ出す（表示の確認用）")],
         examples: ["vc chat-preview", "vc chat-preview --seconds 40"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -21,6 +21,18 @@ struct ChatPreviewCommand: Command {
 
         window.setKeyHint(context.resolveHotKey().spec.displayName)
         window.submit = { _ in }
+
+        // Markdown の表示の確認：ファイルの中身を、答えとして、1 つだけ出す
+        if let path = arguments.option("--markdown") {
+            guard let text = try? String(contentsOfFile: (path as NSString).expandingTildeInPath, encoding: .utf8) else { fail("読めません: \(path)") }
+            window.show(activate: false)
+            let id = window.begin(question: "このフローを、図にして", agent: "Apple のモデル", warning: nil, tools: "なし")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { MainActor.assumeIsolated { window.finish(id, answer: text, activities: [], notes: [], startedNew: false) } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + total) { window.hide(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { exit(0) } }
+            NSApplication.shared.setActivationPolicy(.accessory)
+            NSApplication.shared.run()
+            return
+        }
 
         // 1. 声で聞く → 調べて答える（Apple のモデル・Web の道具）
         at(1.5) { window.setVoiceState(.listening) }

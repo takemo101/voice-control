@@ -7,8 +7,8 @@ import Foundation
 enum MarkdownRenderer {
     // MARK: 入口
 
-    /// 整形した文章。解析できなければ、元の文字をそのまま。
-    @MainActor static func render(_ markdown: String) -> NSAttributedString {
+    /// 整形した文章。解析できなければ、元の文字をそのまま。`imageBase`：Markdown の画像の、相対の場所の基準（会話の作業フォルダ。なければ、絶対の場所だけ）。
+    @MainActor static func render(_ markdown: String, imageBase: URL? = nil) -> NSAttributedString {
         let pieces = Self.pieces(markdown)
         guard !pieces.isEmpty else { return NSAttributedString(string: markdown, attributes: [.font: bodyFont, .foregroundColor: HUDStyle.primary]) }
         let out = NSMutableAttributedString()
@@ -17,6 +17,9 @@ enum MarkdownRenderer {
         let context = Context(tableWidths: columnWidths(of: pieces))
         var lastPanel: Int?
         var lastItem: Int?
+        // Mermaid の図：描けるものは、コードブロックの代わりに、画像にする（描けないものは、コードのまま）
+        let diagrams = diagramImages(in: pieces)
+        var drawnDiagrams = Set<Int>()
         for piece in pieces {
             // 箇条書きの項目の、2 つ目以降の段落・コードブロックには、行頭の記号を付けない（字下げだけ）
             let continuation = piece.block.listDepth > 0 && piece.block.itemIdentity != nil && piece.block.itemIdentity == lastItem
@@ -33,10 +36,26 @@ enum MarkdownRenderer {
                 }
                 lastItem = piece.block.listDepth > 0 ? piece.block.itemIdentity : nil
                 // コードブロックの言語名：面の右上に、小さく（コピーする文字には、入れない）
-                if piece.block.kind == .codeBlock, let language = piece.block.language {
+                if piece.block.kind == .codeBlock, let language = piece.block.language, diagrams[piece.block.identity ?? -1] == nil {
                     let label = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: false, codeLabel: true)
                     out.append(NSAttributedString(string: language.lowercased() + "\n", attributes: label))
                 }
+            }
+            // 図（Mermaid）・画像：文章の中の、画像の 1 文字にする（図は、ブロックに 1 つだけ。画像は、この Mac の中の、読んでよいファイルだけ：それ以外は、リンクの文字のまま）
+            var picture: NSAttributedString?
+            if let id = piece.block.identity, let diagram = diagrams[id] {
+                if drawnDiagrams.insert(id).inserted {
+                    picture = Self.attachment(diagram.image, block: piece.block, context: context, continuation: continuation, centered: true,
+                                              marks: [.mermaidSource: diagram.source, .toolTip: "クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）"])
+                }
+                lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                if let picture { out.append(picture) }
+                continue
+            }
+            if let imageURL = piece.imageURL, let file = MarkdownImage.file(for: imageURL, base: imageBase), let image = MarkdownImage.image(at: file) {
+                lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                out.append(Self.attachment(image, block: piece.block, context: context, continuation: continuation, centered: false, marks: [.zoomImage: image, .toolTip: "クリックで拡大"]))
+                continue
             }
             let text = Self.cleaned(piece)
             let attrs = Self.attributes(for: piece.block, inline: piece.inline, link: piece.link, text: text, context: context, marker: false, continuation: continuation)
@@ -52,6 +71,27 @@ enum MarkdownRenderer {
         }
         out.append(NSAttributedString(string: "\n", attributes: lastAttributes))   // 表・面を、閉じる
         return out
+    }
+
+    /// コードブロックの Mermaid の図（描けたものだけ）：ブロックの番号 → 画像と、元の文字。
+    @MainActor private static func diagramImages(in pieces: [Piece]) -> [Int: (image: NSImage, source: String)] {
+        var sources: [Int: String] = [:]
+        for piece in pieces where piece.block.kind == .codeBlock && piece.block.language?.lowercased() == "mermaid" {
+            if let id = piece.block.identity { sources[id, default: ""] += piece.text }
+        }
+        return sources.compactMapValues { source in MermaidImage.image(for: source).map { (image: $0, source: source) } }
+    }
+
+    /// 画像の 1 文字（`DiagramAttachment`：置かれた幅に合わせて縮む）。`marks`：クリックで拡大するための印・ツールチップ。`centered`：面の中で中央に置く（面の幅より小さい図が、左に寄らない）。
+    @MainActor private static func attachment(_ image: NSImage, block: Block, context: Context, continuation: Bool, centered: Bool, marks: [NSAttributedString.Key: Any]) -> NSAttributedString {
+        let attachment = DiagramAttachment()
+        attachment.image = image
+        let drawn = NSMutableAttributedString(attachment: attachment)
+        var attributes = Self.attributes(for: block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+        if centered, let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle { style.alignment = .center; attributes[.paragraphStyle] = style }
+        attributes.merge(marks) { _, new in new }
+        drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
+        return drawn
     }
 
     /// 描くあいだ、共有するもの：同じ表の列の幅・同じ引用の面（段落をまたいで、1 本の線になる）。
@@ -92,6 +132,8 @@ enum MarkdownRenderer {
         var text: String
         var inline: InlinePresentationIntent?
         var link: URL?
+        /// 画像（`![説明](場所)`）の場所。この Mac の中の読んでよいファイルなら、文章の中に画像で出す（`MarkdownImage`）。
+        var imageURL: URL?
     }
 
     /// 文章の構造（ブロック）。
@@ -158,7 +200,7 @@ enum MarkdownRenderer {
 
     static func pieces(_ markdown: String) -> [Piece] {
         let options = AttributedString.MarkdownParsingOptions(allowsExtendedAttributes: false, interpretedSyntax: .full, failurePolicy: .returnPartiallyParsedIfPossible)
-        guard let parsed = try? AttributedString(markdown: namingEmptyImages(resolvingFootnotes(markdown)), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
+        guard let parsed = try? AttributedString(markdown: namingEmptyImages(resolvingFootnotes(MarkdownPreprocess.apply(markdown))), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
         var pieces: [Piece] = []
         var softBreaks: [Int] = []   // 前後に応じて、つなぎ方を決める改行（下）
         var htmlStyles: InlinePresentationIntent = []   // `<b>`…`</b>` などの、書式の HTML（段落の中だけ）
@@ -183,7 +225,8 @@ enum MarkdownRenderer {
             } else if inline?.contains(.lineBreak) == true {
                 text = lineSeparator   // 段落を分けない改行（段落の間の空きが、入らない）
             } else if inline?.contains(.softBreak) == true {
-                softBreaks.append(pieces.count)
+                // 引用の中の改行は、行の区切りとして残す（`> 1 行目` と `> 2 行目` は、別の行：つなぐと、どこまでが 1 文か分からず、入れ子の引用の続きと、混ざって見える）
+                if block.inQuote { text = lineSeparator } else { softBreaks.append(pieces.count) }
             } else if inline?.contains(.code) != true {
                 text = replacingBreakTags(text)
             }
@@ -192,7 +235,7 @@ enum MarkdownRenderer {
                 text = "🖼 " + (text.isEmpty ? "画像" : text)
                 link = image
             }
-            pieces.append(Piece(block: block, text: text, inline: inline, link: link))
+            pieces.append(Piece(block: block, text: text, inline: inline, link: link, imageURL: run.imageURL))
         }
         // ソフトブレーク：前か後が日本語などの全角の文字（約物を含む）なら、つなぐ（半角の空白を入れると、不自然に空く）。両方が半角なら、空白 1 つ
         for i in softBreaks {
@@ -472,7 +515,7 @@ enum MarkdownRenderer {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = 5
         style.paragraphSpacing = 10
-        var blocks: [NSTextBlock] = block.quotes.map { quoteBlock($0, context: context) }
+        var blocks: [NSTextBlock] = block.quotes.enumerated().map { quoteBlock($0.element, depth: $0.offset, context: context) }
         let indent = CGFloat(block.listDepth) * 24
         switch block.kind {
         case .header(let level):
@@ -528,15 +571,16 @@ enum MarkdownRenderer {
     }
 
     /// 引用の面（左の線）。同じ引用の段落は、同じ面にして、1 本の線でつなぐ。
-    @MainActor private static func quoteBlock(_ id: Int, context: Context) -> NSTextBlock {
+    /// `depth`：入れ子の深さ（外側が 0）。深いほど、線を薄くして、どの段の引用か分かるようにする。入れ子の中は、前後の空きを詰める（外側の線と、つながって見える）。
+    @MainActor private static func quoteBlock(_ id: Int, depth: Int, context: Context) -> NSTextBlock {
         if let existing = context.quotes[id] { return existing }
         let bar = NSTextBlock()
         bar.setContentWidth(100, type: .percentageValueType)   // 幅を決めないと、1 文字の幅になる
         bar.setWidth(3, type: .absoluteValueType, for: .border, edge: .minX)
-        bar.setBorderColor(accent.withAlphaComponent(0.75), for: .minX)
+        bar.setBorderColor(accent.withAlphaComponent([0.75, 0.55, 0.38][min(depth, 2)]), for: .minX)
         bar.setWidth(12, type: .absoluteValueType, for: .padding, edge: .minX)
-        bar.setWidth(2, type: .absoluteValueType, for: .margin, edge: .minY)
-        bar.setWidth(8, type: .absoluteValueType, for: .margin, edge: .maxY)
+        bar.setWidth(depth == 0 ? 2 : 0, type: .absoluteValueType, for: .margin, edge: .minY)
+        bar.setWidth(depth == 0 ? 8 : 2, type: .absoluteValueType, for: .margin, edge: .maxY)
         context.quotes[id] = bar
         return bar
     }

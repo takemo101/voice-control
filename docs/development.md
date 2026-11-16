@@ -26,7 +26,7 @@
 
 ## 環境
 
-macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージはない（音声認識の transcribe.cpp〔C++〕は、`scripts/build-native.sh` が、固定した commit を静的ライブラリにビルドする。`just build`・`just test`・`./scripts/test.sh`・`./scripts/package.sh` が、先に呼ぶ。ビルド済みなら何もしない。初回は、git・Command Line Tools・cmake が要る〔cmake が無ければ、`build/native/venv` に pip で入れる〕。数分かかる。`swift build` を直接呼ぶなら、先に `./scripts/build-native.sh`）。実行時の外部ツール：任意で、ローカルのモデルのサーバー（`--engine` を使うとき。Ollama：`ollama pull <モデル>`。LM Studio・llama.cpp など）、[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
+macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Line Tools）。外部の Swift パッケージは、Mermaid の図の BeautifulMermaid と elk-swift だけ（初回のビルドで取得する。版は固定）。音声認識の transcribe.cpp〔C++〕は、`scripts/build-native.sh` が、固定した commit を静的ライブラリにビルドする。`just build`・`just test`・`./scripts/test.sh`・`./scripts/package.sh` が、先に呼ぶ。ビルド済みなら何もしない。初回は、git・Command Line Tools・cmake が要る〔cmake が無ければ、`build/native/venv` に pip で入れる〕。数分かかる。`swift build` を直接呼ぶなら、先に `./scripts/build-native.sh`）。実行時の外部ツール：任意で、ローカルのモデルのサーバー（`--engine` を使うとき。Ollama：`ollama pull <モデル>`。LM Studio・llama.cpp など）、[agent-desktop](https://github.com/vercel-labs/agent-desktop)（`npm install -g agent-desktop`。`agent-desktop permissions` で、アクセシビリティの許可を確認）、[just](https://github.com/casey/just)（任意。なければ `scripts/` を直接実行）。
 
 ## ビルドと実行
 
@@ -55,6 +55,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 - **CI は、全ターゲットのテストを 1 つのプロセスで並行に動かす**（`release.yml` の `swift test --explicit-target-dependency-import-check=error`。2026-11-03 の CI のログで `Test run with 186 tests in 41 suites` が 1 回）。ローカル（Swift 6.4）の `just test` は、ターゲットごとに別の実行として出る（`Test run with …` が 6 回。41・28・47・46・8・16 件で、合計 186 件・41 スイート。2026-11-04 に確認。PC 操作の廃止のあとは 5 回：34・28・47・9・16 件で、合計 134 件・25 スイート。理由は、調べていない）。並列度が違うので、全体の並行の下では、テストの時間・スレッドが競合して、失敗することがある：実際に、`ProcessRunner` のテストが、CI で、出力が終わらず時間の上限に達して失敗した（原因は、共有のスレッドの枯渇と**推定**。直接の証拠は未取得。[構成説明](architecture.md#時間と並行)）。CI の結果も、確かめる。
 - CI のツールチェーンは、ローカルと違うことがある：この記録の時点で、ローカルは Swift 6.4（macOS 27）、CI は Xcode 26.6・Swift 6.3.3（macOS 26.6.2。2026-11-03 の CI のログ）。CI のログに、警告が出たことがある（`SaySpeaker` の `nonisolated(unsafe)` が不要・`SkillRunnerTests` の `NSLock` を async の文脈で使っている、の 2 種。直したあとの CI のログは、警告 0）。変更のあとは、CI のログの `warning:` も見る。
 - `Fixture` は `nohup` で起動する。サブシェルの `( … &)` で起動すると、agent-desktop が TIMEOUT する（実測）。`just fixture` は、そうしている。
+- **小さい画面の配置を、大きい画面で確かめる**：環境変数 `VC_VISIBLE_SIZE=幅x高さ`（例：`1100x640`）を付けて動かすと、画面の使える領域が、その大きさ（上の中央）になったものとして、パネル・ウィンドウが出る（`vc chat-check`・`vc show`・`vc hud-preview` など。開発用。不正な値は無視）。シェルには、残さない。
 - 検証中に、環境変数（`VC_HOME`・`BIN_DIR`・`MODEL_LINK`）を、シェルに残さない。残ったまま `just install` を実行すると、意図しない場所に入る（実際に起きた）。
 - モデルの取得は 設定ウィンドウ > モデル（`~/.voice-control/models/tiny-jev-0.6b`。版を固定・SHA-256 の検証・再開）。確認は 設定ウィンドウ > モデル。
 - モデルの探し方：`--model`、`VC_MODEL_DIR`、`~/.voice-control/models/tiny-jev-0.6b`、`./models/tiny-jev-0.6b`（開発用）の順。

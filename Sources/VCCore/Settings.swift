@@ -15,6 +15,7 @@ import Foundation
 /// - `chatAgent`：会話に使うエージェント（設定ウィンドウ > 会話）。なければ、この Mac の Apple のモデル。`agy`・`claude`・`codex`・`grok`・`opencode`・`pi` を選ぶと、**会話の発話が、その提供元へ送られる**（`ask-agent` と同じ例外。利用者が選んだときだけ）。
 /// - `chatTools`：会話に使う**外のエージェント**に、開ける道具の段階（`web`・`read`・`all`。なければ、会話だけ）。`all` は、ファイルの書き込み・コマンドの実行も。外へ出るのは、発話（と、道具で読んだものを、エージェントが答えに使う分）。Apple のモデルには、効かない。
 /// - `chatAcp`：ACP に対応した会話のエージェント（`agy`・`opencode`）を、**常駐の接続（ACP）**で使うか。なければ、使う（設定ウィンドウ > 会話）。使えなければ、自動で、従来の方式（質問ごとに CLI を起動）に戻る。
+/// - `chatSandbox`：ACP で話す会話のエージェント（`agy`・`opencode`）を、**OS の制限（macOS の Seatbelt）つき**で起動するか（書き込みを、作業フォルダ〔「すべて」のとき〕とエージェント自身の置き場だけに限る。鍵の置き場は、読めない）。なければ、使う（設定ウィンドウ > 会話）。
 /// - `chatFolder`：道具を開けたとき（`read`・`all`）の、作業フォルダ。なければ、`~/.voice-control/chat`。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
@@ -32,6 +33,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var chatTools: String?
     public var chatFolder: String?
     public var chatAcp: Bool?
+    public var chatSandbox: Bool?
     public var stt: String?
     public var shotHotkey: String?
     public var handsFree: Bool?
@@ -60,6 +62,7 @@ public struct Settings: Codable, Sendable, Equatable {
         chatTools = try c.decodeIfPresent(String.self, forKey: .chatTools)
         chatFolder = try c.decodeIfPresent(String.self, forKey: .chatFolder)
         chatAcp = try c.decodeIfPresent(Bool.self, forKey: .chatAcp)
+        chatSandbox = try c.decodeIfPresent(Bool.self, forKey: .chatSandbox)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
         shotHotkey = try c.decodeIfPresent(String.self, forKey: .shotHotkey)
         handsFree = try c.decodeIfPresent(Bool.self, forKey: .handsFree)
