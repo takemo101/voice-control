@@ -97,14 +97,14 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
 
     private func ensureSession(turns: [ChatTurn]) async throws -> (connection: ACPConnection, id: String, isNew: Bool) {
         let (reusable, existing) = lock.withLock { () -> (Bool, (ACPConnection?, String?)) in
-            (connection?.isAlive == true && sessionID != nil && knownTurns == turns.count && now().timeIntervalSince(lastUse) < idleLimit, (connection, sessionID))
+            (self.connection?.isAlive == true && sessionID != nil && knownTurns == turns.count && now().timeIntervalSince(lastUse) < idleLimit, (self.connection, sessionID))
         }
         if reusable, let connection = existing.0, let id = existing.1 { return (connection, id, false) }
 
         // 接続は、生きていれば、使い回す（セッションだけ、新しくする）。なければ、起動する
-        var connection = existing.0
-        if connection?.isAlive != true {
-            connection?.close()
+        var link = existing.0
+        if link?.isAlive != true {
+            link?.close()
             let fresh = ACPConnection(argv: launch(agent, tools), directory: workingDirectory(), environment: ["PATH": AgentLocator.childPATH()].merging(Self.liveEnvironment(agent: agent)) { _, new in new })
             try fresh.start()
             do {
@@ -114,9 +114,9 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
                     "clientInfo": .object(["name": .string("voice-control"), "title": .string("voice-control")])]), timeout: 15)
                 lock.withLock { supportsClose = initialized["agentCapabilities"]?["sessionCapabilities"]?["close"] != nil }
             } catch { fresh.close(); throw ACPError.unavailable("初期化に失敗しました（\(error)）") }
-            connection = fresh
+            link = fresh
         }
-        guard let connection else { throw ACPError.unavailable("接続できません") }
+        guard let connection = link else { throw ACPError.unavailable("接続できません") }
         // 古いセッションは、閉じる（エージェントが、メモリ・作業を、解放できる。使える場合だけ）
         if let old = existing.1, lock.withLock({ supportsClose }) {
             _ = try? await connection.request("session/close", .object(["sessionId": .string(old)]), timeout: 5)
