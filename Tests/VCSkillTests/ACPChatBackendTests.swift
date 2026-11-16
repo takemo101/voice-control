@@ -170,6 +170,18 @@ import Testing
         #expect(fx.log.contains("session/cancel"))
     }
 
+    @Test func aSilentAgentTimesOutByIdleTimeButASlowHumanConfirmationDoesNot() async throws {
+        // 相手が、何も言わない：進みがない時間で、時間切れ（取りやめではなく、失敗）
+        let fx = try Fixture(); let silent = fx.backend(promptTimeout: 0.8); defer { silent.teardown() }
+        let started = Date()
+        await #expect(throws: ConversationError.self) { _ = try await silent.respond(instructions: "", turns: [], user: "SLOW") }
+        #expect(Date().timeIntervalSince(started) < 8)
+        // 利用者の確認が、時間切れより遅くても、待つ（確認を待つ間は、数えない）
+        let fx2 = try Fixture(); let writer = fx2.backend(tools: .all, promptTimeout: 0.6); defer { writer.teardown() }
+        let slowYes: ToolConfirm = { _ in try? await Task.sleep(nanoseconds: 1_600_000_000); return true }
+        #expect(try await writer.respond(instructions: "", turns: [], user: "WRITE", options: ChatCallOptions(confirm: slowYes)).contains("result=wrote"))
+    }
+
     @Test func aProcessThatDiesMidTurnFailsTheQuestionAndTheNextOneStartsAFreshProcess() async throws {
         let fx = try Fixture(); let launches = Counter(); let backend = fx.backend(launches: launches); defer { backend.teardown() }
         await #expect(throws: ConversationError.self) { _ = try await backend.respond(instructions: "", turns: [], user: "EXIT") }

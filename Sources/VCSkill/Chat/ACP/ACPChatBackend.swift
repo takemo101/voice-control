@@ -154,20 +154,31 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             blocks.append(.object(["type": .string("text"), "text": .string(text)]))
         }
         let id = session.id, connection = session.connection, timeout = promptTimeout
+        // 時間切れは、**進みがない時間**で見る（相手から何も来ない時間。**利用者の確認を待っている間は、数えない**：確認が遅くても、取りやめにしない）
+        let timedOut = Flag()
+        let watchdog = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if turn.idleSeconds > timeout {
+                    timedOut.set()
+                    connection.notify("session/cancel", .object(["sessionId": .string(id)]))
+                    return
+                }
+            }
+        }
+        defer { watchdog.cancel() }
         let response: JSONValue
         do {
             response = try await withTaskCancellationHandler {
-                try await connection.request("session/prompt", .object(["sessionId": .string(id), "prompt": .array(blocks)]), timeout: timeout)
+                try await connection.request("session/prompt", .object(["sessionId": .string(id), "prompt": .array(blocks)]), timeout: 3600)
             } onCancel: {
                 connection.notify("session/cancel", .object(["sessionId": .string(id)]))   // Esc：エージェントを、本当に止める
             }
-        } catch ACPError.timedOut {
-            connection.notify("session/cancel", .object(["sessionId": .string(id)]))
-            throw ConversationError.failed("\(agent.rawValue) の答えが、時間内に返りませんでした（約 \(Int(timeout)) 秒）")
         } catch let error as ACPError {
             teardown()   // 接続が、閉じた・相手が、エラー：次は、新しく起動する
             throw ConversationError.failed("\(agent.rawValue)：\(error)")
         }
+        if timedOut.value { throw ConversationError.failed("\(agent.rawValue) の答えが、時間内に返りませんでした（進みがないまま、約 \(Int(timeout)) 秒）") }
         if Task.isCancelled || response["stopReason"]?.string == "cancelled" { throw CancellationError() }
         if response["stopReason"]?.string == "refusal" { throw ConversationError.failed("\(agent.rawValue) が、答えを断りました") }
         let answer = turn.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -204,12 +215,21 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     }
 }
 
+/// 時間切れになったか（別のタスクが立てる印）。
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock(); private var on = false
+    func set() { lock.lock(); on = true; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return on }
+}
+
 /// 1 回の質問の、受け取り（相手からの通知・許可の要求）。答えの文字・実行中の操作・許可の確認。
 private final class TurnState: @unchecked Sendable {
     private let lock = NSLock()
     private var collected = ""
     private var seen = Set<String>()
     private var refused = 0
+    private var lastProgress = Date()
+    private var confirming = 0
     private let tools: ChatToolLevel
     private let sessionID: String
     private let confirm: ToolConfirm?
@@ -220,12 +240,18 @@ private final class TurnState: @unchecked Sendable {
     }
 
     var text: String { lock.lock(); defer { lock.unlock() }; return collected }
+    /// 相手から何も来ていない時間（秒）。**利用者の確認を待っている間は、0**。
+    var idleSeconds: TimeInterval { lock.lock(); defer { lock.unlock() }; return confirming > 0 ? 0 : Date().timeIntervalSince(lastProgress) }
+    private func touch() { lock.lock(); lastProgress = Date(); lock.unlock() }
+    private func confirmStarted() { lock.lock(); confirming += 1; lock.unlock() }
+    private func confirmEnded() { lock.lock(); confirming -= 1; lastProgress = Date(); lock.unlock() }
     /// 断った操作の数（確認で断った・段階で許されていない）。
     var refusals: Int { lock.lock(); defer { lock.unlock() }; return refused }
     private func refuse() { lock.lock(); refused += 1; lock.unlock() }
 
     func handleNotification(_ method: String, _ params: JSONValue) {
         guard method == "session/update", params["sessionId"]?.string == sessionID, let update = params["update"] else { return }
+        touch()
         switch update["sessionUpdate"]?.string {
         case "agent_message_chunk":
             if let chunk = update["content"]?["text"]?.string { lock.lock(); collected += chunk; lock.unlock() }
@@ -248,7 +274,9 @@ private final class TurnState: @unchecked Sendable {
         case .reject: refuse(); return ACPPermission.outcome(allow: false, options: options)
         case .ask:
             guard let confirm else { refuse(); return ACPPermission.outcome(allow: false, options: options) }   // 確認できない：しない
+            confirmStarted()
             let allowed = await confirm(ACPPermission.detail(kind: kind, toolCall: toolCall))
+            confirmEnded()
             if !allowed { refuse() }
             return ACPPermission.outcome(allow: allowed, options: options)
         }
