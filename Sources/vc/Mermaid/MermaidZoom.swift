@@ -20,8 +20,13 @@ final class DiagramAttachment: NSTextAttachment {
 /// 図の上は、指のカーソルにする。
 final class DiagramTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
-        if let source = diagramSource(at: convert(event.locationInWindow, from: nil)) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let source = diagramSource(at: point) {
             MainActor.assumeIsolated { MermaidZoomWindow.show(source: source) }
+            return
+        }
+        if let image = zoomImage(at: point) {
+            MainActor.assumeIsolated { MermaidZoomWindow.show(image: image, title: "画像") }
             return
         }
         super.mouseDown(with: event)
@@ -29,23 +34,34 @@ final class DiagramTextView: NSTextView {
 
     /// その位置にある図の、元の文字（図の絵の中のときだけ）。
     func diagramSource(at point: NSPoint) -> String? {
+        guard let source = attributeValue(.mermaidSource, at: point) as? String, !source.isEmpty else { return nil }
+        return source
+    }
+
+    /// その位置にある、文章の中の画像（拡大の窓で見せるもの）。
+    func zoomImage(at point: NSPoint) -> NSImage? { attributeValue(.zoomImage, at: point) as? NSImage }
+
+    /// 図・画像の上のクリックのときだけ、その印の値（絵の矩形の中だけ）。
+    private func attributeValue(_ key: NSAttributedString.Key, at point: NSPoint) -> Any? {
         guard let layout = layoutManager, let container = textContainer, let storage = textStorage, storage.length > 0 else { return nil }
         let local = NSPoint(x: point.x - textContainerOrigin.x, y: point.y - textContainerOrigin.y)
         var fraction: CGFloat = 0
         let glyph = layout.glyphIndex(for: local, in: container, fractionOfDistanceThroughGlyph: &fraction)
         let index = layout.characterIndexForGlyph(at: glyph)
-        guard index < storage.length, let source = storage.attribute(.mermaidSource, at: index, effectiveRange: nil) as? String, !source.isEmpty else { return nil }
+        guard index < storage.length, let value = storage.attribute(key, at: index, effectiveRange: nil) else { return nil }
         let rect = layout.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container)
-        return rect.contains(local) ? source : nil
+        return rect.contains(local) ? value : nil
     }
 
     override func resetCursorRects() {
         super.resetCursorRects()
         guard let layout = layoutManager, let container = textContainer, let storage = textStorage, storage.length > 0 else { return }
-        storage.enumerateAttribute(.mermaidSource, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
-            guard value != nil else { return }
-            let rect = layout.boundingRect(forGlyphRange: layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
-            addCursorRect(rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y).intersection(bounds), cursor: .pointingHand)
+        for key in [NSAttributedString.Key.mermaidSource, .zoomImage] {
+            storage.enumerateAttribute(key, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+                guard value != nil else { return }
+                let rect = layout.boundingRect(forGlyphRange: layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
+                addCursorRect(rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y).intersection(bounds), cursor: .pointingHand)
+            }
         }
     }
 }
@@ -61,12 +77,17 @@ final class DiagramTextView: NSTextView {
     /// 図を、拡大の窓で見せる（描けなければ、何もしない）。
     static func show(source: String) {
         guard let image = MermaidImage.zoomImage(for: source) else { return }
-        let controller = MermaidZoomWindow(image: image)
+        show(image: image, title: "図")
+    }
+
+    /// 画像を、拡大の窓で見せる。
+    static func show(image: NSImage, title: String) {
+        let controller = MermaidZoomWindow(image: image, title: title)
         open.append(controller)
         controller.present()
     }
 
-    private init(image: NSImage) {
+    private init(image: NSImage, title: String) {
         let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame.size ?? CGSize(width: 1200, height: 800)
         let limit = CGSize(width: screen.width * 0.85, height: screen.height * 0.85)
         let size = image.size
@@ -76,7 +97,7 @@ final class DiagramTextView: NSTextView {
         super.init()
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.title = "図（ピンチ・ダブルクリックで拡大縮小・Esc で閉じる）"
+        window.title = "\(title)（ピンチ・ダブルクリックで拡大縮小・Esc で閉じる）"
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = NSColor(calibratedWhite: 0.11, alpha: 1)
         // 会話のウィンドウ・Markdown のウィンドウ（`.statusBar` の 1 つ上）より、さらに上

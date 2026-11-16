@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCSkill
 
 /// Markdown を、整形した `NSAttributedString`（と、コピー用の文字）にする（`vc show`・`result: markdown-window` のウィンドウ）。
 /// Foundation の Markdown 解析（`AttributedString(markdown:)`）の結果を、見やすく整える：見出しの階層・読みやすい行間・箇条書きと番号・タスクリスト・引用（左の線）・コードブロック（面）・表（罫線）・区切り線。外部のライブラリは使わない。
@@ -62,6 +63,19 @@ enum MarkdownRenderer {
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
                 continue
             }
+            // 画像：この Mac の中の、読んでよいファイルだけ、文章の中に出す（それ以外は、リンクの文字のまま）
+            if let imageURL = piece.imageURL, let file = MarkdownImage.file(for: imageURL, base: ChatMode.shared.folder ?? ExternalChatBackend.defaultFolder), let image = MarkdownImage.image(at: file) {
+                let attachment = DiagramAttachment()
+                attachment.image = image
+                let drawn = NSMutableAttributedString(attachment: attachment)
+                var attributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                attributes[.zoomImage] = image
+                attributes[.toolTip] = "クリックで拡大"
+                drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
+                out.append(drawn)
+                lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                continue
+            }
             let text = Self.cleaned(piece)
             let attrs = Self.attributes(for: piece.block, inline: piece.inline, link: piece.link, text: text, context: context, marker: false, continuation: continuation)
             let start = out.length
@@ -116,6 +130,8 @@ enum MarkdownRenderer {
         var text: String
         var inline: InlinePresentationIntent?
         var link: URL?
+        /// 画像（`![説明](場所)`）の場所。この Mac の中の読んでよいファイルなら、文章の中に画像で出す（`MarkdownImage`）。
+        var imageURL: URL?
     }
 
     /// 文章の構造（ブロック）。
@@ -217,7 +233,7 @@ enum MarkdownRenderer {
                 text = "🖼 " + (text.isEmpty ? "画像" : text)
                 link = image
             }
-            pieces.append(Piece(block: block, text: text, inline: inline, link: link))
+            pieces.append(Piece(block: block, text: text, inline: inline, link: link, imageURL: run.imageURL))
         }
         // ソフトブレーク：前か後が日本語などの全角の文字（約物を含む）なら、つなぐ（半角の空白を入れると、不自然に空く）。両方が半角なら、空白 1 つ
         for i in softBreaks {
