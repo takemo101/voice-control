@@ -2,17 +2,18 @@ import AppKit
 import Foundation
 import SwiftUI
 
-/// 拡大の窓：図（Mermaid）・Markdown の画像を、**縮めずに**出す。見た目は、Markdown のウィンドウと同じ、**Liquid Glass のカード**（見出し・本文・下のボタン）。
+/// 拡大の窓：図（Mermaid）・Markdown の画像を、**縮めずに**出す。見た目は、Markdown のウィンドウと同じ、**Liquid Glass のカード**。**見出し**（題名・大きさ・コピー・閉じる。会話・スクリーンショットの窓と同じ並び）と、**画像の上に浮かぶ操作盤**（倍率・「＋」「−」・元に戻す）だけ：下の行は、ない。
 /// - **拡大縮小**：ピンチ・ダブルクリック（クリックした所へ）・⌘（または ⌥）＋スクロール（カーソルの所を、動かさずに）・「＋」「−」ボタン（`+` `-` キー）。倍率は、見出しの下の行に、いつも出る。
 /// - **動かす**：つかんでドラッグ・2 本指のスワイプ・矢印キー。
-/// - **コピー**：「画像をコピー」（⌘C。スクリーンショットの窓と同じ）。クリップボードへ入れるだけ（ファイルは作らない）。
-/// - **戻す**：「元に戻す」（`0`。全体が見える大きさ・中央）・「等倍」（`1`。100%）。ウィンドウの大きさを変えても、全体表示のままなら、全体表示を保つ。
+/// - **コピー**：見出しの「画像をコピー」アイコン（⌘C。スクリーンショットの窓と同じ）。クリップボードへ入れるだけ（ファイルは作らない）。
+/// - **戻す**：操作盤の「元に戻す」（`0`。全体が見える大きさ・中央）・倍率の表示を押す（`1`。100%）。ウィンドウの大きさを変えても、全体表示のままなら、全体表示を保つ。
 /// - Esc・⌘W で閉じる。倍率の計算は `ZoomMath`（純粋）。
 @MainActor final class ImageZoomWindow: NSObject, NSWindowDelegate {
     private static var open: [ImageZoomWindow] = []
-    private static let margin: CGFloat = 20          // 全体表示のとき、画像のまわりに残す余白
-    private static let chromeHeight: CGFloat = 118   // 見出し・下の行・仕切りの高さ（最初の窓の大きさを決めるための目安。実際の領域は、表示後に測り直す）
-    private static let minContent = NSSize(width: 660, height: 360)
+    private static let margin: CGFloat = 20          // 全体表示のとき、画像のまわりに残す余白（左右）
+    private static let verticalMargin: CGFloat = 56  // 上下は、下に浮かぶ操作盤の分（画像に、かぶらない）を、上下とも空ける
+    private static let chromeHeight: CGFloat = 56    // 見出し・仕切りの高さ（最初の窓の大きさを決めるための目安。実際の領域は、表示後に測り直す）
+    private static let minContent = NSSize(width: 460, height: 320)
 
     private let window: ZoomWindow
     private let scroll = ZoomScrollView()
@@ -42,9 +43,9 @@ import SwiftUI
         imageSize = image.size
         let area = ScreenPlacement.currentVisibleFrame().size
         let viewport = CGSize(width: area.width * 0.85, height: area.height * 0.85 - Self.chromeHeight)
-        let fit0 = ZoomMath.fit(image: image.size, viewport: viewport, margin: Self.margin)
+        let fit0 = ZoomMath.fit(image: image.size, viewport: viewport, margin: Self.margin, verticalMargin: Self.verticalMargin)
         let content = NSSize(width: max(Self.minContent.width, image.size.width * fit0 + 2 * Self.margin),
-                             height: max(Self.minContent.height, image.size.height * fit0 + 2 * Self.margin + Self.chromeHeight))
+                             height: max(Self.minContent.height, image.size.height * fit0 + 2 * Self.verticalMargin + Self.chromeHeight))
         window = ZoomWindow(contentRect: NSRect(origin: .zero, size: content), styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
         super.init()
         window.title = title
@@ -83,7 +84,7 @@ import SwiftUI
         scroll.onModifiedScroll = { [unowned self] delta, location in magnify(by: delta, pinnedAt: location) }
 
         let root = ZoomView(
-            title: title, symbol: symbol, state: state, scroll: scroll,
+            title: title, symbol: symbol, size: image.size, state: state, scroll: scroll,
             zoomIn: { [unowned self] in perform(.zoomIn) }, zoomOut: { [unowned self] in perform(.zoomOut) },
             reset: { [unowned self] in perform(.reset) }, actual: { [unowned self] in perform(.actual) }, copy: { [unowned self] in perform(.copy) },
             close: { [unowned self] in window.close() })
@@ -114,7 +115,7 @@ import SwiftUI
     // MARK: 倍率
 
     /// いまの領域に、全体が入る倍率。
-    private var fit: CGFloat { ZoomMath.fit(image: imageSize, viewport: scroll.contentSize, margin: Self.margin) }
+    private var fit: CGFloat { ZoomMath.fit(image: imageSize, viewport: scroll.contentSize, margin: Self.margin, verticalMargin: Self.verticalMargin) }
 
     private func perform(_ command: ZoomCommand) {
         switch command {
@@ -334,6 +335,7 @@ private final class CenteringClipView: NSClipView {
 private struct ZoomView: View {
     let title: String
     let symbol: String
+    let size: CGSize
     @ObservedObject var state: ZoomState
     let scroll: NSScrollView
     let zoomIn: () -> Void
@@ -348,15 +350,16 @@ private struct ZoomView: View {
         VStack(spacing: 0) {
             header
             Rule()
+            // 画像の上に、浮かせた操作盤（下の中央）：行を、1 つ、減らす
             ZoomBody(scroll: scroll)
-            Rule()
-            footer
+                .overlay(alignment: .bottom) { ZoomToolbar(state: state, zoomIn: zoomIn, zoomOut: zoomOut, reset: reset, actual: actual).padding(.bottom, 16) }
         }
         .glassEffect(.regular.tint(DocumentPalette.accent.opacity(0.06)), in: shape)
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), DocumentPalette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
         .clipShape(shape)
     }
 
+    /// 見出し：題名・大きさ・右に、画像のコピーと閉じる（会話・スクリーンショットの窓と、同じ並び）。
     private var header: some View {
         HStack(spacing: 10) {
             ZStack {
@@ -364,39 +367,50 @@ private struct ZoomView: View {
                 Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
             }
             Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-            Spacer(minLength: 8)
-            Text("ピンチ・ダブルクリック・ドラッグ").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
+            Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
-            Button(action: close) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 20)).foregroundStyle(.white.opacity(0.45))
-            }.buttonStyle(.plain).accessibilityLabel("閉じる")
-        }
-        .padding(.horizontal, 18).padding(.vertical, 13)
-        .background(DragArea())
-    }
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            RoundStepButton(symbol: "minus", help: "縮小（−）", enabled: state.canZoomOut, action: zoomOut)
-            Text(ZoomMath.percent(state.magnification))
-                .font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.92))
-                .frame(minWidth: 46)
-            RoundStepButton(symbol: "plus", help: "拡大（＋）", enabled: state.canZoomIn, action: zoomIn)
-            PillButton(title: "元に戻す  0", symbol: "arrow.counterclockwise", flashed: false, action: reset)
-                .disabled(state.isFitted).opacity(state.isFitted ? 0.4 : 1).help("全体が見える大きさ・中央へ")
-            PillButton(title: "等倍  1", symbol: "1.magnifyingglass", flashed: false, action: actual)
-                .disabled(state.isActual).opacity(state.isActual ? 0.4 : 1).help("100%（元の大きさ）")
             Spacer(minLength: 8)
-            PrimaryPill(title: "画像をコピー", symbol: "photo.on.rectangle", key: "⌘C", flashed: state.copied, action: copy)
-            PillButton(title: "閉じる  esc", symbol: "xmark", flashed: false, cancel: true, action: close)
+            HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied, action: copy)
+            HeaderIconButton(symbol: "xmark", help: "閉じる（Esc）", action: close)
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        .padding(.horizontal, 18).padding(.vertical, 12)
         .background(DragArea())
     }
 }
 
-/// 丸い小さなボタン（＋・−）。
-private struct RoundStepButton: View {
+/// 画像の上に浮かぶ、倍率の操作盤：「−」・倍率（押すと 100%）・「＋」・「元に戻す」。文字は倍率だけ（あとは、アイコン。説明は、`help`）。
+private struct ZoomToolbar: View {
+    @ObservedObject var state: ZoomState
+    let zoomIn: () -> Void
+    let zoomOut: () -> Void
+    let reset: () -> Void
+    let actual: () -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ToolbarIcon(symbol: "minus", help: "縮小（−）", enabled: state.canZoomOut, action: zoomOut)
+            Button(action: actual) {
+                Text(ZoomMath.percent(state.magnification))
+                    .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(state.isActual ? DocumentPalette.accent : .white.opacity(0.92))
+                    .frame(minWidth: 52, minHeight: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).disabled(state.isActual).help("100%（等倍。1）").accessibilityLabel("等倍")
+            ToolbarIcon(symbol: "plus", help: "拡大（＋）", enabled: state.canZoomIn, action: zoomIn)
+            Rectangle().fill(.white.opacity(0.18)).frame(width: 0.7, height: 16).padding(.horizontal, 4)
+            ToolbarIcon(symbol: "arrow.counterclockwise", help: "元に戻す：全体が見える大きさ・中央（0）", enabled: !state.isFitted, action: reset)
+        }
+        .padding(4)
+        .background(Capsule().fill(.black.opacity(0.42)))
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.16), lineWidth: 0.7))
+        .shadow(color: .black.opacity(0.32), radius: 12, y: 4)
+    }
+}
+
+/// 操作盤の、丸いアイコン（ふだんは、面なし。触れると、明るい）。
+private struct ToolbarIcon: View {
     let symbol: String
     let help: String
     let enabled: Bool
@@ -406,15 +420,14 @@ private struct RoundStepButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.92))
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(.white.opacity(hover.on && enabled ? 0.22 : 0.12)))
-                .overlay(Circle().strokeBorder(.white.opacity(hover.on && enabled ? 0.28 : 0.16), lineWidth: 0.7))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(.white.opacity(hover.on && enabled ? 0.20 : 0)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .disabled(!enabled).opacity(enabled ? 1 : 0.4)
+        .disabled(!enabled).opacity(enabled ? 1 : 0.35)
         .onHover { hover.on = $0 }
-        .help(help)
+        .help(help).accessibilityLabel(help)
     }
 }
 

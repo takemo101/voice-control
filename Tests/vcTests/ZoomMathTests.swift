@@ -10,6 +10,8 @@ import Testing
         #expect(ZoomMath.fit(image: CGSize(width: 100, height: 80), viewport: CGSize(width: 900, height: 600)) == 1)                   // 拡大しない
         #expect(ZoomMath.fit(image: CGSize(width: 0, height: 0), viewport: CGSize(width: 900, height: 600)) == 1)                      // 壊れた画像
         #expect(ZoomMath.fit(image: CGSize(width: 1000, height: 1000), viewport: CGSize(width: 10, height: 10)) == 0.01)               // 領域がない：下限
+        #expect(ZoomMath.fit(image: CGSize(width: 400, height: 400), viewport: CGSize(width: 900, height: 500), margin: 20, verticalMargin: 50) == 1)     // 上下の余白は、別（500 − 100 = 400 に、ちょうど入る）
+        #expect(ZoomMath.fit(image: CGSize(width: 400, height: 800), viewport: CGSize(width: 900, height: 500), margin: 20, verticalMargin: 50) == 0.5)
     }
 
     @Test func stepsMoveToTheNextRungAndStopAtTheLimits() {

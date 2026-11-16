@@ -108,12 +108,7 @@ struct ChatView: View {
             Button(role: .destructive, action: reset) { Label("新しい会話を始める（いまの記録を消す）", systemImage: "arrow.counterclockwise") }
                 .disabled(state.entries.isEmpty)
         } label: {
-            Image(systemName: state.copied ? "checkmark" : "ellipsis")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(state.copied ? ChatPalette.accent : .white.opacity(0.85))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(.white.opacity(0.10)))
-                .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
+            HeaderCircle(symbol: "ellipsis", flashed: state.copied)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help(state.copied ? "コピーしました" : "会話全体のコピー・新しい会話")
@@ -140,29 +135,6 @@ private struct AttachButton: View {
         .buttonStyle(.plain).disabled(capturing).onHover { hover.on = $0 }
         .help(attached ? "画面を撮り直して、質問に添える" : "画面を撮って、質問に添える")
         .accessibilityLabel("画面を撮る")
-    }
-}
-
-/// ヘッダーの、小さな丸いボタン（閉じる）。
-private struct HeaderIconButton: View {
-    let symbol: String
-    let help: String
-    var cancel = false
-    let action: () -> Void
-    @StateObject private var hover = HoverState()
-
-    var body: some View {
-        let button = Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.85))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(.white.opacity(hover.on ? 0.22 : 0.10)))
-                .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain).help(help).accessibilityLabel(help)
-        .onHover { hover.on = $0 }
-        // Esc：キー操作（`.cancelAction`）。最初の応答者が、どこでも、効く
-        if cancel { button.keyboardShortcut(.cancelAction) } else { button }
     }
 }
 

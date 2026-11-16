@@ -25,6 +25,8 @@ struct ImageCardView: View {
     let transcribe: () -> Void
     let copyText: () -> Void
     let close: () -> Void
+    /// ガラスの代わりに、不透明な面（`vc preview --render`：画面の外では、ガラスが描かれない）。
+    var solid = false
     @StateObject private var stageHover = HoverState()
 
     private var display: CGSize { ImageWindow.displaySize(for: size) }
@@ -45,16 +47,15 @@ struct ImageCardView: View {
                 Rule()
                 transcriptPane
             }
-            Rule()
-            footer
         }
         .frame(width: cardWidth)
-        .glassEffect(.regular.tint(DocumentPalette.accent.opacity(0.06)), in: shape)
+        .background { if solid { shape.fill(Color(white: 0.17)) } }
+        .glassEffect(solid ? .identity : .regular.tint(DocumentPalette.accent.opacity(0.06)), in: shape)
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), DocumentPalette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
         .clipShape(shape)
     }
 
-    // MARK: 見出し：題名・大きさ・右に、パスのコピー／Finder／閉じる
+    // MARK: 見出し：題名・大きさ・右に、画像のコピー／文字起こし／「…」（パスのコピー・Finder）／閉じる（会話・拡大の窓と、同じ並び）
 
     private var header: some View {
         HStack(spacing: 10) {
@@ -66,14 +67,26 @@ struct ImageCardView: View {
             Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Spacer(minLength: 8)
-            IconButton(symbol: "link", label: "パスをコピー（まだなら、~/Pictures/voice-control に保存）", flashed: state.copied == .path, action: copyPath)
-            IconButton(symbol: "folder", label: "Finder で表示（まだなら、~/Pictures/voice-control に保存）", flashed: false, action: reveal)
-            Button(action: close) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 21)).foregroundStyle(.white.opacity(0.45))
-            }.buttonStyle(.plain).help("閉じる（Esc）").accessibilityLabel("閉じる")
+            HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied == .image, action: copyImage)
+            HeaderIconButton(symbol: "text.viewfinder", help: state.paneOpen ? "文字起こしを隠す" : "文字起こし（画像の中の文字を読み取る）", active: state.paneOpen, action: transcribe)
+            moreMenu
+            HeaderIconButton(symbol: "xmark", help: "閉じる（Esc）", cancel: true, action: close)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
         .background(DragArea())
+    }
+
+    /// 「…」：たまにしか使わない操作（パスのコピー・Finder で表示。まだなら、`~/Pictures/voice-control` に保存する）。
+    private var moreMenu: some View {
+        Menu {
+            Button(action: copyPath) { Label("パスをコピー", systemImage: "link") }
+            Button(action: reveal) { Label("Finder で表示", systemImage: "folder") }
+        } label: {
+            HeaderCircle(symbol: "ellipsis", flashed: state.copied == .path)
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help("パスのコピー・Finder で表示（まだなら、~/Pictures/voice-control に保存）")
+        .accessibilityLabel("そのほかの操作")
     }
 
     // MARK: 画像（透明な所は、市松模様。ドラッグして、ほかのアプリへ）
@@ -110,7 +123,7 @@ struct ImageCardView: View {
             } else if let path = state.savedPath ?? savedPath {
                 Chip(text: (path as NSString).abbreviatingWithTildeInPath, dot: Tone.green, truncates: true)
             } else {
-                Chip(text: "未保存（右上の リンク／フォルダ で保存）", dot: Tone.amber, truncates: true)
+                Chip(text: "未保存（「…」から保存）", dot: Tone.amber, truncates: true)
             }
             Spacer(minLength: 0)
         }
@@ -166,73 +179,8 @@ struct ImageCardView: View {
         .padding(.horizontal, 20).padding(.vertical, 14)
         .frame(height: 236)
     }
-
-    // MARK: 下の行：よく使う 2 つ（画像のコピー・文字起こし）と、閉じる
-
-    private var footer: some View {
-        HStack(spacing: 10) {
-            PrimaryPill(title: "画像をコピー", symbol: "photo.on.rectangle", key: "⌘C", flashed: state.copied == .image, action: copyImage)
-            PillButton(title: state.paneOpen ? "文字を隠す" : "文字起こし", symbol: "text.viewfinder", flashed: false, action: transcribe)
-            Spacer(minLength: 8)
-            PillButton(title: "閉じる  esc", symbol: "xmark", flashed: false, cancel: true, action: close)
-        }
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .background(DragArea())
-    }
 }
 
-/// 主な操作のボタン（水色の面。キーの印つき）。
-struct PrimaryPill: View {   // 拡大の窓（`ImageZoomWindow`）も使う
-    let title: String
-    let symbol: String
-    let key: String
-    let flashed: Bool
-    let action: () -> Void
-    @StateObject private var hover = HoverState()
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Image(systemName: flashed ? "checkmark" : symbol).font(.system(size: 12, weight: .semibold))
-                Text(flashed ? "コピーしました" : title).font(.system(size: 13, weight: .semibold))
-                if !flashed { Text(key).font(.system(size: 10.5, weight: .bold, design: .rounded)).opacity(0.62) }
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 15).padding(.vertical, 8)
-            .background(Capsule().fill(DocumentPalette.accent.opacity(hover.on ? 0.42 : 0.30)))
-            .overlay(Capsule().strokeBorder(DocumentPalette.accent.opacity(hover.on ? 0.75 : 0.5), lineWidth: 0.8))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .onHover { hover.on = $0 }
-    }
-}
-
-/// 丸いアイコンのボタン（押したあと、少しの間、チェック）。
-private struct IconButton: View {
-    let symbol: String
-    let label: String
-    let flashed: Bool
-    let action: () -> Void
-    @StateObject private var hover = HoverState()
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: flashed ? "checkmark" : symbol).font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(flashed ? DocumentPalette.accent : .white.opacity(0.9))
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(.white.opacity(hover.on ? 0.22 : 0.12)))
-                .overlay(Circle().strokeBorder(.white.opacity(hover.on ? 0.28 : 0.16), lineWidth: 0.7))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(label)
-        .onHover { hover.on = $0 }
-        .accessibilityLabel(label)
-    }
-}
-
-/// 小さな札（点つきで、状態を示せる）。
 private struct Chip: View {
     let text: String
     let dot: Color?

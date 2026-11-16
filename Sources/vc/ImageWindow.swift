@@ -17,7 +17,7 @@ import VCSkill
     private let expiresAt: Date?
     private let state = ImageState()
 
-    private init(png: Data, image: NSImage, pixelSize: CGSize, savedURL: URL?, title: String, expiresAt: Date?) {
+    private init(png: Data, image: NSImage, pixelSize: CGSize, savedURL: URL?, title: String, expiresAt: Date?, solid: Bool = false) {
         self.expiresAt = expiresAt
         self.png = png
         self.image = image
@@ -43,7 +43,7 @@ import VCSkill
             reveal: { [unowned self] in reveal() },
             transcribe: { [unowned self] in toggleTranscript() },
             copyText: { [unowned self] in copyTranscript() },
-            close: { [unowned self] in window.close() })
+            close: { [unowned self] in window.close() }, solid: solid)
         let hosting = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
         window.contentView = hosting
         window.setContentSize(hosting.fittingSize)   // 中身（画像の大きさ）に、合わせる
@@ -57,6 +57,20 @@ import VCSkill
     static func displaySize(for pixels: CGSize) -> CGSize {
         let scale = min(1, 520 / max(pixels.width, 1), 340 / max(pixels.height, 1))
         return CGSize(width: max(200, (pixels.width * scale).rounded()), height: max(60, (pixels.height * scale).rounded()))
+    }
+
+    /// 見た目の確認用：**画面に出さず**（画面の外に置いて）、カードを、画像（PNG）に書き出す（`vc preview --render`。画面は撮らない：ほかのアプリのウィンドウが、写らない）。
+    static func render(png: Data, savedURL: URL?, title: String, expiresAt: Date?, to file: URL) throws {
+        _ = NSApplication.shared
+        guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail("画像を読めません") }
+        let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title, expiresAt: expiresAt, solid: true)
+        controller.window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
+        controller.window.orderFront(nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        guard let view = controller.window.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { fail("描けません") }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let data = bitmap.representation(using: .png, properties: [:]) else { fail("PNG にできません") }
+        try data.write(to: file)
     }
 
     /// 表示して、閉じられるまで、イベントのループを回す（終わらない：閉じると、プロセスを終える）。
