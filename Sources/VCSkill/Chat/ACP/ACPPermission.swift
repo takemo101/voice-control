@@ -8,6 +8,8 @@ enum ACPPermission {
         /// 利用者に、確認する（「すべて」のときだけ）。
         case ask
         case reject
+        /// 取り返しのつかないコマンド：段階・確認に関係なく、断る（パネルも出さない）。
+        case block
     }
 
     /// Web に出る道具の名前（`opencode`：`websearch`・`webfetch`・`codesearch`）。`kind` だけでは、**調べる道具の、ローカル（grep）と Web（検索）が、区別できない**（opencode は、grep が `search`・Web 検索が `other`）。
@@ -17,7 +19,12 @@ enum ACPPermission {
 
     /// `kind`：ACP のツールの種類（read・search・fetch・think・edit・delete・move・execute・switch_mode・other）。`name`：ツールの名前（あれば。エージェントが決める）。
     /// 名前は、**読む・調べるものを、開けるためだけ**に使う（書き込み・コマンドの種類の操作は、名前が何でも、確認か断る）。
-    static func decide(kind: String, name: String? = nil, level: ChatToolLevel) -> Decision {
+    /// `command`：実行するコマンド（あれば）・`folder`：作業フォルダ。コマンドは、**取り返しのつかないものを断り**、作業フォルダの中を見るだけのものを、確認なしで許す（`ACPCommandPolicy`）。
+    static func decide(kind: String, name: String? = nil, command: String? = nil, folder: URL? = nil, level: ChatToolLevel) -> Decision {
+        if kind == "execute", let command {
+            if ACPCommandPolicy.isCatastrophic(command) { return .block }
+            if level.usesFolder, let folder, ACPCommandPolicy.isHarmlessInFolder(command, folder: folder) { return .allow }
+        }
         if let name = name?.lowercased(), !["edit", "delete", "move", "execute", "switch_mode"].contains(kind) {
             if webTools.contains(name) { return level.searchesWeb ? .allow : .reject }
             if folderReadTools.contains(name) { return level.usesFolder ? .allow : .reject }
@@ -81,13 +88,18 @@ enum ACPPermission {
         }
     }
 
-    /// 実行するコマンド（入力の中の、コマンドらしい文字列）。
-    static func command(in toolCall: JSONValue) -> String? {
+    /// 実行するコマンドの、そのままの文字（入力の中の、コマンドらしい文字列）。判断に使う（切らない）。
+    static func rawCommand(in toolCall: JSONValue) -> String? {
         let input = toolCall["rawInput"]
         for key in ["CommandLine", "commandLine", "command", "Command", "cmd"] {
-            if let text = input?[key]?.string, !text.isEmpty { return visible(text.count > 600 ? String(text.prefix(600)) + "…（残り \(text.count - 600) 文字）" : text) }
+            if let text = input?[key]?.string, !text.isEmpty { return text }
         }
         return nil
+    }
+
+    /// 確認の文に出す、コマンド（見えない文字を見える形に・長いものは、切る）。
+    static func command(in toolCall: JSONValue) -> String? {
+        rawCommand(in: toolCall).map { text in visible(text.count > 600 ? String(text.prefix(600)) + "…（残り \(text.count - 600) 文字）" : text) }
     }
 
     /// 確認の文に出す、エージェントの文字：**見えない文字・向きを変える文字・制御文字を、見える形（`⟨U+202E⟩`）にする**（仕様の安全の指針：コマンド・場所に、紛れ込ませて、読み違えさせる手を、防ぐ）。改行・タブは、空白。

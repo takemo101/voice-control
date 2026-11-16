@@ -158,7 +158,7 @@ enum MarkdownRenderer {
 
     static func pieces(_ markdown: String) -> [Piece] {
         let options = AttributedString.MarkdownParsingOptions(allowsExtendedAttributes: false, interpretedSyntax: .full, failurePolicy: .returnPartiallyParsedIfPossible)
-        guard let parsed = try? AttributedString(markdown: namingEmptyImages(resolvingFootnotes(markdown)), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
+        guard let parsed = try? AttributedString(markdown: namingEmptyImages(resolvingFootnotes(MarkdownPreprocess.apply(markdown))), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
         var pieces: [Piece] = []
         var softBreaks: [Int] = []   // 前後に応じて、つなぎ方を決める改行（下）
         var htmlStyles: InlinePresentationIntent = []   // `<b>`…`</b>` などの、書式の HTML（段落の中だけ）

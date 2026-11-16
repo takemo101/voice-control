@@ -18,6 +18,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     private let idleLimit: TimeInterval
     private let retryAfter: TimeInterval
     private let promptTimeout: TimeInterval
+    private let sandbox: Bool
 
     private let lock = NSLock()
     private var connection: ACPConnection?
@@ -32,7 +33,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     /// 大きすぎる画像は、ACP では送らない（従来の方式へ）。
     static let maxImageBytes = 6_000_000
 
-    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, fallback: ExternalChatBackend? = nil,
+    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, fallback: ExternalChatBackend? = nil,
                 launch: @escaping @Sendable (ChatAgent, ChatToolLevel) -> [String] = ACPChatBackend.liveLaunch,
                 now: @escaping @Sendable () -> Date = { Date() }, idleLimit: TimeInterval = 360, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 110) {
         precondition(agent.speaksACP, "ACP に対応したエージェントだけ")
@@ -40,7 +41,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         self.tools = agent.effective(tools)
         self.folder = folder ?? ExternalChatBackend.defaultFolder
         self.fallback = fallback ?? ExternalChatBackend(agent: agent, tools: tools, folder: folder)
-        self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
+        self.sandbox = sandbox; self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
     }
 
     deinit { teardown() }
@@ -105,7 +106,9 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         var link = existing.0
         if link?.isAlive != true {
             link?.close()
-            let fresh = ACPConnection(argv: launch(agent, tools), directory: workingDirectory(), environment: ["PATH": AgentLocator.childPATH()].merging(Self.liveEnvironment(agent: agent)) { _, new in new })
+            var argv = launch(agent, tools)
+            if sandbox, ACPSandbox.applies(to: agent) { argv = ACPSandbox.wrap(argv, agent: agent, level: tools, folder: folder) }   // OS の制限つきで起動（書き込みは、作業フォルダ・エージェントの置き場だけ）
+            let fresh = ACPConnection(argv: argv, directory: workingDirectory(), environment: ["PATH": AgentLocator.childPATH()].merging(Self.liveEnvironment(agent: agent)) { _, new in new })
             try fresh.start()
             do {
                 // こちらが持つ機能は、宣言しない（ファイル・端末は、エージェントが、自分で行う：許可の確認だけ、こちらが受ける）
@@ -209,6 +212,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         if response["stopReason"]?.string == "refusal" { throw ConversationError.failed("\(agent.rawValue) が、答えを断りました") }
         let answer = turn.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // 断った操作があって、答えが空：エージェントは、何も言わずに終わることがある（実測）。失敗ではなく、断ったことを、答えにする
+        if answer.isEmpty, turn.blockedCommands > 0 { return "取り返しのつかない操作（大量の削除・権限の昇格など）なので、コマンドは、実行しませんでした。" }
         if answer.isEmpty, turn.refusals > 0 { return "確認で断った（か、段階で許されていない）ので、操作は、実行しませんでした。" }
         if answer.isEmpty { throw ConversationError.failed("\(agent.rawValue) の答えが、空でした") }
         return answer
@@ -254,6 +258,7 @@ private final class TurnState: @unchecked Sendable {
     private var collected = ""
     private var seen = Set<String>()
     private var refused = 0
+    private var blocked = 0
     private var lastProgress = Date()
     private var confirming = 0
     private var confirmTask: Task<Bool, Never>?
@@ -278,6 +283,8 @@ private final class TurnState: @unchecked Sendable {
     private func confirmEnded() { lock.lock(); confirming -= 1; lastProgress = Date(); lock.unlock() }
     /// 断った操作の数（確認で断った・段階で許されていない）。
     var refusals: Int { lock.lock(); defer { lock.unlock() }; return refused }
+    /// 取り返しのつかないコマンドとして、断った数。
+    var blockedCommands: Int { lock.lock(); defer { lock.unlock() }; return blocked }
     private func refuse() { lock.lock(); refused += 1; lock.unlock() }
 
     func handleNotification(_ method: String, _ params: JSONValue) {
@@ -300,8 +307,9 @@ private final class TurnState: @unchecked Sendable {
         let toolCall = params["toolCall"] ?? .null
         let kind = toolCall["kind"]?.string ?? "other"
         let options = params["options"]?.array ?? []
-        switch ACPPermission.decide(kind: kind, name: toolCall["name"]?.string, level: tools) {
+        switch ACPPermission.decide(kind: kind, name: toolCall["name"]?.string, command: ACPPermission.rawCommand(in: toolCall), folder: folder, level: tools) {
         case .allow: return ACPPermission.outcome(allow: true, options: options)
+        case .block: refuse(); lock.withLock { blocked += 1 }; return ACPPermission.outcome(allow: false, options: options)
         case .reject: refuse(); return ACPPermission.outcome(allow: false, options: options)
         case .ask:
             guard let confirm else { refuse(); return ACPPermission.outcome(allow: false, options: options) }   // 確認できない：しない

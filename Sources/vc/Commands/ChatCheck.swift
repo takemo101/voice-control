@@ -10,8 +10,8 @@ import VCSpeech
 struct ChatCheckCommand: Command {
     static let info = CommandInfo(
         name: "chat-check", group: .evaluation, summary: "会話の確認パネルの経路を、実際のエージェントで試す（自作のフォルダ・自作の質問。画面にパネルとウィンドウが出る）",
-        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,blocked,read,web,long,swap] [--folder <フォルダ>]"],
-        details: ["道具は、既定で「すべて」。シナリオ：yes＝パネルで許可・no＝パネルで断る・esc＝確認を待つ間に取りやめ（Esc）・hidden＝会話のウィンドウを閉じてから許可・run＝コマンド（ls）の実行を、パネルで許可・blocked＝書き込みを頼む（パネルが出ず、断られる：道具が「すべて」でないとき）・read＝フォルダのファイルを読ませる・web＝Web 検索をさせる・long＝長い会話（11 問。合言葉を覚えているか・1 問ごとの時間・子プロセスの数）・swap＝会話の途中で設定（道具の段階）を変えて、古い子プロセスが止まるか。シナリオごとに、作ったファイルの有無を出す。同じエージェントの接続で、続けて試す。"],
+        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>]"],
+        details: ["道具は、既定で「すべて」。シナリオ：yes＝パネルで許可・no＝パネルで断る・esc＝確認を待つ間に取りやめ（Esc）・hidden＝会話のウィンドウを閉じてから許可・run＝コマンド（echo）の実行を、パネルで許可・ls＝ls（見るだけ：パネルが出ず、通るはず）・blocked＝書き込みを頼む（パネルが出ず、断られる：道具が「すべて」でないとき）・outside＝作業フォルダの外（/tmp）への書き込みを頼み、パネルで許可する（OS の制限〔サンドボックス〕で、書けないはず）・read＝フォルダのファイルを読ませる・web＝Web 検索をさせる・long＝長い会話（11 問。合言葉を覚えているか・1 問ごとの時間・子プロセスの数）・swap＝会話の途中で設定（道具の段階）を変えて、古い子プロセスが止まるか。シナリオごとに、作ったファイルの有無を出す。同じエージェントの接続で、続けて試す。"],
         options: [("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
         examples: ["vc chat-check", "vc chat-check --scenario yes"])
 
@@ -70,12 +70,14 @@ struct ChatCheckCommand: Command {
                     print("  次の質問のあと：子プロセス \(children())（1 のはず）")
                     continue
                 }
-                let file = folder.appendingPathComponent("check-\(name).txt")
+                let file = name == "outside" ? URL(fileURLWithPath: "/tmp/vc-chat-check-outside.txt") : folder.appendingPathComponent("check-\(name).txt")
                 try? FileManager.default.removeItem(at: file)
                 try? "hello world\nfoo bar\n".write(to: folder.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)   // 読ませるファイル
                 let question: String
                 switch name {
-                case "run": question = "ls コマンドで、この作業フォルダの一覧を取って、結果を教えて"
+                case "run": question = "echo hello をシェルで実行して、結果を教えて"
+                case "ls": question = "ls コマンドで、この作業フォルダの一覧を取って、結果を教えて"
+                case "outside": question = "/tmp/vc-chat-check-outside.txt というファイルを作って、中身は hi にして"
                 case "read": question = "a.txt の中身を読んで、foo を含む行を教えて"
                 case "web": question = "Web で『Swift 6.2 リリース』を検索して、1 行で教えて"
                 default: question = "check-\(name).txt というファイルを作って、中身は hi にして"
@@ -87,7 +89,7 @@ struct ChatCheckCommand: Command {
                     await ChatVoice.handle(question, token: token, context: context, chip: "確認", speakResults: false, confirmation: confirmation, next: waitForever, cancelHook: nil)
                 }
                 // 確認のパネルが出る（答えを待つ）まで、待つ。blocked・read・web は、パネルが出ないはず：終わるまで、パネルが出ないことを見る
-                let noPanel: Set<String> = ["blocked", "read", "web"]
+                let noPanel: Set<String> = ["blocked", "read", "web", "ls"]
                 var waited = 0.0
                 var panelSeen = false
                 while !task.isCancelled, waited < 120 {
@@ -106,7 +108,7 @@ struct ChatCheckCommand: Command {
                 print("PANEL 確認のパネルが出た（\(String(format: "%.1f", Date().timeIntervalSince(started))) 秒）")
                 try? await Task.sleep(for: .milliseconds(2500))   // 画面を撮れるように、少し見せる
                 switch name {
-                case "yes", "run": HUD.shared.answers.deliver(true); print("→ パネルで、許可")
+                case "yes", "run", "outside": HUD.shared.answers.deliver(true); print("→ パネルで、許可")
                 case "no": HUD.shared.answers.deliver(false); print("→ パネルで、断る")
                 case "esc": token.cancel(); task.cancel(); print("→ 確認を待つ間に、取りやめ（Esc）")
                 case "hidden":
