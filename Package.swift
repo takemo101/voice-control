@@ -10,6 +10,10 @@ let native = "\(Context.packageDirectory)/build/native"
 let package = Package(
     name: "voice-control",
     platforms: [.macOS("26.0")],
+    dependencies: [
+        // Mermaid の図を描く（Swift の実装。WebView・JavaScript なし。MIT）。配置エンジン elk-swift（EPL-2.0）も、これが引き込む。`vc` だけが依存する。版は、ここと Package.resolved で固定（docs/architecture.md・THIRD_PARTY_NOTICES.md）。
+        .package(url: "https://github.com/lukilabs/beautiful-mermaid-swift", exact: "1.0.4"),
+    ],
     targets: [
         // 設定・置き場所・取りやめの合図・外部コマンドの実行・モデルの取得（ModelStore）。どのターゲットも使ってよい。
         .target(name: "VCCore", path: "Sources/VCCore"),
@@ -29,7 +33,7 @@ let package = Package(
         // スキル（SKILL.md の読み込み・ルーティング・コマンドの実行）。
         .target(name: "VCSkill", dependencies: ["VCCore", "VCDecision"], path: "Sources/VCSkill"),
         // 試す用の CLI（アプリではない）。
-        .executableTarget(name: "vc", dependencies: ["VCCore", "VCDecision", "VCSpeech", "VCSkill"], path: "Sources/vc"),
+        .executableTarget(name: "vc", dependencies: ["VCCore", "VCDecision", "VCSpeech", "VCSkill", .product(name: "BeautifulMermaid", package: "beautiful-mermaid-swift")], path: "Sources/vc"),
         // 検証用の自作ウィンドウ（ボタン・入力欄・スクロール領域・状態を持つ部品）。
         .executableTarget(name: "Fixture", path: "Sources/Fixture"),
         // テストだけが使う偽物（`OptionScorer` など）。公開 API だけで作る。テストターゲットだけが依存し、本番のターゲット・成果物（`vc`）には入らない。

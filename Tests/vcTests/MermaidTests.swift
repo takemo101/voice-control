@@ -3,94 +3,68 @@ import Foundation
 import Testing
 @testable import vc
 
-/// Mermaid の図：解析（対応する種類・対応しないものは nil）・配置（重ならない・向き・循環・複数の線）・画像にできること。
-@Suite struct MermaidTests {
-    private func flow(_ source: String) -> FlowGraph? {
-        if case .flow(let graph)? = MermaidDiagram.parse(source) { return graph }
-        return nil
-    }
-    private let measure: (String) -> CGSize = { text in CGSize(width: CGFloat(text.count) * 8, height: CGFloat(text.components(separatedBy: "\n").count) * 16) }
-
-    @Test func flowchartNodesShapesLabelsAndChainsAreParsed() throws {
-        let graph = try #require(flow("""
-        graph LR
-            A[開始] --> B{条件?}
-            B -->|はい| C([終了])
-            B -- いいえ --> D((円))
-            C & D --> E
-            E -.-> A
-            A ==> E
-            F --x G
-        """))
-        #expect(graph.direction == .leftRight)
-        func shape(_ id: String) -> FlowGraph.Shape? { graph.nodes.first { $0.id == id }?.shape }
-        #expect(shape("A") == .rect && shape("B") == .diamond && shape("C") == .stadium && shape("D") == .circle)
-        #expect(graph.nodes.first { $0.id == "B" }?.label == "条件?")
-        func edge(_ from: String, _ to: String) -> FlowGraph.Edge? { graph.edges.first { $0.from == from && $0.to == to } }
-        #expect(edge("B", "C")?.label == "はい" && edge("B", "D")?.label == "いいえ")
-        #expect(edge("C", "E") != nil && edge("D", "E") != nil)                         // A & B --> C
-        #expect(edge("E", "A")?.line == .dotted && edge("A", "E")?.line == .thick)
-        #expect(edge("F", "G")?.head == .cross)
+/// Mermaid の図：描ける種類は、画像になる（上下が正しい・幅の上限）・描けないものは、nil（コードのまま）・円グラフ（自前）・Markdown の中で、画像になる。
+@MainActor @Suite struct MermaidTests {
+    private func cgImage(_ image: NSImage) -> CGImage? {
+        var rect = CGRect(origin: .zero, size: image.size)
+        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
     }
 
-    @Test func stateAndSequenceAndPieAreParsedAndUnknownKindsAreNotDrawn() throws {
-        let state = try #require(flow("stateDiagram-v2\n [*] --> 待機\n 待機 --> 処理中: 開始\n 処理中 --> [*]"))
-        #expect(state.nodes.contains { $0.shape == .startDot } && state.nodes.contains { $0.shape == .endDot } && state.edges.count == 3)
-        guard case .sequence(let sequence)? = MermaidDiagram.parse("sequenceDiagram\n participant U as ユーザー\n U->>S: 要求\n S-->>U: 応答\n loop 毎分\n U->>S: ping\n end\n Note over U,S: 完了") else { Issue.record("シーケンス図"); return }
-        #expect(sequence.participants.map(\.label) == ["ユーザー", "S"] && sequence.items.count == 6)
-        guard case .pie(let pie)? = MermaidDiagram.parse("pie title 割合\n \"A\" : 60\n \"B\" : 40") else { Issue.record("円グラフ"); return }
-        #expect(pie.title == "割合" && pie.slices.map(\.value) == [60, 40])
-        for unsupported in ["gantt\n title x", "classDiagram\n A <|-- B", "erDiagram\n A ||--o{ B : has", "journey\n title x", "mindmap\n root", "", "graph TD\n", "stateDiagram-v2\n state X {\n A --> B\n }", "sequenceDiagram\n loop x\n A->>B: y", "pie\n \"A\" : x"] {
-            #expect(MermaidDiagram.parse(unsupported) == nil, "描かない：\(unsupported)")
+    /// 上半分・下半分の、描かれた（透明でない）画素の数。
+    private func ink(_ image: NSImage) -> (top: Int, bottom: Int)? {
+        guard let cg = cgImage(image) else { return nil }
+        let width = cg.width, height = cg.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var top = 0, bottom = 0
+        for y in 0..<height { for x in 0..<width where pixels[(y * width + x) * 4 + 3] > 32 { if y < height / 2 { top += 1 } else { bottom += 1 } } }
+        return (top: top, bottom: bottom)   // 行 0 が、画像の上
+    }
+
+    @Test func supportedDiagramKindsBecomeImages() {
+        let sources = [
+            "graph TD\n A[開始] --> B{条件?}\n B -->|はい| C[処理]\n B -->|いいえ| D(処理 2)\n C --> E([終了])\n D --> E",
+            "stateDiagram-v2\n [*] --> 待機\n 待機 --> 処理中: 開始\n 処理中 --> [*]",
+            "sequenceDiagram\n participant U as ユーザー\n U->>S: 要求\n S-->>U: 応答\n Note over U,S: 完了",
+            "classDiagram\n Animal <|-- Dog\n Animal : +String name\n Dog : +bark()",
+            "erDiagram\n USER ||--o{ ORDER : places",
+            "pie title 割合\n \"A\" : 60\n \"B\" : 40",
+        ]
+        for source in sources { #expect(MermaidImage.image(for: source) != nil, "描けるはず：\(source.prefix(30))") }
+    }
+
+    @Test func theImageIsTheRightWayUp() throws {
+        // 上に、横に広い四角・下に、小さな丸：上半分のほうが、描かれた画素が多いはず（上下が逆なら、反対になる）
+        let image = try #require(MermaidImage.image(for: "graph TD\n A[とても長い文字列を入れて、横に広い四角にするための、見本の文章です] --> B((x))"))
+        let counts = try #require(ink(image))
+        #expect(counts.top > counts.bottom, "上 \(counts.top)・下 \(counts.bottom)")
+    }
+
+    @Test func unsupportedBrokenOrHugeDiagramsAreNotDrawn() {
+        for source in ["gantt\n title x\n section A\n t1 :a1, 2024-01-01, 3d", "journey\n title x", "mindmap\n root", "これは Mermaid ではない", "", "pie\n \"A\" : x", "pie\n"] {
+            #expect(MermaidImage.image(for: source) == nil, "描かない：\(source.prefix(20))")
         }
+        #expect(MermaidImage.image(for: String(repeating: "a", count: MermaidImage.maxSource + 1)) == nil)
+        let tall = "graph TD\n" + (0..<150).map { "N\($0) --> N\($0 + 1)" }.joined(separator: "\n")
+        #expect(MermaidImage.image(for: tall) == nil)                                            // 縦に長すぎて、縮めると読めない
     }
 
-    @Test func nodesNeverOverlapAndFlowFollowsTheDirection() throws {
-        let source = "graph TD\n A --> B\n A --> C\n B --> D\n C --> D\n D --> E\n A --> E"
-        let graph = try #require(flow(source))
-        let layout = FlowLayout.make(graph, measure: measure)
-        for (i, a) in layout.nodes.enumerated() { for b in layout.nodes[(i + 1)...] { #expect(!a.frame.intersects(b.frame), "\(a.node.id) と \(b.node.id) が重なる") } }
-        func y(_ id: String) -> CGFloat { layout.nodes.first { $0.node.id == id }!.frame.midY }
-        #expect(y("A") < y("B") && y("B") < y("D") && y("D") < y("E"))                          // 上から下
-        let horizontal = FlowLayout.make(try #require(flow(source.replacingOccurrences(of: "TD", with: "LR"))), measure: measure)
-        func x(_ id: String) -> CGFloat { horizontal.nodes.first { $0.node.id == id }!.frame.midX }
-        #expect(x("A") < x("B") && x("B") < x("D"))                                              // 左から右
-        // 長い線（A → E）は、途中の点を通る
-        #expect((layout.edges.first { $0.edge.from == "A" && $0.edge.to == "E" }?.points.count ?? 0) > 2)
-    }
-
-    @Test func cyclesAndSelfLoopsAndOpposingEdgesAreLaidOutWithoutOverlap() throws {
-        let graph = try #require(flow("graph TD\n A --> B\n B --> A\n B --> B\n B --> C\n C --> A"))
-        let layout = FlowLayout.make(graph, measure: measure)
-        #expect(layout.nodes.count == 3 && layout.edges.count == 5)
-        func y(_ id: String) -> CGFloat { layout.nodes.first { $0.node.id == id }!.frame.midY }
-        #expect(y("A") < y("B") && y("B") < y("C"))
-        // A→B と B→A は、同じ直線にならない（ずらす）
-        let forward = layout.edges.first { $0.edge.from == "A" && $0.edge.to == "B" }!, back = layout.edges.first { $0.edge.from == "B" && $0.edge.to == "A" }!
-        #expect(abs(forward.points[0].x - back.points[0].x) > 8)
-        // すべての点が、図の中に入っている
-        for e in layout.edges { for p in e.points { #expect(p.x >= 0 && p.y >= 0 && p.x <= layout.size.width && p.y <= layout.size.height) } }
-    }
-
-    @Test func sequenceColumnsAreOrderedAndMessagesDescend() throws {
-        guard case .sequence(let sequence)? = MermaidDiagram.parse("sequenceDiagram\n A->>B: とても長いメッセージの文字列で、間隔を広げる\n B-->>A: 応答\n A->>A: 自分へ") else { Issue.record("シーケンス図"); return }
-        let layout = SequenceLayout.make(sequence, measure: measure)
-        #expect(layout.lifelineX[0] < layout.lifelineX[1])
-        #expect(layout.lifelineX[1] - layout.lifelineX[0] >= measure("とても長いメッセージの文字列で、間隔を広げる").width)
-        #expect(layout.messages.count == 3 && layout.messages[0].y < layout.messages[1].y && layout.messages[1].y < layout.messages[2].y)
-        #expect(layout.messages[2].isSelf && layout.size.height > layout.messages[2].y)
-    }
-
-    @MainActor @Test func drawableDiagramsBecomeImagesNoWiderThanTheLimitAndBadOnesDoNot() {
-        let wide = (1...14).map { "N\($0)[とても長いラベルのノード \($0)]" }.joined(separator: " --> ")
+    @Test func aWideDiagramIsShrunkToTheWidthLimit() {
+        let wide = (1...7).map { "N\($0)[ノード \($0)]" }.joined(separator: " --> ")
         let image = MermaidImage.image(for: "graph LR\n \(wide)")
-        #expect(image != nil && image!.size.width <= MermaidImage.maxWidth)                      // 横に長い図は、縮める
-        #expect(MermaidImage.image(for: "graph TD\n A --> B") != nil)
-        #expect(MermaidImage.image(for: "gantt\n title x") == nil)
-        #expect(MermaidImage.image(for: String(repeating: "a", count: MermaidImage.maxSource + 1)) == nil)   // 大きすぎる
+        #expect(image != nil && image!.size.width <= MermaidImage.maxWidth)
+        let tooWide = (1...20).map { "N\($0)[とても長いラベルのノード \($0)]" }.joined(separator: " --> ")
+        #expect(MermaidImage.image(for: "graph LR\n \(tooWide)") == nil)                       // 縮めると読めない図は、コードのまま
     }
 
-    @MainActor @Test func aMermaidBlockInMarkdownBecomesAnImageAttachmentButTheCopiedTextKeepsTheSource() {
+    @Test func pieChartsAreParsed() throws {
+        let chart = try #require(PieChart.parse("pie showData title 割合\n \"A\" : 60\n \"B\" : 40"))
+        #expect(chart.title == "割合" && chart.slices.map(\.value) == [60, 40] && chart.slices.map(\.label) == ["A", "B"])
+        #expect(PieChart.parse("pie\n \"A\" : -1") == nil && PieChart.parse("pie\n \"A\" : 0") == nil)
+    }
+
+    @Test func aMermaidBlockInMarkdownBecomesAnImageAttachmentButTheCopiedTextKeepsTheSource() {
         let markdown = "前\n\n```mermaid\ngraph TD\n A --> B\n```\n\n後"
         let rendered = MarkdownRenderer.render(markdown)
         var attachments = 0
@@ -98,8 +72,6 @@ import Testing
         #expect(attachments == 1)
         #expect(!rendered.string.contains("graph TD"))                                            // コードは、画像に置き換わる
         #expect(MarkdownRenderer.plainText(markdown).contains("graph TD"))                       // コピーするのは、元の文字
-        // 描けない図は、コードのまま
-        let code = MarkdownRenderer.render("```mermaid\ngantt\n title x\n```")
-        #expect(code.string.contains("gantt"))
+        #expect(MarkdownRenderer.render("```mermaid\ngantt\n title x\n```").string.contains("gantt"))   // 描けない図は、コードのまま
     }
 }
