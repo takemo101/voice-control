@@ -21,10 +21,37 @@ public struct ChatActivity: Equatable, Sendable {
         }
     }
 
+    /// 操作の結果（コマンドの出力・ファイルの差分）。**画面に出すだけ**（会話の記録・ログ・ファイルには、残さない）。
+    public struct Output: Equatable, Sendable {
+        /// 画面に出す、行数と文字数の上限（多すぎる出力で、画面が重くならないように）。
+        public static let maxLines = 60
+        public static let maxCharacters = 6000
+        public let text: String
+        /// 差分（`+`・`-` の行）か。色づけに使う。
+        public let isDiff: Bool
+
+        public init(text: String, isDiff: Bool = false) {
+            var lines = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+            while lines.last?.isEmpty == true { lines.removeLast() }
+            var clipped = false
+            if lines.count > Self.maxLines { clipped = true; lines = Array(lines.prefix(Self.maxLines)) }
+            var joined = lines.joined(separator: "\n")
+            if joined.count > Self.maxCharacters { clipped = true; joined = String(joined.prefix(Self.maxCharacters)) }
+            self.text = joined + (clipped ? "\n…（長いので、ここまで）" : "")
+            self.isDiff = isDiff
+        }
+    }
+
     public let kind: Kind
     public let detail: String
+    /// 同じ操作の、あとからの更新（結果が届いた）を、見分ける番号（エージェントのツール呼び出しの番号）。同じ番号の操作は、置き換える。
+    public let id: String?
+    public let output: Output?
 
-    public init(_ kind: Kind, _ detail: String) { self.kind = kind; self.detail = detail }
+    public init(_ kind: Kind, _ detail: String, id: String? = nil, output: Output? = nil) { self.kind = kind; self.detail = detail; self.id = id; self.output = output }
+
+    /// 同じ操作に、番号と結果を付けたもの。
+    public func with(id: String?, output: Output?) -> ChatActivity { ChatActivity(kind, detail, id: id, output: output) }
 
     public static func run(_ detail: String) -> ChatActivity { ChatActivity(.run, detail) }
     public static func search(_ detail: String) -> ChatActivity { ChatActivity(.search, detail) }

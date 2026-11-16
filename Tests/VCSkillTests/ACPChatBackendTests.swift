@@ -62,7 +62,7 @@ import Testing
         let fx = try ACPFixture(); let backend = fx.backend(tools: .web); defer { backend.teardown() }
         let seen = ACPCollected<ChatActivity>()
         _ = try await backend.respond(instructions: "", turns: [], user: "TOOL", options: ChatCallOptions(onActivity: { seen.add($0) }))
-        #expect(seen.all == [ChatActivity.search("東京 天気")])
+        #expect(seen.all.map { [$0.kind == .search ? "search" : "?", $0.detail] } == [["search", "東京 天気"]] && seen.all.allSatisfy { $0.id != nil && $0.output == nil })   // 番号つき（結果が来たら、置き換えるため）
     }
 
     @Test func anUnavailableAgentFallsBackToTheOldWayAndIsNotRetriedForAWhile() async throws {
@@ -180,6 +180,18 @@ import Testing
         #expect(try await readOnly.respond(instructions: "", turns: [], user: "LSDIR").contains("result=lsdir-ok"))                                     // 読む段階でも、作業フォルダの中を見る分は、通る
         let none = try ACPFixture(); let closed = none.backend(agent: .opencode, tools: .web); defer { closed.teardown() }
         #expect(try await closed.respond(instructions: "", turns: [], user: "LSDIR").contains("result=denied"))                                        // フォルダを使わない段階は、断る
+    }
+
+    @Test func resultsOfACommandAndAnEditArriveLaterAndReplaceTheSameActivity() async throws {
+        let fx = try ACPFixture(); let backend = fx.backend(); defer { backend.teardown() }
+        let seen = ACPCollected<ChatActivity>()
+        _ = try await backend.respond(instructions: "", turns: [], user: "SHOWRUN SHOWEDIT", options: ChatCallOptions(onActivity: { seen.add($0) }))
+        let all = seen.all
+        // 同じ番号の操作が、2 回：始まり（結果なし）→ 結果つき
+        let run = all.filter { $0.id == "r1" }, edit = all.filter { $0.id == "e1" }
+        #expect(run.count == 2 && run[0].output == nil && run[1].output?.text == "Command exited with code 0.\n\nCommand output:\na.txt\nb.txt")
+        #expect(edit.count == 2 && edit[1].output?.isDiff == true && edit[1].output?.text == "--- a.txt\n one\n-two\n+2")
+        #expect(run[1].kind == .run && run[1].detail == "ls -la" && edit[1].kind == .write)
     }
 
     @Test func aProcessThatDiesMidTurnFailsTheQuestionAndTheNextOneStartsAFreshProcess() async throws {

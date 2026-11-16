@@ -14,7 +14,7 @@ final class ACPTurnState: @unchecked Sendable {
     private let lock = NSLock()
     // — ここから `lock` の下 —
     private var collected = ""
-    private var seen = Set<String>()
+    private var calls: [String: (activity: ChatActivity, kind: String)] = [:]   // ツール呼び出しの番号 → 出した操作・種類（結果が届いたとき、同じ操作を、置き換える）
     private var refused = 0
     private var blocked = 0
     private var lastProgress = Date()
@@ -53,8 +53,18 @@ final class ACPTurnState: @unchecked Sendable {
         case "agent_message_chunk":
             if let chunk = update["content"]?["text"]?.string { lock.withLock { collected += chunk } }
         case "tool_call":
-            guard let callID = update["toolCallId"]?.string, lock.withLock({ seen.insert(callID).inserted }) else { return }
-            if let activity = ACPPermissionText.activity(ACPToolCall(update)) { onActivity?(activity) }
+            let call = ACPToolCall(update)
+            guard let callID = update["toolCallId"]?.string, lock.withLock({ calls[callID] == nil }) else { return }
+            guard let activity = ACPPermissionText.activity(call)?.with(id: callID, output: nil) else { return }
+            lock.withLock { calls[callID] = (activity, call.kind) }
+            onActivity?(activity)
+        case "tool_call_update":
+            // 結果（コマンドの出力・差分）が届いた：同じ操作（番号が同じ）に、付けて、知らせ直す
+            guard let callID = update["toolCallId"]?.string, let content = update["content"]?.array, !content.isEmpty,
+                  let known = lock.withLock({ calls[callID] }), let output = ACPToolOutput.make(kind: update["kind"]?.string ?? known.kind, content: content) else { return }
+            let updated = known.activity.with(id: callID, output: output)
+            lock.withLock { calls[callID] = (updated, known.kind) }
+            onActivity?(updated)
         default: break
         }
     }

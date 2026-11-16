@@ -213,7 +213,7 @@ import VCSkill
             return e
         }
         state.entries = [
-            entry("このフォルダのファイルを、一覧にして", answer: "## 見つけたファイル\n\nフォルダには、次の 2 つがあります。\n\n| 名前 | 内容 |\n|---|---|\n| **note.txt** | メモ（16 バイト） |\n| **memo.txt** | 「確認済み」 |\n\n1. `memo.txt` は、さっき作りました\n2. 詳しくは [公式の説明](https://example.com/doc) を見てください\n\n> 書き込みは、作業フォルダの中だけです。\n\n```sh\nls -la\n```", activities: [.run("ls -la"), .write("memo.txt")]),
+            entry("このフォルダのファイルを、一覧にして", answer: "## 見つけたファイル\n\nフォルダには、次の 2 つがあります。\n\n| 名前 | 内容 |\n|---|---|\n| **note.txt** | メモ（16 バイト） |\n| **memo.txt** | 「確認済み」 |\n\n1. `memo.txt` は、さっき作りました\n2. 詳しくは [公式の説明](https://example.com/doc) を見てください\n\n> 書き込みは、作業フォルダの中だけです。\n\n```sh\nls -la\n```", activities: [ChatActivity(.run, "ls -la", output: .init(text: "total 16\n-rw-r--r--  1 user  staff  16 Nov 17 09:00 note.txt\n-rw-r--r--  1 user  staff  24 Nov 17 09:01 memo.txt")), ChatActivity(.write, "memo.txt", output: .init(text: "--- memo.txt\n 買い物\n-牛乳\n+牛乳（2 本）\n+パン\n 卵", isDiff: true))]),
             entry("東京の明日の天気は？", answer: "明日の東京は、**晴れ時々くもり**で、最高気温は 24 度の予報です。降水確率は午前 10%、午後 30% で、夕方から風が少し強くなります。傘は、念のため、持っていくと安心です。気温の変化が大きいので、薄手の上着があると、朝晩の移動が楽になります。", notes: ["しばらく話さなかったので、前の会話は終わりました"]),
             entry("ギフティのニュースを、調べて", answer: nil, status: nil),
             entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),

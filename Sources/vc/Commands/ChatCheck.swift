@@ -10,9 +10,9 @@ import VCSpeech
 struct ChatCheckCommand: Command {
     static let info = CommandInfo(
         name: "chat-check", group: .evaluation, summary: "会話の確認パネルの経路を、実際のエージェントで試す（自作のフォルダ・自作の質問。画面にパネルとウィンドウが出る）",
-        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>]"],
+        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>] [--hold <秒>]"],
         details: ["道具は、既定で「すべて」。シナリオ：yes＝パネルで許可・no＝パネルで断る・esc＝確認を待つ間に取りやめ（Esc）・hidden＝会話のウィンドウを閉じてから許可・run＝コマンド（echo）の実行を、パネルで許可・ls＝ls（見るだけ：パネルが出ず、通るはず）・blocked＝書き込みを頼む（パネルが出ず、断られる：道具が「すべて」でないとき）・outside＝作業フォルダの外（/tmp）への書き込みを頼み、パネルで許可する（OS の制限〔サンドボックス〕で、書けないはず）・read＝フォルダのファイルを読ませる・web＝Web 検索をさせる・long＝長い会話（11 問。合言葉を覚えているか・1 問ごとの時間・子プロセスの数）・swap＝会話の途中で設定（道具の段階）を変えて、古い子プロセスが止まるか。シナリオごとに、作ったファイルの有無を出す。同じエージェントの接続で、続けて試す。"],
-        options: [("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
+        options: [("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--hold <秒>", "終わったあとも、ウィンドウを、この秒数だけ残す（画面を撮るため）。標準は、すぐ終える"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
         examples: ["vc chat-check", "vc chat-check --scenario yes"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -20,6 +20,7 @@ struct ChatCheckCommand: Command {
         guard let agent = ChatAgent.parse(arguments.option("--agent") ?? "agy"), agent.isExternal else { usageError("chat-check", "--agent は、外のエージェントを指定してください") }
         let level = ChatToolLevel(rawValue: arguments.option("--tools") ?? "all") ?? .all
         let scenarios = (arguments.option("--scenario") ?? "yes,no,esc,hidden").split(separator: ",").map(String.init)
+        let hold = arguments.option("--hold").flatMap(Double.init) ?? 0
         let folder = arguments.option("--folder").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? FileManager.default.temporaryDirectory.appendingPathComponent("vc-chat-check-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -41,6 +42,7 @@ struct ChatCheckCommand: Command {
                 }
             }
             print("\n終わり")
+            if hold > 0 { print("HOLD 画面を残している（\(Int(hold)) 秒）"); try? await Task.sleep(for: .seconds(hold)) }
             exit(0)
         }
         NSApplication.shared.run()

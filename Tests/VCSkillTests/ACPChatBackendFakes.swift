@@ -30,6 +30,12 @@ enum ACPFakeAgent {
             text = " ".join(b.get("text", "") for b in params["prompt"])
             kinds = [b.get("type") for b in params["prompt"]]
             result = "ok"
+            if "SHOWRUN" in text:
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call", "toolCallId": "r1", "kind": "execute", "title": "ls -la"}}})
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call_update", "toolCallId": "r1", "status": "completed", "content": [{"type": "content", "content": {"type": "text", "text": "Created At: 2026\nCommand exited with code 0.\n\nCommand output:\na.txt\r\nb.txt\r\n"}}]}}})
+            if "SHOWEDIT" in text:
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call", "toolCallId": "e1", "kind": "edit", "title": "File a.txt"}}})
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call_update", "toolCallId": "e1", "status": "completed", "content": [{"type": "diff", "path": "/x/a.txt", "oldText": "one\ntwo\n", "newText": "one\n2\n"}]}}})
             if "TOOL" in text:
                 send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call", "toolCallId": "t1", "kind": "search", "title": "東京 天気"}}})
             tools = {"WRITE": {"kind": "edit", "title": "File a.txt"},

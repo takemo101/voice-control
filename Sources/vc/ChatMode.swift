@@ -207,6 +207,11 @@ extension CommandContext {
 final class ActivityLog: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [ChatActivity] = []
-    func add(_ activity: ChatActivity) { lock.lock(); if stored.last != activity { stored.append(activity) }; lock.unlock() }
+    /// 同じ番号（`id`）の操作は、置き換える（結果が、あとから届く）。番号がなければ、直前と同じものは、足さない。
+    func add(_ activity: ChatActivity) {
+        lock.lock(); defer { lock.unlock() }
+        if let id = activity.id, let index = stored.firstIndex(where: { $0.id == id }) { stored[index] = activity; return }
+        if stored.last != activity { stored.append(activity) }
+    }
     var items: [ChatActivity] { lock.lock(); defer { lock.unlock() }; return stored }
 }
