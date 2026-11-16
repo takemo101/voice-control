@@ -101,7 +101,7 @@ import Foundation
 
     private let pasteboard: PasteboardAccess
     private let sendPaste: @MainActor () -> Void
-    private let sendReturn: @MainActor () -> Void
+    private let sendKey: @MainActor (KeyStroke) -> Void
     private let firstWait: TimeInterval
     private let retryWait: TimeInterval
     private let settleDelay: TimeInterval
@@ -111,7 +111,7 @@ import Foundation
     /// - firstWait：1 回目の ⌘V のあと、読まれるのを待つ上限（秒）。retryWait：送り直したあと。settleDelay：読まれてから、戻すまで（貼り付けが終わるのを待つ。Hex は、0.5 秒）。
     public init(pasteboard: PasteboardAccess? = nil,
                 sendPaste: @escaping @MainActor () -> Void = ClipboardPaste.sendCommandV,
-                sendReturn: @escaping @MainActor () -> Void = ClipboardPaste.sendReturnKey,
+                sendKey: @escaping @MainActor (KeyStroke) -> Void = KeyStroke.send,
                 firstWait: TimeInterval = 0.8,
                 retryWait: TimeInterval = 1.5,
                 settleDelay: TimeInterval = 0.4,
@@ -119,7 +119,7 @@ import Foundation
                 trusted: @escaping () -> Bool = { AXIsProcessTrusted() }) {
         self.pasteboard = pasteboard ?? SystemPasteboard()
         self.sendPaste = sendPaste
-        self.sendReturn = sendReturn
+        self.sendKey = sendKey
         self.firstWait = firstWait
         self.retryWait = retryWait
         self.settleDelay = settleDelay
@@ -151,11 +151,11 @@ import Foundation
         return .inserted
     }
 
-    /// 入れた文字のあとに、**Enter を送る**（設定 `dictateEnter`。メッセージの送信・コマンドの実行まで、自動で行う）。許可がなければ、送らない（false）。
+    /// 入れた文字のあとに、**設定のキーを送る**（設定 `dictateEnter`・`dictateKey`。既定は Enter。メッセージの送信・コマンドの実行まで、自動で行う）。許可がなければ、送らない（false。画面に、そう出す）。
     @discardableResult
-    public func pressReturn() -> Bool {
+    public func press(_ stroke: KeyStroke) -> Bool {
         guard trusted() else { return false }
-        sendReturn()
+        sendKey(stroke)
         return true
     }
 
@@ -169,18 +169,6 @@ import Foundation
             waited += Self.tick
         }
         return pasteboard.textWasRead
-    }
-
-    /// Enter（Return。仮想キー 36）を、前面のアプリへ送る：押して、離す。修飾キーは、付けない（直前まで押していたトリガーの Shift が、残らないように）。
-    public static func sendReturnKey() {
-        let source = CGEventSource(stateID: .hidSystemState)
-        let returnKey: CGKeyCode = 36
-        for down in [true, false] {
-            let event = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: down)
-            event?.flags = []
-            event?.post(tap: .cghidEventTap)
-            usleep(15_000)
-        }
     }
 
     /// ⌘V を、前面のアプリへ送る：⌘ の押下・`V` の押下と離し・⌘ の解放を、15 ミリ秒ずつあけて、順に送る（修飾キーの状態を、自分のイベントから追うアプリ〔リモートデスクトップ・仮想マシン〕でも、読み取れる）。

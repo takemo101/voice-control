@@ -13,7 +13,7 @@ struct KeysPage: View {
     var body: some View {
         Callout(symbol: "hand.tap.fill", text: "キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。")
         Card("押している間だけ話す", footer: "修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。") {
-            ForEach(Array(KeyKind.allCases.enumerated()), id: \.element) { index, kind in
+            ForEach(Array(KeyKind.triggers.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)
             }
@@ -31,9 +31,10 @@ struct KeyRow: View {
     var body: some View {
         let saved = model.settings[keyPath: kind.keyPath] ?? ""
         let isRecording = model.recording == kind
-        let effective = saved.isEmpty ? (kind == .listen ? "shift" : "") : saved
+        let effective = saved.isEmpty ? (kind.fallback ?? "") : saved
         let label: String = {
-            if case let .success(spec) = HotKeySpec.parse(effective) { return KeyRow.label(of: spec) }
+            if kind.isTrigger, case let .success(spec) = HotKeySpec.parse(effective) { return KeyRow.label(of: spec) }
+            if !kind.isTrigger, case let .success(stroke) = KeyStroke.parse(effective) { return "\(stroke.displayName)  \(stroke.description)" }
             return effective.isEmpty ? "未設定" : "?"
         }()
         VStack(alignment: .leading, spacing: 6) {
@@ -52,15 +53,15 @@ struct KeyRow: View {
                     .help("押して、使いたいキーを押す（Esc で取りやめ）")
                     Menu {
                         ForEach(kind.presets, id: \.self) { preset in
-                            Button(KeyRow.title(of: preset)) { model.setDraft(kind, preset); model.commitKey(kind) }
+                            Button(KeyRow.title(of: preset, trigger: kind.isTrigger)) { model.setDraft(kind, preset); model.commitKey(kind) }
                         }
-                        if kind.isOptional { Divider(); Button("使わない") { model.setDraft(kind, ""); model.commitKey(kind) } }
+                        if kind.isOptional { Divider(); Button(kind.isTrigger ? "使わない" : "既定（Enter）に戻す") { model.setDraft(kind, ""); model.commitKey(kind) } }
                     } label: { Image(systemName: "ellipsis.circle") }
                     .menuStyle(.borderlessButton).fixedSize().help("候補から選ぶ")
                 }
             }
             if isRecording {
-                Label(model.recordingHint ?? "修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。", systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
+                Label(model.recordingHint ?? (kind.isTrigger ? "修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。" : "送りたいキーを押してください（⌘Enter のように、修飾キーと一緒でも）。Esc で取りやめ。"), systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
                     .font(.system(size: 11)).foregroundStyle(model.recordingHint == nil ? Color.secondary : Brand.rec1)
                     .padding(.horizontal, 14).padding(.bottom, 8)
             } else if let problem = model.keyProblems[kind] {
@@ -76,8 +77,9 @@ struct KeyRow: View {
     }
 
     /// 候補メニューの表示。
-    static func title(of preset: String) -> String {
-        if case let .success(spec) = HotKeySpec.parse(preset) { return label(of: spec) }
+    static func title(of preset: String, trigger: Bool = true) -> String {
+        if trigger, case let .success(spec) = HotKeySpec.parse(preset) { return label(of: spec) }
+        if !trigger, case let .success(stroke) = KeyStroke.parse(preset) { return "\(stroke.displayName)  \(stroke.description)" }
         return preset
     }
 }
