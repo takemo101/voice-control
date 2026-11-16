@@ -7,6 +7,7 @@ import Testing
     private static let script = #"""
     import sys, json
     log = open(sys.argv[1], "a")
+    flavor = sys.argv[2] if len(sys.argv) > 2 else "modes"
     sessions = {}
     def send(o):
         sys.stdout.write(json.dumps(o) + "\n"); sys.stdout.flush()
@@ -16,11 +17,14 @@ import Testing
         m = json.loads(line); method = m.get("method"); mid = m.get("id"); params = m.get("params", {})
         note(method, json.dumps(params, ensure_ascii=False)[:160])
         if method == "initialize":
-            send({"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": 1, "agentCapabilities": {}}})
+            send({"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": 1, "agentCapabilities": {"sessionCapabilities": {"close": {}}} if flavor == "config" else {}}})
         elif method == "session/new":
             sid = "s%d" % (len(sessions) + 1); sessions[sid] = 0
-            send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "models": {"availableModels": [{"modelId": "gemini-4-hydrogen-medium"}]}, "modes": {"availableModes": [{"id": "plan"}, {"id": "default"}]}}})
-        elif method in ("session/set_model", "session/set_mode"):
+            if flavor == "config":
+                send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "configOptions": [{"id": "mode", "category": "mode", "type": "select", "currentValue": "orchestrator", "options": [{"value": "orchestrator"}, {"value": "build"}, {"value": "plan"}]}]}})
+            else:
+                send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "models": {"availableModels": [{"modelId": "gemini-4-hydrogen-medium"}]}, "modes": {"availableModes": [{"id": "plan"}, {"id": "default"}]}}})
+        elif method in ("session/set_model", "session/set_mode", "session/set_config_option", "session/close"):
             send({"jsonrpc": "2.0", "id": mid, "result": {}})
         elif method == "session/prompt":
             sid = params["sessionId"]; sessions[sid] += 1
@@ -29,12 +33,23 @@ import Testing
             result = "ok"
             if "TOOL" in text:
                 send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call", "toolCallId": "t1", "kind": "search", "title": "東京 天気"}}})
-            if "WRITE" in text:
-                send({"jsonrpc": "2.0", "id": 900, "method": "session/request_permission", "params": {"sessionId": sid, "toolCall": {"toolCallId": "t2", "kind": "edit", "title": "File a.txt"}, "options": [{"optionId": "allow", "kind": "allow_once"}, {"optionId": "deny", "kind": "reject_once"}]}})
-                reply = json.loads(sys.stdin.readline())
+            tools = {"WRITE": {"kind": "edit", "title": "File a.txt"},
+                     "BASH": {"kind": "execute", "name": "bash", "title": "Run", "rawInput": {"command": "echo hi"}},
+                     "GREP": {"kind": "search", "name": "grep", "title": "foo"},
+                     "WEBS": {"kind": "other", "name": "websearch", "title": "swift"}}
+            for key, tool in tools.items():
+                if key not in text: continue
+                send({"jsonrpc": "2.0", "id": 900, "method": "session/request_permission", "params": {"sessionId": sid, "toolCall": dict(tool, toolCallId="t2"), "options": [{"optionId": "allow", "kind": "allow_once"}, {"optionId": "deny", "kind": "reject_once"}]}})
+                reply = None
+                while reply is None:   # 取りやめの通知（session/cancel）が、先に来ることがある
+                    got = json.loads(sys.stdin.readline())
+                    if got.get("id") == 900 and "result" in got: reply = got
+                    else: note(got.get("method"))
                 outcome = reply["result"]["outcome"]
-                result = "wrote" if outcome.get("optionId") == "allow" else "denied"
+                result = ("wrote" if key == "WRITE" else key.lower() + "-ok") if outcome.get("optionId") == "allow" else ("cancelled" if outcome.get("outcome") == "cancelled" else "denied")
                 note("permission", json.dumps(outcome))
+            if result == "cancelled" or (result == "denied" and "REJSTOP" in text):   # 取りやめ・opencode：許可を断ると、その質問を cancelled で終える（答えなし）
+                send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "cancelled"}}); continue
             if "SLOW" in text:
                 for later in sys.stdin:
                     n = json.loads(later)
@@ -62,11 +77,11 @@ import Testing
             logPath = directory.appendingPathComponent("log.txt").path
             try ACPChatBackendTests.script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
         }
-        func backend(tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: Counter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20) -> ACPChatBackend {
-            let script = scriptPath, log = logPath
-            let fallback = ExternalChatBackend(agent: .agy, tools: tools, runner: { _ in AgentRun(exitCode: 0, text: fallbackText) })
-            return ACPChatBackend(agent: .agy, tools: tools, folder: directory, fallback: fallback,
-                                  launch: { _, _ in launches?.increment(); return ["python3", script, log] }, retryAfter: retryAfter, promptTimeout: promptTimeout)
+        func backend(agent: ChatAgent = .agy, tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: Counter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20) -> ACPChatBackend {
+            let script = scriptPath, log = logPath, flavor = agent == .opencode ? "config" : "modes"
+            let fallback = ExternalChatBackend(agent: agent, tools: tools, runner: { _ in AgentRun(exitCode: 0, text: fallbackText) })
+            return ACPChatBackend(agent: agent, tools: tools, folder: directory, fallback: fallback,
+                                  launch: { _, _ in launches?.increment(); return ["python3", script, log, flavor] }, retryAfter: retryAfter, promptTimeout: promptTimeout)
         }
     }
 
@@ -201,6 +216,50 @@ import Testing
         #expect(sawCancellation.all == ["cancelled"])
     }
 
+    @Test func anAgentWithConfigOptionsGetsItsModeThroughThemAndAReplacedSessionIsClosed() async throws {
+        let fx = try Fixture(); let reader = fx.backend(agent: .opencode, tools: .read); defer { reader.teardown() }
+        let first = try await reader.respond(instructions: "", turns: [], user: "q")
+        #expect(fx.log.contains("session/set_config_option") && fx.log.contains("\"configId\": \"mode\"") && fx.log.contains("\"value\": \"plan\""))   // 読むだけは、plan
+        #expect(!fx.log.contains("session/set_mode") && !fx.log.contains("session/close"))
+        // 会話が替わった：新しいセッション。古いのは、閉じる（閉じられると、広告されているとき）
+        _ = try await reader.respond(instructions: "", turns: [ChatTurn(user: "別の会話", assistant: "…"), ChatTurn(user: "q", assistant: first)], user: "q2")
+        #expect(fx.log.contains("session/close") && fx.log.contains("\"sessionId\": \"s1\""))
+        let all = try Fixture(); let writer = all.backend(agent: .opencode, tools: .all); defer { writer.teardown() }
+        _ = try await writer.respond(instructions: "", turns: [], user: "q")
+        #expect(all.log.contains("\"value\": \"build\""))                                       // 「すべて」は、build
+    }
+
+    @Test func toolNamesOpenOnlyReadingAndSearchingAndTheLevelStillDecides() async throws {
+        let fx = try Fixture(); let reader = fx.backend(agent: .opencode, tools: .read); defer { reader.teardown() }
+        #expect(try await reader.respond(instructions: "", turns: [], user: "GREP").contains("result=grep-ok"))      // 作業フォルダを読む（kind は search だが、Web ではない）
+        #expect(try await reader.respond(instructions: "", turns: [ChatTurn(user: "GREP", assistant: "s1 n=1 len=4 result=grep-ok kinds=text")], user: "WEBS").contains("result=webs-ok"))   // 読む段階は、Web も、開く
+        let none = try Fixture(); let closed = none.backend(agent: .opencode, tools: .none); defer { closed.teardown() }
+        #expect(try await closed.respond(instructions: "", turns: [], user: "GREP").contains("result=denied"))
+        let web = try Fixture(); let searcher = web.backend(agent: .opencode, tools: .web); defer { searcher.teardown() }
+        #expect(try await searcher.respond(instructions: "", turns: [], user: "WEBS").contains("result=webs-ok"))
+        #expect(try await searcher.respond(instructions: "", turns: [ChatTurn(user: "WEBS", assistant: "s1 n=1 len=4 result=webs-ok kinds=text")], user: "GREP").contains("result=denied"))   // Web の段階は、フォルダを読まない
+        let bash = try Fixture(); let runner = bash.backend(agent: .opencode, tools: .read); defer { runner.teardown() }
+        #expect(try await runner.respond(instructions: "", turns: [], user: "BASH").contains("result=denied"))      // コマンドは、名前が bash でも、読む段階では、断る
+    }
+
+    @Test func refusingAConfirmationEndsOpencodesTurnAsCancelledButThatIsAnAnswerNotACancellation() async throws {
+        let fx = try Fixture(); let writer = fx.backend(agent: .opencode, tools: .all); defer { writer.teardown() }
+        let no: ToolConfirm = { _ in false }
+        let answer = try await writer.respond(instructions: "", turns: [], user: "WRITE REJSTOP", options: ChatCallOptions(confirm: no))
+        #expect(answer.contains("断った"))   // 利用者の取りやめ（CancellationError）にならない
+    }
+
+    @Test func aCancelledQuestionAnswersThePendingPermissionAsCancelled() async throws {
+        let fx = try Fixture(); let writer = fx.backend(tools: .all); defer { writer.teardown() }
+        let started = Collected<String>()
+        let waiting: ToolConfirm = { _ in started.add("waiting"); while !Task.isCancelled { try? await Task.sleep(nanoseconds: 50_000_000) }; return false }
+        let task = Task { try await writer.respond(instructions: "", turns: [], user: "WRITE", options: ChatCallOptions(confirm: waiting)) }
+        while started.all.isEmpty { try await Task.sleep(nanoseconds: 50_000_000) }
+        task.cancel()
+        await #expect(throws: (any Error).self) { _ = try await task.value }
+        #expect(fx.log.contains("\"outcome\": \"cancelled\""))   // 仕様：取りやめた質問の許可の要求には、cancelled で答える（断った、ではない）
+    }
+
     @Test func aProcessThatDiesMidTurnFailsTheQuestionAndTheNextOneStartsAFreshProcess() async throws {
         let fx = try Fixture(); let launches = Counter(); let backend = fx.backend(launches: launches); defer { backend.teardown() }
         await #expect(throws: ConversationError.self) { _ = try await backend.respond(instructions: "", turns: [], user: "EXIT") }
@@ -219,6 +278,12 @@ import Testing
             #expect(ACPPermission.decide(kind: kind, level: .all) == .ask)      // 書き込み・コマンドは、毎回、確認
         }
         #expect(ACPPermission.decide(kind: "think", level: .none) == .allow)
+        // 名前：opencode は、grep が search・Web 検索が other。名前で、読む・調べるだけを、開ける
+        #expect(ACPPermission.decide(kind: "search", name: "grep", level: .read) == .allow && ACPPermission.decide(kind: "search", name: "grep", level: .web) == .reject)
+        #expect(ACPPermission.decide(kind: "other", name: "websearch", level: .web) == .allow && ACPPermission.decide(kind: "other", name: "websearch", level: .none) == .reject)
+        #expect(ACPPermission.decide(kind: "other", name: "webfetch", level: .all) == .allow)
+        #expect(ACPPermission.decide(kind: "execute", name: "read", level: .read) == .reject)   // 名前を、読む道具に見せかけても、コマンドは、コマンド
+        #expect(ACPPermission.decide(kind: "edit", name: "websearch", level: .all) == .ask)
     }
 
     @Test func theOutcomePicksTheMatchingOptionOrCancels() {
@@ -232,6 +297,15 @@ import Testing
         let value = JSONValue(any: ["a": 1, "b": true, "c": [1.5, "x"], "d": NSNull()] as [String: Any])
         #expect(value["b"]?.bool == true && value["a"]?.int == 1 && value["a"]?.bool == nil)
         #expect(JSONValue.parse(value.serialized()!) == value)
+    }
+
+    @Test func hiddenAndDirectionChangingCharactersInAConfirmationAreMadeVisible() {
+        let folder = URL(fileURLWithPath: "/tmp/vc-acp-folder")
+        let run: JSONValue = .object(["rawInput": .object(["command": .string("echo safe\u{202E}evil\u{200B}\nrm -rf x")])])
+        let text = ACPPermission.detail(kind: "execute", toolCall: run, folder: folder)
+        #expect(text == "コマンドを実行する：echo safe⟨U+202E⟩evil⟨U+200B⟩ rm -rf x")
+        let long: JSONValue = .object(["rawInput": .object(["command": .string(String(repeating: "a", count: 700))])])
+        #expect(ACPPermission.detail(kind: "execute", toolCall: long, folder: folder).hasSuffix("…（残り 100 文字）"))   // 長いコマンドは、残りの長さを、示す
     }
 
     @Test func theConfirmationShowsTheRealPathRelativeToTheFolderAndMarksOutsidePaths() {

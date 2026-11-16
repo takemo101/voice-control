@@ -23,6 +23,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     private var connection: ACPConnection?
     private var sessionID: String?
     private var knownTurns = 0
+    private var supportsClose = false
     private var lastUse = Date.distantPast
     private var disabledUntil = Date.distantPast
     private var idleTask: Task<Void, Never>?
@@ -47,9 +48,15 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     public var budget: ChatBudget { agent.budget }
     public var capabilityNote: String { tools.note }
 
-    /// 実際の起動：`agy acp`。「すべて」でないときは、端末の制限つき（`--sandbox`）。
+    /// 実際の起動：`agy acp`（「すべて」でないときは、端末の制限つき `--sandbox`）・`opencode acp`。
     public static let liveLaunch: @Sendable (ChatAgent, ChatToolLevel) -> [String] = { agent, level in
-        [agent.rawValue, "acp"] + (level == .all ? [] : ["--sandbox"])
+        [agent.rawValue, "acp"] + (agent == .agy && level != .all ? ["--sandbox"] : [])
+    }
+
+    /// 起動に足す環境変数。`opencode` は、**既定では、書き込み・コマンドを、確認なしで行う**ので（実測：build でも plan でも、`session/request_permission` が来ない）、**全部を「聞く」設定**にして渡す。
+    /// 利用者の設定（`~/.config/opencode`）・作業フォルダの `opencode.json` が、「許可」でも、この設定が、優先された（実測）。
+    static func liveEnvironment(agent: ChatAgent) -> [String: String] {
+        agent == .opencode ? ["OPENCODE_CONFIG_CONTENT": #"{"permission":{"*":"ask"}}"#] : [:]
     }
 
     public func respond(instructions: String, turns: [ChatTurn], user: String) async throws -> String {
@@ -98,14 +105,22 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         var connection = existing.0
         if connection?.isAlive != true {
             connection?.close()
-            let fresh = ACPConnection(argv: launch(agent, tools), directory: workingDirectory(), environment: ["PATH": AgentLocator.childPATH()])
+            let fresh = ACPConnection(argv: launch(agent, tools), directory: workingDirectory(), environment: ["PATH": AgentLocator.childPATH()].merging(Self.liveEnvironment(agent: agent)) { _, new in new })
             try fresh.start()
             do {
-                _ = try await fresh.request("initialize", .object(["protocolVersion": .number(1), "clientCapabilities": .object([:])]), timeout: 15)
+                // こちらが持つ機能は、宣言しない（ファイル・端末は、エージェントが、自分で行う：許可の確認だけ、こちらが受ける）
+                let initialized = try await fresh.request("initialize", .object([
+                    "protocolVersion": .number(1), "clientCapabilities": .object([:]),
+                    "clientInfo": .object(["name": .string("voice-control"), "title": .string("voice-control")])]), timeout: 15)
+                lock.withLock { supportsClose = initialized["agentCapabilities"]?["sessionCapabilities"]?["close"] != nil }
             } catch { fresh.close(); throw ACPError.unavailable("初期化に失敗しました（\(error)）") }
             connection = fresh
         }
         guard let connection else { throw ACPError.unavailable("接続できません") }
+        // 古いセッションは、閉じる（エージェントが、メモリ・作業を、解放できる。使える場合だけ）
+        if let old = existing.1, lock.withLock({ supportsClose }) {
+            _ = try? await connection.request("session/close", .object(["sessionId": .string(old)]), timeout: 5)
+        }
         let created: JSONValue
         do {
             created = try await connection.request("session/new", .object(["cwd": .string(workingDirectory().path), "mcpServers": .array([])]), timeout: 25)
@@ -124,10 +139,19 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
                 _ = try? await connection.request("session/set_model", .object(["sessionId": .string(sessionID), "modelId": .string(model)]), timeout: 10)
             }
         }
+        // モード：読むだけの段階は `plan`・「すべて」は、確認つきの `default`（agy）か `build`（opencode）。**モードの強制は、補助**：本当の段階の強制は、許可の返事（`ACPPermission`）
+        let wanted = tools == .all ? ["default", "build"] : ["plan"]
         let modes = created["modes"]?["availableModes"]?.array?.compactMap { $0["id"]?.string } ?? []
-        let mode = tools == .all ? "default" : "plan"
-        if modes.contains(mode) {
+        if let mode = wanted.first(where: modes.contains) {
             _ = try? await connection.request("session/set_mode", .object(["sessionId": .string(sessionID), "modeId": .string(mode)]), timeout: 10)
+            return
+        }
+        // もう 1 つの形（設定の選択肢：opencode）：種類が「mode」の選択肢
+        if let option = created["configOptions"]?.array?.first(where: { $0["category"]?.string == "mode" }), let configID = option["id"]?.string {
+            let values = option["options"]?.array?.compactMap { $0["value"]?.string } ?? []
+            if let mode = wanted.first(where: values.contains) {
+                _ = try? await connection.request("session/set_config_option", .object(["sessionId": .string(sessionID), "configId": .string(configID), "value": .string(mode)]), timeout: 10)
+            }
         }
     }
 
@@ -180,7 +204,8 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             throw ConversationError.failed("\(agent.rawValue)：\(error)")
         }
         if timedOut.value { throw ConversationError.failed("\(agent.rawValue) の答えが、時間内に返りませんでした（進みがないまま、約 \(Int(timeout)) 秒）") }
-        if Task.isCancelled || response["stopReason"]?.string == "cancelled" { throw CancellationError() }
+        // 取りやめ：利用者の Esc。**断った操作があるときの `cancelled` は、利用者の取りやめではない**（opencode は、許可を断ると、その質問を `cancelled` で終える）：答えとして、続ける
+        if Task.isCancelled || (response["stopReason"]?.string == "cancelled" && turn.refusals == 0) { throw CancellationError() }
         if response["stopReason"]?.string == "refusal" { throw ConversationError.failed("\(agent.rawValue) が、答えを断りました") }
         let answer = turn.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // 断った操作があって、答えが空：エージェントは、何も言わずに終わることがある（実測）。失敗ではなく、断ったことを、答えにする
@@ -232,6 +257,7 @@ private final class TurnState: @unchecked Sendable {
     private var lastProgress = Date()
     private var confirming = 0
     private var confirmTask: Task<Bool, Never>?
+    private var cancelRequested = false
     private let tools: ChatToolLevel
     private let folder: URL
     private let sessionID: String
@@ -246,7 +272,7 @@ private final class TurnState: @unchecked Sendable {
     /// 相手から何も来ていない時間（秒）。**利用者の確認を待っている間は、0**。
     var idleSeconds: TimeInterval { lock.lock(); defer { lock.unlock() }; return confirming > 0 ? 0 : Date().timeIntervalSince(lastProgress) }
     /// 確認の待ちを、取りやめる（Esc・時間切れ・終わり）。**相手からの要求は、別のタスクで処理されるので、質問の取りやめが、届かない**：ここで、確認の待ち（パネル）を、止める。
-    func cancelPendingConfirm() { lock.lock(); let task = confirmTask; lock.unlock(); task?.cancel() }
+    func cancelPendingConfirm() { lock.lock(); cancelRequested = true; let task = confirmTask; lock.unlock(); task?.cancel() }
     private func touch() { lock.lock(); lastProgress = Date(); lock.unlock() }
     private func confirmStarted() { lock.lock(); confirming += 1; lock.unlock() }
     private func confirmEnded() { lock.lock(); confirming -= 1; lastProgress = Date(); lock.unlock() }
@@ -263,7 +289,7 @@ private final class TurnState: @unchecked Sendable {
         case "tool_call":
             guard let callID = update["toolCallId"]?.string else { return }
             lock.lock(); let first = seen.insert(callID).inserted; lock.unlock()
-            if first, let activity = ACPPermission.activity(kind: update["kind"]?.string ?? "other", title: update["title"]?.string ?? update["name"]?.string ?? "") { onActivity?(activity) }
+            if first, let activity = ACPPermission.activity(kind: update["kind"]?.string ?? "other", name: update["name"]?.string, title: update["title"]?.string ?? update["name"]?.string ?? "") { onActivity?(activity) }
         default: break
         }
     }
@@ -274,7 +300,7 @@ private final class TurnState: @unchecked Sendable {
         let toolCall = params["toolCall"] ?? .null
         let kind = toolCall["kind"]?.string ?? "other"
         let options = params["options"]?.array ?? []
-        switch ACPPermission.decide(kind: kind, level: tools) {
+        switch ACPPermission.decide(kind: kind, name: toolCall["name"]?.string, level: tools) {
         case .allow: return ACPPermission.outcome(allow: true, options: options)
         case .reject: refuse(); return ACPPermission.outcome(allow: false, options: options)
         case .ask:
@@ -286,6 +312,7 @@ private final class TurnState: @unchecked Sendable {
             let allowed = await task.value
             lock.withLock { confirmTask = nil }
             confirmEnded()
+            if lock.withLock({ cancelRequested }) { return ACPPermission.cancelledOutcome }   // 質問が、取りやめになった：仕様どおり、`cancelled` で答える
             if !allowed { refuse() }
             return ACPPermission.outcome(allow: allowed, options: options)
         }

@@ -10,8 +10,18 @@ enum ACPPermission {
         case reject
     }
 
-    /// `kind`：ACP のツールの種類（read・search・fetch・think・edit・delete・move・execute・switch_mode・other）。
-    static func decide(kind: String, level: ChatToolLevel) -> Decision {
+    /// Web に出る道具の名前（`opencode`：`websearch`・`webfetch`・`codesearch`）。`kind` だけでは、**調べる道具の、ローカル（grep）と Web（検索）が、区別できない**（opencode は、grep が `search`・Web 検索が `other`）。
+    static let webTools: Set<String> = ["websearch", "webfetch", "codesearch", "web_search", "web_fetch"]
+    /// 作業フォルダの中を、読むだけの道具の名前。
+    static let folderReadTools: Set<String> = ["read", "grep", "glob", "list", "ls"]
+
+    /// `kind`：ACP のツールの種類（read・search・fetch・think・edit・delete・move・execute・switch_mode・other）。`name`：ツールの名前（あれば。エージェントが決める）。
+    /// 名前は、**読む・調べるものを、開けるためだけ**に使う（書き込み・コマンドの種類の操作は、名前が何でも、確認か断る）。
+    static func decide(kind: String, name: String? = nil, level: ChatToolLevel) -> Decision {
+        if let name = name?.lowercased(), !["edit", "delete", "move", "execute", "switch_mode"].contains(kind) {
+            if webTools.contains(name) { return level.searchesWeb ? .allow : .reject }
+            if folderReadTools.contains(name) { return level.usesFolder ? .allow : .reject }
+        }
         switch kind {
         case "think": return .allow
         case "search", "fetch": return level.searchesWeb ? .allow : .reject
@@ -26,13 +36,16 @@ enum ACPPermission {
         if let option = options.first(where: { $0["kind"]?.string == wanted }), let id = option["optionId"]?.string {
             return .object(["outcome": .object(["outcome": .string("selected"), "optionId": .string(id)])])
         }
-        return .object(["outcome": .object(["outcome": .string("cancelled")])])
+        return cancelledOutcome
     }
+
+    /// 質問が、取りやめになったときの返事（仕様：取りやめた質問の、待っている許可の要求には、`cancelled` で、答えなければならない）。
+    static let cancelledOutcome: JSONValue = .object(["outcome": .object(["outcome": .string("cancelled")])])
 
     /// 確認の文（何をするか）：種類と、**実際の場所・コマンド**。エージェントの題（`File ../../../private/var/…`）は、読みにくく、本当の場所を隠すので、使わない（場所がなければ、題）。
     static func detail(kind: String, toolCall: JSONValue, folder: URL) -> String {
-        let title = toolCall["title"]?.string ?? toolCall["name"]?.string ?? "操作"
-        let path = toolCall["locations"]?.array?.first?["path"]?.string.map { displayPath($0, folder: folder) }
+        let title = visible(toolCall["title"]?.string ?? toolCall["name"]?.string ?? "操作")
+        let path = toolCall["locations"]?.array?.first?["path"]?.string.map { visible(displayPath($0, folder: folder)) }
         switch kind {
         case "edit": return "ファイルを書き込む：\(path ?? title)"
         case "delete": return "ファイルを削除する：\(path ?? title)"
@@ -72,17 +85,30 @@ enum ACPPermission {
     static func command(in toolCall: JSONValue) -> String? {
         let input = toolCall["rawInput"]
         for key in ["CommandLine", "commandLine", "command", "Command", "cmd"] {
-            if let text = input?[key]?.string, !text.isEmpty { return text.count > 200 ? String(text.prefix(200)) + "…" : text }
+            if let text = input?[key]?.string, !text.isEmpty { return visible(text.count > 600 ? String(text.prefix(600)) + "…（残り \(text.count - 600) 文字）" : text) }
         }
         return nil
     }
 
+    /// 確認の文に出す、エージェントの文字：**見えない文字・向きを変える文字・制御文字を、見える形（`⟨U+202E⟩`）にする**（仕様の安全の指針：コマンド・場所に、紛れ込ませて、読み違えさせる手を、防ぐ）。改行・タブは、空白。
+    static func visible(_ text: String) -> String {
+        var out = ""
+        for scalar in text.unicodeScalars {
+            let v = scalar.value
+            if v == 0x0A || v == 0x0D || v == 0x09 { out += " "; continue }
+            let hidden = v < 0x20 || (0x7F...0x9F).contains(v) || (0x200B...0x200F).contains(v) || (0x2028...0x202E).contains(v)
+                || (0x2060...0x2069).contains(v) || v == 0xFEFF || (0xE0000...0xE007F).contains(v)
+            out += hidden ? "⟨U+" + String(v, radix: 16, uppercase: true) + "⟩" : String(scalar)
+        }
+        return out
+    }
+
     /// 実行中の操作（画面に出す）。出さないもの（考え中）は、nil。
-    static func activity(kind: String, title: String) -> ChatActivity? {
+    static func activity(kind: String, name: String? = nil, title: String) -> ChatActivity? {
         switch kind {
         case "think": return nil
         case "read": return .read(title)
-        case "search": return .search(title)
+        case "search": return folderReadTools.contains(name?.lowercased() ?? "") ? .read(title) : .search(title)   // grep・glob は、フォルダの中を読む
         case "fetch": return .fetch(title)
         case "edit", "delete", "move": return .write(title)
         case "execute": return .run(title)
