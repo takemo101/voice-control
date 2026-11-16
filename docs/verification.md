@@ -1514,6 +1514,8 @@ SPEC F56。**アイコン**：`scripts/make-icon.swift`（CoreGraphics。外部�
 | agy のセッションの保存（N3） | 長い会話のあと、合言葉の文字列を、`~/.gemini/antigravity-cli` から探した | **保存されている**：`brain/<id>/…/transcript*.jsonl`・`conversations/<id>.db`。**agy 自身の保存で、従来の `agy -p` も、同じ場所に、会話ごとの DB を、137 件、残していた**（今回の変更で、増える種類のものではない）。**voice-control が、残すものではない**が、会話の内容が、agy の保存先に残ることは、利用者が知っておく（SPEC N3 は、こちらのファイルの話）。opencode は、同じ文字列を、`~/.local/share/opencode`・`~/.local/state/opencode`・`~/.config/opencode` から、見つけられなかった（保存先は、未確認） |
 | agy の許可の設定が「いつも許可」のとき、「すべて」の確認が、迂回されないか | **未確認**（agy の設定の形を、確かめていない。`~/.gemini/antigravity-cli/settings.json` には、`allowNonWorkspaceAccess: true` があるが、今回の確認は、その設定のままで、書き込みの要求が、来た） | 設定の形を調べてから |
 
+**リリースの CI で、失敗した（記録）**：PR #116 の最初の CI（Xcode 26 のコンパイラ）が、`ACPChatBackend.ensureSession` の**循環参照**で、ビルドに失敗した。原因は、同じ関数の中で、あとから宣言した、ローカルの `connection` が、前の行の、クロージャの中の `connection`（自分のプロパティ）を、隠したこと。**手元のコンパイラ（Swift 6.4。SDK 26 のビルド含む）では、通っていた**：手元の「ビルドが通る」は、CI のコンパイラでの成功を、保証しない。ローカルの変数を改名して直し、CI は通った。
+
 **まだ未確認**：メニューバーのアプリ全体での動作（実際の声の「はい」・アプリの終了）・要約が走るほどの長い会話・agy の「いつも許可」の設定・`opencode` の保存先・`opencode run --agent plan`（従来の方式）の「読むだけ」が、本当に、読むだけか。
 
 ## 人間の確認が要るもの（AI は合格にしない）
