@@ -74,4 +74,25 @@ import Testing
         #expect(MarkdownRenderer.plainText(markdown).contains("graph TD"))                       // コピーするのは、元の文字
         #expect(MarkdownRenderer.render("```mermaid\ngantt\n title x\n```").string.contains("gantt"))   // 描けない図は、コードのまま
     }
+
+    @Test func clickingOnTheDiagramFindsItsSourceAndTheTextAroundItDoesNot() throws {
+        let view = DiagramTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 900))
+        view.textContainerInset = .zero
+        view.textContainer?.lineFragmentPadding = 0
+        view.textContainer?.widthTracksTextView = true
+        _ = view.layoutManager   // TextKit 1（表・面を使うので、実際の画面と同じ）
+        view.textStorage?.setAttributedString(MarkdownRenderer.render("前の文\n\n```mermaid\ngraph TD\n A --> B\n```\n\n後の文"))
+        let layout = try #require(view.layoutManager), container = try #require(view.textContainer), storage = try #require(view.textStorage)
+        layout.ensureLayout(for: container)
+        var diagram: NSRange?
+        storage.enumerateAttribute(.mermaidSource, in: NSRange(location: 0, length: storage.length)) { value, range, _ in if value != nil { diagram = range } }
+        let range = try #require(diagram)
+        let rect = layout.boundingRect(forGlyphRange: layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
+        #expect(view.diagramSource(at: NSPoint(x: rect.midX, y: rect.midY))?.contains("graph TD") == true)   // 図の上：元の文字
+        #expect(view.diagramSource(at: NSPoint(x: 5, y: 5)) == nil)                                          // 最初の文（図の外）
+        #expect(view.diagramSource(at: NSPoint(x: rect.maxX + 40, y: rect.midY)) == nil || rect.maxX + 40 > 600)   // 図の右の空き
+        // 図は、面の中で、中央に置く（幅 600 より狭い図は、左に寄らない）
+        #expect(rect.width < 590 ? abs(rect.midX - 300) < 80 : true)
+    }
 }
+

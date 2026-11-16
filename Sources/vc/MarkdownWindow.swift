@@ -10,7 +10,7 @@ import SwiftUI
     private let markdown: String
     private let titleText: String
     private let window: DocumentWindowFrame
-    private let textView = NSTextView()
+    private let textView = DiagramTextView()   // 図（Mermaid）は、クリックで拡大
     private let state = DocumentState()
 
     private init(markdown: String, title: String) {

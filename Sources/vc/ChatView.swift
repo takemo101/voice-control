@@ -546,7 +546,7 @@ private struct RichText: NSViewRepresentable {
     let attributed: NSAttributedString
 
     func makeNSView(context: Context) -> NSTextView {
-        let view = NSTextView(frame: .zero)
+        let view = DiagramTextView(frame: .zero)   // 図（Mermaid）は、クリックで拡大
         view.isEditable = false
         view.isSelectable = true
         view.isRichText = true

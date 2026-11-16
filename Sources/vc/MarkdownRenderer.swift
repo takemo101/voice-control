@@ -52,7 +52,12 @@ enum MarkdownRenderer {
                     attachment.image = image
                     attachment.bounds = CGRect(x: 0, y: -2, width: image.size.width, height: image.size.height)
                     let drawn = NSMutableAttributedString(attachment: attachment)
-                    drawn.addAttributes(Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation), range: NSRange(location: 0, length: drawn.length))
+                    var attributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
+                    // 図は、面の中で、中央に置く（面の幅より小さいとき、左に寄らない）
+                    if let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle { style.alignment = .center; attributes[.paragraphStyle] = style }
+                    attributes[.mermaidSource] = diagramSources[id] ?? ""
+                    attributes[.toolTip] = "クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）"
+                    drawn.addAttributes(attributes, range: NSRange(location: 0, length: drawn.length))
                     out.append(drawn)
                 }
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
