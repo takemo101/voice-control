@@ -23,6 +23,8 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     private let sandbox: Bool
     /// 利用者が選んだモデル（設定 `chatModels`。一覧にあるときだけ使う）。なければ、エージェントの設定。
     private let model: String?
+    /// 自動モード（設定 `chatAuto`）：**OS の制限（`sandbox`）が効くときだけ**、働く。
+    private let auto: Bool
 
     private let lock = NSLock()
     // — ここから `lock` の下 —
@@ -39,7 +41,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     /// 大きすぎる画像は、ACP では送らない（従来の方式へ）。
     static let maxImageBytes = 6_000_000
 
-    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, model: String? = nil, fallback: ExternalChatBackend? = nil,
+    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, model: String? = nil, auto: Bool = false, fallback: ExternalChatBackend? = nil,
                 launch: @escaping @Sendable (ChatAgent, ChatToolLevel) -> [String] = ACPChatBackend.liveLaunch,
                 now: @escaping @Sendable () -> Date = { Date() }, idleLimit: TimeInterval = 360, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 110) {
         guard let profile = ACPAgentProfile.of(agent) else { preconditionFailure("ACP に対応したエージェントだけ") }
@@ -48,7 +50,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         self.tools = agent.effective(tools)
         self.folder = folder ?? ExternalChatBackend.defaultFolder
         self.fallback = fallback ?? ExternalChatBackend(agent: agent, tools: tools, folder: folder)
-        self.sandbox = sandbox; self.model = model; self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
+        self.sandbox = sandbox; self.model = model; self.auto = auto && sandbox && ACPSandbox.applies(to: agent); self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
     }
 
     deinit { teardown() }
@@ -178,7 +180,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     // MARK: 1 回の質問
 
     private func ask(session: (connection: ACPConnection, id: String, isNew: Bool), instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
-        let turn = ACPTurnState(tools: tools, folder: workingDirectory(), sessionID: session.id, confirm: options.confirm, onActivity: options.onActivity)
+        let turn = ACPTurnState(tools: tools, folder: workingDirectory(), sessionID: session.id, confirm: options.confirm, auto: auto, onActivity: options.onActivity)
         session.connection.setHandlers(
             onRequest: { method, params in await turn.handleRequest(method, params) },
             onNotification: { method, params in turn.handleNotification(method, params) })

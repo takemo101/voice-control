@@ -67,9 +67,20 @@ struct ChatPage: View {
         if agent.isExternal, model.chatToolLevel == .all {
                 // ACP で話すエージェントは、操作の前に、聞いてくる（毎回、確認する）。それ以外は、確認なし
                 let confirms = agent.speaksACP && (model.settings.chatAcp ?? true)
-                Label(confirms ? "ファイルの書き込み・コマンドの実行は、毎回、確認します（常駐の接続）。聞き間違いや、Web のページの命令で、意図しない操作を頼むことがあるので、確認の内容を、よく読んでください。"
+                Label(confirms && (model.settings.chatAuto ?? false) && (model.settings.chatSandbox ?? true) ? "自動モードがオンです：作業フォルダの中の書き込みと無害なコマンドは、確認なしで行います（消す・外へ送る・システムを動かすものは、確認します）。聞き間違いや、Web のページの命令でも、フォルダの中のファイルは、書き換わります。" : confirms ? "ファイルの書き込み・コマンドの実行は、毎回、確認します（常駐の接続）。聞き間違いや、Web のページの命令で、意図しない操作を頼むことがあるので、確認の内容を、よく読んでください。"
                                : "ファイルの書き込み・コマンドの実行まで、確認なしで、できます。聞き間違いや、Web のページの命令で、意図しない操作が起きえます。実行した操作は、答えの下に出ます。", systemImage: "exclamationmark.octagon.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+            }
+            if agent.isExternal, agent.speaksACP, model.settings.chatAcp ?? true, model.chatToolLevel == .all {
+                RowDivider()
+                let sandboxOn = model.settings.chatSandbox ?? true
+                Row("自動モード（作業フォルダの中は、確認なし）", detail: sandboxOn ? "書き込みと無害なコマンドを、確認なしで行います。消す・外へ送る・システムを動かすものは、確認のままです" : "「OS の制限つきで動かす」をオンにすると、使えます（書き込みを、作業フォルダに限れないと、自動にしません）") {
+                    BrandSwitch(isOn: Binding(get: { (model.settings.chatAuto ?? false) && sandboxOn }, set: { model.setChatAuto($0) })).opacity(sandboxOn ? 1 : 0.4).disabled(!sandboxOn)
+                }
+                if (model.settings.chatAuto ?? false) && sandboxOn {
+                    Label("自動モードです：作業フォルダの中のファイルは、確認なしで、書き換わります。会話のウィンドウの見出しに「すべて・自動」と出ています。", systemImage: "bolt.shield.fill")
+                        .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+                }
             }
             if model.chatToolLevel.usesFolder {
                 RowDivider()

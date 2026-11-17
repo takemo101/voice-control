@@ -48,4 +48,12 @@ import Testing
         #expect(lines.count == 2 && lines[0].hasPrefix("コマンドを実行する：python3 のコードを実行：security-news-detail.md を新しく作る"))
         #expect(detail.count < 330 && !detail.contains("冷凍・冷蔵設備"))                                  // 末尾の本文は、確認の文に、並ばない（全文は、実行した操作に残る）
     }
+
+    @Test func shellSyntaxWordsAreNotMistakenForTheProgram() {
+        // Claude が実際に出した形：`if [ -e … ]; then echo EXISTS; else printf … > /tmp/x; fi`
+        let command = #"if [ -e /tmp/vc-chat-check-outside.txt ]; then echo "EXISTS"; else printf 'hi\n' > /tmp/vc-chat-check-outside.txt; fi && cat /tmp/vc-chat-check-outside.txt && echo done"#
+        let summary = ACPCommandSummary.summarize(command)
+        #expect(summary.headline.hasPrefix("シェルのスクリプトを実行：/tmp/vc-chat-check-outside.txt を書き込む（全 "))
+    }
 }
+

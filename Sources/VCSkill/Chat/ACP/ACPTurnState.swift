@@ -26,10 +26,12 @@ final class ACPTurnState: @unchecked Sendable {
     private let folder: URL
     private let sessionID: String
     private let confirm: ToolConfirm?
+    /// 自動モード（作業フォルダの中は、確認なし）：OS の制限が効いているときだけ。
+    private let auto: Bool
     private let onActivity: ActivityHandler?
 
-    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, onActivity: ActivityHandler?) {
-        self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
+    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, auto: Bool = false, onActivity: ActivityHandler?) {
+        self.auto = auto; self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
     }
 
     var text: String { lock.withLock { collected } }
@@ -82,7 +84,7 @@ final class ACPTurnState: @unchecked Sendable {
         let call = ACPToolCall(params["toolCall"] ?? .null)
         let options = params["options"]?.array ?? []
         func answer(_ allow: Bool) -> JSONValue { ACPPermission.outcome(allow: allow, options: options) }
-        switch ACPPermission.decide(call, folder: folder, level: tools) {
+        switch ACPPermission.decide(call, folder: folder, level: tools, auto: auto) {
         case .allow: return answer(true)
         case .block: lock.withLock { refused += 1; blocked += 1 }; return answer(false)
         case .reject: lock.withLock { refused += 1 }; return answer(false)

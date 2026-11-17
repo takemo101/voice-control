@@ -358,6 +358,28 @@ enum DownloadState: Equatable {
         }
     }
 
+    /// 自動モードを、オン・オフにする。**オンにするときは、確認のダイアログ**（何が、確認なしになり、何が、確認のままか）。
+    func setChatAuto(_ on: Bool) {
+        if on {
+            NSApplication.shared.activate()
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "自動モードを、オンにしますか？"
+            alert.informativeText = """
+            会話の道具が「すべて」のとき、**作業フォルダの中**の、ファイルの書き込みと、無害なコマンドの実行を、**確認なしで**行います。
+
+            確認のままのもの：ファイルやフォルダを消す・移す／curl の送信・scp・ssh・git push など、外へ送る／kill・open・osascript など、システムを動かす／インストール／権限の変更。
+            断るもの：作業フォルダの外への書き込み・取り返しのつかないコマンド（これまでどおり）。
+
+            限界：Python などのコードの中の操作は、文字からは見抜けません。書き込みの範囲は、「OS の制限つきで動かす」（サンドボックス）が、作業フォルダに限ります（オフのときは、自動モードは、働きません）。聞き間違いや、Web のページの命令でも、作業フォルダの中のファイルは、確認なしで、書き換わります。
+            """
+            alert.addButton(withTitle: "オンにする")
+            alert.addButton(withTitle: "やめる")
+            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+        }
+        update { $0.chatAuto = on ? true : nil }
+    }
+
     // MARK: 会話の道具
 
     var chatToolLevel: ChatToolLevel { settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none }

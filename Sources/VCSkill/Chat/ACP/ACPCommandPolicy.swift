@@ -82,6 +82,46 @@ enum ACPCommandPolicy {
         return target.contains("$(") || target.contains("`") || (target.hasPrefix("$") && target != "$HOME")
     }
 
+    // MARK: 自動モードでも、確認する
+
+    /// 自動モード（作業フォルダの中は、確認なし）でも、**利用者に確認するコマンドか**（**純粋**）：**消す**（`rm`・`find -delete`・`git clean`…）・**外へ送る・出ていく**（`curl` の送信・`scp`・`ssh`・`git push`…）・プロセスやシステムを動かす（`kill`・`launchctl`・`osascript`・`open`・`defaults`…）・インストール・権限の変更。
+    /// **文字を見る限りの安全網**（網羅ではない）。コードの中（`python3 -c` の `os.remove`）は、見抜けない：書き込みの範囲は、OS の制限（Seatbelt）が、作業フォルダに限る。取り返しのつかないもの（`isCatastrophic`）は、別に、断る。
+    static func needsConfirmationEvenInAuto(_ command: String) -> Bool {
+        let flat = command.replacingOccurrences(of: "\n", with: ";")
+        for segment in segments(of: flat) {
+            var tokens = words(segment)
+            while let first = tokens.first, first.contains("="), !first.hasPrefix("-"), !first.hasPrefix("=") { tokens.removeFirst() }
+            while let first = tokens.first, wrappers.contains(name(of: first)) { tokens.removeFirst() }
+            guard let head = tokens.first else { continue }
+            let program = name(of: head)
+            let rest = Array(tokens.dropFirst())
+            if confirmAlways.contains(program) { return true }
+            if shells.contains(program) {   // シェルで、別のコマンドを動かす：`-c` の中身を見る。スクリプトのファイルは、中身が分からない
+                if let c = rest.firstIndex(of: "-c"), c + 1 < rest.count { if needsConfirmationEvenInAuto(rest[(c + 1)...].joined(separator: " ")) { return true } } else { return true }
+            }
+            switch program {
+            case "find": if rest.contains("-delete") || rest.contains("-exec") || rest.contains("-execdir") { return true }
+            case "git": if let sub = rest.first(where: { !$0.hasPrefix("-") }), ["push", "clean", "reset", "rebase", "checkout", "restore", "stash", "remote", "config"].contains(sub) { return true }
+            case "curl": if rest.contains(where: { ["-d", "--data", "--data-binary", "--data-raw", "--data-urlencode", "-F", "--form", "-T", "--upload-file", "-X", "--request", "-K", "--config"].contains($0) || $0.hasPrefix("--data") || $0.hasPrefix("-d") && $0.count > 2 && !$0.hasPrefix("--") }) { return true }
+            case "wget": if rest.contains(where: { $0.hasPrefix("--post") || $0 == "--method" || $0 == "--body-data" || $0 == "--body-file" }) { return true }
+            case "npm", "pnpm", "yarn", "bun", "pip", "pip3", "pipx", "uv", "brew", "gem", "cargo", "go", "swift": if rest.contains(where: { ["install", "i", "add", "publish", "uninstall", "remove", "update", "upgrade", "global", "-g", "--global"].contains($0) }) { return true }
+            case "defaults": return true
+            case "ln": if rest.contains("-sf") || rest.contains("-fs") { return true }
+            default: break
+            }
+            if isCatastrophicSegment(segment, home: NSHomeDirectory(), depth: 0) { return true }
+        }
+        // 出力の付け替えで、ファイルの外（絶対のパス・`..`・ホーム）へ書く
+        if command.range(of: #">>?\s*["']?(/|~|\.\./|\$HOME|\$\{HOME\})"#, options: .regularExpression) != nil, command.range(of: #">>?\s*["']?/dev/(null|stderr|stdout|tty)"#, options: .regularExpression) == nil { return true }
+        return false
+    }
+
+    private static let confirmAlways: Set<String> = [
+        "rm", "rmdir", "unlink", "shred", "trash", "srm", "mv", "chmod", "chown", "chgrp", "chflags", "xattr", "kill", "pkill", "killall", "launchctl", "osascript", "open", "crontab", "at",
+        "ssh", "scp", "sftp", "rsync", "nc", "ncat", "netcat", "telnet", "ftp", "mount", "umount", "hdiutil", "diskutil", "tmutil", "systemsetup", "scutil", "networksetup", "pmset", "security", "spctl", "csrutil", "dscl", "sysctl",
+        "sudo", "doas", "su", "pkexec", "eval", "source", ".", "exec",
+    ]
+
     // MARK: 確認なしで許す
 
     /// 確認なしで許すコマンドか（作業フォルダの中の、見るだけのもの）。判断できない書き方は、すべて「いいえ」。

@@ -21,7 +21,7 @@ enum ACPCommandSummary {
         let text = collapsed.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
         guard text.count > shortLimit else { return Summary(headline: text, preview: "") }
         let program = programName(of: text)
-        let kind = isInterpreter(program) ? "\(program) のコードを実行" : "\(program) を実行"
+        let kind = isInterpreter(program) ? "\(program) のコードを実行" : (shellKeywords.contains(program) ? "シェルのスクリプトを実行" : "\(program) を実行")
         var headline = kind
         let writes = writtenFiles(in: text)
         if !writes.isEmpty { headline += "：" + writes.prefix(3).map { "\($0.file) を\($0.verb)" }.joined(separator: "・") + (writes.count > 3 ? " ほか" : "") }
@@ -32,6 +32,8 @@ enum ACPCommandSummary {
 
     // MARK: 部品
 
+    /// シェルの構文の語（`if [ -e a ]; then …`：プログラムの名前では、ない）。
+    static let shellKeywords: Set<String> = ["if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "[", "[[", "!", "{", "function"]
     static let interpreters: Set<String> = ["python", "python3", "node", "deno", "bun", "ruby", "perl", "php", "osascript", "sh", "bash", "zsh", "swift"]
     static func isInterpreter(_ program: String) -> Bool { interpreters.contains(program) }
 

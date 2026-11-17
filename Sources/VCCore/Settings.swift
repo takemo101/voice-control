@@ -11,6 +11,7 @@ import Foundation
 /// - `voice`：読み上げの声（識別子か名前）。なければ、入っている日本語の声のうち、品質がいちばん高いもの。設定ウィンドウ > 音声。
 /// - `dictateEnter`：音声入力で、文字を入れたあと、**Enter を送る**か（メッセージの送信・コマンドの実行まで、自動で行う）。なければ、送らない（設定ウィンドウ > 音声）。送る前に、短い間があり、Esc で取りやめられる。
 /// - `updateCheck`：新しい版の確認（GitHub の公開情報を、起動時と 1 日ごとに取りに行く。利用者のデータは、送らない）を、するか。なければ、する。見つけても、**入れるのは、利用者が選んだとき**だけ（設定ウィンドウ > 一般）。
+/// - `chatAuto`：**自動モード**：会話の道具が「すべて」のとき、**作業フォルダの中の書き込みと、無害なコマンドを、確認なしで実行する**（ACP で話すエージェント。OS の制限が、効いているときだけ）。消す・外へ送る・システムを動かす・フォルダの外への書き込みは、確認か拒否のまま。なければ、オフ（設定ウィンドウ > 会話）。
 /// - `chatModels`：会話のエージェントごとの、モデル（エージェント名 → モデルの値。ACP で話すもの）。なければ、エージェントの設定のまま。一覧は、エージェントが返す（設定ウィンドウ > 会話）。
 /// - `fontSize`：画面の文字の大きさ（会話・Markdown のウィンドウ・上のパネル・画像の窓・拡大の窓）。標準は 13（なければ 13）・範囲は 10〜24。設定ウィンドウ > 一般 > 表示。
 /// - `dictateKey`：`dictateEnter` で送るキー（書き方は、トリガーと同じ：`cmd+return`・`shift+return`・`tab`…。単独のキーも、よい）。なければ、Enter（`return`）。解釈は、Speech 層（`KeyStroke`）。
@@ -49,6 +50,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var updateCheck: Bool?
     public var fontSize: Int?
     public var chatModels: [String: String]?
+    public var chatAuto: Bool?
     public var voice: String?
     public var mute: Bool?
     public var removeFillers: Bool?
@@ -82,6 +84,7 @@ public struct Settings: Codable, Sendable, Equatable {
         updateCheck = try c.decodeIfPresent(Bool.self, forKey: .updateCheck)
         fontSize = try c.decodeIfPresent(Int.self, forKey: .fontSize)
         chatModels = try c.decodeIfPresent([String: String].self, forKey: .chatModels)
+        chatAuto = try c.decodeIfPresent(Bool.self, forKey: .chatAuto)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)

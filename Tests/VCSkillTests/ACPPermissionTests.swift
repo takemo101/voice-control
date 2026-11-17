@@ -40,4 +40,36 @@ import Testing
         #expect(ACPToolCall(.object(["name": .string("grep")])).title == "grep")                                                // 題がなければ、名前
         #expect(ACPToolCall(.object(["rawInput": .object(["command": .string("")])])).command == nil)                           // 空のコマンドは、なし
     }
+
+    // MARK: 自動モード（作業フォルダの中は、確認なし）
+
+    private let work = URL(fileURLWithPath: "/tmp/vc-auto-work")
+    private func auto(_ call: ACPToolCall, level: ChatToolLevel = .all, on: Bool = true) -> ACPPermission.Decision { ACPPermission.decide(call, folder: work, level: level, auto: on) }
+
+    @Test func inAutoModeWritesInsideTheFolderAndHarmlessCommandsRunWithoutAsking() {
+        #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/vc-auto-work/notes/a.md")) == .allow)
+        #expect(auto(ACPToolCall(kind: "execute", command: "set -C; printf hi > check.txt")) == .allow)                   // Codex の実際の形
+        #expect(auto(ACPToolCall(kind: "execute", command: ##"python3 -c 'from pathlib import Path; Path("a.md").open("x").write("""本文""")'"##)) == .allow)   // 利用者が確認を出された形
+        #expect(auto(ACPToolCall(kind: "execute", command: "cat a.md | wc -l")) == .allow)
+    }
+
+    @Test func inAutoModeWritesOutsideAreRefusedDeletesAndMovesStillAskAndTheCatastrophicIsBlocked() {
+        #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/other/a.md")) == .reject)                       // 外は、断る
+        #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/vc-auto-work/../other/a.md")) == .reject)       // `..` で、外へ出る道
+        #expect(auto(ACPToolCall(kind: "edit")) == .ask)                                                   // 場所が分からなければ、聞く
+        #expect(auto(ACPToolCall(kind: "delete", path: "/tmp/vc-auto-work/a.md")) == .ask)                 // 消す：中でも、聞く
+        #expect(auto(ACPToolCall(kind: "move", path: "/tmp/vc-auto-work/a.md")) == .ask && auto(ACPToolCall(kind: "delete", path: "/etc/hosts")) == .reject)
+        #expect(auto(ACPToolCall(kind: "switch_mode")) == .ask && auto(ACPToolCall(kind: "other")) == .ask)
+        #expect(auto(ACPToolCall(kind: "execute", command: "rm -rf ~")) == .block)                         // 取り返しのつかないもの：断る
+        #expect(auto(ACPToolCall(kind: "execute", command: "rm a.md")) == .ask)                            // 消す：聞く
+    }
+
+    @Test func autoModeNeverWorksBelowTheAllLevelOrWhenSwitchedOffAndOtherRulesAreUnchanged() {
+        #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/vc-auto-work/a.md"), level: .read) == .reject)  // 「すべて」だけ
+        #expect(auto(ACPToolCall(kind: "execute", command: "echo hi"), level: .web) == .reject)
+        #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/vc-auto-work/a.md"), on: false) == .ask)        // オフなら、これまでどおり
+        #expect(auto(ACPToolCall(kind: "execute", command: "echo hi"), on: false) == .ask)
+        #expect(auto(ACPToolCall(kind: "read"), level: .read) == .allow && auto(ACPToolCall(kind: "search", name: "websearch"), level: .none) == .reject)
+    }
 }
+

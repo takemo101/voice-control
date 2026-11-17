@@ -53,7 +53,7 @@ import VCSpeech
         let agent = ChatMode.shared.agent
         let window = ChatWindow.shared
         let level = ChatMode.shared.tools
-        let toolLabel: String? = level == .none ? nil : (level == .all ? "すべて" : (level == .read ? "＋読む" : "Web"))
+        let toolLabel: String? = level == .none ? nil : (level == .all ? (ChatMode.shared.auto ? "すべて・自動" : "すべて") : (level == .read ? "＋読む" : "Web"))
         let id = window.begin(question: utterance, agent: agent.isExternal ? agent.label : "Apple のモデル（この Mac の中）",
                               warning: agent.isExternal ? "この Mac の外へ送信" : (level == .none ? nil : "検索語を外へ送信"), tools: toolLabel, cancel: cancelHook)
         // **会話は、会話のウィンドウで見せる**（エージェントや答えの長さで、出たり出なかったりしない）。出ていなければ、前へ出す（キーは奪わない）。上のパネル（HUD）は、聞いている・確認・失敗のときだけ
