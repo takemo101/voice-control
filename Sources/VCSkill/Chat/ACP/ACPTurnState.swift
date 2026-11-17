@@ -14,7 +14,7 @@ final class ACPTurnState: @unchecked Sendable {
     private let lock = NSLock()
     // — ここから `lock` の下 —
     private var collected = ""
-    private var calls: [String: (activity: ChatActivity, kind: String)] = [:]   // ツール呼び出しの番号 → 出した操作・種類（結果が届いたとき、同じ操作を、置き換える）
+    private var calls: [String: (call: ACPToolCall, activity: ChatActivity, terminal: String)] = [:]   // ツール呼び出しの番号 → 呼び出し・出した操作・端末の出力（題・結果が、あとから届いたとき、同じ操作を、置き換える）
     private var refused = 0
     private var blocked = 0
     private var lastProgress = Date()
@@ -56,15 +56,22 @@ final class ACPTurnState: @unchecked Sendable {
             let call = ACPToolCall(update)
             guard let callID = update["toolCallId"]?.string, lock.withLock({ calls[callID] == nil }) else { return }
             guard let activity = ACPPermissionText.activity(call)?.with(id: callID, output: nil) else { return }
-            lock.withLock { calls[callID] = (activity, call.kind) }
+            lock.withLock { calls[callID] = (call, activity, "") }
             onActivity?(activity)
         case "tool_call_update":
-            // 結果（コマンドの出力・差分）が届いた：同じ操作（番号が同じ）に、付けて、知らせ直す
-            guard let callID = update["toolCallId"]?.string, let content = update["content"]?.array, !content.isEmpty,
-                  let known = lock.withLock({ calls[callID] }), let output = ACPToolOutput.make(kind: update["kind"]?.string ?? known.kind, content: content) else { return }
-            let updated = known.activity.with(id: callID, output: output)
-            lock.withLock { calls[callID] = (updated, known.kind) }
-            onActivity?(updated)
+            // あとから届く、題（Claude：「Terminal」→「ls -la」）・結果（コマンドの出力・差分。Codex：端末の出力の断片）：同じ操作（番号が同じ）に、付けて、知らせ直す
+            guard let callID = update["toolCallId"]?.string, let known = lock.withLock({ calls[callID] }) else { return }
+            var call = known.call
+            if let title = update["title"]?.string, !title.isEmpty { call.title = title }
+            var terminal = known.terminal
+            if let data = update["_meta"]?["terminal_output_delta"]?["data"]?.string { terminal += data }
+            let content = update["content"]?.array ?? []
+            let output = ACPToolOutput.make(kind: call.kind, content: content) ?? (call.kind == "execute" ? ACPToolOutput.terminal(terminal) : nil) ?? known.activity.output
+            guard let base = ACPPermissionText.activity(call) else { return }
+            let updated = base.with(id: callID, output: output)
+            guard updated != known.activity || terminal != known.terminal else { return }
+            lock.withLock { calls[callID] = (call, updated, terminal) }
+            if updated != known.activity { onActivity?(updated) }
         default: break
         }
     }

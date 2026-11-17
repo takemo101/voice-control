@@ -22,7 +22,12 @@ enum ACPFakeAgent {
             if flavor == "config":
                 send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "configOptions": [{"id": "mode", "category": "mode", "type": "select", "currentValue": "orchestrator", "options": [{"value": "orchestrator"}, {"value": "build"}, {"value": "plan"}]}]}})
             else:
-                send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "models": {"availableModels": [{"modelId": "gemini-4-hydrogen-medium"}]}, "modes": {"availableModes": [{"id": "plan"}, {"id": "default"}]}}})
+                if flavor == "nomode":
+                    send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid}})
+                elif flavor == "readonly":
+                    send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "modes": {"availableModes": [{"id": "read-only"}, {"id": "agent"}]}}})
+                else:
+                    send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "models": {"availableModels": [{"modelId": "gemini-4-hydrogen-medium"}]}, "modes": {"availableModes": [{"id": "plan"}, {"id": "default"}]}}})
         elif method in ("session/set_model", "session/set_mode", "session/set_config_option", "session/close"):
             send({"jsonrpc": "2.0", "id": mid, "result": {}})
         elif method == "session/prompt":
@@ -85,8 +90,8 @@ struct ACPFixture {
         logPath = directory.appendingPathComponent("log.txt").path
         try ACPFakeAgent.script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
     }
-    func backend(agent: ChatAgent = .agy, tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: ACPCounter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20) -> ACPChatBackend {
-        let script = scriptPath, log = logPath, flavor = agent == .opencode ? "config" : "modes"
+    func backend(agent: ChatAgent = .agy, tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: ACPCounter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20, flavor customFlavor: String? = nil) -> ACPChatBackend {
+        let script = scriptPath, log = logPath, flavor = customFlavor ?? (agent == .opencode ? "config" : "modes")
         let fallback = ExternalChatBackend(agent: agent, tools: tools, runner: { _ in AgentRun(exitCode: 0, text: fallbackText) })
         return ACPChatBackend(agent: agent, tools: tools, folder: directory, fallback: fallback,
                               launch: { _, _ in launches?.increment(); return ["python3", script, log, flavor] }, retryAfter: retryAfter, promptTimeout: promptTimeout)

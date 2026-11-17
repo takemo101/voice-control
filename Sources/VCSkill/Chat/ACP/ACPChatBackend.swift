@@ -128,33 +128,40 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             created = try await connection.request("session/new", .object(["cwd": .string(workingDirectory().path), "mcpServers": .array([])]), timeout: 25)
         } catch { connection.close(); throw ACPError.unavailable("セッションを作れません（\(error)）") }
         guard let id = created["sessionId"]?.string else { connection.close(); throw ACPError.unavailable("セッションの番号が返りません") }
-        await configure(connection: connection, sessionID: id, created: created)
+        let modeApplied = await configure(connection: connection, sessionID: id, created: created)
+        if profile.requiresMode && !modeApplied {
+            connection.close()
+            throw ACPError.unavailable("モード（\(profile.wantedModes(level: tools).joined(separator: "・"))）を決められません")   // 確認なしで操作するモードのまま、使わない
+        }
         lock.withLock { self.connection = connection; self.sessionID = id; self.knownTurns = -1 }
         return (connection, id, true)
     }
 
-    /// モデル（agy：環境変数か既定。一覧にあるときだけ）と、モード（読むだけの段階は plan・「すべて」は、確認つきの default）を、決める。失敗しても、続ける。
-    private func configure(connection: ACPConnection, sessionID: String, created: JSONValue) async {
+    /// モデル（agy：環境変数か既定。一覧にあるときだけ）と、モード（読むだけの段階は plan 類・「すべて」は、聞いてくるもの：`ACPAgentProfile`）を、決める。モデルの失敗は、無視する（既定のまま）。
+    /// **モードを決められたか**を返す（`requiresMode` のエージェントは、決められなければ、使わない：確認なしで操作するモードのままになる）。
+    private func configure(connection: ACPConnection, sessionID: String, created: JSONValue) async -> Bool {
         if profile.choosesModel, let model = try? fallback.agyModel() {
             let available = created["models"]?["availableModels"]?.array?.compactMap { $0["modelId"]?.string } ?? []
             if available.contains(model) {
                 _ = try? await connection.request("session/set_model", .object(["sessionId": .string(sessionID), "modelId": .string(model)]), timeout: 10)
             }
         }
-        // モード：読むだけの段階は `plan`・「すべて」は、確認つきの `default`（agy）か `build`（opencode）。**モードの強制は、補助**：本当の段階の強制は、許可の返事（`ACPPermission`）
-        let wanted = tools == .all ? ["default", "build"] : ["plan"]
+        // **モードの強制は、補助**：本当の段階の強制は、許可の返事（`ACPPermission`）と、OS の制限（`ACPSandbox`）。ただし、確認なしのモードのままだと、許可の確認が、来ない。
+        let wanted = profile.wantedModes(level: tools)
         let modes = created["modes"]?["availableModes"]?.array?.compactMap { $0["id"]?.string } ?? []
-        if let mode = wanted.first(where: modes.contains) {
-            _ = try? await connection.request("session/set_mode", .object(["sessionId": .string(sessionID), "modeId": .string(mode)]), timeout: 10)
-            return
+        if let mode = wanted.first(where: modes.contains),
+           (try? await connection.request("session/set_mode", .object(["sessionId": .string(sessionID), "modeId": .string(mode)]), timeout: 10)) != nil {
+            return true
         }
-        // もう 1 つの形（設定の選択肢：opencode）：種類が「mode」の選択肢
-        if let option = created["configOptions"]?.array?.first(where: { $0["category"]?.string == "mode" }), let configID = option["id"]?.string {
+        // もう 1 つの形（設定の選択肢：opencode・Claude・Codex）：種類が「mode」か、番号が `mode` の選択肢
+        if let option = created["configOptions"]?.array?.first(where: { $0["category"]?.string == "mode" || $0["id"]?.string == "mode" }), let configID = option["id"]?.string {
             let values = option["options"]?.array?.compactMap { $0["value"]?.string } ?? []
-            if let mode = wanted.first(where: values.contains) {
-                _ = try? await connection.request("session/set_config_option", .object(["sessionId": .string(sessionID), "configId": .string(configID), "value": .string(mode)]), timeout: 10)
+            if let mode = wanted.first(where: values.contains),
+               (try? await connection.request("session/set_config_option", .object(["sessionId": .string(sessionID), "configId": .string(configID), "value": .string(mode)]), timeout: 10)) != nil {
+                return true
             }
         }
+        return false
     }
 
     private func workingDirectory() -> URL {

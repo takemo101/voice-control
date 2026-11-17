@@ -25,7 +25,10 @@ enum ACPSandbox {
         let unreadable = [".ssh", ".aws", ".gnupg"].map { home + "/" + $0 }
         var lines = ["(version 1)", "(allow default)", "(deny file-write*)"]
         lines.append("(deny file-read* " + unreadable.map { "(subpath \(quote($0)))" }.joined(separator: " ") + ")")
+        let files = stateFiles(agent: agent, home: home).map { "(literal \(quote($0))) (regex #\"^\(regexEscaped($0))\\..*$\")" }.joined(separator: " ")   // 名前の頭が同じ、一時・ロック・退避のファイルも
+        let prefixes = (ACPAgentProfile.of(agent)?.statePrefixes ?? []).map { "(regex #\"^\(regexEscaped($0))\")" }.joined(separator: " ")   // 頭が一致する、絶対の場所
         lines.append("(allow file-write* " + writable.map { "(subpath \(quote($0)))" }.joined(separator: " ")
+                     + (files.isEmpty ? "" : " " + files) + (prefixes.isEmpty ? "" : " " + prefixes)
                      + " (literal \"/dev/null\") (literal \"/dev/tty\") (literal \"/dev/dtracehelper\") (literal \"/dev/ptmx\") (regex #\"^/dev/ttys[0-9]+$\"))")
         lines.append("(allow pseudo-tty)")   // コマンドの実行（agy は、端末を作る）
         return lines.joined(separator: "\n")
@@ -34,6 +37,21 @@ enum ACPSandbox {
     /// エージェント自身が、書く場所（会話・認証・設定・キャッシュ）。
     static func stateDirectories(agent: ChatAgent, home: String) -> [String] {
         (ACPAgentProfile.of(agent)?.stateDirectories ?? []).map { home + "/" + $0 }
+    }
+
+    /// エージェント自身が、書く**ファイル**（ホームの直下の設定ファイルなど）。
+    static func stateFiles(agent: ChatAgent, home: String) -> [String] {
+        (ACPAgentProfile.of(agent)?.stateFiles ?? []).map { home + "/" + $0 }
+    }
+
+    /// 正規表現の中で、そのままの文字として扱うために、記号を逃がす（ホームの場所に、`.` などが入っていても、別の場所に、一致しない）。
+    private static func regexEscaped(_ text: String) -> String {
+        var out = ""
+        for character in text {
+            if "\\.+*?()[]{}|^$".contains(character) { out.append("\\") }
+            out.append(character)
+        }
+        return out
     }
 
     /// Seatbelt の文字列（`"` と `\` を逃がす）。

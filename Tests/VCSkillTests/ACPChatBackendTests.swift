@@ -28,6 +28,29 @@ import Testing
         #expect(fx.log.components(separatedBy: "initialize").count == 2)   // プロセスは、使い回す
     }
 
+    @Test func anAdapterThatCannotSetItsModeIsNotUsedBecauseItWouldActWithoutAsking() async throws {
+        // Claude のアダプターは、初期が `auto`（確認なしで操作する）：確認のモード（default）を決められなければ、ACP で話さず、従来の方式へ戻る
+        let fx = try ACPFixture(); let backend = fx.backend(agent: .claude, tools: .all, fallbackText: "従来の方式の答え", flavor: "nomode"); defer { backend.teardown() }
+        let answer = try await backend.respond(instructions: "", turns: [], user: "q")
+        #expect(answer == "従来の方式の答え" && !fx.log.contains("session/prompt"))
+        // 決められるなら、決めてから、使う（すべて＝default・読むだけ＝plan）
+        let ok = try ACPFixture(); let claude = ok.backend(agent: .claude, tools: .all); defer { claude.teardown() }
+        let reply = try await claude.respond(instructions: "", turns: [], user: "q")
+        #expect(reply.contains("n=1") && (ok.log.contains("\"modeId\": \"default\"") || ok.log.contains("\"modeId\":\"default\"")))
+    }
+
+    @Test func codexAsksOnlyInItsReadOnlyModeSoEveryLevelUsesThatMode() async throws {
+        for level in [ChatToolLevel.read, .all] {
+            let fx = try ACPFixture(); let backend = fx.backend(agent: .codex, tools: level, flavor: "readonly"); defer { backend.teardown() }
+            let reply = try await backend.respond(instructions: "", turns: [], user: "q")
+            #expect(reply.contains("n=1"))
+            #expect(fx.log.contains("\"modeId\": \"read-only\"") || fx.log.contains("\"modeId\":\"read-only\""), "\(level)")
+        }
+        let none = try ACPFixture(); let missing = none.backend(agent: .codex, tools: .all, flavor: "modes"); defer { missing.teardown() }   // read-only がなければ、使わない（従来の方式へ：codex の従来の方式は、別の形の出力を読むので、ここでは、結果でなく、ACP で質問を送っていないことを見る）
+        _ = try? await missing.respond(instructions: "", turns: [], user: "q")
+        #expect(!none.log.contains("session/prompt"))
+    }
+
     @Test func theModelAndTheModeAreSetFromTheLevelAndAvailableList() async throws {
         let fx = try ACPFixture()
         let readOnly = fx.backend(tools: .read); defer { readOnly.teardown() }

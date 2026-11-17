@@ -91,11 +91,20 @@ struct ChatCheckCommand: Command {
         }
     }
 
-    /// 終わるまで待つ（上限つき）。終わったか。
-    private func finished(_ task: Task<Void, Never>, within seconds: Double) async -> Bool {
+    /// 終わるまで待つ（上限つき）。終わったか。`answerAgain`：待つ間に、確認のパネルが、また出たら、答える（エージェントは、1 つの頼みに、確認を、続けて出すことがある：Claude は、コマンドのあと、書き込みの道具でも聞いた）。
+    private func finished(_ task: Task<Void, Never>, within seconds: Double, answerAgain: Bool? = nil) async -> Bool {
         await withTaskGroup(of: Bool.self) { group in
             group.addTask { await task.value; return true }
             group.addTask { try? await Task.sleep(for: .seconds(seconds)); return false }
+            if let answerAgain {
+                group.addTask { @MainActor in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        if HUD.shared.answers.isWaiting { HUD.shared.answers.deliver(answerAgain); print("→ 続けて出た確認にも、\(answerAgain ? "許可" : "断る")") }
+                    }
+                    return false
+                }
+            }
             let first = await group.next() ?? false
             group.cancelAll()
             return first
@@ -193,7 +202,7 @@ struct ChatCheckCommand: Command {
             HUD.shared.answers.deliver(true); print("→ パネルで、許可")
         default: print("知らないシナリオ"); task.cancel()
         }
-        let done = await finished(task, within: 90)
+        let done = await finished(task, within: 90, answerAgain: ["yes", "run", "outside", "hidden"].contains(name) ? true : (name == "no" ? false : nil))
         print("結果：\(done ? "処理は終わった" : "90 秒たっても終わらない")・ファイルを作った：\(fileMade(file))・パネルの待ち：\(HUD.shared.answers.isWaiting ? "残っている" : "解けた")・待ち時間 \(seconds(since: started)) 秒")
         try? await Task.sleep(for: .milliseconds(1500))
     }

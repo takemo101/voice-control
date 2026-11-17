@@ -6,7 +6,14 @@ public enum AgentLocator {
     /// `PATH` の次に探す、よくある置き場所（ホームからの相対と、決まった場所）。
     static func commonDirectories(home: String) -> [String] {
         ["\(home)/.local/bin", "\(home)/.bun/bin", "\(home)/.npm-global/bin", "\(home)/.volta/bin", "\(home)/.cargo/bin", "\(home)/.deno/bin",
-         "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
+         "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"] + nodeVersionDirectories(home: home)
+    }
+
+    /// `nvm` の、入っている Node の `bin`（新しい版から）。`npm i -g` で入れた ACP アダプター（`#!/usr/bin/env node`）は、ここに置かれ、動かすのにも、ここの `node` が要る。なければ、空。
+    static func nodeVersionDirectories(home: String) -> [String] {
+        let root = "\(home)/.nvm/versions/node"
+        let versions = ((try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []).sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+        return versions.map { "\(root)/\($0)/bin" }
     }
 
     /// 探す場所（`PATH` の順に、よくある置き場所。重複は、除く）。
@@ -20,6 +27,12 @@ public enum AgentLocator {
     public static func executablePath(for agent: ChatAgent, directories: [String] = searchDirectories(), isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> String? {
         guard agent.isExternal else { return nil }
         return directories.map { "\($0)/\(agent.rawValue)" }.first(where: isExecutable)
+    }
+
+    /// ACP で話すための、**アダプター**（`claude-agent-acp`・`codex-acp`）の、絶対パス（なければ nil。CLI 本体が ACP を話すもの〔`agy`・`opencode`〕は、CLI 本体）。
+    public static func acpExecutablePath(for agent: ChatAgent, directories: [String] = searchDirectories(), isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> String? {
+        guard let name = ACPAgentProfile.of(agent)?.executable else { return nil }
+        return directories.map { "\($0)/\(name)" }.first(where: isExecutable)
     }
 
     /// 使えるか（Apple は、いつも使える。外のエージェントは、CLI が入っていれば）。
