@@ -61,10 +61,10 @@ struct ImageCardView: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                Image(systemName: "photo.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
+                Image(systemName: "photo.fill").vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
             }
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-            Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
+            Text(title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1)
+            Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Spacer(minLength: 8)
             HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied == .image, action: copyImage)
@@ -97,8 +97,8 @@ struct ImageCardView: View {
             DraggableImage(image: image)
             if stageHover.on {
                 HStack(spacing: 6) {
-                    Image(systemName: "hand.draw").font(.system(size: 11, weight: .semibold))
-                    Text("ドラッグして、ほかのアプリへ").font(.system(size: 11.5, weight: .semibold))
+                    Image(systemName: "hand.draw").vcFont(11, weight: .semibold)
+                    Text("ドラッグして、ほかのアプリへ").vcFont(11.5, weight: .semibold)
                 }
                 .foregroundStyle(.white).padding(.horizontal, 11).padding(.vertical, 6)
                 .background(Capsule().fill(.black.opacity(0.62)))
@@ -147,10 +147,10 @@ struct ImageCardView: View {
     private var transcriptPane: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "text.viewfinder").font(.system(size: 12, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
-                Text("文字起こし").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Image(systemName: "text.viewfinder").vcFont(12, weight: .semibold).foregroundStyle(DocumentPalette.accent)
+                Text("文字起こし").vcFont(13, weight: .semibold).foregroundStyle(.white)
                 if case let .text(text) = state.transcript {
-                    Text(verbatim: "\(text.count) 文字").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
+                    Text(verbatim: "\(text.count) 文字").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                         .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
                 }
                 Spacer(minLength: 8)
@@ -165,12 +165,12 @@ struct ImageCardView: View {
                 case .idle, .reading:
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("読み取っています…（最初の 1 回は、準備で、30 秒ほどかかります）").font(.system(size: 12)).foregroundStyle(.white.opacity(0.62))
+                        Text("読み取っています…（最初の 1 回は、準備で、30 秒ほどかかります）").vcFont(12).foregroundStyle(.white.opacity(0.62))
                     }
                 case .empty:
-                    Text("文字が見つかりませんでした").font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.62))
+                    Text("文字が見つかりませんでした").vcFont(12.5).foregroundStyle(.white.opacity(0.62))
                 case let .failed(message):
-                    Text(message).font(.system(size: 12.5)).foregroundStyle(.red.opacity(0.9)).padding(12)
+                    Text(message).vcFont(12.5).foregroundStyle(.red.opacity(0.9)).padding(12)
                 case let .text(text):
                     TranscriptText(text: text).padding(.vertical, 4)
                 }
@@ -189,7 +189,7 @@ private struct Chip: View {
     var body: some View {
         HStack(spacing: 6) {
             if let dot { Circle().fill(dot).frame(width: 6, height: 6) }
-            Text(verbatim: text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.7)).lineLimit(1).truncationMode(.middle)
+            Text(verbatim: text).vcFont(11, weight: .medium).foregroundStyle(.white.opacity(0.7)).lineLimit(1).truncationMode(.middle)
         }
         .padding(.horizontal, 10).padding(.vertical, 4)
         .background(Capsule().fill(.white.opacity(0.08)))

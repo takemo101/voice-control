@@ -102,6 +102,7 @@ struct HUDRootView: View {
         Group {
             if content.isCompact { CompactCard(content: content, model: model) } else { FullCard(content: content, model: model, answer: answer) }
         }
+        .userScaled()   // 文字の大きさ（設定 `fontSize`）
         .environment(\.colorScheme, .dark)
     }
 }
@@ -142,7 +143,7 @@ private struct CompactCard: View {
                 if captioned {
                     CaptionPlate(live: model.liveText, hint: content.hint)
                 } else if let hint = content.hint {
-                    Text(hint).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).lineLimit(1).truncationMode(.tail)
+                    Text(hint).vcFont(11).foregroundStyle(.white.opacity(0.6)).lineLimit(1).truncationMode(.tail)
                 }
             }
         }
@@ -159,7 +160,7 @@ private struct CompactCard: View {
             TimelineView(.periodic(from: .now, by: 0.25)) { tl in
                 let seconds = max(0, Int(tl.date.timeIntervalSince(model.recordingStart)))
                 Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
-                    .font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.9))
+                    .vcFont(13, weight: .semibold, monospacedDigit: true).foregroundStyle(.white.opacity(0.9))
             }
             if let chip = content.chip { Pill(text: chip) }
         }
@@ -194,7 +195,7 @@ private struct CaptionPlate: View {
                     captionText(live, caretOn: caretOn)
                 }
             } else {
-                Text(hint ?? "話してください…").font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity, alignment: .leading)
+                Text(hint ?? "話してください…").vcFont(12.5).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -212,7 +213,7 @@ private struct CaptionPlate: View {
         let tentative = Text(t.tentative).foregroundStyle(Color.white.opacity(0.55))
         let caret = Text("▎").foregroundStyle(caretOn ? Palette.rec2 : Color.clear)
         let text = Text("\(head)\(confirmed)\(tentative)\(caret)")
-        return text.font(.system(size: 15.5, weight: .medium)).lineSpacing(4).lineLimit(2)
+        return text.vcFont(15.5, weight: .medium).lineSpacing(4).lineLimit(2)
             .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -278,9 +279,9 @@ private struct ShimmerText: View {
     let t: Double
     var body: some View {
         let x = (t * 0.45).truncatingRemainder(dividingBy: 1.6) - 0.3
-        Text(text).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white.opacity(0.55)).lineLimit(1)
+        Text(text).vcFont(15, weight: .semibold).foregroundStyle(.white.opacity(0.55)).lineLimit(1)
             .overlay(
-                Text(text).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(text).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1)
                     .mask(LinearGradient(stops: [.init(color: .clear, location: x - 0.2), .init(color: .white, location: x), .init(color: .clear, location: x + 0.2)], startPoint: .leading, endPoint: .trailing))
             )
     }
@@ -290,7 +291,7 @@ private struct Pill: View {
     let text: String
     var tint: Color = .white
     var body: some View {
-        Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(tint.opacity(0.85)).lineLimit(1).truncationMode(.tail)
+        Text(text).vcFont(11, weight: .semibold).foregroundStyle(tint.opacity(0.85)).lineLimit(1).truncationMode(.tail)
             .padding(.horizontal, 9).padding(.vertical, 3)
             .background(Capsule().fill(tint.opacity(0.14)))
             .fixedSize()
@@ -325,7 +326,7 @@ private struct FullCard: View {
             } else {
                 Badge(symbol: symbol, tint: tint).id(content.title + String(describing: content.phase))
             }
-            Text(content.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
+            Text(content.title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
             if let skill = content.skill { Pill(text: skill, tint: Palette.think1) }
             Spacer(minLength: 8)
             if let chip = content.chip { Pill(text: chip) }
@@ -346,16 +347,16 @@ private struct FullCard: View {
     private var bodyContent: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 8) {
-                if let hint = content.hint { Text(hint).font(.system(size: 12)).foregroundStyle(.white.opacity(0.62)).fixedSize(horizontal: false, vertical: true) }
+                if let hint = content.hint { Text(hint).vcFont(12).foregroundStyle(.white.opacity(0.62)).fixedSize(horizontal: false, vertical: true) }
                 if let heard = content.heard, !heard.isEmpty {
-                    Text("“\(heard)”").font(.system(size: 13)).foregroundStyle(.white.opacity(0.6)).lineLimit(2).truncationMode(.tail)
+                    Text("“\(heard)”").vcFont(13).foregroundStyle(.white.opacity(0.6)).lineLimit(2).truncationMode(.tail)
                 }
                 if !content.steps.isEmpty || content.reply != nil {
                     Rectangle().fill(.white.opacity(0.15)).frame(height: 0.7)
                 }
                 ForEach(Array(content.steps.enumerated()), id: \.offset) { _, step in StepRow(step: step) }
                 if let reply = content.reply, !reply.isEmpty {
-                    Text(reply).font(.system(size: 14, weight: .medium)).foregroundStyle(.white).lineLimit(5).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
+                    Text(reply).vcFont(14, weight: .medium).foregroundStyle(.white).lineLimit(5).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -424,7 +425,7 @@ private struct Badge: View {
             let k = t > 1.2 ? 1.0 : 1 - exp(-7 * t) * cos(13 * t)
             ZStack {
                 Circle().fill(tint.opacity(0.18)).frame(width: 28, height: 28)
-                Image(systemName: symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(tint)
+                Image(systemName: symbol).vcFont(14, weight: .bold).foregroundStyle(tint)
                     .scaleEffect(0.35 + 0.65 * k).opacity(min(1, t * 8))
             }
         }
@@ -438,11 +439,11 @@ private struct StepRow: View {
         let (glyph, tint) = mark
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(glyph).font(.system(size: 12, weight: .bold)).foregroundStyle(tint)
-                Text(step.command).font(.system(size: 12, design: .monospaced)).foregroundStyle(.white.opacity(0.92)).lineLimit(1).truncationMode(.middle)
+                Text(glyph).vcFont(12, weight: .bold).foregroundStyle(tint)
+                Text(step.command).vcFont(12, design: .monospaced).foregroundStyle(.white.opacity(0.92)).lineLimit(1).truncationMode(.middle)
             }
             if let output = step.output, !output.isEmpty {
-                Text(output).font(.system(size: 11, design: .monospaced)).foregroundStyle(.white.opacity(0.55)).padding(.leading, 18).lineLimit(1).truncationMode(.tail)
+                Text(output).vcFont(11, design: .monospaced).foregroundStyle(.white.opacity(0.55)).padding(.leading, 18).lineLimit(1).truncationMode(.tail)
             }
         }
     }
@@ -468,7 +469,7 @@ private struct ChoiceButton: View {
     var body: some View {
         let shape = Capsule()
         Button(action: action) {
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+            Text(title).vcFont(14, weight: .semibold).foregroundStyle(.white)
                 .frame(maxWidth: .infinity).padding(.vertical, 9)
                 .background(shape.fill(prominent ? AnyShapeStyle(LinearGradient(colors: [tint.opacity(0.95), tint.opacity(0.70)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Color.white.opacity(0.14))))
                 .overlay(shape.strokeBorder(.white.opacity(prominent ? 0.35 : 0.18), lineWidth: 0.7))

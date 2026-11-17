@@ -62,6 +62,16 @@ struct GeneralPage: View {
         Card("起動", footer: "オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。") {
             LoginRow(model: model)
         }
+        Card("表示", footer: "会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。") {
+            Row("文字の大きさ", detail: "10 〜 24") {
+                HStack(spacing: 10) {
+                    if (model.settings.fontSize ?? UIScale.standard) != UIScale.standard {
+                        Button("標準に戻す") { model.setFontSize(UIScale.standard) }.controlSize(.small)
+                    }
+                    FontSizeStepper(value: model.settings.fontSize ?? UIScale.standard) { model.setFontSize($0) }
+                }
+            }
+        }
         Card("アップデート", footer: "確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。") {
             SwitchRow(model: model, title: "新しい版を、自動で確認する", detail: "見つけたら、上のパネルとメニューで、知らせます", value: model.settings.updateCheck ?? true) { $0.updateCheck = $1 }
             RowDivider()
@@ -134,6 +144,30 @@ struct UpdateRow: View {
         case let .preparing(fraction): return fraction.map { "取得しています…（\(Int($0 * 100))%）" } ?? "検証しています…"
         case let .failed(why): return why
         }
+    }
+}
+
+/// 「−  13  +」の形の、文字の大きさの操作（押し続けると、続けて変わる）。
+struct FontSizeStepper: View {
+    let value: Int
+    let set: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            stepButton("minus", help: "小さく", enabled: value > UIScale.range.lowerBound) { set(value - 1) }
+            Text("\(value)").font(.system(size: 14, weight: .medium).monospacedDigit()).frame(minWidth: 40)
+            stepButton("plus", help: "大きく", enabled: value < UIScale.range.upperBound) { set(value + 1) }
+        }
+        .padding(.horizontal, 4).padding(.vertical, 3)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.18), lineWidth: 1))
+    }
+
+    private func stepButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .semibold)).frame(width: 34, height: 26).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.35).help(help)
     }
 }
 

@@ -35,7 +35,7 @@ import SwiftUI
             copyMarkdown: { [unowned self] in copy(self.markdown, button: .markdown) },
             copyText: { [unowned self] in copy(MarkdownRenderer.plainText(self.markdown), button: .text) },
             close: { [unowned self] in window.close() })
-        window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
+        window.contentView = NSHostingView(rootView: root.userScaled().environment(\.colorScheme, .dark))
         window.textView = textView
         // いま使っている画面（マウスのある画面）の、真ん中。小さい画面では、上のパネル（HUD）の分を空けて、高さを縮める
         window.setFrame(ScreenPlacement.windowFrame(size: window.frame.size, minSize: window.minSize, in: ScreenPlacement.currentVisibleFrame()), display: false)
@@ -133,14 +133,14 @@ private struct DocumentView: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                Image(systemName: "doc.text.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
+                Image(systemName: "doc.text.fill").vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
             }
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
+            Text(title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
-            Text("⌘C でコピー").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
+            Text("⌘C でコピー").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Button(action: close) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 20)).foregroundStyle(.white.opacity(0.45))
+                Image(systemName: "xmark.circle.fill").vcFont(20).foregroundStyle(.white.opacity(0.45))
             }.buttonStyle(.plain).accessibilityLabel("閉じる")
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
@@ -185,8 +185,8 @@ struct PillButton: View {
     var body: some View {
         let button = Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: flashed ? "checkmark" : symbol).font(.system(size: 12, weight: .semibold))
-                Text(flashed ? doneTitle : title).font(.system(size: 13, weight: .semibold))
+                Image(systemName: flashed ? "checkmark" : symbol).vcFont(12, weight: .semibold)
+                Text(flashed ? doneTitle : title).vcFont(13, weight: .semibold)
             }
             .foregroundStyle(flashed ? DocumentPalette.accent : .white.opacity(0.92))
             .padding(.horizontal, 14).padding(.vertical, 8)
