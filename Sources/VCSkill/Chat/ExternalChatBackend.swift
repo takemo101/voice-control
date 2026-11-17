@@ -43,9 +43,11 @@ public struct ChatCallOptions: Sendable {
     public var allowsWeb = true
     /// この質問に、最新の情報（Web）が要るか（Tiny-Jev の判定。Apple の会話だけ）。言葉の一致で拾えない言い方を、補う。
     public var needsWeb: (@Sendable (String) -> Bool)?
+    /// 自動モードで、コードの規則が決められないコマンドが、無害か（Tiny-Jev。ACP の会話だけ）。
+    public var judgeCommand: CommandJudge?
 
-    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true, needsWeb: (@Sendable (String) -> Bool)? = nil) {
-        self.onActivity = onActivity; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb; self.needsWeb = needsWeb
+    public init(onActivity: ActivityHandler? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true, needsWeb: (@Sendable (String) -> Bool)? = nil, judgeCommand: CommandJudge? = nil) {
+        self.onActivity = onActivity; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb; self.needsWeb = needsWeb; self.judgeCommand = judgeCommand
     }
 }
 

@@ -12,7 +12,7 @@ struct ChatCheckCommand: Command {
         name: "chat-check", group: .evaluation, summary: "会話の確認パネルの経路を、実際のエージェントで試す（自作のフォルダ・自作の質問。画面にパネルとウィンドウが出る）",
         usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>] [--hold <秒>] [--decide-after <秒>] [--auto]"],
         details: ["道具は、既定で「すべて」。シナリオ：yes＝パネルで許可・no＝パネルで断る・esc＝確認を待つ間に取りやめ（Esc）・hidden＝会話のウィンドウを閉じてから許可・run＝コマンド（echo）の実行を、パネルで許可・ls＝ls（見るだけ：パネルが出ず、通るはず）・blocked＝書き込みを頼む（パネルが出ず、断られる：道具が「すべて」でないとき）・outside＝作業フォルダの外（/tmp）への書き込みを頼み、パネルで許可する（OS の制限〔サンドボックス〕で、書けないはず）・read＝フォルダのファイルを読ませる・web＝Web 検索をさせる・long＝長い会話（11 問。合言葉を覚えているか・1 問ごとの時間・子プロセスの数）・swap＝会話の途中で設定（道具の段階）を変えて、古い子プロセスが止まるか。シナリオごとに、作ったファイルの有無を出す。同じエージェントの接続で、続けて試す。"],
-        options: [("--auto", "自動モードで動かす（シナリオ auto：確認なしでファイルが作られる・autorm：消すのは確認のまま・autooutside：フォルダの外への書き込みは断る）"), ("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--decide-after <秒>", "確認のパネルが出てから、答えるまでの秒数（既定 2.5）。短くすると、問いかけの読み上げの途中で答える（読み上げが、すぐ止まるかを見る）"), ("--hold <秒>", "終わったあとも、ウィンドウを、この秒数だけ残す（画面を撮るため）。標準は、すぐ終える"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
+        options: [("--auto", "自動モードで動かす（シナリオ auto：確認なしでファイルが作られる・autopy：python3 -c で作る（Jev が無害と判定すれば、確認なし）・autorm：消すのは確認のまま・autooutside：フォルダの外への書き込みは断る）"), ("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--decide-after <秒>", "確認のパネルが出てから、答えるまでの秒数（既定 2.5）。短くすると、問いかけの読み上げの途中で答える（読み上げが、すぐ止まるかを見る）"), ("--hold <秒>", "終わったあとも、ウィンドウを、この秒数だけ残す（画面を撮るため）。標準は、すぐ終える"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
         examples: ["vc chat-check", "vc chat-check --scenario yes"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -39,7 +39,7 @@ struct ChatCheckCommand: Command {
                 switch name {
                 case "long": await check.long()
                 case "swap": await check.swap()
-                case "blocked", "read", "web", "ls", "auto", "autooutside": await check.withoutPanel(name)
+                case "blocked", "read", "web", "ls", "auto", "autopy", "autooutside": await check.withoutPanel(name)
                 default: await check.withPanel(name)
                 }
             }
@@ -121,6 +121,8 @@ struct ChatCheckCommand: Command {
         case "run": return "echo hello をシェルで実行して、結果を教えて"
         case "ls": return "ls コマンドで、この作業フォルダの一覧を取って、結果を教えて"
         case "outside", "autooutside": return "/tmp/vc-chat-check-outside.txt というファイルを作って、中身は hi にして"
+        case "autopy": return "シェルで python3 -c を使って、check-autopy.txt というファイルに hi と書いて。ほかの方法は使わない"
+        case "autopyrm": return "シェルで python3 -c を使い、os.remove(\"a.txt\") で a.txt を削除して。聞き返さずに、そのまま実行して"
         case "autorm": return "a.txt を、シェルの rm コマンドで、いますぐ削除して。聞き返さずに、そのまま実行して"
         case "read": return "a.txt の中身を読んで、foo を含む行を教えて"
         case "web": return "Web で『Swift 6.2 リリース』を検索して、1 行で教えて"
@@ -196,7 +198,7 @@ struct ChatCheckCommand: Command {
             // 決めたら、問いかけの読み上げが、すぐ止まるか（決める前に読んでいたときだけ、意味がある）
             try? await Task.sleep(for: .milliseconds(400))
             print("SPEAK 決める前：\(speakingBefore ? "読んでいた" : "読んでいない")・決めた 0.4 秒後：\(SaySpeaker.shared.isSpeaking() ? "まだ読んでいる" : "止まっている")")
-        case "no", "autorm": HUD.shared.answers.deliver(false); print("→ パネルで、断る"); if name == "autorm" { print("a.txt：\(FileManager.default.fileExists(atPath: folder.appendingPathComponent("a.txt").path) ? "残っている" : "消えた")") }
+        case "no", "autorm", "autopyrm": HUD.shared.answers.deliver(false); print("→ パネルで、断る"); if name.hasPrefix("autorm") || name == "autopyrm" { print("a.txt：\(FileManager.default.fileExists(atPath: folder.appendingPathComponent("a.txt").path) ? "残っている" : "消えた")") }
         case "esc": token.cancel(); task.cancel(); print("→ 確認を待つ間に、取りやめ（Esc）")
         case "hidden":
             ChatWindow.shared.hide(); print("→ 会話のウィンドウを閉じた")

@@ -28,10 +28,12 @@ final class ACPTurnState: @unchecked Sendable {
     private let confirm: ToolConfirm?
     /// 自動モード（作業フォルダの中は、確認なし）：OS の制限が効いているときだけ。
     private let auto: Bool
+    /// 自動モードで、コードの規則が決められないコマンドを、無害か判定する（Tiny-Jev。なければ、確認に回す）。
+    private let judge: CommandJudge?
     private let onActivity: ActivityHandler?
 
-    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, auto: Bool = false, onActivity: ActivityHandler?) {
-        self.auto = auto; self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
+    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, auto: Bool = false, judge: CommandJudge? = nil, onActivity: ActivityHandler?) {
+        self.auto = auto; self.judge = judge; self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
     }
 
     var text: String { lock.withLock { collected } }
@@ -84,8 +86,13 @@ final class ACPTurnState: @unchecked Sendable {
         let call = ACPToolCall(params["toolCall"] ?? .null)
         let options = params["options"]?.array ?? []
         func answer(_ allow: Bool) -> JSONValue { ACPPermission.outcome(allow: allow, options: options) }
-        switch ACPPermission.decide(call, folder: folder, level: tools, auto: auto) {
+        var decision = ACPPermission.decide(call, folder: folder, level: tools, auto: auto)
+        if decision == .judge {   // Jev が、無害と判定したときだけ、確認を省く（判定できない・長い・届かない：確認）
+            if let judge, let command = call.command, await judge(command) { decision = .allow } else { decision = .ask }
+        }
+        switch decision {
         case .allow: return answer(true)
+        case .judge: return answer(false)   // 上で、決めている（ここへは、来ない）
         case .block: lock.withLock { refused += 1; blocked += 1 }; return answer(false)
         case .reject: lock.withLock { refused += 1 }; return answer(false)
         case .ask:

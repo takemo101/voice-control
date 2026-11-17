@@ -180,7 +180,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     // MARK: 1 回の質問
 
     private func ask(session: (connection: ACPConnection, id: String, isNew: Bool), instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
-        let turn = ACPTurnState(tools: tools, folder: workingDirectory(), sessionID: session.id, confirm: options.confirm, auto: auto, onActivity: options.onActivity)
+        let turn = ACPTurnState(tools: tools, folder: workingDirectory(), sessionID: session.id, confirm: options.confirm, auto: auto, judge: options.judgeCommand, onActivity: options.onActivity)
         session.connection.setHandlers(
             onRequest: { method, params in await turn.handleRequest(method, params) },
             onNotification: { method, params in turn.handleNotification(method, params) })

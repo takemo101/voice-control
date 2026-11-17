@@ -49,8 +49,9 @@ import Testing
     @Test func inAutoModeWritesInsideTheFolderAndHarmlessCommandsRunWithoutAsking() {
         #expect(auto(ACPToolCall(kind: "edit", path: "/tmp/vc-auto-work/notes/a.md")) == .allow)
         #expect(auto(ACPToolCall(kind: "execute", command: "set -C; printf hi > check.txt")) == .allow)                   // Codex の実際の形
-        #expect(auto(ACPToolCall(kind: "execute", command: ##"python3 -c 'from pathlib import Path; Path("a.md").open("x").write("""本文""")'"##)) == .allow)   // 利用者が確認を出された形
         #expect(auto(ACPToolCall(kind: "execute", command: "cat a.md | wc -l")) == .allow)
+        // 利用者が確認を出された形（Python で、ファイルを作る）：規則では決めず、Jev に聞く
+        #expect(auto(ACPToolCall(kind: "execute", command: ##"python3 -c 'from pathlib import Path; Path("a.md").open("x").write("""本文""")'"##)) == .judge)
     }
 
     @Test func inAutoModeWritesOutsideAreRefusedDeletesAndMovesStillAskAndTheCatastrophicIsBlocked() {
@@ -71,5 +72,24 @@ import Testing
         #expect(auto(ACPToolCall(kind: "execute", command: "echo hi"), on: false) == .ask)
         #expect(auto(ACPToolCall(kind: "read"), level: .read) == .allow && auto(ACPToolCall(kind: "search", name: "websearch"), level: .none) == .reject)
     }
-}
 
+    // MARK: Jev に聞く（ACPTurnState：許可の要求に、答える）
+
+    private func request(_ command: String, judge: CommandJudge?, confirm: ToolConfirm?) async -> String {
+        let turn = ACPTurnState(tools: .all, folder: work, sessionID: "s", confirm: confirm, auto: true, judge: judge, onActivity: nil)
+        let json = #"{"sessionId":"s","toolCall":{"toolCallId":"t","kind":"execute","rawInput":{"command":\#(String(data: try! JSONSerialization.data(withJSONObject: [command], options: [.fragmentsAllowed]).dropFirst().dropLast(), encoding: .utf8)!)}},"options":[{"optionId":"allow","kind":"allow_once"},{"optionId":"deny","kind":"reject_once"}]}"#
+        let reply = await turn.handleRequest("session/request_permission", JSONValue.parse(Data(json.utf8))!)
+        return reply?["outcome"]?["optionId"]?.string ?? "none"
+    }
+
+    @Test func aHarmlessVerdictFromJevSkipsTheConfirmationButAnythingElseAsks() async {
+        let asked = ACPCollected<String>()
+        let confirm: ToolConfirm = { detail in asked.add(detail); return false }
+        let harmless: CommandJudge = { _ in true }, harmful: CommandJudge = { _ in false }
+        #expect(await request("python3 build.py", judge: harmless, confirm: confirm) == "allow" && asked.all.isEmpty)    // Jev が、無害と判定：聞かない
+        #expect(await request("python3 build.py", judge: harmful, confirm: confirm) == "deny" && asked.all.count == 1)   // 無害でない：聞く（断られた）
+        #expect(await request("python3 build.py", judge: nil, confirm: confirm) == "deny" && asked.all.count == 2)        // Jev が使えない：聞く
+        #expect(await request("rm a.md", judge: harmless, confirm: confirm) == "deny" && asked.all.count == 3)            // 危ない名前：Jev に聞かず、確認
+        #expect(await request("python3 -c 'print(open(\"/etc/hosts\").read())'", judge: harmless, confirm: confirm) == "deny" && asked.all.count == 4)   // 危ない場所：同じ
+    }
+}

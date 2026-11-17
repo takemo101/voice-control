@@ -11,6 +11,8 @@ enum ACPPermission {
         case reject
         /// 取り返しのつかないコマンド：段階・確認に関係なく、断る（パネルも出さない）。
         case block
+        /// 自動モードで、コードの規則では決められないコマンド：Tiny-Jev に、無害かを聞く（`CommandSafetyJudge`）。無害でなければ、確認。
+        case judge
     }
 
     /// Web に出る道具の名前（`opencode`：`websearch`・`webfetch`・`codesearch`）。`kind` だけでは、**調べる道具の、ローカル（grep）と Web（検索）が、区別できない**（opencode は、grep が `search`・Web 検索が `other`）。
@@ -28,8 +30,14 @@ enum ACPPermission {
         if kind == "execute", let command = call.command {
             if ACPCommandPolicy.isCatastrophic(command) { return .block }
             if level.usesFolder, let folder, ACPCommandPolicy.isHarmlessInFolder(command, folder: folder) { return .allow }
-            // 自動：消す・外へ送る・システムを動かすもの以外は、確認なし（書き込みの範囲は、OS の制限が、作業フォルダに限る）
-            if autoActive { return ACPCommandPolicy.needsConfirmationEvenInAuto(command) ? .ask : .allow }
+            // 自動：基本のコマンドは確認なし・危ないものは確認・ほかは Jev（書き込みの範囲は、OS の制限が、作業フォルダに限る）
+            if autoActive {
+                switch ACPCommandPolicy.autoClass(command) {
+                case .free: return .allow
+                case .confirm: return .ask
+                case .judge: return .judge
+                }
+            }
         }
         if let name = call.name?.lowercased(), !["edit", "delete", "move", "execute", "switch_mode"].contains(kind) {
             if webTools.contains(name) { return level.searchesWeb ? .allow : .reject }
