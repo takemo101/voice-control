@@ -366,12 +366,11 @@ enum DownloadState: Equatable {
             alert.alertStyle = .warning
             alert.messageText = "自動モードを、オンにしますか？"
             alert.informativeText = """
-            会話の道具が「すべて」のとき、**作業フォルダの中**の、ファイルの書き込みと、基本のコマンド（ls・cat・grep など）を、**確認なしで**行います。python3 -c・make など、ほかのコマンドは、この Mac の中の Tiny-Jev が「無害か」を判定し、無害と判定したときだけ、確認なしです。
+            作業フォルダの中の書き込みと、安全なコマンドは、確認なしで実行します。
 
-            確認のままのもの：ファイルやフォルダを消す・移す／curl の送信・scp・ssh・git push など、外へ送る／kill・open・osascript など、システムを動かす／インストール／権限の変更。
-            断るもの：作業フォルダの外への書き込み・取り返しのつかないコマンド（これまでどおり）。
+            消す・外へ送る・システムを動かす操作は、これまでどおり、確認します。
 
-            限界：Python などのコードの中の操作は、規則では見抜けず、Jev も、見落としうる（測定では、無害でないものを、無害と誤った数は 0 でしたが、文の数は、限られています）。書き込みの範囲は、「OS の制限つきで動かす」（サンドボックス）が、作業フォルダに限ります（オフのときは、自動モードは、働きません）。聞き間違いや、Web のページの命令でも、作業フォルダの中のファイルは、確認なしで、書き換わります。
+            コードの中の操作は、見抜けないことがあります。
             """
             alert.addButton(withTitle: "オンにする")
             alert.addButton(withTitle: "やめる")
@@ -394,7 +393,9 @@ enum DownloadState: Equatable {
             let chosen = ChatAgent.parse(settings.chatAgent ?? "apple") ?? .apple
             let apple = chosen == .apple
             let confirms = chosen.speaksACP && (settings.chatAcp ?? true)   // 常駐の接続（ACP）：操作の前に、聞いてくる
-            alert.informativeText = apple ? "Apple のモデルが、作業フォルダの中への書き込みと、コマンドの実行まで、できるようになります。\n\n既存ファイルの上書きと、安全でないコマンドは、毎回、確認します。小さなモデルは、聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります（確認の内容を、よく読んでください）。\n\n作業フォルダ：\(chatFolderPath)" : (confirms ? "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、できるようになります。\n\n**毎回、確認します**（常駐の接続）。確認の内容を、よく読んでください。\n\n声の聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります。\n\n作業フォルダ：\(chatFolderPath)" : "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）")
+            let body = apple ? "書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。"
+                : (confirms ? "書き込みとコマンドの実行ができるようになります。毎回、確認します。" : "書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。")
+            alert.informativeText = body + "\n\n作業フォルダ：\(chatFolderPath)"
             alert.addButton(withTitle: "開ける")
             alert.addButton(withTitle: "やめる")
             guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
