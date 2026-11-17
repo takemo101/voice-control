@@ -16,6 +16,17 @@ import Testing
         #expect(ChatAttachments.wants("") == .init(image: false, text: false))
     }
 
+    @Test func askingToMakeAnImageDoesNotPullInTheCopiedOne() {
+        // 利用者の報告：「画像」という言葉だけで、コピーした画像を貼る確認が出ていた
+        for request in ["猫の画像を生成して", "青い丸の画像を作って", "ログイン画面を作成して", "背景画像を描いて", "イラストを描いて"] {
+            #expect(ChatAttachments.wants(request) == .init(image: false, text: false), "画像は、添えない：\(request)")
+        }
+        // 手元の画像を指していれば、作る言葉があっても、画像
+        for request in ["この画像から、似た画像を作って", "コピーした画像をもとにイラストを描いて", "撮ったスクショを、きれいに作り直して"] {
+            #expect(ChatAttachments.wants(request).image, "画像を添える：\(request)")
+        }
+    }
+
     @Test func aCopiedTextIsAttachedAndLongOnesAreClipped() throws {
         let short = try #require(ChatAttachments.textAttachment(from: "  こんにちは  "))
         #expect(short.label == "コピーした文章" && short.body == "こんにちは")

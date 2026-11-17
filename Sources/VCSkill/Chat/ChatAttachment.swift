@@ -11,13 +11,20 @@ public enum ChatAttachments {
     }
 
     static let imageWords = ["画像", "画面", "スクショ", "スクリーンショット", "キャプチャ", "写真", "この図", "この表"]
+    /// 画像を作る依頼の言葉（「画像を作って」「イラストを描いて」）と、手元の画像を指す言葉（「この」「コピーした」「撮った」）。
+    static let generationWords = ["生成", "作って", "作成", "つくって", "描いて", "かいて", "出力して", "イラスト"]
+    static let referringWords = ["この", "その", "あの", "これ", "それ", "コピー", "貼", "添付", "撮った", "スクショ", "スクリーンショット", "キャプチャ"]
     static let textWords = ["コピーした", "コピー", "クリップボード", "この文章", "このテキスト"]
 
     /// 何を添えたいか。**画像の言葉があれば、画像**（「コピーした画像」の「コピー」は、画像の取り先を決めるだけ）。なければ、文章の言葉で、コピーした文章。
     public static func wants(_ request: String) -> Wants {
         // ファイル名（`note.txt`）が出ているときの「コピー」は、ファイルのコピー（クリップボードの文章ではない）
         if FileNames.contains(in: request) { return Wants(image: false, text: false) }
-        if imageWords.contains(where: request.contains) { return Wants(image: true, text: false) }
+        if imageWords.contains(where: request.contains) {
+            // 「画像を生成して」は、画像を**作る**依頼：コピーした画像を、貼る確認を出さない（「この画像から…」「コピーした画像を…」のように、手元の画像を指していれば、画像）
+            if generationWords.contains(where: request.contains), !referringWords.contains(where: request.contains) { return Wants(image: false, text: false) }
+            return Wants(image: true, text: false)
+        }
         if textWords.contains(where: request.contains) { return Wants(image: false, text: true) }
         return Wants(image: false, text: false)
     }

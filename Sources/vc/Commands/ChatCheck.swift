@@ -122,6 +122,7 @@ struct ChatCheckCommand: Command {
         case "ls": return "ls コマンドで、この作業フォルダの一覧を取って、結果を教えて"
         case "outside", "autooutside": return "/tmp/vc-chat-check-outside.txt というファイルを作って、中身は hi にして"
         case "autopy": return "シェルで python3 -c を使って、check-autopy.txt というファイルに hi と書いて。ほかの方法は使わない"
+        case "imagegen": return "画像生成の機能で、青い丸だけの、小さな画像を 1 枚作って。できた画像を、Markdown の画像（![説明](場所)）で見せて"
         case "autopyrm": return "シェルで python3 -c を使い、os.remove(\"a.txt\") で a.txt を削除して。聞き返さずに、そのまま実行して"
         case "autorm": return "a.txt を、シェルの rm コマンドで、いますぐ削除して。聞き返さずに、そのまま実行して"
         case "read": return "a.txt の中身を読んで、foo を含む行を教えて"
@@ -193,7 +194,7 @@ struct ChatCheckCommand: Command {
         try? await Task.sleep(for: .milliseconds(Int(decideAfter * 1000)))   // 画面を撮れるように、少し見せる
         let speakingBefore = SaySpeaker.shared.isSpeaking()
         switch name {
-        case "yes", "run", "outside":
+        case "yes", "run", "outside", "imagegen":
             HUD.shared.answers.deliver(true); print("→ パネルで、許可")
             // 決めたら、問いかけの読み上げが、すぐ止まるか（決める前に読んでいたときだけ、意味がある）
             try? await Task.sleep(for: .milliseconds(400))

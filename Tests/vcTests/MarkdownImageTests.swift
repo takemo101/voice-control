@@ -30,6 +30,17 @@ import Testing
         #expect(MarkdownImage.file(for: URL(string: "file:///etc/hosts")!, base: nil, home: "/nonexistent") == nil)
     }
 
+    @Test func imagesCodexGeneratedAreShownButTheRestOfItsFolderIsNot() throws {
+        // Codex の画像生成は、`~/.codex/generated_images/<会話>/<名前>.png` に書く（利用者の報告：会話の画面に出なかった）。認証の情報がある `~/.codex` の全体は、読ませない
+        let home = URL(fileURLWithPath: "/private/tmp/vc-home-\(UUID().uuidString)")
+        let generated = home.appendingPathComponent(".codex/generated_images/abc")
+        try FileManager.default.createDirectory(at: generated, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        try writePNG(generated.appendingPathComponent("exec-1.png"))
+        let roots = MarkdownImage.roots(base: nil, home: home.path)
+        #expect(roots.contains(MarkdownImage.realPath(home.path + "/.codex/generated_images")) && !roots.contains(MarkdownImage.realPath(home.path + "/.codex")))
+    }
+
     @Test func aLinkOrDotDotThatLeavesTheFolderIsNotFollowed() throws {
         let base = URL(fileURLWithPath: "/private/tmp/vc-mdimg-\(UUID().uuidString)")
         let folder = base.appendingPathComponent("work"), outside = base.appendingPathComponent("outside")
