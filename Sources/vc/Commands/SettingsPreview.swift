@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import VCCore
+import VCSkill
 
 struct SettingsPreviewCommand: Command {
     static let info = CommandInfo(
@@ -24,6 +25,23 @@ struct SettingsPreviewCommand: Command {
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         _ = NSApplication.shared
         if let icon, let image = NSImage(contentsOfFile: icon) { NSApplication.shared.applicationIconImage = image }
+        // モデルの検索の一覧（ポップオーバーの中身）を、見本の一覧で描く：`--model-search <入力>`（見た目の確認用。エージェントは、起動しない）
+        if let query = arguments.option("--model-search") {
+            let sample = ["default|Default (recommended)", "opus|Opus 5.5", "sonnet|Sonnet 5.5", "haiku|Haiku 5.5", "claude-sonnet-5|Sonnet 5", "claude-haiku-4-5-20251001|Haiku 4.5", "claude-opus-4-8|Opus 4.8"]
+                .map { pair -> ACPModelChoice in let parts = pair.split(separator: "|", maxSplits: 1).map(String.init); return ACPModelChoice(id: parts[0], name: parts[1]) }
+            let search = ModelSearchState(); search.query = query
+            let view = ModelSearchList(search: search, state: .loaded(ACPModelListing(choices: sample, current: "haiku")), chosen: "sonnet", agentName: "claude", select: { _ in }, reload: {})
+                .padding(1).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .light)
+            let hosting = NSHostingView(rootView: view)
+            hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
+            hosting.layoutSubtreeIfNeeded()
+            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { fail("描けません（モデルの検索）") }
+            hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            let file = URL(fileURLWithPath: directory).appendingPathComponent("model-search.png")
+            try rep.representation(using: .png, properties: [:])?.write(to: file)
+            print(file.path)
+            return
+        }
         let late = arguments.flag("--chat-late")
         if arguments.flag("--chat") || late {
             let window = late ? ChatWindow.shared.previewLateWindow() : ChatWindow.shared.previewWindow()

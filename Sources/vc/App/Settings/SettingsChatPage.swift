@@ -87,29 +87,47 @@ struct ChatPage: View {
     }
 }
 
-/// 会話のモデル：エージェントが返す一覧から選ぶ（ACP）。一覧は、「一覧を取る」を押したときに、そのエージェントを、一時的に起動して取る（質問は送らない）。
+/// 検索の状態（ポップオーバーの開閉と、入力）。SwiftUI の `@State` は、この環境では使えないので、参照型。
+@MainActor final class ModelSearchState: ObservableObject {
+    @Published var isOpen = false
+    @Published var query = ""
+}
+
+/// 会話のモデル：エージェントが返す一覧から選ぶ（ACP）。ボタンを押すと、**検索つきの一覧**が開く（あいまい検索：「son 5」→ Sonnet 5.5）。一覧は、初めて開くときに、そのエージェントを一時的に起動して取る（質問は送らない）。
 struct ChatModelRow: View {
     @ObservedObject var model: SettingsModel
     let agent: ChatAgent
+    @StateObject private var search = ModelSearchState()
 
     var body: some View {
         let state = model.modelLists[agent.rawValue]
         let chosen = model.chatModel(for: agent) ?? ""
         let listing: ACPModelListing? = { if case let .loaded(value) = state { return value }; return nil }()
         let isLoading = state == .loading
+        let shownName = listing?.choices.first(where: { $0.id == chosen })?.name ?? chosen
         VStack(alignment: .leading, spacing: 6) {
             Row("モデル", detail: chosen.isEmpty ? "エージェントの設定のまま" : chosen) {
                 HStack(spacing: 8) {
                     if isLoading { ProgressView().controlSize(.small) }
-                    Picker("", selection: Binding(get: { chosen }, set: { model.setChatModel($0.isEmpty ? nil : $0, for: agent) })) {
-                        Text("エージェントの設定").tag("")
-                        ForEach(listing?.choices ?? []) { choice in Text(choice.name).tag(choice.id) }
-                        // 保存してある値は、選択のまま残す（一覧を取る前は、そのまま。取ったあとに、一覧になければ、そう示す）
-                        if !chosen.isEmpty, !(listing?.choices.contains { $0.id == chosen } ?? false) { Text(listing == nil ? chosen : "\(chosen)（一覧にありません）").tag(chosen) }
+                    Button {
+                        search.query = ""
+                        search.isOpen = true
+                        if listing == nil, !isLoading { model.loadModels(for: agent) }   // 初めて開くとき：一覧を取る（利用者が押したときだけ）
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(chosen.isEmpty ? "エージェントの設定" : shownName).lineLimit(1).truncationMode(.middle)
+                            Image(systemName: "magnifyingglass").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                        .frame(width: 176, alignment: .leading)
                     }
-                    .labelsHidden().frame(width: 190)
-                    Button(listing == nil ? "一覧を取る" : "取り直す") { model.loadModels(for: agent) }.controlSize(.small).disabled(isLoading)
-                        .help("\(agent.rawValue) を、一時的に起動して、選べるモデルを聞きます（質問は、送りません）")
+                    .controlSize(.regular)
+                    .help("押すと、検索つきの一覧が開きます（初めてのときは、\(agent.rawValue) を一時的に起動して、一覧を聞きます。質問は、送りません）")
+                    .popover(isPresented: Binding(get: { search.isOpen }, set: { search.isOpen = $0 }), arrowEdge: .bottom) {
+                        ModelSearchList(search: search, state: state, chosen: chosen, agentName: agent.rawValue,
+                                        select: { id in model.setChatModel(id, for: agent); search.isOpen = false },
+                                        reload: { model.loadModels(for: agent) })
+                    }
+                    if listing != nil { Button("取り直す") { model.loadModels(for: agent) }.controlSize(.small).disabled(isLoading) }
                 }
             }
             if case let .failed(why) = state {
@@ -120,3 +138,69 @@ struct ChatModelRow: View {
     }
 }
 
+/// 検索つきの、モデルの一覧（ポップオーバーの中身）。入力で、あいまいに絞り込む（`FuzzyMatch`）。Return で、いちばん上を選ぶ。
+struct ModelSearchList: View {
+    @ObservedObject var search: ModelSearchState
+    let state: SettingsModel.ModelListState?
+    let chosen: String
+    let agentName: String
+    let select: (String?) -> Void
+    let reload: () -> Void
+
+    var body: some View {
+        let choices: [ACPModelChoice] = { if case let .loaded(value) = state { return value.choices }; return [] }()
+        let matches = FuzzyMatch.filter(choices, query: search.query) { "\($0.id) \($0.name)" }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("検索（例：son 5・haiku・gpt high）", text: $search.query)
+                    .textFieldStyle(.plain)
+                    .onSubmit { if let first = matches.first { select(first.id) } }
+                if !search.query.isEmpty {
+                    Button { search.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            Divider()
+            switch state {
+            case .none, .loading:
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("\(agentName) に、選べるモデルを聞いています…").font(.system(size: 12)).foregroundStyle(.secondary) }.padding(14)
+            case let .failed(why):
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("一覧を取れませんでした").font(.system(size: 12, weight: .semibold))
+                    Text(why).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button("もう一度") { reload() }.controlSize(.small)
+                }.padding(14)
+            case .loaded:
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if search.query.isEmpty { row(title: "エージェントの設定（既定）", id: "", detail: nil) }
+                        ForEach(matches) { choice in row(title: choice.name, id: choice.id, detail: choice.detail) }
+                        if matches.isEmpty { Text("「\(search.query)」に合うモデルは、ありません").font(.system(size: 12)).foregroundStyle(.secondary).padding(14) }
+                    }
+                }
+                .frame(maxHeight: 320)
+                Divider()
+                Text(search.query.isEmpty ? "\(choices.count) 件" : "\(matches.count) 件／全 \(choices.count) 件").font(.system(size: 10.5)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.vertical, 6)
+            }
+        }
+        .frame(width: 340)
+    }
+
+    private func row(title: String, id: String, detail: String?) -> some View {
+        Button { select(id.isEmpty ? nil : id) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).opacity(chosen == id ? 1 : 0).frame(width: 12)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 12.5)).lineLimit(1)
+                    if !id.isEmpty, id != title { Text(id).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1) }
+                    if let detail { Text(detail).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
