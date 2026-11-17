@@ -40,7 +40,7 @@ import VCSpeech
         let chatAgent = context.resolveChatAgent()
         // 会話の設定（エージェント・道具）：会話のキーがなくても、入力欄・メニューから、会話できる
         let chat = context.resolveChatTools()
-        ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder, acp: context.currentSettings().chatAcp ?? true, sandbox: context.currentSettings().chatSandbox ?? true)
+        ChatMode.shared.configure(agent: chatAgent, tools: chat.level, folder: chat.folder, acp: context.currentSettings().chatAcp ?? true, sandbox: context.currentSettings().chatSandbox ?? true, model: context.currentSettings().chatModels?[chatAgent.rawValue])
         ChatWindow.shared.setKeyHint(chatSpec?.displayName)
         if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
         HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）

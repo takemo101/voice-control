@@ -22,7 +22,11 @@ enum ACPFakeAgent {
             if flavor == "config":
                 send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "configOptions": [{"id": "mode", "category": "mode", "type": "select", "currentValue": "orchestrator", "options": [{"value": "orchestrator"}, {"value": "build"}, {"value": "plan"}]}]}})
             else:
-                if flavor == "nomode":
+                if flavor == "models":
+                    send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "models": {"currentModelId": "m-fast", "availableModels": [{"modelId": "m-fast", "name": "Fast"}, {"modelId": "m-deep", "name": "Deep", "description": "slow"}]}, "modes": {"availableModes": [{"id": "plan"}, {"id": "default"}]}}})
+                elif flavor == "configmodel":
+                    send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "configOptions": [{"id": "model", "category": "model", "type": "select", "currentValue": "haiku", "options": [{"value": "haiku", "name": "Haiku"}, {"group": "big", "options": [{"value": "sonnet", "name": "Sonnet"}]}]}, {"id": "mode", "category": "mode", "type": "select", "currentValue": "x", "options": [{"value": "build"}, {"value": "plan"}]}]}})
+                elif flavor == "nomode":
                     send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid}})
                 elif flavor == "readonly":
                     send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": sid, "modes": {"availableModes": [{"id": "read-only"}, {"id": "agent"}]}}})
@@ -90,10 +94,10 @@ struct ACPFixture {
         logPath = directory.appendingPathComponent("log.txt").path
         try ACPFakeAgent.script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
     }
-    func backend(agent: ChatAgent = .agy, tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: ACPCounter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20, flavor customFlavor: String? = nil) -> ACPChatBackend {
+    func backend(agent: ChatAgent = .agy, tools: ChatToolLevel = .read, fallbackText: String = "従来の方式の答え", launches: ACPCounter? = nil, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 20, flavor customFlavor: String? = nil, model: String? = nil) -> ACPChatBackend {
         let script = scriptPath, log = logPath, flavor = customFlavor ?? (agent == .opencode ? "config" : "modes")
         let fallback = ExternalChatBackend(agent: agent, tools: tools, runner: { _ in AgentRun(exitCode: 0, text: fallbackText) })
-        return ACPChatBackend(agent: agent, tools: tools, folder: directory, fallback: fallback,
+        return ACPChatBackend(agent: agent, tools: tools, folder: directory, model: model, fallback: fallback,
                               launch: { _, _ in launches?.increment(); return ["python3", script, log, flavor] }, retryAfter: retryAfter, promptTimeout: promptTimeout)
     }
 }

@@ -59,4 +59,18 @@ import VCCore
         again.setEnabled("a", true)
         #expect(again.isEnabled("a") && !again.isEnabled("b"))
     }
+
+    /// 会話のモデル（`chatModels`：エージェント名 → モデル）：なければ nil。保存して読み直せる。値に、記号（`[low]`）が入っていても、そのまま。
+    @Test func chatModelsAreOptionalPerAgentAndPersistent() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        var settings = try Settings.load(from: file)
+        #expect(settings.chatModels == nil)
+        settings.chatModels = ["codex": "gpt-6.1-sol[low]", "claude": "haiku"]
+        try settings.save(to: file)
+        #expect(try Settings.load(from: file).chatModels == ["codex": "gpt-6.1-sol[low]", "claude": "haiku"])
+        try Data(#"{"hotkey":"shift"}"#.utf8).write(to: file)
+        #expect(try Settings.load(from: file).chatModels == nil)
+    }
 }
+

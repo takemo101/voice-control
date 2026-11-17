@@ -21,6 +21,8 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     private let retryAfter: TimeInterval
     private let promptTimeout: TimeInterval
     private let sandbox: Bool
+    /// 利用者が選んだモデル（設定 `chatModels`。一覧にあるときだけ使う）。なければ、エージェントの設定。
+    private let model: String?
 
     private let lock = NSLock()
     // — ここから `lock` の下 —
@@ -37,7 +39,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     /// 大きすぎる画像は、ACP では送らない（従来の方式へ）。
     static let maxImageBytes = 6_000_000
 
-    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, fallback: ExternalChatBackend? = nil,
+    public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, model: String? = nil, fallback: ExternalChatBackend? = nil,
                 launch: @escaping @Sendable (ChatAgent, ChatToolLevel) -> [String] = ACPChatBackend.liveLaunch,
                 now: @escaping @Sendable () -> Date = { Date() }, idleLimit: TimeInterval = 360, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 110) {
         guard let profile = ACPAgentProfile.of(agent) else { preconditionFailure("ACP に対応したエージェントだけ") }
@@ -46,7 +48,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         self.tools = agent.effective(tools)
         self.folder = folder ?? ExternalChatBackend.defaultFolder
         self.fallback = fallback ?? ExternalChatBackend(agent: agent, tools: tools, folder: folder)
-        self.sandbox = sandbox; self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
+        self.sandbox = sandbox; self.model = model; self.launch = launch; self.now = now; self.idleLimit = idleLimit; self.retryAfter = retryAfter; self.promptTimeout = promptTimeout
     }
 
     deinit { teardown() }
@@ -140,10 +142,13 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     /// モデル（agy：環境変数か既定。一覧にあるときだけ）と、モード（読むだけの段階は plan 類・「すべて」は、聞いてくるもの：`ACPAgentProfile`）を、決める。モデルの失敗は、無視する（既定のまま）。
     /// **モードを決められたか**を返す（`requiresMode` のエージェントは、決められなければ、使わない：確認なしで操作するモードのままになる）。
     private func configure(connection: ACPConnection, sessionID: String, created: JSONValue) async -> Bool {
-        if profile.choosesModel, let model = try? fallback.agyModel() {
+        let parsed = ACPModels.parse(created)
+        if let chosen = model, let call = ACPModels.request(for: chosen, parsed: parsed, sessionID: sessionID) {
+            _ = try? await connection.request(call.method, call.params, timeout: 10)   // 利用者が選んだモデル（一覧にあるときだけ）
+        } else if profile.choosesModel, let envModel = try? fallback.agyModel() {
             let available = created["models"]?["availableModels"]?.array?.compactMap { $0["modelId"]?.string } ?? []
-            if available.contains(model) {
-                _ = try? await connection.request("session/set_model", .object(["sessionId": .string(sessionID), "modelId": .string(model)]), timeout: 10)
+            if available.contains(envModel) {
+                _ = try? await connection.request("session/set_model", .object(["sessionId": .string(sessionID), "modelId": .string(envModel)]), timeout: 10)
             }
         }
         // **モードの強制は、補助**：本当の段階の強制は、許可の返事（`ACPPermission`）と、OS の制限（`ACPSandbox`）。ただし、確認なしのモードのままだと、許可の確認が、来ない。

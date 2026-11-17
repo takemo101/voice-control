@@ -21,6 +21,8 @@ import VCSkill
     private(set) var acp = true
     /// ACP のエージェントを、OS の制限（Seatbelt）つきで起動するか（設定 `chatSandbox`）。
     private(set) var sandbox = true
+    /// 利用者が選んだモデル（設定 `chatModels`。ACP で話すエージェントだけ）。
+    private(set) var model: String?
     /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
     var scorer: OptionScorer?
     /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
@@ -38,16 +40,17 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true) {
-        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox else { return }
+    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil) {
+        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox || model != self.model else { return }
         configured = agent
         self.acp = acp
         self.sandbox = sandbox
+        self.model = model
         requestedTools = tools
         self.agent = agent
         self.tools = agent.effective(tools)
         self.folder = folder
-        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox))
+        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox, model: model))
         attached = []
         shots = ScreenshotLedger()
     }

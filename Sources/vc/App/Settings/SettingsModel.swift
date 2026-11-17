@@ -58,6 +58,8 @@ enum DownloadState: Equatable {
     @Published private(set) var engineProblem: String?
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
+    /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
+    @Published private(set) var modelLists: [String: ModelListState] = [:]
     /// 許可の状態などを、画面を開くたびに読み直すための印。
     @Published private(set) var revision = 0
     private var tasks: [String: Task<Void, Never>] = [:]
@@ -261,6 +263,41 @@ enum DownloadState: Equatable {
         do { try FileManager.default.removeItem(at: ModelStore.defaultDirectory(for: spec)) } catch { downloads[id] = .failed("消せませんでした: \(error.localizedDescription)") }
         if settings.stt == id { update { $0.stt = nil } }
         revision += 1
+    }
+
+    // MARK: 会話のモデル
+
+    enum ModelListState: Equatable {
+        case loading
+        case loaded(ACPModelListing)
+        case failed(String)
+    }
+
+    /// エージェントが選べるモデルの一覧を、取る（そのエージェントを、一時的に起動する：質問は送らない）。
+    func loadModels(for agent: ChatAgent) {
+        if case .loading = modelLists[agent.rawValue] { return }
+        modelLists[agent.rawValue] = .loading
+        let sandbox = settings.chatSandbox ?? true
+        Task { [weak self] in
+            do {
+                let listing = try await ACPModelCatalog.list(for: agent, sandbox: sandbox)
+                self?.modelLists[agent.rawValue] = .loaded(listing)
+            } catch {
+                self?.modelLists[agent.rawValue] = .failed("\(error)")
+            }
+        }
+    }
+
+    /// 選んだモデル（なければ、エージェントの設定）。
+    func chatModel(for agent: ChatAgent) -> String? { settings.chatModels?[agent.rawValue] }
+
+    /// モデルを選ぶ（nil で、エージェントの設定へ戻す）。次の会話から、使う（会話は、新しくなる）。
+    func setChatModel(_ id: String?, for agent: ChatAgent) {
+        update { settings in
+            var models = settings.chatModels ?? [:]
+            models[agent.rawValue] = (id?.isEmpty == false) ? id : nil
+            settings.chatModels = models.isEmpty ? nil : models
+        }
     }
 
     // MARK: 会話の道具

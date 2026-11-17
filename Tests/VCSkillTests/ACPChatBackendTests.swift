@@ -51,6 +51,24 @@ import Testing
         #expect(!none.log.contains("session/prompt"))
     }
 
+    @Test func theModelTheUserChoseIsSelectedThroughTheMethodTheAgentOffersAndOnlyWhenListed() async throws {
+        // `models`（set_model）の形
+        let a = try ACPFixture(); let viaModel = a.backend(agent: .agy, tools: .read, flavor: "models", model: "m-deep"); defer { viaModel.teardown() }
+        _ = try await viaModel.respond(instructions: "", turns: [], user: "q")
+        #expect(a.log.contains("session/set_model") && a.log.contains("m-deep"))
+        // 設定の選択肢（set_config_option）の形（group の中の値も、選べる）
+        let b = try ACPFixture(); let viaOption = b.backend(agent: .opencode, tools: .read, flavor: "configmodel", model: "sonnet"); defer { viaOption.teardown() }
+        _ = try await viaOption.respond(instructions: "", turns: [], user: "q")
+        #expect(b.log.contains("\"configId\": \"model\"") && b.log.contains("\"value\": \"sonnet\""))
+        // 一覧にないモデル（古い設定）は、渡さない。何も選ばなければ、エージェントの設定のまま
+        let c = try ACPFixture(); let stale = c.backend(agent: .agy, tools: .read, flavor: "models", model: "gone"); defer { stale.teardown() }
+        _ = try await stale.respond(instructions: "", turns: [], user: "q")
+        #expect(!c.log.contains("session/set_model") || !c.log.contains("gone"))
+        let d = try ACPFixture(); let none = d.backend(agent: .opencode, tools: .read, flavor: "configmodel"); defer { none.teardown() }
+        _ = try await none.respond(instructions: "", turns: [], user: "q")
+        #expect(!d.log.contains("\"configId\": \"model\""))
+    }
+
     @Test func theModelAndTheModeAreSetFromTheLevelAndAvailableList() async throws {
         let fx = try ACPFixture()
         let readOnly = fx.backend(tools: .read); defer { readOnly.teardown() }
