@@ -30,9 +30,20 @@ public enum AgentLocator {
     }
 
     /// ACP で話すための、**アダプター**（`claude-agent-acp`・`codex-acp`）の、絶対パス（なければ nil。CLI 本体が ACP を話すもの〔`agy`・`opencode`〕は、CLI 本体）。
-    public static func acpExecutablePath(for agent: ChatAgent, directories: [String] = searchDirectories(), isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> String? {
+    /// **利用者が自分で入れたもの（`PATH`・よくある置き場所・`nvm`）を先に**、なければ、アプリが入れたもの（`~/.voice-control/adapters`）。
+    public static func acpExecutablePath(for agent: ChatAgent, directories: [String] = searchDirectories(), managedRoot: URL = ACPAdapterStore.root, isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> String? {
         guard let name = ACPAgentProfile.of(agent)?.executable else { return nil }
-        return directories.map { "\($0)/\(name)" }.first(where: isExecutable)
+        let own = directories.map { "\($0)/\(name)" }.first(where: isExecutable)
+        if let own { return own }
+        guard let adapter = ACPAdapter.of(agent) else { return nil }
+        let managed = ACPAdapterStore.binDirectory(for: adapter, root: managedRoot) + "/" + name
+        return isExecutable(managed) ? managed : nil
+    }
+
+    /// アダプターが、**利用者の CLI 本体**を使うための環境変数（`CLAUDE_CODE_EXECUTABLE`・`CODEX_PATH`。本体を、二重に取り込まない）。CLI が見つからなければ、空。
+    public static func cliEnvironment(for agent: ChatAgent, directories: [String] = searchDirectories(), isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> [String: String] {
+        guard let adapter = ACPAdapter.of(agent), let cli = executablePath(for: agent, directories: directories, isExecutable: isExecutable) else { return [:] }
+        return [adapter.cliEnvironmentKey: cli]
     }
 
     /// 使えるか（Apple は、いつも使える。外のエージェントは、CLI が入っていれば）。

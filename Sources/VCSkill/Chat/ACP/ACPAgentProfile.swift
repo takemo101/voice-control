@@ -58,7 +58,13 @@ struct ACPAgentProfile {
 
     /// 起動の引数（実行ファイル名から）。
     func launch(level: ChatToolLevel) -> [String] {
-        [executable] + arguments + (level == .all ? [] : restrictedArguments)
+        // アダプターは、見つかった場所の、絶対のパスで起動する（利用者が入れたもの → アプリが入れたもの）。見つからなければ、名前のまま（起動に失敗して、従来の方式へ戻る）
+        [AgentLocator.acpExecutablePath(for: agent) ?? executable] + arguments + (level == .all ? [] : restrictedArguments)
+    }
+
+    /// 起動に渡す環境変数：探す場所（`PATH`）・エージェントごとの設定・**利用者の CLI 本体の場所**（アダプターが、本体を、二重に取り込まない）。
+    func launchEnvironment() -> [String: String] {
+        ["PATH": AgentLocator.childPATH()].merging(AgentLocator.cliEnvironment(for: agent)) { _, new in new }.merging(environment) { _, new in new }
     }
 
     /// その段階で、決めたい、モード（上から）。

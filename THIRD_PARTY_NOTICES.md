@@ -464,3 +464,11 @@ version(s), and exceptions or additional permissions here}."
 
   You may add additional accurate notices of copyright ownership.
 ```
+
+## ACP アダプター（同梱しません。利用者が選んだときだけ、取得します）
+
+設定ウィンドウ／`vc adapter install` を実行したときだけ、npm の公式のレジストリから取得します（アプリには、版を固定した `package.json`・`package-lock.json` だけを同梱）。それぞれの配布元のライセンスに従います。
+
+- `@agentclientprotocol/claude-agent-acp`（Apache-2.0）と、その依存
+- `@agentclientprotocol/codex-acp`（Apache-2.0）と、その依存
+

@@ -265,6 +265,64 @@ enum DownloadState: Equatable {
         revision += 1
     }
 
+    // MARK: ACP アダプター（claude・codex）
+
+    enum AdapterWork: Equatable {
+        case working(String)
+        case failed(String)
+    }
+
+    /// アダプターを入れている最中・失敗（エージェント名 → 状態。メモリだけ）。
+    @Published private(set) var adapterWork: [String: AdapterWork] = [:]
+
+    /// 入れる（更新も同じ）。**確認のダイアログ**で、何を・どこへ・どれだけ入れるかを見せて、「入れる」を押したときだけ。
+    func installAdapter(_ adapter: ACPAdapter) {
+        if case .working = adapterWork[adapter.agent.rawValue] { return }
+        guard let source = AdapterSource.directory(for: adapter) else {
+            adapterWork[adapter.agent.rawValue] = .failed("同梱の固定ファイル（adapters/\(adapter.directoryName)）が、見つかりません（ビルドしたままのアプリ？）")
+            return
+        }
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "\(adapter.agent.rawValue) の ACP アダプターを、入れますか？"
+        alert.informativeText = """
+        \(adapter.package) \(adapter.version)（\(adapter.license)）を、npm から、入れます。約 \(adapter.approximateSizeMB) MB。
+
+        入れる先：\(ACPAdapterStore.directory(for: adapter).path)
+        ・版は固定です（アプリに同梱の lock どおり。すべての部品を SHA-512 で照合し、取得先は npm の公式のレジストリだけ）。
+        ・インストール時のスクリプトは、動かしません。あなたの \(adapter.agent.rawValue) の本体を使います（二重に取り込みません）。
+        ・これは、第三者のプログラムを、この Mac で動かすことになります（会話のたびに、起動します）。消すときは、ここから「消す」か、そのフォルダを消します。
+        ・Node.js（npm）を使います。
+        """
+        alert.addButton(withTitle: "入れる")
+        alert.addButton(withTitle: "やめる")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        adapterWork[adapter.agent.rawValue] = .working("入れています…（数十秒かかることがあります）")
+        Task { [weak self] in
+            do {
+                try await ACPAdapterInstaller.install(adapter, source: source)
+                self?.adapterWork[adapter.agent.rawValue] = nil
+                self?.adapterChanged()
+            } catch {
+                self?.adapterWork[adapter.agent.rawValue] = .failed("\(error)")
+            }
+        }
+    }
+
+    /// 消す（アプリが入れたものだけ）。
+    func removeAdapter(_ adapter: ACPAdapter) {
+        do { try ACPAdapterInstaller.remove(adapter); adapterWork[adapter.agent.rawValue] = nil; adapterChanged() }
+        catch { adapterWork[adapter.agent.rawValue] = .failed("\(error)") }
+    }
+
+    /// 入れた・消したあと：画面を更新し、答える側を作り直す（会話は、新しくなる。次の質問から、ACP で話す・従来の方式へ戻る）。
+    private func adapterChanged() {
+        revision += 1
+        ChatMode.shared.invalidate()
+        _ = AppRuntime.shared.scheduleReload()
+    }
+
     // MARK: 会話のモデル
 
     enum ModelListState: Equatable {

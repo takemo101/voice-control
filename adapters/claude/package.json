@@ -1,0 +1,7 @@
+{
+  "name": "voice-control-adapter-claude",
+  "version": "1.0.0",
+  "private": true,
+  "description": "voice-control が、利用者の操作で入れる、ACP アダプター（版を固定）",
+  "dependencies": { "@agentclientprotocol/claude-agent-acp": "0.108.0" }
+}

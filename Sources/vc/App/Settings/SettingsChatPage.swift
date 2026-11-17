@@ -28,13 +28,17 @@ struct ChatPage: View {
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
             }
             let agent: ChatAgent = missing ? .apple : selected   // 道具の選択肢などは、実際に使うエージェントで決める
+            if let adapter = ACPAdapter.of(agent) {
+                RowDivider()
+                AdapterRow(model: model, adapter: adapter)
+            }
             if agent.speaksACP {
                 RowDivider()
                 SwitchRow(model: model, title: "常駐の接続（ACP）で話す", detail: "質問ごとに起動しないので、速くなります。書き込み・コマンドは、毎回、確認します。使えないときは、自動で、従来の方式に戻ります", value: model.settings.chatAcp ?? true) { $0.chatAcp = $1 }
                 RowDivider()
                 SwitchRow(model: model, title: "OS の制限つきで動かす（サンドボックス）", detail: "書き込みを、作業フォルダ（「すべて」のとき）とエージェント自身の置き場だけに限り、鍵の置き場（~/.ssh など）は読めなくします。確認で「はい」と答えても、外へは書けません。コマンドは、この制限の中で動くので、キャッシュの書き込み（npm install など）はできません", value: model.settings.chatSandbox ?? true) { $0.chatSandbox = $1 }
             }
-            if agent.speaksACP, model.settings.chatAcp ?? true {
+            if agent.speaksACP, model.settings.chatAcp ?? true, ACPAdapter.of(agent).map({ AdapterStatus.of($0).isUsable }) ?? true {
                 RowDivider()
                 ChatModelRow(model: model, agent: agent)
             }
@@ -87,12 +91,6 @@ struct ChatPage: View {
     }
 }
 
-/// 検索の状態（ポップオーバーの開閉と、入力）。SwiftUI の `@State` は、この環境では使えないので、参照型。
-@MainActor final class ModelSearchState: ObservableObject {
-    @Published var isOpen = false
-    @Published var query = ""
-}
-
 /// 会話のモデル：エージェントが返す一覧から選ぶ（ACP）。ボタンを押すと、**検索つきの一覧**が開く（あいまい検索：「son 5」→ Sonnet 5.5）。一覧は、初めて開くときに、そのエージェントを一時的に起動して取る（質問は送らない）。
 struct ChatModelRow: View {
     @ObservedObject var model: SettingsModel
@@ -138,69 +136,42 @@ struct ChatModelRow: View {
     }
 }
 
-/// 検索つきの、モデルの一覧（ポップオーバーの中身）。入力で、あいまいに絞り込む（`FuzzyMatch`）。Return で、いちばん上を選ぶ。
-struct ModelSearchList: View {
-    @ObservedObject var search: ModelSearchState
-    let state: SettingsModel.ModelListState?
-    let chosen: String
-    let agentName: String
-    let select: (String?) -> Void
-    let reload: () -> Void
+/// ACP アダプターの行（`claude`・`codex`）：状態・入れる／更新／消す。**入れるのは、利用者が押して、確認したときだけ**。
+struct AdapterRow: View {
+    @ObservedObject var model: SettingsModel
+    let adapter: ACPAdapter
 
     var body: some View {
-        let choices: [ACPModelChoice] = { if case let .loaded(value) = state { return value.choices }; return [] }()
-        let matches = FuzzyMatch.filter(choices, query: search.query) { "\($0.id) \($0.name)" }
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("検索（例：son 5・haiku・gpt high）", text: $search.query)
-                    .textFieldStyle(.plain)
-                    .onSubmit { if let first = matches.first { select(first.id) } }
-                if !search.query.isEmpty {
-                    Button { search.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            Divider()
-            switch state {
-            case .none, .loading:
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("\(agentName) に、選べるモデルを聞いています…").font(.system(size: 12)).foregroundStyle(.secondary) }.padding(14)
-            case let .failed(why):
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("一覧を取れませんでした").font(.system(size: 12, weight: .semibold))
-                    Text(why).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    Button("もう一度") { reload() }.controlSize(.small)
-                }.padding(14)
-            case .loaded:
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if search.query.isEmpty { row(title: "エージェントの設定（既定）", id: "", detail: nil) }
-                        ForEach(matches) { choice in row(title: choice.name, id: choice.id, detail: choice.detail) }
-                        if matches.isEmpty { Text("「\(search.query)」に合うモデルは、ありません").font(.system(size: 12)).foregroundStyle(.secondary).padding(14) }
+        let _ = model.revision
+        let status = AdapterStatus.of(adapter)
+        let work = model.adapterWork[adapter.agent.rawValue]
+        VStack(alignment: .leading, spacing: 6) {
+            Row("ACP アダプター", detail: status.summary(for: adapter)) {
+                HStack(spacing: 8) {
+                    if case .working = work { ProgressView().controlSize(.small) }
+                    switch status {
+                    case .own:
+                        SettingsPill(text: "使用中", color: Brand.ok)
+                    case let .managed(_, current):
+                        if !current { Button("\(adapter.version) に更新…") { model.installAdapter(adapter) }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small).disabled(work != nil) }
+                        else { SettingsPill(text: "導入済み", color: Brand.ok) }
+                        Button("消す") { model.removeAdapter(adapter) }.controlSize(.small).disabled(work != nil)
+                    case .notInstalled:
+                        if status.canInstall { Button("入れる…") { model.installAdapter(adapter) }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small).disabled(work != nil) }
+                        else { Link("Node.js を入れる", destination: URL(string: "https://nodejs.org")!).font(.system(size: 12)) }
                     }
                 }
-                .frame(maxHeight: 320)
-                Divider()
-                Text(search.query.isEmpty ? "\(choices.count) 件" : "\(matches.count) 件／全 \(choices.count) 件").font(.system(size: 10.5)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.vertical, 6)
+            }
+            switch work {
+            case let .working(text): Label(text, systemImage: "arrow.down.circle").font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 14).padding(.bottom, 8)
+            case let .failed(why): Label(why, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 8).fixedSize(horizontal: false, vertical: true)
+            case .none: EmptyView()
+            }
+            if case .notInstalled = status {
+                Text("\(adapter.agent.rawValue) の CLI は、ACP を話さないので、アダプターが要ります（\(adapter.package)・\(adapter.license)・約 \(adapter.approximateSizeMB) MB）。入れなくても、従来の方式で話せます。")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 14).padding(.bottom, 8).fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(width: 340)
-    }
-
-    private func row(title: String, id: String, detail: String?) -> some View {
-        Button { select(id.isEmpty ? nil : id) } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).opacity(chosen == id ? 1 : 0).frame(width: 12)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 12.5)).lineLimit(1)
-                    if !id.isEmpty, id != title { Text(id).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1) }
-                    if let detail { Text(detail).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1) }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }
+

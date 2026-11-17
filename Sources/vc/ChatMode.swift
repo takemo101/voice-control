@@ -13,6 +13,9 @@ import VCSkill
     private(set) var agent = ChatAgent.apple
     /// 設定で選んだエージェントと道具の段階（`agent` は、これが使えないとき、Apple に替わる）。
     private(set) var configured = ChatAgent.apple
+    private var needsRebuild = false
+    /// 次の `configure` で、同じ設定でも、答える側を作り直す（アダプターを入れた・消したあと：会話は、新しくなる）。
+    func invalidate() { needsRebuild = true }
     private var requestedTools = ChatToolLevel.none
     /// 外のエージェントに開けている道具の段階と、作業フォルダ。
     private(set) var tools = ChatToolLevel.none
@@ -41,7 +44,8 @@ import VCSkill
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
     func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil) {
-        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox || model != self.model else { return }
+        guard needsRebuild || agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox || model != self.model else { return }
+        needsRebuild = false
         configured = agent
         self.acp = acp
         self.sandbox = sandbox

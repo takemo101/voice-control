@@ -27,10 +27,16 @@ struct SettingsPreviewCommand: Command {
         if let icon, let image = NSImage(contentsOfFile: icon) { NSApplication.shared.applicationIconImage = image }
         // モデルの検索の一覧（ポップオーバーの中身）を、見本の一覧で描く：`--model-search <入力>`（見た目の確認用。エージェントは、起動しない）
         if let query = arguments.option("--model-search") {
-            let sample = ["default|Default (recommended)", "opus|Opus 5.5", "sonnet|Sonnet 5.5", "haiku|Haiku 5.5", "claude-sonnet-5|Sonnet 5", "claude-haiku-4-5-20251001|Haiku 4.5", "claude-opus-4-8|Opus 4.8"]
+            let samples: [String: [String]] = [
+                "claude": ["default|Default (recommended)", "opus|Opus 5.5", "sonnet|Sonnet 5.5", "haiku|Haiku 5.5", "claude-sonnet-5|Sonnet 5", "claude-haiku-4-5-20251001|Haiku 4.5", "claude-opus-4-8|Opus 4.8"],
+                "opencode": ["claude-agent/claude-fable-5|claude-agent/Fable 5", "claude-agent/haiku|claude-agent/Haiku 5.5", "claude-agent/opus|claude-agent/Opus 5.5", "openai/gpt-6.2|openai/GPT 6.2", "openai/gpt-6.2-mini|openai/GPT 6.2 mini", "google/gemini-4-argon|google/Gemini 4 Argon", "google/gemini-4-hydrogen|google/Gemini 4 Hydrogen"],
+                "codex": ["gpt-6.2-sol[low]|6.2 Sol (low)", "gpt-6.2-sol[medium]|6.2 Sol (medium)", "gpt-6.2-sol[high]|6.2 Sol (high)", "gpt-6.2-astra[low]|6.2 Astra (low)", "gpt-6.2-astra[high]|6.2 Astra (high)"],
+            ]
+            let sample = (samples[arguments.option("--model-sample") ?? "claude"] ?? samples["claude"]!)
                 .map { pair -> ACPModelChoice in let parts = pair.split(separator: "|", maxSplits: 1).map(String.init); return ACPModelChoice(id: parts[0], name: parts[1]) }
             let search = ModelSearchState(); search.query = query
-            let view = ModelSearchList(search: search, state: .loaded(ACPModelListing(choices: sample, current: "haiku")), chosen: "sonnet", agentName: "claude", select: { _ in }, reload: {})
+            search.highlighted = arguments.option("--model-highlight")
+            let view = ModelSearchList(search: search, state: .loaded(ACPModelListing(choices: sample, current: sample.first?.id)), chosen: arguments.option("--model-chosen") ?? "", agentName: "claude", select: { _ in }, reload: {})
                 .padding(1).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .light)
             let hosting = NSHostingView(rootView: view)
             hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
