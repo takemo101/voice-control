@@ -60,6 +60,16 @@ import VCCore
         } catch { return error.localizedDescription }
     }
 
+    /// アクセシビリティの許可を、リセットして、設定を開く（更新のあとで、許可が「オンなのに効かない」ときの、付け直し）。失敗なら、利用者に見せる理由。
+    /// このアプリの bundle ID の許可だけを消す（`tccutil reset`）。ほかのアプリの許可は、触らない。
+    static func resetAccessibility() -> String? {
+        guard let id = Bundle.main.bundleIdentifier else { return "アプリとして動いていません" }
+        let result = ProcessRunner.run(executable: "tccutil", arguments: ["reset", "Accessibility", id], mergeStderr: true, timeout: 10)
+        guard result.exitCode == 0 else { return result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "tccutil が失敗しました（\(result.exitCode)）" : result.text }
+        openPrivacy("Privacy_Accessibility")
+        return nil
+    }
+
     /// システム設定の「ログイン項目」を開く。
     static func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
 

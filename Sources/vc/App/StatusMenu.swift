@@ -46,6 +46,12 @@ import VCCore
             menu.addItem(label(String(reason.prefix(60)) + (reason.count > 60 ? "…" : "")))
             menu.addItem(action("もう一度、始める", #selector(retry)))
         }
+        switch UpdateModel.shared.phase {
+        case let .available(release): menu.addItem(action("新しいバージョン \(release.version) に更新…", #selector(installUpdate)))
+        case .checking: menu.addItem(label("更新を確認しています…"))
+        case .preparing: menu.addItem(label("更新を準備しています…"))
+        default: menu.addItem(action("更新を確認", #selector(checkUpdate)))
+        }
         menu.addItem(.separator())
         if SaySpeaker.shared.isSpeaking() { menu.addItem(action("読み上げを止める", #selector(stopSpeaking))) }
         menu.addItem(action("会話を開く", #selector(openChat)))
@@ -88,6 +94,21 @@ import VCCore
     // MARK: 操作
 
     @objc private func retry() { runtime.start() }
+
+    @objc private func installUpdate() { UpdateModel.shared.confirmAndInstall() }
+
+    /// 手で確認する：結果を、上のパネルで知らせる（新しい版があれば、次にメニューを開いたとき、更新の項目が出る）。
+    @objc private func checkUpdate() {
+        Task {
+            await UpdateModel.shared.check(manual: true)
+            let model = UpdateModel.shared
+            switch model.phase {
+            case let .available(release): HUD.shared.show(HUDContent(phase: .info, title: "新しいバージョン \(release.version) があります", hint: "メニューバーの「更新」から、入れられます", chip: "更新"), hideAfter: 5)
+            case let .failed(why): AppAlerts.show(title: "更新を確認できません", message: why, style: .warning)
+            default: HUD.shared.show(HUDContent(phase: .success, title: "最新の版です", hint: "voice-control \(model.currentVersion)", chip: "更新"), hideAfter: 2.5)
+            }
+        }
+    }
 
     @objc private func resetConversation() { AppActions.resetConversation() }
 

@@ -171,6 +171,7 @@ enum AppAlerts {
         source.resume()
         termination = source
         AppRuntime.shared.start()
+        UpdateModel.shared.startAutomaticChecks()   // 新しい版の確認（設定 `updateCheck`。入れるのは、利用者が選んだときだけ）
     }
 
     func applicationWillTerminate(_ notification: Notification) { AppRuntime.shared.shutdown() }
