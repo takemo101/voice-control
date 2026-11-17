@@ -31,6 +31,37 @@ import TestSupport
         #expect(voice.wasCancelled)   // 声を待っていた処理は、止まる（次の発話を、横取りしない）
     }
 
+    /// 「決まったら、問いかけの読み上げを止める」：ボタン・キー・声・取りやめ・失敗のどれでも、1 回だけ、すぐ呼ぶ。
+    private final class Counter: @unchecked Sendable {
+        private let lock = NSLock(); private var n = 0
+        func bump() { lock.lock(); n += 1; lock.unlock() }
+        var count: Int { lock.lock(); defer { lock.unlock() }; return n }
+    }
+
+    @Test func theSpokenQuestionIsSilencedAsSoonAsTheButtonDecidesNotWhenTheVoicePathEnds() async throws {
+        let panel = PanelAnswer(), silenced = Counter(), voice = SilentVoice()
+        Task { try? await Task.sleep(nanoseconds: 50_000_000); panel.resolve(true) }
+        let decided = try await ConfirmationRace.decide(panel: panel, silence: { silenced.bump() }) { try await voice.listen() }
+        #expect(decided == true && silenced.count == 1)    // ボタンで決めた：声の待ちは、止まり、読み上げも止まる
+        #expect(voice.wasCancelled)
+    }
+
+    @Test func theSpokenQuestionIsAlsoSilencedWhenTheVoiceDecidesOrTheAnswerFailsOrIsCancelled() async {
+        let voiceDecided = Counter()
+        _ = try? await ConfirmationRace.decide(panel: PanelAnswer(), silence: { voiceDecided.bump() }) { true }
+        #expect(voiceDecided.count == 1)
+        struct Broken: Error {}
+        let failed = Counter()
+        _ = try? await ConfirmationRace.decide(panel: PanelAnswer(), silence: { failed.bump() }) { throw Broken() }
+        #expect(failed.count == 1)                            // 失敗でも、読み上げを残さない
+        let cancelled = Counter()
+        let task = Task { try await ConfirmationRace.decide(panel: PanelAnswer(), silence: { cancelled.bump() }) { try await SilentVoice().listen() } }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        task.cancel()
+        _ = try? await task.value
+        #expect(cancelled.count == 1)                         // 取りやめ（新しい発話）でも、止まる
+    }
+
     @Test func theNoButtonDeclines() async throws {
         let panel = PanelAnswer()
         panel.resolve(false)

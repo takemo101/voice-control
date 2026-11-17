@@ -10,9 +10,9 @@ import VCSpeech
 struct ChatCheckCommand: Command {
     static let info = CommandInfo(
         name: "chat-check", group: .evaluation, summary: "会話の確認パネルの経路を、実際のエージェントで試す（自作のフォルダ・自作の質問。画面にパネルとウィンドウが出る）",
-        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>] [--hold <秒>]"],
+        usage: ["vc chat-check [--agent agy] [--tools none|web|read|all] [--scenario yes,no,esc,hidden,run,ls,outside,blocked,read,web,long,swap] [--folder <フォルダ>] [--hold <秒>] [--decide-after <秒>]"],
         details: ["道具は、既定で「すべて」。シナリオ：yes＝パネルで許可・no＝パネルで断る・esc＝確認を待つ間に取りやめ（Esc）・hidden＝会話のウィンドウを閉じてから許可・run＝コマンド（echo）の実行を、パネルで許可・ls＝ls（見るだけ：パネルが出ず、通るはず）・blocked＝書き込みを頼む（パネルが出ず、断られる：道具が「すべて」でないとき）・outside＝作業フォルダの外（/tmp）への書き込みを頼み、パネルで許可する（OS の制限〔サンドボックス〕で、書けないはず）・read＝フォルダのファイルを読ませる・web＝Web 検索をさせる・long＝長い会話（11 問。合言葉を覚えているか・1 問ごとの時間・子プロセスの数）・swap＝会話の途中で設定（道具の段階）を変えて、古い子プロセスが止まるか。シナリオごとに、作ったファイルの有無を出す。同じエージェントの接続で、続けて試す。"],
-        options: [("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--hold <秒>", "終わったあとも、ウィンドウを、この秒数だけ残す（画面を撮るため）。標準は、すぐ終える"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
+        options: [("--agent <名前>", "既定 agy"), ("--tools <段階>", "会話の道具の段階（既定 all）"), ("--scenario <名前,…>", "既定 yes,no,esc,hidden"), ("--decide-after <秒>", "確認のパネルが出てから、答えるまでの秒数（既定 2.5）。短くすると、問いかけの読み上げの途中で答える（読み上げが、すぐ止まるかを見る）"), ("--hold <秒>", "終わったあとも、ウィンドウを、この秒数だけ残す（画面を撮るため）。標準は、すぐ終える"), ("--folder <フォルダ>", "作業フォルダ（既定：一時のフォルダ）")],
         examples: ["vc chat-check", "vc chat-check --scenario yes"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -21,6 +21,7 @@ struct ChatCheckCommand: Command {
         let level = ChatToolLevel(rawValue: arguments.option("--tools") ?? "all") ?? .all
         let scenarios = (arguments.option("--scenario") ?? "yes,no,esc,hidden").split(separator: ",").map(String.init)
         let hold = arguments.option("--hold").flatMap(Double.init) ?? 0
+        let decideAfter = arguments.option("--decide-after").flatMap(Double.init) ?? 2.5
         let folder = arguments.option("--folder").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? FileManager.default.temporaryDirectory.appendingPathComponent("vc-chat-check-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -30,7 +31,7 @@ struct ChatCheckCommand: Command {
         setvbuf(stdout, nil, _IOLBF, 0)   // 行ごとに出す（撮影のスクリプトが、PANEL の行を、すぐ見られるように）
         NSApplication.shared.setActivationPolicy(.accessory)
         HUD.shared.warmUp()
-        let check = ChatCheckRun(agent: agent, level: level, folder: folder, context: context, confirmation: Confirmation(scorer: jev))
+        let check = ChatCheckRun(agent: agent, level: level, folder: folder, context: context, confirmation: Confirmation(scorer: jev), decideAfter: decideAfter)
         Task { @MainActor in
             print("作業フォルダ：\(folder.path)")
             for name in scenarios {
@@ -59,7 +60,11 @@ struct ChatCheckCommand: Command {
     /// 声の「はい」を、待たない（パネルのボタンだけで答える）。
     private let waitForever: NextUtterance = { try await Task.sleep(for: .seconds(86_400)); return nil }
 
-    init(agent: ChatAgent, level: ChatToolLevel, folder: URL, context: CommandContext, confirmation: Confirmation) {
+    /// 確認のパネルが出てから、答えるまでの秒数。
+    let decideAfter: Double
+
+    init(agent: ChatAgent, level: ChatToolLevel, folder: URL, context: CommandContext, confirmation: Confirmation, decideAfter: Double = 2.5) {
+        self.decideAfter = decideAfter
         self.agent = agent; self.level = level; self.folder = folder; self.context = context; self.confirmation = confirmation
     }
 
@@ -172,9 +177,14 @@ struct ChatCheckCommand: Command {
         while !HUD.shared.answers.isWaiting, waited < 120 { try? await Task.sleep(for: .milliseconds(200)); waited += 0.2 }
         guard HUD.shared.answers.isWaiting else { print("PANEL なし（\(Int(waited)) 秒待ったが、確認のパネルが出なかった）"); task.cancel(); return }
         print("PANEL 確認のパネルが出た（\(seconds(since: started)) 秒）")
-        try? await Task.sleep(for: .milliseconds(2500))   // 画面を撮れるように、少し見せる
+        try? await Task.sleep(for: .milliseconds(Int(decideAfter * 1000)))   // 画面を撮れるように、少し見せる
+        let speakingBefore = SaySpeaker.shared.isSpeaking()
         switch name {
-        case "yes", "run", "outside": HUD.shared.answers.deliver(true); print("→ パネルで、許可")
+        case "yes", "run", "outside":
+            HUD.shared.answers.deliver(true); print("→ パネルで、許可")
+            // 決めたら、問いかけの読み上げが、すぐ止まるか（決める前に読んでいたときだけ、意味がある）
+            try? await Task.sleep(for: .milliseconds(400))
+            print("SPEAK 決める前：\(speakingBefore ? "読んでいた" : "読んでいない")・決めた 0.4 秒後：\(SaySpeaker.shared.isSpeaking() ? "まだ読んでいる" : "止まっている")")
         case "no": HUD.shared.answers.deliver(false); print("→ パネルで、断る")
         case "esc": token.cancel(); task.cancel(); print("→ 確認を待つ間に、取りやめ（Esc）")
         case "hidden":
