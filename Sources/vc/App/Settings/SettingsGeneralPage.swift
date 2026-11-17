@@ -16,6 +16,8 @@ struct GeneralPage: View {
         let detail: String
         let done: Bool
         let action: (label: String, run: () -> Void)?
+        /// 補助の操作（小さいボタン）。
+        var secondary: (label: String, run: () -> Void)? = nil
     }
 
     private func steps() -> [Step] {
@@ -24,7 +26,8 @@ struct GeneralPage: View {
             Step(title: "マイクの許可", detail: mic == .granted ? "許可されています" : "声を聞くために必要です。アプリを起動すると、確認が出ます", done: mic == .granted,
                  action: mic == .granted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Microphone") })),
             Step(title: "アクセシビリティの許可", detail: ModifierHold.isTrusted ? "許可されています" : "キー（修飾キーの長押し・Esc）の検出と、前面のアプリへの入力に必要です", done: ModifierHold.isTrusted,
-                 action: ModifierHold.isTrusted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Accessibility") })),
+                 action: ModifierHold.isTrusted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Accessibility") }),
+                 secondary: ModifierHold.isTrusted ? nil : ("オンなのに効かない", { resetAccessibility() })),
             Step(title: "Tiny-Jev のモデル", detail: model.isInstalled(TinyJevModel.spec) ? "取得済みです" : "スキルを選ぶモデル（約 1.2 GB）。取得が必要です", done: model.isInstalled(TinyJevModel.spec),
                  action: model.isInstalled(TinyJevModel.spec) ? nil : ("取得する", { model.page = .models })),
         ]
@@ -50,6 +53,7 @@ struct GeneralPage: View {
                 Row(step.title, detail: step.detail) {
                     HStack(spacing: 10) {
                         Image(systemName: step.done ? "checkmark.circle.fill" : "exclamationmark.circle.fill").font(.system(size: 16)).foregroundStyle(step.done ? Brand.ok : Brand.warn)
+                        if let secondary = step.secondary { Button(secondary.label) { secondary.run() }.controlSize(.small).help("更新のあとなどで、設定は「オン」なのに、効かないとき：このアプリの許可を、リセットして、付け直します") }
                         if let action = step.action { Button(action.label) { action.run() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small) }
                     }
                 }
@@ -57,6 +61,11 @@ struct GeneralPage: View {
         }
         Card("起動", footer: "オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。") {
             LoginRow(model: model)
+        }
+        Card("アップデート", footer: "確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。") {
+            SwitchRow(model: model, title: "新しい版を、自動で確認する", detail: "見つけたら、上のパネルとメニューで、知らせます", value: model.settings.updateCheck ?? true) { $0.updateCheck = $1 }
+            RowDivider()
+            UpdateRow()
         }
         Card("ターミナル") {
             CommandLineRow(model: model)
@@ -76,6 +85,54 @@ struct GeneralPage: View {
             Row("データのフォルダ", detail: "スキル・設定・モデル") { Button("開く") { AppActions.openDataFolder() }.controlSize(.small) }
             RowDivider()
             Row("バージョン", detail: "voice-control") { Text(AppInfo.version).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary) }
+        }
+    }
+}
+
+extension GeneralPage {
+    /// 許可を、リセットして、付け直す（確認のあとで）。
+    @MainActor fileprivate func resetAccessibility() {
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.messageText = "アクセシビリティの許可を、リセットしますか？"
+        alert.informativeText = "設定で「オン」なのに効かないときの、付け直しです。このアプリの許可だけを消して、システム設定を開きます。開いたら、voice-control を、もう一度、オンにして、「もう一度、確かめる」を押してください。"
+        alert.addButton(withTitle: "リセットして、設定を開く")
+        alert.addButton(withTitle: "やめる")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if let problem = AppActions.resetAccessibility() { AppAlerts.show(title: "リセットできません", message: problem, style: .warning) }
+    }
+}
+
+/// 更新の行：いまの版・状態・操作（確認する・更新する）。
+struct UpdateRow: View {
+    @ObservedObject private var update = UpdateModel.shared
+
+    var body: some View {
+        let phase = update.phase
+        Row("バージョン \(update.currentVersion)", detail: detail(phase)) {
+            HStack(spacing: 8) {
+                switch phase {
+                case .checking: ProgressView().controlSize(.small)
+                case let .preparing(fraction):
+                    if let fraction { ProgressView(value: fraction).frame(width: 90) } else { ProgressView().controlSize(.small) }
+                case let .available(release):
+                    Button("変更点") { NSWorkspace.shared.open(release.pageURL) }.controlSize(.small)
+                    Button("\(release.version.description) に更新…") { update.confirmAndInstall() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                default:
+                    Button("更新を確認") { Task { await update.check(manual: true) } }.controlSize(.small)
+                }
+            }
+        }
+    }
+
+    private func detail(_ phase: UpdateModel.Phase) -> String {
+        switch phase {
+        case .idle: return update.lastChecked.map { "最後の確認：\($0.formatted(date: .omitted, time: .shortened))" } ?? "まだ、確認していません"
+        case .checking: return "確認しています…"
+        case .upToDate: return "最新の版です"
+        case let .available(release): return "新しい版（\(release.version)）があります"
+        case let .preparing(fraction): return fraction.map { "取得しています…（\(Int($0 * 100))%）" } ?? "検証しています…"
+        case let .failed(why): return why
         }
     }
 }
