@@ -45,4 +45,16 @@ import VCCore
         #expect(SettingsRules.engineProblem(kind: .ollama, rest: "  ") == "モデルの名前を入れてください")
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "no-port") != nil)   // ポートがない
     }
+
+    @Test func theSendKeyOnlyNeedsAReadableStrokeAndNeverClashesWithTriggers() {
+        var settings = Settings()
+        settings.hotkey = "cmd+return"   // 同じ組み合わせのトリガーがあっても、1 回押すキーは、重なりを見ない
+        #expect(SettingsRules.keyProblem(.sendKey, text: "cmd+return", in: settings) == nil)
+        #expect(SettingsRules.keyProblem(.sendKey, text: "return", in: settings) == nil)            // 単独も、よい
+        #expect(SettingsRules.keyProblem(.sendKey, text: "", in: settings) == nil)                   // 空＝既定（Enter）
+        #expect(SettingsRules.keyProblem(.sendKey, text: "cmd", in: settings) != nil)                // 修飾キーだけは、読めない
+        #expect(SettingsRules.keyProblem(.sendKey, text: "enterr", in: settings) != nil)
+        #expect(KeyKind.triggers == [.listen, .dictate, .chat, .shot] && KeyKind.sendKey.fallback == "return")
+    }
 }
+

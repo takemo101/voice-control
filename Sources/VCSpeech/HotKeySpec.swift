@@ -69,12 +69,12 @@ public struct HotKeySpec: Equatable, Sendable {
     var carbonModifiers: UInt32 { modifiers.reduce(0) { $0 | $1.carbon } }
     var keyCode: UInt32? { key.flatMap { Self.keyCodes[$0] } }
 
-    private static let aliases: [String: Modifier] = [
+    static let aliases: [String: Modifier] = [
         "ctrl": .control, "control": .control, "opt": .option, "option": .option, "alt": .option,
         "shift": .shift, "cmd": .command, "command": .command,
     ]
 
-    private static let keyCodes: [String: UInt32] = {
+    static let keyCodes: [String: UInt32] = {
         var t: [String: UInt32] = [
             "a": kVK_ANSI_A, "b": kVK_ANSI_B, "c": kVK_ANSI_C, "d": kVK_ANSI_D, "e": kVK_ANSI_E, "f": kVK_ANSI_F, "g": kVK_ANSI_G,
             "h": kVK_ANSI_H, "i": kVK_ANSI_I, "j": kVK_ANSI_J, "k": kVK_ANSI_K, "l": kVK_ANSI_L, "m": kVK_ANSI_M, "n": kVK_ANSI_N,
@@ -90,7 +90,7 @@ public struct HotKeySpec: Equatable, Sendable {
         return t
     }()
 
-    private static let keyAliases = ["enter": "return", "esc": "escape"]
+    static let keyAliases = ["enter": "return", "esc": "escape"]
 
     /// 文字列 → 設定。書けない形は、理由を返す。
     /// 右側のキーだけ（長押し専用）。

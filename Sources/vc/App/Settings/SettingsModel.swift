@@ -160,7 +160,7 @@ enum DownloadState: Equatable {
         stopRecording()
         recording = kind
         recordingHint = nil
-        recorder = KeyRecorder()
+        recorder = KeyRecorder(recordsStroke: !kind.isTrigger)
         keyProblems[kind] = nil
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             MainActor.assumeIsolated { self?.handle(event) }

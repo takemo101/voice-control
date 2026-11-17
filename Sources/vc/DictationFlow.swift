@@ -5,7 +5,7 @@ import VCSpeech
 
 /// 音声入力の、発話ごとの処理（認識した文字を、前面のアプリへ入力する）。`VoiceSession` が使う。
 enum DictationFlow {
-    /// 文字を入れてから、Enter を送るまでの間（秒）。この間に、Esc で取りやめられる。
+    /// 文字を入れてから、設定のキー（既定は Enter）を送るまでの間（秒）。この間に、Esc で取りやめられる。
     static let enterDelay: TimeInterval = 0.8
 
     /// `seconds` 秒、待つ。取りやめられたら、すぐやめて false（細かく、取りやめを見る）。
@@ -50,18 +50,28 @@ enum DictationFlow {
                     HUD.shared.show(HUDContent(phase: .success, title: "入力しました", chip: chip, reply: utterance), hideAfter: 1.8)
                     return
                 }
-                // 設定：入れたあとに、Enter を送る。**送る前に、短い間**（Esc で、取りやめられる：送信・実行は、取り消しにくい）
-                HUD.shared.show(HUDContent(phase: .success, title: "入力しました", hint: "Enter を送ります（Esc で取りやめ）", chip: chip, reply: utterance), hideAfter: enterDelay + 0.3)
-                guard await waitUnlessCancelled(enterDelay, token) else {
-                    print("  " + Style.yellow("Enter は、送りませんでした（取りやめ）"))
-                    HUD.shared.show(HUDContent(phase: .info, title: "Enter は、送りませんでした", hint: "文字は、入力済みです", chip: chip), hideAfter: 2)
+                // 設定：入れたあとに、キー（`dictateKey`。既定は Enter）を送る。書き方が読めなければ、送らない（Enter に、黙って、替えない）
+                let stroke: KeyStroke
+                switch settings.dictateKeyStroke {
+                case let .success(value): stroke = value
+                case let .failure(failure):
+                    print("  " + Style.yellow("送るキーを読めません: \(failure.reason)"))
+                    HUD.shared.show(HUDContent(phase: .failure, title: "キーを送れませんでした", hint: "設定のキー「\(settings.dictateKey ?? "")」: \(failure.reason)", chip: chip, reply: utterance), hideAfter: 5)
                     return
                 }
-                if paste.pressReturn() {
-                    print("  " + Style.green("✓") + " Enter を送りました")
-                    HUD.shared.show(HUDContent(phase: .success, title: "入力して、Enter を送りました", chip: chip, reply: utterance), hideAfter: 1.5)
+                let name = stroke.displayName
+                // **送る前に、短い間**（Esc で、取りやめられる：送信・実行は、取り消しにくい）
+                HUD.shared.show(HUDContent(phase: .success, title: "入力しました", hint: "\(name) を送ります（Esc で取りやめ）", chip: chip, reply: utterance), hideAfter: enterDelay + 0.3)
+                guard await waitUnlessCancelled(enterDelay, token) else {
+                    print("  " + Style.yellow("\(name) は、送りませんでした（取りやめ）"))
+                    HUD.shared.show(HUDContent(phase: .info, title: "\(name) は、送りませんでした", hint: "文字は、入力済みです", chip: chip), hideAfter: 2)
+                    return
+                }
+                if paste.press(stroke) {
+                    print("  " + Style.green("✓") + " \(name) を送りました")
+                    HUD.shared.show(HUDContent(phase: .success, title: "入力して、\(name) を送りました", chip: chip, reply: utterance), hideAfter: 1.5)
                 } else {
-                    HUD.shared.show(HUDContent(phase: .failure, title: "Enter を送れませんでした", hint: "アクセシビリティの許可が要ります", chip: chip, reply: utterance), hideAfter: 4)
+                    HUD.shared.show(HUDContent(phase: .failure, title: "\(name) を送れませんでした", hint: "アクセシビリティの許可が要ります", chip: chip, reply: utterance), hideAfter: 4)
                 }
             case .notReceived(let kept):
                 // 成功に見せない：前面のアプリが、⌘V を受け取らなかった（入力欄でない・セキュア入力・アプリの不調）

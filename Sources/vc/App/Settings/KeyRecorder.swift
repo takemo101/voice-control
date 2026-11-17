@@ -19,6 +19,11 @@ struct KeyRecorder {
         case rejected(String)
     }
 
+    /// 1 回押すキー（音声入力のあとに送る）を記録するか：単独のキー（Enter・Tab など）も、よい。修飾キーだけの長押しは、記録しない。
+    let recordsStroke: Bool
+
+    init(recordsStroke: Bool = false) { self.recordsStroke = recordsStroke }
+
     private var held: [UInt16] = []
     private var seen: [UInt16] = []
     private var usedKey = false
@@ -29,7 +34,7 @@ struct KeyRecorder {
     mutating func handle(_ input: Input) -> Outcome {
         switch input {
         case let .modifier(code, down):
-            guard HotKeySpec.modifier(forCode: code) != nil else { return .waiting }
+            guard HotKeySpec.modifier(forCode: code) != nil, !recordsStroke else { return .waiting }
             if down {
                 if !held.contains(code) { held.append(code) }
                 if !seen.contains(code) { seen.append(code) }
@@ -44,7 +49,7 @@ struct KeyRecorder {
             usedKey = true
             if code == Self.escape, modifiers.isEmpty { reset(); return .cancelled }
             guard let name = HotKeySpec.keyName(forCode: code) else { return .rejected("このキーは、使えません") }
-            if modifiers.isEmpty, !(name.hasPrefix("f") && name.count <= 3 && Int(name.dropFirst()) != nil) {
+            if !recordsStroke, modifiers.isEmpty, !(name.hasPrefix("f") && name.count <= 3 && Int(name.dropFirst()) != nil) {
                 return .rejected("修飾キー（⌃ ⌥ ⇧ ⌘）と一緒に押してください（F キーだけは、単独で使えます）")
             }
             let mods = Self.order.filter(modifiers.contains).map(\.rawValue)

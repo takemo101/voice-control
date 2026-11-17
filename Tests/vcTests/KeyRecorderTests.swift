@@ -54,4 +54,23 @@ import VCSpeech
             #expect(spec.description == text)   // 記録した文字は、そのまま、正規の書き方
         }
     }
+
+    // MARK: 1 回押すキー（音声入力のあとに送る）：Return 36・Tab 48・Command 55
+
+    private func runStroke(_ inputs: [KeyRecorder.Input]) -> [KeyRecorder.Outcome] {
+        var recorder = KeyRecorder(recordsStroke: true)
+        return inputs.map { recorder.handle($0) }
+    }
+
+    @Test func aStrokeRecordsAPlainKeyAndAModifiedKeyButNeverAModifierHold() {
+        #expect(runStroke([.key(code: 36, modifiers: [])]).last == .recorded("return"))              // 単独の Enter も、よい（トリガーでは、断る）
+        #expect(runStroke([.key(code: 48, modifiers: [])]).last == .recorded("tab"))
+        #expect(runStroke([.modifier(code: 55, down: true), .key(code: 36, modifiers: [.command])]).last == .recorded("cmd+return"))
+        // 修飾キーだけを押して離しても、記録しない（押す対象がない）：待ち続ける
+        #expect(runStroke([.modifier(code: 56, down: true), .modifier(code: 56, down: false)]).allSatisfy { $0 == .waiting })
+        #expect(runStroke([.key(code: 53, modifiers: [])]).last == .cancelled)                         // Esc は、取りやめ
+        // トリガーの記録は、単独の Return を、これまでどおり断る
+        if case .rejected = run([.key(code: 36, modifiers: [])]).last! {} else { Issue.record("トリガーが、単独の Return を受けた") }
+    }
 }
+

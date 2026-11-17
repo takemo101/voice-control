@@ -8,4 +8,10 @@ extension Settings {
         guard let hotkey else { return .success(.default) }
         return HotKeySpec.parse(hotkey)
     }
+
+    /// 音声入力のあとに送るキー（`dictateKey`）。なければ Enter。設定が読めなければ、理由。
+    public var dictateKeyStroke: Result<KeyStroke, HotKeySpec.Failure> {
+        guard let dictateKey else { return .success(.enter) }
+        return KeyStroke.parse(dictateKey)
+    }
 }
