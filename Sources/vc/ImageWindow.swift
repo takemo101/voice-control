@@ -44,7 +44,7 @@ import VCSkill
             transcribe: { [unowned self] in toggleTranscript() },
             copyText: { [unowned self] in copyTranscript() },
             close: { [unowned self] in window.close() }, solid: solid)
-        let hosting = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
+        let hosting = NSHostingView(rootView: root.userScaled().environment(\.colorScheme, .dark))
         window.contentView = hosting
         window.setContentSize(hosting.fittingSize)   // 中身（画像の大きさ）に、合わせる
         // いま使っている画面の、右下
@@ -209,6 +209,7 @@ final class ImagePanelFrame: NSPanel {
     override var canBecomeMain: Bool { false }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if FontSizeShortcut.handle(event) { return true }   // ⌘＋・⌘−・⌘0：文字の大きさ
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
         case "c":

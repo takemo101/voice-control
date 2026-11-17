@@ -149,6 +149,13 @@ enum DownloadState: Equatable {
         update { $0[keyPath: kind.keyPath] = text.isEmpty ? nil : text }
     }
 
+    /// 画面の文字の大きさを変える（標準なら、設定から外す）。開いている画面も、すぐ変わる。声の入力の再起動は、要らない。
+    func setFontSize(_ size: Int) {
+        let clamped = UIScale.clamp(size)
+        update(restart: false) { $0.fontSize = clamped == UIScale.standard ? nil : clamped }
+        UIScale.shared.reload()
+    }
+
     func setLoginItem(_ on: Bool) {
         loginMessage = AppActions.setLoginItem(on)
         reload()

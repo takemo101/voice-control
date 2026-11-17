@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import VCCore
 import VCSkill
@@ -14,6 +15,7 @@ import VCSkill
 
     private let state = ChatWindowState()
     private var window: DocumentWindowFrame?
+    private var scaleObserver: AnyCancellable?   // 文字の大きさの変化
     private var expiry: Task<Void, Never>?
 
     var isVisible: Bool { window?.isVisible == true }
@@ -263,9 +265,17 @@ import VCSkill
             detach: { ChatWindow.shared.detachImage() },
             copyAll: { [unowned self] in copyAll() },
             close: { [unowned window] in window.close() })
-        window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
+        window.contentView = NSHostingView(rootView: root.userScaled().environment(\.colorScheme, .dark))
+        scaleObserver = UIScale.shared.$size.dropFirst().sink { [weak self] _ in MainActor.assumeIsolated { self?.rerenderAnswers() } }
         self.window = window
         return window
+    }
+
+    /// 文字の大きさが変わった：整形済みの答えを、新しい大きさで、組み直す。
+    private func rerenderAnswers() {
+        for index in state.entries.indices {
+            if let answer = state.entries[index].answer { state.entries[index].rendered = Self.render(answer) }
+        }
     }
 
     /// 答えを整形する（終わりの、空の行は、除く：カードの下に、余白ができるため）。

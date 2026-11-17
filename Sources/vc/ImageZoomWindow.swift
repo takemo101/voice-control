@@ -88,7 +88,7 @@ import SwiftUI
             zoomIn: { [unowned self] in perform(.zoomIn) }, zoomOut: { [unowned self] in perform(.zoomOut) },
             reset: { [unowned self] in perform(.reset) }, actual: { [unowned self] in perform(.actual) }, copy: { [unowned self] in perform(.copy) },
             close: { [unowned self] in window.close() })
-        window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
+        window.contentView = NSHostingView(rootView: root.userScaled().environment(\.colorScheme, .dark))
         window.setFrame(ScreenPlacement.windowFrame(size: window.frame.size, minSize: window.minSize, in: ScreenPlacement.currentVisibleFrame()), display: false)
 
         observers.append(NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
@@ -364,10 +364,10 @@ private struct ZoomView: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
+                Image(systemName: symbol).vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
             }
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-            Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.7))
+            Text(title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1)
+            Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Spacer(minLength: 8)
             HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied, action: copy)
@@ -391,7 +391,7 @@ private struct ZoomToolbar: View {
             ToolbarIcon(symbol: "minus", help: "縮小（−）", enabled: state.canZoomOut, action: zoomOut)
             Button(action: actual) {
                 Text(ZoomMath.percent(state.magnification))
-                    .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                    .vcFont(12.5, weight: .semibold, monospacedDigit: true)
                     .foregroundStyle(state.isActual ? DocumentPalette.accent : .white.opacity(0.92))
                     .frame(minWidth: 52, minHeight: 28)
                     .contentShape(Rectangle())
@@ -419,7 +419,7 @@ private struct ToolbarIcon: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.92))
+            Image(systemName: symbol).vcFont(12, weight: .bold).foregroundStyle(.white.opacity(0.92))
                 .frame(width: 28, height: 28)
                 .background(Circle().fill(.white.opacity(hover.on && enabled ? 0.20 : 0)))
                 .contentShape(Circle())

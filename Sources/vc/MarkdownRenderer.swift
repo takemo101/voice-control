@@ -450,7 +450,9 @@ enum MarkdownRenderer {
 
     // MARK: 見た目（暗いガラスの上）
 
-    private static let bodySize: CGFloat = 15
+    /// 本文の大きさ（設定 `fontSize` の倍率を掛ける。標準は 15）。ほかの大きさも、これか `scale` から決める。
+    private static var scale: CGFloat { UIScale.currentFactor }
+    private static var bodySize: CGFloat { 15 * scale }
     private static var bodyFont: NSFont { .systemFont(ofSize: bodySize) }
     private static let accent = NSColor.systemTeal
 
@@ -462,7 +464,7 @@ enum MarkdownRenderer {
         var color = HUDStyle.primary
         switch block.kind {
         case .header(let level):
-            let size: CGFloat = [25, 20, 17, 15, 15, 15][min(max(level, 1), 6) - 1]
+            let size: CGFloat = [25, 20, 17, 15, 15, 15][min(max(level, 1), 6) - 1] * scale
             font = .systemFont(ofSize: size, weight: level == 1 ? .bold : .semibold)
             color = level >= 4 ? HUDStyle.secondary : .white
         case .codeBlock:
@@ -500,7 +502,7 @@ enum MarkdownRenderer {
         attrs[.paragraphStyle] = paragraphStyle(for: block, context: context, continuation: continuation)
         if codeLabel {
             // 言語名：小さく、控えめに、右寄せ（同じ面の 1 行目）
-            attrs[.font] = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+            attrs[.font] = NSFont.monospacedSystemFont(ofSize: 10 * scale, weight: .medium)
             attrs[.foregroundColor] = NSColor(white: 1, alpha: 0.4)
             let style = (attrs[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
             style.alignment = .right

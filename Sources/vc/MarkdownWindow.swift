@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Markdown を整形して見せる、一時的なウィンドウ（`vc show --wait`。`vc show` と `result: markdown-window` は、これを別のプロセスで開く：`DocumentWindow`）。
@@ -12,6 +13,7 @@ import SwiftUI
     private let window: DocumentWindowFrame
     private let textView = DiagramTextView()   // 図（Mermaid）は、クリックで拡大
     private let state = DocumentState()
+    private var scaleObserver: AnyCancellable?   // 文字の大きさの変化（⌘＋・⌘−）
 
     private init(markdown: String, title: String) {
         self.markdown = markdown
@@ -30,12 +32,13 @@ import SwiftUI
         window.minSize = NSSize(width: 380, height: 280)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // Space（デスクトップ）を移動しても、ついてくる
         configureTextView()
+        scaleObserver = UIScale.shared.$size.dropFirst().sink { [weak self] _ in MainActor.assumeIsolated { self?.renderBody() } }
         let root = DocumentView(
             title: title, state: state, textView: textView,
             copyMarkdown: { [unowned self] in copy(self.markdown, button: .markdown) },
             copyText: { [unowned self] in copy(MarkdownRenderer.plainText(self.markdown), button: .text) },
             close: { [unowned self] in window.close() })
-        window.contentView = NSHostingView(rootView: root.environment(\.colorScheme, .dark))
+        window.contentView = NSHostingView(rootView: root.userScaled().environment(\.colorScheme, .dark))
         window.textView = textView
         // いま使っている画面（マウスのある画面）の、真ん中。小さい画面では、上のパネル（HUD）の分を空けて、高さを縮める
         window.setFrame(ScreenPlacement.windowFrame(size: window.frame.size, minSize: window.minSize, in: ScreenPlacement.currentVisibleFrame()), display: false)
@@ -72,8 +75,11 @@ import SwiftUI
         textView.textContainer?.widthTracksTextView = true
         textView.selectedTextAttributes = [.backgroundColor: NSColor.systemTeal.withAlphaComponent(0.35)]
         textView.linkTextAttributes = [.foregroundColor: NSColor.systemTeal, .underlineStyle: NSUnderlineStyle.single.rawValue]
-        textView.textStorage?.setAttributedString(MarkdownRenderer.render(markdown))
+        renderBody()
     }
+
+    /// 本文を、いまの文字の大きさで、組み直す。
+    private func renderBody() { textView.textStorage?.setAttributedString(MarkdownRenderer.render(markdown)) }
 
     /// クリップボードへ入れて、ボタンの文字を、少しの間、「コピーしました」にする。
     private func copy(_ text: String, button: DocumentState.Button) {
@@ -133,14 +139,14 @@ private struct DocumentView: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                Image(systemName: "doc.text.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(DocumentPalette.accent)
+                Image(systemName: "doc.text.fill").vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
             }
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
+            Text(title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
-            Text("⌘C でコピー").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
+            Text("⌘C でコピー").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Button(action: close) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 20)).foregroundStyle(.white.opacity(0.45))
+                Image(systemName: "xmark.circle.fill").vcFont(20).foregroundStyle(.white.opacity(0.45))
             }.buttonStyle(.plain).accessibilityLabel("閉じる")
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
@@ -185,8 +191,8 @@ struct PillButton: View {
     var body: some View {
         let button = Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: flashed ? "checkmark" : symbol).font(.system(size: 12, weight: .semibold))
-                Text(flashed ? doneTitle : title).font(.system(size: 13, weight: .semibold))
+                Image(systemName: flashed ? "checkmark" : symbol).vcFont(12, weight: .semibold)
+                Text(flashed ? doneTitle : title).vcFont(13, weight: .semibold)
             }
             .foregroundStyle(flashed ? DocumentPalette.accent : .white.opacity(0.92))
             .padding(.horizontal, 14).padding(.vertical, 8)
@@ -229,6 +235,7 @@ final class DocumentWindowFrame: NSWindow {
     override var canBecomeMain: Bool { true }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if FontSizeShortcut.handle(event) { return true }   // ⌘＋・⌘−・⌘0：文字の大きさ
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
         case "c": if let textView { textView.copy(nil) } else { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) }; return true

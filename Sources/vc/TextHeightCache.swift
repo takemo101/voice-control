@@ -12,7 +12,7 @@ enum TextHeightCache {
 
     static func height(width: CGFloat, text: String, measure: () -> CGFloat) -> CGFloat {
         // 幅は、無限（理想の幅の問い合わせ）・非数のことがある：`Int` にできないので、文字にしてから（クラッシュした）
-        let key = "\(width.isFinite ? String(Int(width.rounded())) : "unbounded")|\(text)" as NSString
+        let key = "\(width.isFinite ? String(Int(width.rounded())) : "unbounded")|\(UIScale.currentSize)|\(text)" as NSString   // 文字の大きさが変わったら、別の高さ
         if let known = cache.object(forKey: key) { return CGFloat(known.doubleValue) }
         let height = measure()
         cache.setObject(NSNumber(value: Double(height)), forKey: key)

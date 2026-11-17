@@ -49,13 +49,13 @@ struct ChatView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(ChatPalette.brand).frame(width: 34, height: 34)
-                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                Image(systemName: "bubble.left.and.bubble.right.fill").vcFont(14, weight: .semibold).foregroundStyle(.white)
             }
             .shadow(color: ChatPalette.purple.opacity(0.45), radius: 8, y: 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text("会話").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                Text("会話").vcFont(16, weight: .semibold).foregroundStyle(.white)
                 HStack(spacing: 6) {
-                    if !state.agent.isEmpty { Text(state.agent).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.6)) }
+                    if !state.agent.isEmpty { Text(state.agent).vcFont(11, weight: .medium, maxScale: 1.15).lineLimit(1).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.6)) }
                     if let tools = state.tools { Chip(text: tools, symbol: "wrench.and.screwdriver.fill", color: ChatPalette.accent) }
                     if let warning = state.warning { Chip(text: warning, symbol: "arrow.up.forward.circle.fill", color: ChatPalette.orange) }
                 }
@@ -125,7 +125,7 @@ private struct AttachButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "camera.viewfinder").font(.system(size: 14, weight: .semibold))
+            Image(systemName: "camera.viewfinder").vcFont(14, weight: .semibold)
                 .foregroundStyle(attached ? ChatPalette.accent : .white.opacity(0.85))
                 .frame(width: 34, height: 34)
                 .background(Circle().fill(attached ? ChatPalette.accent.opacity(0.18) : .white.opacity(hover.on ? 0.20 : 0.10)))
@@ -155,8 +155,8 @@ private struct StopSpeakingButton: View {
                     }
                     .frame(height: 14)
                 }
-                Text("読み上げを止める").font(.system(size: 11, weight: .semibold)).foregroundStyle(ChatPalette.accent)
-                Text("esc").font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(ChatPalette.accent.opacity(0.7))
+                Text("読み上げを止める").vcFont(11, weight: .semibold, maxScale: 1.15).lineLimit(1).foregroundStyle(ChatPalette.accent)
+                Text("esc").vcFont(10, weight: .semibold, design: .monospaced, maxScale: 1.15).foregroundStyle(ChatPalette.accent.opacity(0.7))
             }
             .padding(.horizontal, 11).padding(.vertical, 6)
             .background(Capsule().fill(ChatPalette.accent.opacity(hover.on ? 0.26 : 0.14)))
@@ -177,8 +177,8 @@ private struct OutcomeNote: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(title, systemImage: symbol).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(color)
-            Text(detail).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
+            Label(title, systemImage: symbol).vcFont(12.5, weight: .semibold).foregroundStyle(color)
+            Text(detail).vcFont(11.5).foregroundStyle(.white.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -197,14 +197,14 @@ private struct ComposerBar: View {
                 AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
                 if state.submit != nil {
                     TextField(busy ? "考えている間は、送れません（話して、中断もできます）" : "メッセージを入力（Enter で送信）", text: $state.draft)
-                        .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(.white)
+                        .textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Capsule().fill(.white.opacity(0.09)))
                         .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
                         .disabled(busy)
                         .onSubmit(send)
                     Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 26)).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
+                        Image(systemName: "arrow.up.circle.fill").vcFont(26).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
                     }
                     .buttonStyle(.plain).disabled(!canSend).accessibilityLabel("送信")
                 } else {
@@ -232,17 +232,17 @@ private struct ComposerBar: View {
                 TimelineView(.animation) { context in
                     Circle().fill(Color.red).frame(width: 9, height: 9).opacity(0.45 + 0.55 * abs(sin(context.date.timeIntervalSinceReferenceDate * 3)))
                 }
-                Text("聞いています…（離すと送信・Esc で取りやめ）").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Color.red.opacity(0.95))
+                Text("聞いています…（離すと送信・Esc で取りやめ）").vcFont(11.5, weight: .semibold).foregroundStyle(Color.red.opacity(0.95))
             }
         case .recognizing:
-            Label("文字にしています…", systemImage: "waveform").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(ChatPalette.accent)
+            Label("文字にしています…", systemImage: "waveform").vcFont(11.5, weight: .semibold).foregroundStyle(ChatPalette.accent)
         case .idle:
             if busy {
-                Label("考えています…（話すと、この質問を中断して、新しい質問を優先します）", systemImage: "hourglass").font(.system(size: 11.5)).foregroundStyle(ChatPalette.accent.opacity(0.9))
+                Label("考えています…（話すと、この質問を中断して、新しい質問を優先します）", systemImage: "hourglass").vcFont(11.5).foregroundStyle(ChatPalette.accent.opacity(0.9))
             } else if let key = state.keyHint {
-                Label("\(key) を押している間、話します", systemImage: "mic.fill").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.55))
+                Label("\(key) を押している間、話します", systemImage: "mic.fill").vcFont(11.5).foregroundStyle(.white.opacity(0.55))
             } else {
-                Label("会話のキーが、決まっていません（設定 > キー）。文字で質問できます", systemImage: "mic.slash").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.5))
+                Label("会話のキーが、決まっていません（設定 > キー）。文字で質問できます", systemImage: "mic.slash").vcFont(11.5).foregroundStyle(.white.opacity(0.5))
             }
         }
     }
@@ -257,8 +257,8 @@ private struct AttachmentCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Image(nsImage: image.thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 200, height: 116).clipped()
             HStack(spacing: 6) {
-                Image(systemName: "paperclip").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.7))
-                Text("画像").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                Image(systemName: "paperclip").vcFont(10, weight: .bold).foregroundStyle(.white.opacity(0.7))
+                Text("画像").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.85))
                 Spacer(minLength: 4)
                 RouteChip(route: image.route)
             }
@@ -288,8 +288,8 @@ private struct RouteChip: View {
             }
         }()
         HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 9, weight: .bold))
-            Text(text).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+            Image(systemName: symbol).vcFont(9, weight: .bold, maxScale: 1.15)
+            Text(text).vcFont(10, weight: .semibold, maxScale: 1.15).lineLimit(1).lineLimit(1)
         }
         .foregroundStyle(color)
     }
@@ -308,11 +308,11 @@ private struct AttachmentBar: View {
             Image(nsImage: image.thumbnail).resizable().aspectRatio(contentMode: .fill).frame(width: 64, height: 42).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.7))
             VStack(alignment: .leading, spacing: 2) {
-                Text("画像を、会話に添えています").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
+                Text("画像を、会話に添えています").vcFont(12, weight: .semibold).foregroundStyle(.white.opacity(0.9))
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let left = max(0, Int(image.expiresAt.timeIntervalSince(context.date)))
                     Text("あと \(left / 60):\(String(format: "%02d", left % 60)) で、使えなくなります" + (external ? "・送る前に、確認します" : ""))
-                        .font(.system(size: 11)).foregroundStyle(external ? ChatPalette.orange : .white.opacity(0.5))
+                        .vcFont(11).foregroundStyle(external ? ChatPalette.orange : .white.opacity(0.5))
                 }
             }
             Spacer(minLength: 8)
@@ -332,8 +332,8 @@ private struct Chip: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 9, weight: .bold))
-            Text(text).font(.system(size: 10, weight: .semibold))
+            Image(systemName: symbol).vcFont(9, weight: .bold, maxScale: 1.15)
+            Text(text).vcFont(10, weight: .semibold, maxScale: 1.15).lineLimit(1)
         }
         .foregroundStyle(color)
         .padding(.horizontal, 7).padding(.vertical, 2.5)
@@ -348,10 +348,10 @@ private struct EmptyState: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle().fill(ChatPalette.brand.opacity(0.22)).frame(width: 64, height: 64)
-                Image(systemName: "waveform.and.mic").font(.system(size: 26, weight: .semibold)).foregroundStyle(ChatPalette.brand)
+                Image(systemName: "waveform.and.mic").vcFont(26, weight: .semibold).foregroundStyle(ChatPalette.brand)
             }
-            Text("話しかけてみましょう").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
-            Text("会話のキーを押している間、話します。\n質問と答えが、ここに続いていきます。").font(.system(size: 12)).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.5))
+            Text("話しかけてみましょう").vcFont(16, weight: .semibold).foregroundStyle(.white.opacity(0.9))
+            Text("会話のキーを押している間、話します。\n質問と答えが、ここに続いていきます。").vcFont(12).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.5))
         }
     }
 }
@@ -379,12 +379,12 @@ private struct EntryView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 if let image = entry.image { AttachmentCard(image: image) }
                 Text(entry.question)
-                    .font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                    .vcFont(14, weight: .medium).foregroundStyle(.white)
                     .textSelection(.enabled)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 5, topTrailingRadius: 18, style: .continuous).fill(ChatPalette.bubble))
                     .shadow(color: ChatPalette.blue.opacity(0.28), radius: 8, y: 3)
-                Text(entry.asked, format: .dateTime.hour().minute()).font(.system(size: 10)).foregroundStyle(.white.opacity(0.32)).padding(.trailing, 4)
+                Text(entry.asked, format: .dateTime.hour().minute()).vcFont(10).foregroundStyle(.white.opacity(0.32)).padding(.trailing, 4)
             }
         }
     }
@@ -394,7 +394,7 @@ private struct EntryView: View {
         HStack(alignment: .top, spacing: 10) {
             ZStack {
                 Circle().fill(.white.opacity(0.10)).frame(width: 28, height: 28)
-                Image(systemName: "sparkles").font(.system(size: 12, weight: .semibold)).foregroundStyle(ChatPalette.brand)
+                Image(systemName: "sparkles").vcFont(12, weight: .semibold).foregroundStyle(ChatPalette.brand)
             }
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 10) {
@@ -405,7 +405,7 @@ private struct EntryView: View {
                     if let rendered = entry.rendered { RichText(attributed: rendered).frame(maxWidth: .infinity, alignment: .leading) }
                     if !entry.activities.isEmpty { activities.padding(.top, 4) }
                     ForEach(entry.notes, id: \.self) { note in
-                        Label(note, systemImage: "info.circle").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
+                        Label(note, systemImage: "info.circle").vcFont(11).foregroundStyle(.white.opacity(0.45))
                     }
                     if let answer = entry.answer { actions(answer) }
                 case let .stopped(reason):
@@ -425,8 +425,8 @@ private struct EntryView: View {
     private var activities: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 5) {
-                Image(systemName: "bolt.fill").font(.system(size: 9, weight: .bold))
-                Text("実行した操作").font(.system(size: 10, weight: .bold)).kerning(0.5)
+                Image(systemName: "bolt.fill").vcFont(9, weight: .bold)
+                Text("実行した操作").vcFont(10, weight: .bold).kerning(0.5)
             }
             .foregroundStyle(ChatPalette.orange)
             ForEach(Array(entry.activities.enumerated()), id: \.offset) { _, activity in ActivityRow(activity: activity) }
@@ -470,8 +470,8 @@ private struct SmallAction: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
-                Text(title).font(.system(size: 11, weight: .medium))
+                Image(systemName: symbol).vcFont(10, weight: .semibold)
+                Text(title).vcFont(11, weight: .medium)
             }
             .foregroundStyle(.white.opacity(hover.on ? 0.95 : 0.55))
             .padding(.horizontal, 9).padding(.vertical, 4)
@@ -499,7 +499,7 @@ private struct Pending: View {
                     }
                 }
             }
-            Text(status).font(.system(size: 12.5, weight: .medium)).foregroundStyle(ChatPalette.accent.opacity(0.9)).lineLimit(2)
+            Text(status).vcFont(12.5, weight: .medium).foregroundStyle(ChatPalette.accent.opacity(0.9)).lineLimit(2)
         }
         .padding(.vertical, 2)
     }
@@ -580,12 +580,12 @@ private struct ActivityRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
-                Image(systemName: EntryView.symbol(for: activity.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(ChatPalette.orange.opacity(0.9)).frame(width: 14)
-                Text(activity.text).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.white.opacity(0.72)).lineLimit(2).textSelection(.enabled)
+                Image(systemName: EntryView.symbol(for: activity.kind)).vcFont(10, weight: .semibold).foregroundStyle(ChatPalette.orange.opacity(0.9)).frame(width: 14)
+                Text(activity.text).vcFont(11.5, design: .monospaced).foregroundStyle(.white.opacity(0.72)).lineLimit(2).textSelection(.enabled)
                 if activity.output != nil {
                     Spacer(minLength: 4)
-                    Text(activity.output?.isDiff == true ? "差分" : "出力").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
-                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
+                    Text(activity.output?.isDiff == true ? "差分" : "出力").vcFont(10, weight: .semibold).foregroundStyle(.white.opacity(0.5))
+                    Image(systemName: open ? "chevron.down" : "chevron.right").vcFont(9, weight: .bold).foregroundStyle(.white.opacity(0.5))
                 }
             }
             .contentShape(Rectangle())
@@ -608,7 +608,7 @@ private struct ActivityOutput: View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(output.text.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
-                    Text(line.isEmpty ? " " : line).font(.system(size: 11, design: .monospaced)).foregroundStyle(color(of: line)).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(line.isEmpty ? " " : line).vcFont(11, design: .monospaced).foregroundStyle(color(of: line)).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .textSelection(.enabled)
