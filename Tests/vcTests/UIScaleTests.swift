@@ -40,3 +40,17 @@ import VCCore
         #expect(bodySize() < standard)                                     // 小さくもなる
     }
 }
+
+/// 文字の大きさのショートカット：キーから操作への対応。
+@Suite struct FontSizeShortcutTests {
+    @Test func plusEqualsMinusAndZeroMapToBiggerSmallerAndStandard() {
+        #expect(FontSizeShortcut.action(key: "+", shift: true) == .bigger)      // ⌘＋ は ⌘⇧=
+        #expect(FontSizeShortcut.action(key: "=", shift: false) == .bigger)     // ⌘= も
+        #expect(FontSizeShortcut.action(key: "-", shift: false) == .smaller)
+        #expect(FontSizeShortcut.action(key: "0", shift: false) == .standard)
+        #expect(FontSizeShortcut.action(key: "-", shift: true) == nil)          // ⌘⇧− などは、扱わない
+        #expect(FontSizeShortcut.action(key: "0", shift: true) == nil)
+        #expect(FontSizeShortcut.action(key: "c", shift: false) == nil)         // ⌘C（コピー）を、奪わない
+        #expect(FontSizeShortcut.action(key: "w", shift: false) == nil)
+    }
+}

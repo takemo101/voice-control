@@ -1,3 +1,4 @@
+import AppKit
 import os
 import SwiftUI
 import VCCore
@@ -31,6 +32,19 @@ import VCCore
         guard next != size else { return }
         Self.publish(next)   // 先に写しを替える（`size` の変化を受けた側が、新しい値を読む）
         size = next
+    }
+
+    /// 1 段、大きく・小さくする（ショートカット）。**設定に保存する**（標準なら、設定から外す）。保存できなくても、このセッションの大きさは変わる。
+    func step(_ delta: Int) { change(to: size + delta) }
+    func resetToStandard() { change(to: Self.standard) }
+
+    private func change(to newSize: Int) {
+        let next = Self.clamp(newSize)
+        guard next != size else { return }
+        apply(next)
+        var settings = Settings.loadOrDefault().settings
+        settings.fontSize = next == Self.standard ? nil : next
+        do { try settings.save() } catch { FileHandle.standardError.write(Data("文字の大きさを、保存できませんでした（\(error)）\n".utf8)) }
     }
 
     private static func stored() -> Int { clamp(Settings.loadOrDefault().settings.fontSize ?? standard) }
@@ -82,5 +96,33 @@ extension View {
     /// `maxScale`：この倍率までしか、大きくしない（見出しの札など、決まった幅に収めたい所）。
     func vcFont(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default, monospacedDigit: Bool = false, maxScale: CGFloat? = nil) -> some View {
         modifier(ScaledFont(size: size, weight: weight, design: design, monospacedDigit: monospacedDigit, maxScale: maxScale))
+    }
+}
+
+/// 文字の大きさのショートカット（会話・Markdown・画像のウィンドウ）：**⌘＋**（⌘= も）で大きく・**⌘−** で小さく・**⌘0** で標準へ。
+enum FontSizeShortcut {
+    enum Action: Equatable { case bigger, smaller, standard }
+
+    /// キーから、操作を決める（**純粋**）。`key`：修飾キーを除いた文字。`shift`：⇧ が押されているか（⌘＋ は ⌘⇧= なので、＋ だけ、許す）。
+    static func action(key: String, shift: Bool) -> Action? {
+        switch key {
+        case "+", "=": return .bigger
+        case "-" where !shift: return .smaller
+        case "0" where !shift: return .standard
+        default: return nil
+        }
+    }
+
+    /// ⌘ のキーの組み合わせなら、操作して true（ほかの修飾キーつきは、扱わない）。
+    @MainActor static func handle(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), flags.subtracting([.command, .shift]).isEmpty, let key = event.charactersIgnoringModifiers,
+              let action = action(key: key, shift: flags.contains(.shift)) else { return false }
+        switch action {
+        case .bigger: UIScale.shared.step(1)
+        case .smaller: UIScale.shared.step(-1)
+        case .standard: UIScale.shared.resetToStandard()
+        }
+        return true
     }
 }

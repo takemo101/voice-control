@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Markdown を整形して見せる、一時的なウィンドウ（`vc show --wait`。`vc show` と `result: markdown-window` は、これを別のプロセスで開く：`DocumentWindow`）。
@@ -12,6 +13,7 @@ import SwiftUI
     private let window: DocumentWindowFrame
     private let textView = DiagramTextView()   // 図（Mermaid）は、クリックで拡大
     private let state = DocumentState()
+    private var scaleObserver: AnyCancellable?   // 文字の大きさの変化（⌘＋・⌘−）
 
     private init(markdown: String, title: String) {
         self.markdown = markdown
@@ -30,6 +32,7 @@ import SwiftUI
         window.minSize = NSSize(width: 380, height: 280)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // Space（デスクトップ）を移動しても、ついてくる
         configureTextView()
+        scaleObserver = UIScale.shared.$size.dropFirst().sink { [weak self] _ in MainActor.assumeIsolated { self?.renderBody() } }
         let root = DocumentView(
             title: title, state: state, textView: textView,
             copyMarkdown: { [unowned self] in copy(self.markdown, button: .markdown) },
@@ -72,8 +75,11 @@ import SwiftUI
         textView.textContainer?.widthTracksTextView = true
         textView.selectedTextAttributes = [.backgroundColor: NSColor.systemTeal.withAlphaComponent(0.35)]
         textView.linkTextAttributes = [.foregroundColor: NSColor.systemTeal, .underlineStyle: NSUnderlineStyle.single.rawValue]
-        textView.textStorage?.setAttributedString(MarkdownRenderer.render(markdown))
+        renderBody()
     }
+
+    /// 本文を、いまの文字の大きさで、組み直す。
+    private func renderBody() { textView.textStorage?.setAttributedString(MarkdownRenderer.render(markdown)) }
 
     /// クリップボードへ入れて、ボタンの文字を、少しの間、「コピーしました」にする。
     private func copy(_ text: String, button: DocumentState.Button) {
@@ -229,6 +235,7 @@ final class DocumentWindowFrame: NSWindow {
     override var canBecomeMain: Bool { true }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if FontSizeShortcut.handle(event) { return true }   // ⌘＋・⌘−・⌘0：文字の大きさ
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
         case "c": if let textView { textView.copy(nil) } else { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) }; return true

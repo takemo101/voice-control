@@ -209,6 +209,7 @@ final class ImagePanelFrame: NSPanel {
     override var canBecomeMain: Bool { false }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if FontSizeShortcut.handle(event) { return true }   // ⌘＋・⌘−・⌘0：文字の大きさ
         guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, let key = event.charactersIgnoringModifiers else { return super.performKeyEquivalent(with: event) }
         switch key {
         case "c":
