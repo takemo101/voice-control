@@ -576,20 +576,26 @@ private struct ActivityRow: View {
     let activity: ChatActivity
     @StateObject private var flag = OpenFlag()   // SwiftUI の `@State` は、この環境では使えない（ChatWindow.swift の注記）
     private var open: Bool { flag.open }
+    /// 長い操作（長いコマンド）：押すと、**全文**を見られる（確認のときは、見出しと抜粋だけを出したので、ここで、全文を確かめられる）。
+    private var hasLongDetail: Bool { activity.detail.count > 100 }
+    private var expandable: Bool { activity.output != nil || hasLongDetail }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Image(systemName: EntryView.symbol(for: activity.kind)).vcFont(10, weight: .semibold).foregroundStyle(ChatPalette.orange.opacity(0.9)).frame(width: 14)
                 Text(activity.text).vcFont(11.5, design: .monospaced).foregroundStyle(.white.opacity(0.72)).lineLimit(2).textSelection(.enabled)
-                if activity.output != nil {
+                if expandable {
                     Spacer(minLength: 4)
-                    Text(activity.output?.isDiff == true ? "差分" : "出力").vcFont(10, weight: .semibold).foregroundStyle(.white.opacity(0.5))
+                    Text(activity.output?.isDiff == true ? "差分" : (activity.output != nil ? "出力" : "全文")).vcFont(10, weight: .semibold).foregroundStyle(.white.opacity(0.5))
                     Image(systemName: open ? "chevron.down" : "chevron.right").vcFont(9, weight: .bold).foregroundStyle(.white.opacity(0.5))
                 }
             }
             .contentShape(Rectangle())
-            .onTapGesture { if activity.output != nil { withAnimation(.easeOut(duration: 0.15)) { flag.open.toggle() } } }
+            .onTapGesture { if expandable { withAnimation(.easeOut(duration: 0.15)) { flag.open.toggle() } } }
+            if open, hasLongDetail {
+                ActivityOutput(output: ChatActivity.Output(text: activity.detail))   // 全文（上限は、`ChatActivity.Output` の、行数・文字数）
+            }
             if open, let output = activity.output { ActivityOutput(output: output) }
         }
         .padding(.horizontal, 9).padding(.vertical, 5)

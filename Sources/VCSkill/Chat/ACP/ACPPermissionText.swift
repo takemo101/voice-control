@@ -11,7 +11,11 @@ enum ACPPermissionText {
         case "edit": return "ファイルを書き込む：\(path ?? title)"
         case "delete": return "ファイルを削除する：\(path ?? title)"
         case "move": return "ファイルを移動する：\(path ?? title)"
-        case "execute": return "コマンドを実行する：\(call.command.map(shownCommand) ?? title)"
+        case "execute":
+            guard let command = call.command else { return "コマンドを実行する：\(title)" }
+            // 長いコマンドは、1 行目に、何をするかの見出し・2 行目に、抜粋（読み上げは、1 行目だけ）。短いものは、そのまま（1 行）
+            let summary = ACPCommandSummary.summarize(visible(command))
+            return summary.preview.isEmpty ? "コマンドを実行する：" + summary.headline : "コマンドを実行する：" + summary.headline + "\n" + summary.preview
         default: return "操作する：\(path ?? title)"
         }
     }

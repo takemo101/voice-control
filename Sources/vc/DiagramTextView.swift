@@ -34,6 +34,12 @@ final class DiagramTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
+    /// リンクのクリック：**この Mac の中のファイル**は、文書・画像なら開き、それ以外（フォルダ・実行ファイル・知らない種類）は、Finder で示す（`MarkdownLink`）。ほかのリンク（http など）は、標準のまま。
+    override func clicked(onLink link: Any, at charIndex: Int) {
+        if let url = link as? URL, url.isFileURL { MainActor.assumeIsolated { MarkdownLink.openFile(url) }; return }
+        super.clicked(onLink: link, at: charIndex)
+    }
+
     /// その位置にある図の、元の文字（図の絵の中のときだけ）。
     func diagramSource(at point: NSPoint) -> String? {
         guard let source = attributeValue(.mermaidSource, at: point) as? String, !source.isEmpty else { return nil }

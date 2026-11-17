@@ -8,11 +8,16 @@ import VCSpeech
 @MainActor enum ChatVoice {
     /// 会話の道具が、**確認が要る操作**（既存ファイルの上書き・安全でないコマンド）の前に、利用者に聞く：パネルのボタンか、声の「はい」。答えがなければ（取りやめ・エラー）、しない。
     private static func askToConfirm(_ detail: String, chip: String, confirmation: Confirmation, next: @escaping NextUtterance) async -> Bool {
-        say("確認です。" + detail)
-        var content = HUDContent(phase: .confirm, title: "実行しますか？", hint: detail + "。" + ConfirmGuide.howToAnswer, chip: chip)
+        // 確認の文は、1 行目＝何をするか（読み上げ・見出し）・2 行目以降＝抜粋（長いコマンド：`ACPCommandSummary`）。**文字を、パネルいっぱいに、並べない**
+        let parts = detail.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true).map(String.init)
+        let headline = parts.first ?? detail
+        let excerpt = parts.count > 1 ? parts[1] : nil
+        say("確認です。" + headline)
+        var content = HUDContent(phase: .confirm, title: "実行しますか？", hint: headline + "。" + ConfirmGuide.howToAnswer, chip: chip)
+        content.reply = excerpt
         content.choices = true
         HUD.shared.show(content)
-        notice("会話の道具の確認：\(detail)。パネルの\(ConfirmGuide.howToAnswer)")
+        notice("会話の道具の確認：\(headline)" + (excerpt.map { "（\($0)）" } ?? "") + "。パネルの\(ConfirmGuide.howToAnswer)")
         let yes = (try? await VoiceHandlers.askByPanelOrVoice(confirmation: confirmation, next: next)) ?? false
         if yes { HUD.shared.hide() } else { HUD.shared.show(HUDContent(phase: .info, title: "やめました", chip: chip), hideAfter: 2) }   // 会話は、ウィンドウに出ている
         return yes
