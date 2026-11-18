@@ -153,4 +153,15 @@ import VCCore
         init(_ value: T) { stored = value }
         var value: T { get { lock.lock(); defer { lock.unlock() }; return stored } set { lock.lock(); stored = newValue; lock.unlock() } }
     }
+
+    @Test func theAllToolsWarningSaysWhetherEachActionIsConfirmedByAgent() {
+        // ACP で話す（`talksACP`）エージェントだけ、操作の前に、聞いてくる。ACP を切る・ACP を話せないものは、確認なし
+        #expect(ChatAgent.codex.talksACP(enabled: true) && !ChatAgent.codex.talksACP(enabled: false) && !ChatAgent.pi.talksACP(enabled: true))
+        let acp = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: true)
+        let direct = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: false)
+        let apple = ChatToolLevel.allToolsDialogBody(agent: .apple, acp: true)
+        #expect(acp != direct && acp != apple && direct != apple)   // 3 つの場合で、別の説明
+        #expect(direct == ChatToolLevel.allToolsDialogBody(agent: .pi, acp: true))   // ACP を話せないエージェントは、ACP を切ったときと同じ
+    }
 }
+

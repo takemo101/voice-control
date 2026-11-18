@@ -8,6 +8,13 @@ import Foundation
 public enum ChatToolLevel: String, CaseIterable, Sendable {
     case none, web, read, all
 
+    /// 「すべて」を開けるときの、確認のダイアログの本文（設定ウィンドウ）。
+    public static func allToolsDialogBody(agent: ChatAgent, acp: Bool) -> String {
+        if agent == .apple { return "書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。" }
+        if agent.talksACP(enabled: acp) { return "書き込みとコマンドの実行ができるようになります。毎回、確認します。" }
+        return "書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。"
+    }
+
     public var title: String {
         switch self {
         case .none: return "なし（会話だけ）"

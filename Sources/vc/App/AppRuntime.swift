@@ -45,8 +45,8 @@ import VCSpeech
         isActive = true
         state = .starting
         FailurePresenter.show = { message in AppAlerts.show(title: "vc を続けられません", message: message, style: .critical) }
-        let context = Self.makeContext()
         do {
+            let context = try Self.makeContext()
             let jev = try Self.preflight(context)
             // アクセシビリティ：許可がなければ、macOS の案内を出して、このアプリを、許可の一覧に載せる（載っていないと、利用者が見つけられない）
             if !ModifierHold.isTrusted { _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) }
@@ -61,9 +61,10 @@ import VCSpeech
         }
     }
 
-    private static func makeContext() -> CommandContext {
+    /// 設定を検査した文脈：書き間違い（engine・stt・chatAgent）は、`StartupProblem` で返す（アプリは、終わらない）。
+    private static func makeContext() throws -> CommandContext {
         var arguments = Arguments([])
-        return CommandContext(options: CommonOptions(consuming: &arguments))
+        return try CommandContext(options: CommonOptions(consuming: &arguments)).resolvingChoices()
     }
 
     /// 設定を読んで、声の流れを作り、始める。Tiny-Jev・音声認識（変わっていなければ）は、使い回す。
@@ -111,7 +112,7 @@ import VCSpeech
         // 古い声の流れの、キーの受け付けを、いますぐ外す（同じキーを、二重に登録しない。手放されるのを待たない）
         session?.stop()
         session = nil
-        do { try bringUp(Self.makeContext()) } catch {
+        do { try bringUp(try Self.makeContext()) } catch {
             state = .stopped(reason: "\(error)")
         }
     }
@@ -127,13 +128,6 @@ import VCSpeech
         } catch { throw StartupProblem("Tiny-Jev のモデルを読めません: \(error)") }
     }
 
-    struct StartupProblem: Error, CustomStringConvertible {
-        let description: String
-        /// 直せる設定のページ。
-        let page: SettingsPage?
-        init(_ text: String, page: SettingsPage? = nil) { description = text; self.page = page }
-    }
-
     /// 終了の後始末（消音を戻す・認識を閉じる・撮ったスクリーンショットを消す）。
     func shutdown() {
         muter?.restore()
@@ -143,6 +137,18 @@ import VCSpeech
 }
 
 enum AppAlerts {
+    /// 2 つのボタンの確認（`confirm` を押したときだけ true）。
+    @MainActor static func confirm(title: String, message: String, confirm: String, cancel: String = "やめる", style: NSAlert.Style = .informational) -> Bool {
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.alertStyle = style
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: confirm)
+        alert.addButton(withTitle: cancel)
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     @MainActor static func show(title: String, message: String, style: NSAlert.Style) {
         let present = {
             NSApplication.shared.activate()

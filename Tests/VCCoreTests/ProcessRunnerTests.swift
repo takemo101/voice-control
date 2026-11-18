@@ -42,10 +42,10 @@ import VCCore
         // 待つ処理と取りやめは、GCD で行う：Swift の並行処理のスレッドを、塞がない（CI は、全テストを同じプロセスで動かし、スレッドが足りなくなると、取りやめが遅れる）
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { token.cancel() }
         let r = await withCheckedContinuation { (c: CheckedContinuation<ProcessResult, Never>) in
-            DispatchQueue.global().async { c.resume(returning: ProcessRunner.run(executable: "sleep", arguments: ["5"], mergeStderr: true, timeout: 30, cancel: token)) }
+            DispatchQueue.global().async { c.resume(returning: ProcessRunner.run(executable: "sleep", arguments: ["60"], mergeStderr: true, timeout: 120, cancel: token)) }
         }
         #expect(r.cancelled && !r.timedOut && r.exitCode == 130)
-        #expect(Date().timeIntervalSince(started) < 4)   // 5 秒は待たない
+        #expect(Date().timeIntervalSince(started) < 30)   // 60 秒は待たない（上限は、CI の負荷で、取りやめが数秒遅れても、割れない余裕。2 回、4 秒の上限で割れた：4.13 秒・4.28 秒）
     }
 
     @Test func aCancelledTokenPreventsTheCommandFromStarting() {

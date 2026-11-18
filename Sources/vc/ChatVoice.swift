@@ -42,7 +42,7 @@ import VCSpeech
             HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
             return
         }
-        if ChatMode.isEndCommand(utterance) {
+        if ChatEndCommand.matches(utterance) {
             await ChatMode.shared.end()
             print("  " + Style.dim("会話を終わりました（記録は、消しました）"))
             HUD.shared.show(HUDContent(phase: .info, title: "会話を終わりました", hint: "記録は、消しました", chip: chip, heard: utterance), hideAfter: 2.5)

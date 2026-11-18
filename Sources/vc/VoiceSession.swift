@@ -37,11 +37,12 @@ import VCSpeech
         let dictateSpec = context.resolveDictateHotKey()?.spec
         let shotSpec = context.resolveShotHotKey()
         let chatSpec = context.resolveChatHotKey()
-        let chatAgent = context.resolveChatAgent()
+        // キーの重なり：何も変える前に、起動の問題として返す（アプリは、終わらない）
+        if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { throw StartupProblem(message, page: .keys) }
         // 会話の設定（エージェント・道具）：会話のキーがなくても、入力欄・メニューから、会話できる
+        let chatAgent = context.resolveChatAgent()
         ChatMode.shared.configure(context.chatSetup(agent: chatAgent))
         ChatWindow.shared.setKeyHint(chatSpec?.displayName)
-        if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec) { fail(message) }
         HUD.shared.warmUp()   // トリガー（グローバルのキー監視）より先に、パネルを 1 回出す（確認のボタンが、クリックを受けられるように）
         var keys: [(tag: String, key: PushToTalkTrigger)] = [(VoiceMode.listen, try makeTrigger(spec))]
         if let dictateSpec { keys.append((VoiceMode.dictate, try makeTrigger(dictateSpec))) }

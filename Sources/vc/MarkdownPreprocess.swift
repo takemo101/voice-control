@@ -5,6 +5,9 @@ import Foundation
 ///   行の中の `$…$` は、**数式らしいときだけ**（`\\` の記号・`^`・`_`・`{}` を含み、前後に空白がない）。「$5 と $10」のような金額は、触らない。ブロックは、等幅のブロックにする。
 /// - **`<details>`**：`<summary>` を太字の行にして、タグを外す（折りたたみは、できない：全部、出す）。
 enum MarkdownPreprocess {
+    /// コードブロックの柵（` ``` `・`~~~`）の行か（`trimmed`：前後の空白を除いた行）。コードの中は、どの整形も、触らない。
+    static func isFence(_ trimmed: String) -> Bool { trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") }
+
     static func apply(_ markdown: String) -> String {
         guard markdown.contains("$") || markdown.contains("<details") || markdown.contains("<summary") else { return markdown }
         var out: [String] = []
@@ -12,7 +15,7 @@ enum MarkdownPreprocess {
         var blockMath: [String]? = nil
         for rawLine in markdown.components(separatedBy: "\n") {
             let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
-            if blockMath == nil, trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inFence.toggle(); out.append(rawLine); continue }
+            if blockMath == nil, isFence(trimmed) { inFence.toggle(); out.append(rawLine); continue }
             if inFence { out.append(rawLine); continue }
             // ブロックの数式（`$$` で始まり、`$$` で終わる。1 行でも、複数行でも）
             if var collected = blockMath {
@@ -105,6 +108,85 @@ enum MarkdownPreprocess {
         text = text.replacingOccurrences(of: #"</?(details|summary)[^>]*>"#, with: "", options: .regularExpression)
         return text
     }
+
+    // MARK: 脚注
+
+    private static let footnoteDigits = Array("⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+    /// 脚注（`[^名前]` と、`[^名前]: 本文`）を、上付きの番号と、末尾の一覧にする。Foundation は、脚注を扱わず、本文が消える（`[^名前]: …` は、リンクの定義として、読み捨てられる）。
+    /// コードブロックの中・インラインコードの中は、触らない。定義のない参照は、そのまま。脚注がなければ、文章を変えない。
+    static func resolvingFootnotes(_ markdown: String) -> String {
+        guard markdown.contains("[^") else { return markdown }
+        let lines = markdown.components(separatedBy: "\n")
+        var fenced = false
+        var body: [String] = []
+        var definitions: [String: String] = [:]
+        var order: [String] = []        // 定義の出てくる順
+        var lastDefinition: String?
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if isFence(trimmed) { fenced.toggle(); body.append(line); lastDefinition = nil; continue }
+            if fenced { body.append(line); continue }
+            if let match = line.range(of: "^\\[\\^([^\\]\\s]+)\\]:\\s*", options: .regularExpression) {
+                let id = String(line[match].dropFirst(2).prefix { $0 != "]" })
+                definitions[id] = String(line[match.upperBound...])
+                order.append(id)
+                lastDefinition = id
+                continue
+            }
+            // 定義の続き（字下げした行）
+            if let id = lastDefinition, line.hasPrefix("    ") || line.hasPrefix("\t"), !trimmed.isEmpty {
+                definitions[id, default: ""] += " " + trimmed
+                continue
+            }
+            if !trimmed.isEmpty { lastDefinition = nil }
+            body.append(line)
+        }
+        guard !definitions.isEmpty else { return markdown }
+        // 参照を、出てくる順に、番号にする
+        var numbers: [String: Int] = [:]
+        var inFence = false
+        let replaced = body.map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if isFence(trimmed) { inFence.toggle(); return line }
+            if inFence || !line.contains("[^") { return line }
+            // インラインコード（バッククォートの間）は、触らない：奇数番目の区間
+            let parts = line.components(separatedBy: "`")
+            return parts.enumerated().map { index, part -> String in
+                guard index % 2 == 0, part.contains("[^") else { return part }
+                var result = part
+                let reference = try? NSRegularExpression(pattern: "\\[\\^([^\\]\\s]+)\\]")   // try?: 固定の式
+                let whole = NSRange(part.startIndex..., in: part)
+                let matches: [(id: String, range: Range<String.Index>)] = (reference?.matches(in: part, range: whole) ?? []).compactMap { match in
+                    guard let idRange = Range(match.range(at: 1), in: part), let full = Range(match.range, in: part), definitions[String(part[idRange])] != nil else { return nil }
+                    return (String(part[idRange]), full)
+                }
+                for match in matches where numbers[match.id] == nil { numbers[match.id] = numbers.count + 1 }   // 番号は、出てくる順
+                for match in matches.reversed() { result.replaceSubrange(match.range, with: footnoteMark(numbers[match.id]!)) }   // 置き換えは、後ろから（前の位置が、ずれない）
+                return result
+            }.joined(separator: "`")
+        }
+        // 参照された脚注（番号の順）、そのあと、参照されなかった定義
+        var notes = numbers.sorted { $0.value < $1.value }.map { ($0.value, definitions[$0.key] ?? "") }
+        var extra = notes.count
+        for id in order where numbers[id] == nil { extra += 1; notes.append((extra, definitions[id] ?? "")) }
+        let list = notes.map { "\(footnoteMark($0.0)) \($0.1)" }.joined(separator: "  \n")
+        return (replaced + ["", "---", "", list, ""]).joined(separator: "\n")
+    }
+
+    /// 代わりの文字のない画像（`![](…)`）に、「画像」と付ける（Foundation は、文字のない画像を、何も出さない）。コードの中は、触らない。
+    static func namingEmptyImages(_ markdown: String) -> String {
+        guard markdown.contains("![](") else { return markdown }
+        var fenced = false
+        return markdown.components(separatedBy: "\n").map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if isFence(trimmed) { fenced.toggle(); return line }
+            if fenced || !line.contains("![](") { return line }
+            return line.components(separatedBy: "`").enumerated().map { $0.offset % 2 == 0 ? $0.element.replacingOccurrences(of: "![](", with: "![画像](") : $0.element }.joined(separator: "`")
+        }.joined(separator: "\n")
+    }
+
+    private static func footnoteMark(_ n: Int) -> String { String(String(n).compactMap { $0.wholeNumberValue }.map { footnoteDigits[$0] }) }
 }
 
 /// LaTeX の数式を、**読める Unicode の文字**に直す（組版ではない）。知らない記号は、そのまま残す。
@@ -199,4 +281,5 @@ enum LaTeXText {
         "angle": "∠", "perp": "⊥", "parallel": "∥", "degree": "°", "prime": "′", "hbar": "ℏ", "ell": "ℓ", "Re": "ℜ", "Im": "ℑ", "aleph": "ℵ", "langle": "⟨", "rangle": "⟩", "lceil": "⌈", "rceil": "⌉", "lfloor": "⌊", "rfloor": "⌋",
         "sin": "sin", "cos": "cos", "tan": "tan", "log": "log", "ln": "ln", "exp": "exp", "lim": "lim", "max": "max", "min": "min", "det": "det", "arg": "arg",
     ]
+
 }

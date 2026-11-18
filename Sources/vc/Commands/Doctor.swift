@@ -28,11 +28,17 @@ struct DoctorCommand: Command {
         var checks: [DoctorCheck] = []
 
         // --- 必須：スキルの実行（vc run・声の入力）に要る ---
-        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current(), required: context.engine == .apple))
+        // 設定の書き間違いは、診断の結果として見せる（診断ウィンドウは、アプリの中：終わらない）
+        let engine: Engine
+        do { engine = try context.choices?.engine ?? context.resolveEngine(settings: context.currentSettings()) } catch {
+            checks.append(.fail("実行するモデル", "\(error)", fix: "設定ウィンドウ > モデル > エンジン"))
+            engine = .apple
+        }
+        checks.append(Self.appleIntelligenceCheck(AppleIntelligence.current(), required: engine == .apple))
         checks.append(Self.tinyJevCheck(context))
         // --engine か設定で、Apple 以外を選んでいるときだけ：そのサーバーが動いていて、モデルがあるか（選んだものが使えなければ、必須の失敗）
-        if context.engine != .apple {
-            do { try await context.engine.verify(); checks.append(.ok("実行するモデル", "\(context.engineText ?? "") が使えます")) }
+        if engine != .apple {
+            do { try await engine.verify(); checks.append(.ok("実行するモデル", "\(context.engineText ?? "") が使えます")) }
             catch { checks.append(.fail("実行するモデル", "\(error)", fix: "サーバーを起動し、モデルを読み込む（Ollama：ollama pull <モデル>）")) }
         }
 

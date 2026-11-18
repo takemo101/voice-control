@@ -202,7 +202,7 @@ enum MarkdownRenderer {
 
     static func pieces(_ markdown: String) -> [Piece] {
         let options = AttributedString.MarkdownParsingOptions(allowsExtendedAttributes: false, interpretedSyntax: .full, failurePolicy: .returnPartiallyParsedIfPossible)
-        guard let parsed = try? AttributedString(markdown: namingEmptyImages(resolvingFootnotes(MarkdownPreprocess.apply(markdown))), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
+        guard let parsed = try? AttributedString(markdown: MarkdownPreprocess.namingEmptyImages(MarkdownPreprocess.resolvingFootnotes(MarkdownPreprocess.apply(markdown))), options: options) else { return [] }   // try?: 解析できなければ、空（呼び出し側が、元の文字を出す）
         var pieces: [Piece] = []
         var softBreaks: [Int] = []   // 前後に応じて、つなぎ方を決める改行（下）
         var htmlStyles: InlinePresentationIntent = []   // `<b>`…`</b>` などの、書式の HTML（段落の中だけ）
@@ -261,85 +261,6 @@ enum MarkdownRenderer {
         default: return nil
         }
     }
-
-    // MARK: 脚注
-
-    private static let superscripts = Array("⁰¹²³⁴⁵⁶⁷⁸⁹")
-
-    /// 脚注（`[^名前]` と、`[^名前]: 本文`）を、上付きの番号と、末尾の一覧にする。Foundation は、脚注を扱わず、本文が消える（`[^名前]: …` は、リンクの定義として、読み捨てられる）。
-    /// コードブロックの中・インラインコードの中は、触らない。定義のない参照は、そのまま。脚注がなければ、文章を変えない。
-    static func resolvingFootnotes(_ markdown: String) -> String {
-        guard markdown.contains("[^") else { return markdown }
-        let lines = markdown.components(separatedBy: "\n")
-        var fenced = false
-        var body: [String] = []
-        var definitions: [String: String] = [:]
-        var order: [String] = []        // 定義の出てくる順
-        var lastDefinition: String?
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { fenced.toggle(); body.append(line); lastDefinition = nil; continue }
-            if fenced { body.append(line); continue }
-            if let match = line.range(of: "^\\[\\^([^\\]\\s]+)\\]:\\s*", options: .regularExpression) {
-                let id = String(line[match].dropFirst(2).prefix { $0 != "]" })
-                definitions[id] = String(line[match.upperBound...])
-                order.append(id)
-                lastDefinition = id
-                continue
-            }
-            // 定義の続き（字下げした行）
-            if let id = lastDefinition, line.hasPrefix("    ") || line.hasPrefix("\t"), !trimmed.isEmpty {
-                definitions[id, default: ""] += " " + trimmed
-                continue
-            }
-            if !trimmed.isEmpty { lastDefinition = nil }
-            body.append(line)
-        }
-        guard !definitions.isEmpty else { return markdown }
-        // 参照を、出てくる順に、番号にする
-        var numbers: [String: Int] = [:]
-        var inFence = false
-        let replaced = body.map { line -> String in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inFence.toggle(); return line }
-            if inFence || !line.contains("[^") { return line }
-            // インラインコード（バッククォートの間）は、触らない：奇数番目の区間
-            let parts = line.components(separatedBy: "`")
-            return parts.enumerated().map { index, part -> String in
-                guard index % 2 == 0, part.contains("[^") else { return part }
-                var result = part
-                let reference = try? NSRegularExpression(pattern: "\\[\\^([^\\]\\s]+)\\]")   // try?: 固定の式
-                let whole = NSRange(part.startIndex..., in: part)
-                let matches: [(id: String, range: Range<String.Index>)] = (reference?.matches(in: part, range: whole) ?? []).compactMap { match in
-                    guard let idRange = Range(match.range(at: 1), in: part), let full = Range(match.range, in: part), definitions[String(part[idRange])] != nil else { return nil }
-                    return (String(part[idRange]), full)
-                }
-                for match in matches where numbers[match.id] == nil { numbers[match.id] = numbers.count + 1 }   // 番号は、出てくる順
-                for match in matches.reversed() { result.replaceSubrange(match.range, with: superscript(numbers[match.id]!)) }   // 置き換えは、後ろから（前の位置が、ずれない）
-                return result
-            }.joined(separator: "`")
-        }
-        // 参照された脚注（番号の順）、そのあと、参照されなかった定義
-        var notes = numbers.sorted { $0.value < $1.value }.map { ($0.value, definitions[$0.key] ?? "") }
-        var extra = notes.count
-        for id in order where numbers[id] == nil { extra += 1; notes.append((extra, definitions[id] ?? "")) }
-        let list = notes.map { "\(superscript($0.0)) \($0.1)" }.joined(separator: "  \n")
-        return (replaced + ["", "---", "", list, ""]).joined(separator: "\n")
-    }
-
-    /// 代わりの文字のない画像（`![](…)`）に、「画像」と付ける（Foundation は、文字のない画像を、何も出さない）。コードの中は、触らない。
-    static func namingEmptyImages(_ markdown: String) -> String {
-        guard markdown.contains("![](") else { return markdown }
-        var fenced = false
-        return markdown.components(separatedBy: "\n").map { line -> String in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { fenced.toggle(); return line }
-            if fenced || !line.contains("![](") { return line }
-            return line.components(separatedBy: "`").enumerated().map { $0.offset % 2 == 0 ? $0.element.replacingOccurrences(of: "![](", with: "![画像](") : $0.element }.joined(separator: "`")
-        }.joined(separator: "\n")
-    }
-
-    private static func superscript(_ n: Int) -> String { String(String(n).compactMap { $0.wholeNumberValue }.map { superscripts[$0] }) }
 
     /// 段落を分けない改行（`NSTextView` の、行の区切り）。
     static let lineSeparator = "\u{2028}"

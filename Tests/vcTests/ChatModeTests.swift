@@ -6,17 +6,8 @@ enum HotKeySpecTestHelper {
     static func parse(_ text: String) throws -> HotKeySpec { try HotKeySpec.parse(text).get() }
 }
 
-/// 会話のモード：「会話を終わる」の見分け・答えの見せ方・読み上げる文。
+/// 会話のモード：キーの重なりの確認。
 @MainActor @Suite struct ChatModeTests {
-    @Test func endCommandsAreRecognizedByWordsNotByTheModel() {
-        for text in ["会話を終わって", "会話を終了して", "新しい会話", "新しい会話にして", "会話をリセット", "会話を、終わって。", "もう会話をやめて", "忘れて", "全部忘れて", "会話終了"] {
-            #expect(ChatMode.isEndCommand(text), "\(text)")
-        }
-        for text in ["会話の続きだけど", "東京の人口は？", "忘れ物をしないコツは？", "終わりの挨拶を考えて", "忘れていた予定を整理して", ""] {
-            #expect(!ChatMode.isEndCommand(text), "\(text)")
-        }
-    }
-
     @Test func aChatKeyThatOverlapsAnotherIsRefused() throws {
         let listen = try HotKeySpecTestHelper.parse("rshift"), dictate = try HotKeySpecTestHelper.parse("rcmd")
         #expect(KeyConflicts.message(listen: listen, dictate: dictate, shot: nil, chat: try HotKeySpecTestHelper.parse("ropt")) == nil)
