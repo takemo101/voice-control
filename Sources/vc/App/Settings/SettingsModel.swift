@@ -58,6 +58,8 @@ enum DownloadState: Equatable {
     @Published private(set) var engineProblem: String?
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
+    /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
+    @Published private(set) var modelLists: [String: ModelListState] = [:]
     /// 許可の状態などを、画面を開くたびに読み直すための印。
     @Published private(set) var revision = 0
     private var tasks: [String: Task<Void, Never>] = [:]
@@ -263,6 +265,120 @@ enum DownloadState: Equatable {
         revision += 1
     }
 
+    // MARK: ACP アダプター（claude・codex）
+
+    enum AdapterWork: Equatable {
+        case working(String)
+        case failed(String)
+    }
+
+    /// アダプターを入れている最中・失敗（エージェント名 → 状態。メモリだけ）。
+    @Published private(set) var adapterWork: [String: AdapterWork] = [:]
+
+    /// 入れる（更新も同じ）。**確認のダイアログ**で、何を・どこへ・どれだけ入れるかを見せて、「入れる」を押したときだけ。
+    func installAdapter(_ adapter: ACPAdapter) {
+        if case .working = adapterWork[adapter.agent.rawValue] { return }
+        guard let source = AdapterSource.directory(for: adapter) else {
+            adapterWork[adapter.agent.rawValue] = .failed("同梱の固定ファイル（adapters/\(adapter.directoryName)）が、見つかりません（ビルドしたままのアプリ？）")
+            return
+        }
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "\(adapter.agent.rawValue) の ACP アダプターを、入れますか？"
+        alert.informativeText = """
+        \(adapter.package) \(adapter.version)（\(adapter.license)）を、npm から、入れます。約 \(adapter.approximateSizeMB) MB。
+
+        入れる先：\(ACPAdapterStore.directory(for: adapter).path)
+        ・版は固定です（アプリに同梱の lock どおり。すべての部品を SHA-512 で照合し、取得先は npm の公式のレジストリだけ）。
+        ・インストール時のスクリプトは、動かしません。あなたの \(adapter.agent.rawValue) の本体を使います（二重に取り込みません）。
+        ・これは、第三者のプログラムを、この Mac で動かすことになります（会話のたびに、起動します）。消すときは、ここから「消す」か、そのフォルダを消します。
+        ・Node.js（npm）を使います。
+        """
+        alert.addButton(withTitle: "入れる")
+        alert.addButton(withTitle: "やめる")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        adapterWork[adapter.agent.rawValue] = .working("入れています…（数十秒かかることがあります）")
+        Task { [weak self] in
+            do {
+                try await ACPAdapterInstaller.install(adapter, source: source)
+                self?.adapterWork[adapter.agent.rawValue] = nil
+                self?.adapterChanged()
+            } catch {
+                self?.adapterWork[adapter.agent.rawValue] = .failed("\(error)")
+            }
+        }
+    }
+
+    /// 消す（アプリが入れたものだけ）。
+    func removeAdapter(_ adapter: ACPAdapter) {
+        do { try ACPAdapterInstaller.remove(adapter); adapterWork[adapter.agent.rawValue] = nil; adapterChanged() }
+        catch { adapterWork[adapter.agent.rawValue] = .failed("\(error)") }
+    }
+
+    /// 入れた・消したあと：画面を更新し、答える側を作り直す（会話は、新しくなる。次の質問から、ACP で話す・従来の方式へ戻る）。
+    private func adapterChanged() {
+        revision += 1
+        ChatMode.shared.invalidate()
+        _ = AppRuntime.shared.scheduleReload()
+    }
+
+    // MARK: 会話のモデル
+
+    enum ModelListState: Equatable {
+        case loading
+        case loaded(ACPModelListing)
+        case failed(String)
+    }
+
+    /// エージェントが選べるモデルの一覧を、取る（そのエージェントを、一時的に起動する：質問は送らない）。
+    func loadModels(for agent: ChatAgent) {
+        if case .loading = modelLists[agent.rawValue] { return }
+        modelLists[agent.rawValue] = .loading
+        let sandbox = settings.chatSandbox ?? true
+        Task { [weak self] in
+            do {
+                let listing = try await ACPModelCatalog.list(for: agent, sandbox: sandbox)
+                self?.modelLists[agent.rawValue] = .loaded(listing)
+            } catch {
+                self?.modelLists[agent.rawValue] = .failed("\(error)")
+            }
+        }
+    }
+
+    /// 選んだモデル（なければ、エージェントの設定）。
+    func chatModel(for agent: ChatAgent) -> String? { settings.chatModels?[agent.rawValue] }
+
+    /// モデルを選ぶ（nil で、エージェントの設定へ戻す）。次の会話から、使う（会話は、新しくなる）。
+    func setChatModel(_ id: String?, for agent: ChatAgent) {
+        update { settings in
+            var models = settings.chatModels ?? [:]
+            models[agent.rawValue] = (id?.isEmpty == false) ? id : nil
+            settings.chatModels = models.isEmpty ? nil : models
+        }
+    }
+
+    /// 自動モードを、オン・オフにする。**オンにするときは、確認のダイアログ**（何が、確認なしになり、何が、確認のままか）。
+    func setChatAuto(_ on: Bool) {
+        if on {
+            NSApplication.shared.activate()
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "自動モードを、オンにしますか？"
+            alert.informativeText = """
+            作業フォルダの中の書き込みと、安全なコマンドは、確認なしで実行します。
+
+            消す・外へ送る・システムを動かす操作は、これまでどおり、確認します。
+
+            コードの中の操作は、見抜けないことがあります。
+            """
+            alert.addButton(withTitle: "オンにする")
+            alert.addButton(withTitle: "やめる")
+            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+        }
+        update { $0.chatAuto = on ? true : nil }
+    }
+
     // MARK: 会話の道具
 
     var chatToolLevel: ChatToolLevel { settings.chatTools.flatMap(ChatToolLevel.init(rawValue:)) ?? .none }
@@ -277,7 +393,9 @@ enum DownloadState: Equatable {
             let chosen = ChatAgent.parse(settings.chatAgent ?? "apple") ?? .apple
             let apple = chosen == .apple
             let confirms = chosen.speaksACP && (settings.chatAcp ?? true)   // 常駐の接続（ACP）：操作の前に、聞いてくる
-            alert.informativeText = apple ? "Apple のモデルが、作業フォルダの中への書き込みと、コマンドの実行まで、できるようになります。\n\n既存ファイルの上書きと、安全でないコマンドは、毎回、確認します。小さなモデルは、聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります（確認の内容を、よく読んでください）。\n\n作業フォルダ：\(chatFolderPath)" : (confirms ? "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、できるようになります。\n\n**毎回、確認します**（常駐の接続）。確認の内容を、よく読んでください。\n\n声の聞き間違いや、検索したページの命令で、意図しない操作を頼むことがあります。\n\n作業フォルダ：\(chatFolderPath)" : "会話のエージェントが、ファイルの書き込み・コマンドの実行まで、確認なしで、できるようになります。\n\n声の聞き間違いや、検索したページに書かれた命令で、意図しない操作が起きることがあります。実行した操作は、答えの下に出ます。\n\n作業フォルダ：\(chatFolderPath)\n（大切なファイルのあるフォルダは、選ばないでください）")
+            let body = apple ? "書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。"
+                : (confirms ? "書き込みとコマンドの実行ができるようになります。毎回、確認します。" : "書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。")
+            alert.informativeText = body + "\n\n作業フォルダ：\(chatFolderPath)"
             alert.addButton(withTitle: "開ける")
             alert.addButton(withTitle: "やめる")
             guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }

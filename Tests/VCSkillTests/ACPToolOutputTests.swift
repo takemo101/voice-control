@@ -54,4 +54,18 @@ import Testing
         let wide = ChatActivity.Output(text: String(repeating: "あ", count: 20_000))
         #expect(wide.text.count <= ChatActivity.Output.maxCharacters + 20 && wide.text.hasSuffix("…（長いので、ここまで）"))
     }
+
+    @Test func claudesFencedOutputIsUsedAndTheCommandDescriptionIsNotMistakenForOutput() {
+        // Claude の実際の形：説明（囲みなし）と、出力（```console の囲みつき）が、別の塊で来る
+        let description = text("List files in current directory with details")
+        let fenced = text("```console\ntotal 8\n-rw-r--r--  1 u  wheel  20 a.txt\n```")
+        #expect(ACPToolOutput.make(kind: "execute", content: [description, fenced])?.text == "total 8\n-rw-r--r--  1 u  wheel  20 a.txt")
+        #expect(ACPToolOutput.make(kind: "execute", content: [description])?.text == "List files in current directory with details")   // 囲みがなければ、すべて（agy・opencode）
+    }
+
+    @Test func codexsTerminalOutputFragmentsAreJoinedIntoTheOutput() {
+        #expect(ACPToolOutput.terminal("total 8\r\n-rw-r--r--  a.txt\r\n")?.text == "total 8\n-rw-r--r--  a.txt")
+        #expect(ACPToolOutput.terminal("  \n") == nil)
+    }
 }
+

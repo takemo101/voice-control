@@ -46,9 +46,11 @@ final class PanelAnswer: @unchecked Sendable {
 
 /// 確認の答えを、2 つの口で待つ：パネルのボタンと、声の返事。**先に答えたほうが決まり、もう一方は取りやめる**。
 enum ConfirmationRace {
+    /// - `silence`：**決まったら（ボタン・キー・声のどれでも、取りやめ・失敗でも）、すぐ呼ぶ**：確認の問いかけの読み上げを、止める（残りを聞かせず、先へ進む。あとの結果の読み上げが、問いかけの後ろに並ばない）。
     /// - `voice`：声の返事を待って、はいか（取りやめられたら、`false`）。失敗は、そのまま投げる（先にボタンが押されていれば、投げない）。
-    static func decide(panel: PanelAnswer, voice: @escaping @Sendable () async throws -> Bool) async throws -> Bool {
-        try await withThrowingTaskGroup(of: Bool?.self) { group in
+    static func decide(panel: PanelAnswer, silence: @escaping @Sendable () -> Void = {}, voice: @escaping @Sendable () async throws -> Bool) async throws -> Bool {
+        defer { silence() }
+        return try await withThrowingTaskGroup(of: Bool?.self) { group in
             group.addTask { await panel.wait() }
             group.addTask { try await voice() }
             while let result = try await group.next() {

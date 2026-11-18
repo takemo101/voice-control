@@ -13,6 +13,9 @@ import VCSkill
     private(set) var agent = ChatAgent.apple
     /// 設定で選んだエージェントと道具の段階（`agent` は、これが使えないとき、Apple に替わる）。
     private(set) var configured = ChatAgent.apple
+    private var needsRebuild = false
+    /// 次の `configure` で、同じ設定でも、答える側を作り直す（アダプターを入れた・消したあと：会話は、新しくなる）。
+    func invalidate() { needsRebuild = true }
     private var requestedTools = ChatToolLevel.none
     /// 外のエージェントに開けている道具の段階と、作業フォルダ。
     private(set) var tools = ChatToolLevel.none
@@ -21,6 +24,10 @@ import VCSkill
     private(set) var acp = true
     /// ACP のエージェントを、OS の制限（Seatbelt）つきで起動するか（設定 `chatSandbox`）。
     private(set) var sandbox = true
+    /// 利用者が選んだモデル（設定 `chatModels`。ACP で話すエージェントだけ）。
+    private(set) var model: String?
+    /// 自動モード（設定 `chatAuto`）。
+    private(set) var auto = false
     /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
     var scorer: OptionScorer?
     /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
@@ -38,16 +45,19 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true) {
-        guard agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox else { return }
+    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false) {
+        guard needsRebuild || auto != self.auto || agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox || model != self.model else { return }
+        needsRebuild = false
         configured = agent
         self.acp = acp
         self.sandbox = sandbox
+        self.model = model
+        self.auto = auto
         requestedTools = tools
         self.agent = agent
         self.tools = agent.effective(tools)
         self.folder = folder
-        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox))
+        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox, model: model, auto: auto))
         attached = []
         shots = ScreenshotLedger()
     }
@@ -66,7 +76,7 @@ import VCSkill
         if agent != configured {   // 入れ直された：選んだエージェントへ戻す
             agent = configured
             tools = configured.effective(requestedTools)
-            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder, acp: acp, sandbox: sandbox))
+            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder, acp: acp, sandbox: sandbox, model: model, auto: auto))
         }
         return nil
     }
@@ -179,7 +189,8 @@ import VCSkill
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } }))
+        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
+            judgeCommand: auto ? scorer.map { scorer -> CommandJudge in { command in await Task.detached { CommandSafetyJudge(scorer: scorer).isHarmless(command) }.value } } : nil))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
         if reply.compacted { notes.append("古いやり取りを、要約しました") }
         if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }

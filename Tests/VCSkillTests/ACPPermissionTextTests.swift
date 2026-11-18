@@ -10,7 +10,8 @@ import Testing
         let run = ACPToolCall(kind: "execute", command: "echo safe\u{202E}evil\u{200B}\nrm -rf x")
         #expect(ACPPermissionText.detail(run, folder: folder) == "コマンドを実行する：echo safe⟨U+202E⟩evil⟨U+200B⟩ rm -rf x")
         let long = ACPToolCall(kind: "execute", command: String(repeating: "a", count: 700))
-        #expect(ACPPermissionText.detail(long, folder: folder).hasSuffix("…（残り 100 文字）"))   // 長いコマンドは、残りの長さを、示す
+        let lines = ACPPermissionText.detail(long, folder: folder).components(separatedBy: "\n")
+        #expect(lines.count == 2 && lines[0].contains("全 700 文字") && lines[1].hasSuffix("…（残り 560 文字は、略しています）"))   // 長いコマンドは、見出しと抜粋に分け、残りの長さを示す
     }
 
     @Test func theConfirmationShowsTheRealPathRelativeToTheFolderAndMarksOutsidePaths() {

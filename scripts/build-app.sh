@@ -26,6 +26,13 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 # スキルを作る・直すためのスキル（エージェントの skill フォルダへ、コピーして使う）
 cp -R skills/voice-control-skill-author "$APP/Contents/Resources/skills/"
+# ACP アダプターの固定ファイル（package.json・package-lock.json。アダプター本体は、同梱しない：利用者が選んだときだけ、アプリが入れる）
+mkdir -p "$APP/Contents/Resources/adapters"
+for adapter in adapters/*/; do
+  name="$(basename "$adapter")"
+  mkdir -p "$APP/Contents/Resources/adapters/$name"
+  cp "$adapter/package.json" "$adapter/package-lock.json" "$APP/Contents/Resources/adapters/$name/"
+done
 
 # 署名は ad-hoc（鍵・認証情報は、使わない）。ad-hoc 署名は、既定では、署名の識別（指定要件）が実行ファイルのハッシュ（cdhash）になり、ビルドのたびに変わる。
 # マイク・アクセシビリティの許可は、この要件に紐づくので、更新のたびに、設定ではオンに見えても、無効になる。

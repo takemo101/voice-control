@@ -41,6 +41,11 @@ struct HudPreviewCommand: Command {
                 c.choices = true
                 return c
             }()
+            case "confirm-command":   // 会話の道具の確認：長いコマンドの、見出しと抜粋（`ACPCommandSummary` が作る形の見本）
+                var c = HUDContent(phase: .confirm, title: "実行しますか？", hint: "コマンドを実行する：python3 のコードを実行：security-news-detail.md を新しく作る（全 1297 文字）。" + ConfirmGuide.howToAnswer, chip: chip)
+                c.reply = ##"python3 -c 'from pathlib import Path; Path("security-news-detail.md").open("x", encoding="utf-8").write("""# サイバーセキュリティニュース詳細 2026年11月18日時点で確認した情報です。 ## Microsoft 製品…（残り 1157 文字は、略しています）"##
+                c.choices = true
+                return c
             case "success":
                 var c = HUDContent(phase: .success, title: "完了", chip: chip, heard: "音量を50にして", skill: "spotify")
                 c.steps = [.init(command: "osascript …/spotify.applescript volume 50", status: .ok, output: "ok: volume 50")]

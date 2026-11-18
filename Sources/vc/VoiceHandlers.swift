@@ -12,7 +12,8 @@ enum VoiceHandlers {
         let panel = PanelAnswer()
         HUD.shared.answers.set { panel.resolve($0) }
         defer { HUD.shared.answers.set(nil) }
-        return try await ConfirmationRace.decide(panel: panel) {
+        // 決まったら、問いかけの読み上げを、すぐ止める：ボタン・キーで決めたとき、読み終わるのを待たずに、実行へ進む
+        return try await ConfirmationRace.decide(panel: panel, silence: { SaySpeaker.shared.stop() }) {
             guard let answer = try await next() else { return false }
             return try confirmation.isYes(answer)
         }

@@ -8,14 +8,13 @@ enum ACPToolOutput {
     static func make(kind: String, content: [JSONValue]) -> ChatActivity.Output? {
         switch kind {
         case "execute":
-            let text = content.compactMap { block -> String? in
+            let texts = content.compactMap { block -> String? in
                 guard block["type"]?.string == "content" else { return nil }
                 return block["content"]?["text"]?.string
-            }.joined(separator: "\n")
-            let cleaned = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
-                .filter { !$0.hasPrefix("Created At:") && !$0.hasPrefix("Completed At:") }.joined(separator: "\n")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return cleaned.isEmpty ? nil : ChatActivity.Output(text: cleaned)
+            }
+            // Claude：出力は、コードの囲み（```console）つきの塊。囲みのない塊は、コマンドの説明（出力ではない）なので、囲みつきがあれば、それだけを使う
+            let fenced = texts.filter { $0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("```") }
+            return clean(output: (fenced.isEmpty ? texts : fenced).joined(separator: "\n"))
         case "edit", "delete", "move":
             let diffs = content.compactMap { block -> String? in
                 guard block["type"]?.string == "diff", let new = block["newText"]?.string else { return nil }
@@ -27,6 +26,19 @@ enum ACPToolOutput {
         default:
             return nil
         }
+    }
+}
+
+extension ACPToolOutput {
+    /// 端末の出力（Codex：`_meta.terminal_output_delta` の断片を、つないだもの）。
+    static func terminal(_ text: String) -> ChatActivity.Output? { clean(output: text) }
+
+    /// コマンドの出力の整え：改行・エージェントの付けた時刻の見出し・コードの囲み（```）の行を、外す。空なら nil。
+    fileprivate static func clean(output text: String) -> ChatActivity.Output? {
+        let cleaned = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+            .filter { !$0.hasPrefix("Created At:") && !$0.hasPrefix("Completed At:") && !$0.hasPrefix("```") }.joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : ChatActivity.Output(text: cleaned)
     }
 }
 

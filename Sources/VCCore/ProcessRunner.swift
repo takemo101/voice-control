@@ -15,6 +15,10 @@ public struct ProcessResult: Sendable {
     /// コマンドが見つからないときは、env が起動して 127 で終わるので、ここには入らない。
     public let launchError: (any Error)?
 
+    public init(exitCode: Int32, output: Data, timedOut: Bool, cancelled: Bool, launchError: (any Error)?) {
+        self.exitCode = exitCode; self.output = output; self.timedOut = timedOut; self.cancelled = cancelled; self.launchError = launchError
+    }
+
     /// `output` を UTF-8 で読む（不正なバイトは置き換える）。
     public var text: String { String(decoding: output, as: UTF8.self) }
 }

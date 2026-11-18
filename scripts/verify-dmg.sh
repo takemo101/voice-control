@@ -32,7 +32,10 @@ checks() {
 
     [ -s "${app}/Contents/Resources/skills/voice-control-skill-author/SKILL.md" ] || fail "同梱のスキル（skills/voice-control-skill-author/SKILL.md）が無い"
     [ -s "${app}/Contents/Resources/LICENSE" ] && [ -s "${app}/Contents/Resources/THIRD_PARTY_NOTICES.md" ] || fail "LICENSE・THIRD_PARTY_NOTICES.md が無い"
-    ok "同梱物（スキルを作るスキル・ライセンス）"
+    for adapter in claude codex; do
+        [ -s "${app}/Contents/Resources/adapters/${adapter}/package.json" ] && [ -s "${app}/Contents/Resources/adapters/${adapter}/package-lock.json" ] || fail "同梱の ACP アダプターの固定ファイル（adapters/${adapter}）が無い"
+    done
+    ok "同梱物（スキルを作るスキル・ライセンス・ACP アダプターの固定ファイル）"
 
     local plist="${app}/Contents/Info.plist"
     local icon_name

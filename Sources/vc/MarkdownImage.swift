@@ -12,7 +12,7 @@ enum MarkdownImage {
 
     /// 読んでよい場所（実際の場所）。`base`：会話の作業フォルダ。
     static func roots(base: URL?, home: String = NSHomeDirectory()) -> [String] {
-        var roots = [realPath(NSTemporaryDirectory()), realPath("/tmp"), realPath(home + "/.voice-control"), realPath(home + "/.gemini/antigravity-cli"), realPath(home + "/.local/share/opencode")]
+        var roots = [realPath(NSTemporaryDirectory()), realPath("/tmp"), realPath(home + "/.voice-control"), realPath(home + "/.gemini/antigravity-cli"), realPath(home + "/.local/share/opencode"), realPath(home + "/.codex/generated_images")]
         if let base { roots.append(realPath(base.path)) }
         return roots.filter { !$0.isEmpty }
     }

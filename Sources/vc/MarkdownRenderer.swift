@@ -58,7 +58,9 @@ enum MarkdownRenderer {
                 continue
             }
             let text = Self.cleaned(piece)
-            let attrs = Self.attributes(for: piece.block, inline: piece.inline, link: piece.link, text: text, context: context, marker: false, continuation: continuation)
+            // リンク：作業フォルダからの相対も、実際の場所にする（読んでよい場所の、実在するファイルだけ）。開けないものは、リンクにしない
+            let link = piece.link.flatMap { MarkdownLink.resolve($0, base: imageBase) }
+            let attrs = Self.attributes(for: piece.block, inline: piece.inline, link: link, text: text, context: context, marker: false, continuation: continuation)
             let start = out.length
             out.append(NSAttributedString(string: text, attributes: attrs))
             if piece.block.kind == .codeBlock, let language = CodeHighlighter.language(named: piece.block.language) {

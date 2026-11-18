@@ -18,7 +18,7 @@ import VCCore
         #expect(all.contains("\(home)/.local/share/opencode") && !all.contains(".gemini"))                // エージェント自身の置き場
         #expect(ACPSandbox.profile(agent: .agy, level: .read, folder: folder, home: home).contains("\(home)/.gemini"))
         #expect(all.contains("(deny file-read*") && all.contains("\(home)/.ssh") && all.contains("\(home)/.aws") && all.contains("\(home)/.gnupg"))
-        #expect(ACPSandbox.applies(to: .agy) && ACPSandbox.applies(to: .opencode) && !ACPSandbox.applies(to: .claude))
+        #expect(ACPSandbox.applies(to: .agy) && ACPSandbox.applies(to: .opencode) && ACPSandbox.applies(to: .claude) && ACPSandbox.applies(to: .codex) && !ACPSandbox.applies(to: .grok) && !ACPSandbox.applies(to: .pi))
     }
 
     @Test func quotesInAPathCannotBreakOutOfTheProfile() {
@@ -50,4 +50,29 @@ import VCCore
         #expect(try run(level: .read, target: folder.appendingPathComponent("in2.txt")) != 0)                       // 読む段階は、フォルダにも書けない
         #expect(!FileManager.default.fileExists(atPath: folder.appendingPathComponent("in2.txt").path))
     }
+
+    @Test func claudesHomeConfigFileAndItsTemporaryFilesAreWritableButOnlyThoseNames() {
+        let folder = URL(fileURLWithPath: "/tmp/work")
+        let profile = ACPSandbox.profile(agent: .claude, level: .read, folder: folder, home: "/Users/a.b")
+        #expect(profile.contains("(literal \"/Users/a.b/.claude.json\")") && profile.contains("\\.claude\\.json\\..*$"))
+        #expect(profile.contains("/Users/a.b/.claude\"") && !profile.contains("(subpath \"/Users/a.b\")"))      // ホーム全体は、書けない
+        #expect(profile.contains("^/Users/a\\.b/"))                                                            // ホームの `.` は、逃がす（a.b が、aXb に一致しない）
+        #expect(profile.contains("(regex #\"^/private/tmp/claude-\")"))                                          // Bash の一時の場所（頭が、一致する、絶対の場所）
+        #expect(!ACPSandbox.profile(agent: .codex, level: .read, folder: folder, home: "/Users/a.b").contains(".claude"))
+        #expect(ACPSandbox.profile(agent: .codex, level: .read, folder: folder, home: "/Users/a.b").contains("/Users/a.b/.codex"))
+    }
+
+    /// 文字の確認だけでは、**書き方の誤り**（括弧・引用符）を、見つけられない：実際に、`sandbox-exec` に、読ませる（すべてのエージェント・段階。Claude の設定ファイルの規則が、書き方の誤りで、起動できなかった：実測）。
+    @Test func everyAgentsProfileIsAcceptedByTheRealSandboxExec() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vc-sbx-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for agent in [ChatAgent.agy, .opencode, .claude, .codex] {
+            for level in [ChatToolLevel.none, .web, .read, .all] {
+                let result = ProcessRunner.run(executable: "sandbox-exec", arguments: ["-p", ACPSandbox.profile(agent: agent, level: level, folder: folder, home: NSHomeDirectory()), "/usr/bin/true"], mergeStderr: true, timeout: 20)
+                #expect(result.exitCode == 0, "\(agent) \(level): \(result.text.prefix(200))")
+            }
+        }
+    }
 }
+
