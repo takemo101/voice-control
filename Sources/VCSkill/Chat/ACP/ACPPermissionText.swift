@@ -29,11 +29,6 @@ enum ACPPermissionText {
         return target + "（作業フォルダの外）"
     }
 
-    /// 確認の文に出す、コマンド（見えない文字を見える形に・長いものは、切る）。
-    static func shownCommand(_ text: String) -> String {
-        visible(text.count > 600 ? String(text.prefix(600)) + "…（残り \(text.count - 600) 文字）" : text)
-    }
-
     /// 確認の文に出す、エージェントの文字：**見えない文字・向きを変える文字・制御文字を、見える形（`⟨U+202E⟩`）にする**（仕様の安全の指針：コマンド・場所に、紛れ込ませて、読み違えさせる手を、防ぐ）。改行・タブは、空白。
     static func visible(_ text: String) -> String {
         var out = ""

@@ -28,7 +28,7 @@ struct ChatCheckCommand: Command {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let jev = context.loadJev()
         ChatMode.shared.scorer = jev
-        ChatMode.shared.configure(agent: agent, tools: level, folder: folder, auto: auto)
+        ChatMode.shared.configure(ChatSetup(agent: agent, tools: level, folder: folder, auto: auto))
         setvbuf(stdout, nil, _IOLBF, 0)   // 行ごとに出す（撮影のスクリプトが、PANEL の行を、すぐ見られるように）
         NSApplication.shared.setActivationPolicy(.accessory)
         HUD.shared.warmUp()
@@ -158,7 +158,8 @@ struct ChatCheckCommand: Command {
         _ = await ask("合言葉は『りんご7』です。覚えて、『覚えた』とだけ答えて。")
         print("  段階 \(level.rawValue)：子プロセス \(children())")
         let other: ChatToolLevel = level == .read ? .web : .read
-        ChatMode.shared.configure(agent: agent, tools: other, folder: folder)   // 設定を変えた（会話は、新しくなる）
+        var changed = ChatMode.shared.setup; changed.tools = other
+        ChatMode.shared.configure(changed)   // 設定を変えた（会話は、新しくなる）
         try? await Task.sleep(for: .seconds(1))
         print("  設定を変えた直後（段階 \(other.rawValue)）：子プロセス \(children())（古いものが止まって、新しい質問の前は 0 のはず）")
         _ = await ask("合言葉は？（覚えていなければ、そう答えて）")

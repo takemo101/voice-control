@@ -111,6 +111,14 @@ public actor ChatConversation {
         return try await backend.respond(instructions: fixedInstructions(), turns: turns, user: user)
     }
 
+    /// 会話の往復ではない呼び出し（要約）。常駐の接続（ACP）の、会話のセッションの記憶に、数えない。
+    private func respondStandalone(_ instructions: String, _ user: String) async throws -> String {
+        if let reporting = backend as? ActivityReporting {
+            return try await reporting.respond(instructions: instructions, turns: [], user: user, options: ChatCallOptions(standalone: true))
+        }
+        return try await backend.respond(instructions: instructions, turns: [], user: user)
+    }
+
     // MARK: 要約（compaction）
 
     /// 先頭の `cut` 往復を、要約に入れる。成功なら true。失敗したときは、**要約なしで、その往復を落とす**（会話を止めない）→ false。
@@ -173,11 +181,11 @@ public actor ChatConversation {
             \(Self.summaryFormat)
             """
         }
-        var text = try await backend.respond(instructions: Self.summaryInstructions, turns: [], user: prompt).trimmingCharacters(in: .whitespacesAndNewlines)
+        var text = try await respondStandalone(Self.summaryInstructions, prompt).trimmingCharacters(in: .whitespacesAndNewlines)
         if text.count > budget.summaryMaxCharacters {
             // 長すぎる：短くして、1 度だけ、やり直す。それでも長ければ、先頭を残して切る（piと同じく、途中で切れた要約は、書式を壊す：切ったと分かるようにする）
             let retry = prompt + "\n\n（前の出力は、長すぎました。もっと短く、\(budget.summaryMaxCharacters) 文字以内で、書き直してください。）"
-            let again = try await backend.respond(instructions: Self.summaryInstructions, turns: [], user: retry).trimmingCharacters(in: .whitespacesAndNewlines)
+            let again = try await respondStandalone(Self.summaryInstructions, retry).trimmingCharacters(in: .whitespacesAndNewlines)
             text = again.count < text.count ? again : text
             if text.count > budget.summaryMaxCharacters * 3 / 2 { text = String(text.prefix(budget.summaryMaxCharacters * 3 / 2)) + "…" }
         }

@@ -82,7 +82,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             return try await viaFallback(instructions: instructions, turns: turns, user: user, options: options)
         }
         let text = try await ask(session: session, instructions: instructions, turns: turns, user: user, options: options)
-        lock.withLock { knownTurns = turns.count + 1; lastUse = now() }
+        lock.withLock { knownTurns = options.standalone ? -1 : turns.count + 1; lastUse = now() }   // 要約などは、会話の往復ではない：次は、新しいセッション
         scheduleIdleClose()
         return text
     }

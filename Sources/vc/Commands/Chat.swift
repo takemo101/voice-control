@@ -5,7 +5,7 @@ import VCSkill
 struct ChatCommand: Command {
     static let info = CommandInfo(
         name: "chat", group: .evaluation, summary: "会話の試験用の REPL（実機のモデルで、会話・要約を試す。声で使うのは、アプリの会話のキー）",
-        usage: ["vc chat [--agent <名前>] [--model <値>] [--auto] [--stats] [--delimit]"],
+        usage: ["vc chat [--agent <名前>] [--agent-model <値>] [--auto] [--stats] [--delimit]"],
         details: [
             "**スキルを選ばずに、会話として質問できる**（Apple のオンデバイスのモデル。この Mac の外へ出さない）。標準入力から、1 行ずつ質問を読み、答えを出す（空行・Ctrl+D で終わる）。声で使うには、アプリの設定ウィンドウ > キー で、会話のキーを決める。",
             "**会話の記録は、メモリだけ**（ファイル・ログに残さない）。終わると、消える。「会話を終わって」「新しい会話」（vc chat では /reset）・5 分間話さない・vc を終える、で消える。",
@@ -14,7 +14,7 @@ struct ChatCommand: Command {
             "**会話では、スキルを実行しない**（Spotify を操作する・ファイルを開く、などは、アプリの声で頼むキーで）。調べものは、ask-agent。小さなモデル（約 3B）なので、事実の質問は、間違える。整理・要約・言い換え・手元の画像や文章についての質問が、得意。",
             "--stats：終わるときに、往復の数・要約の回数・要約の長さを、標準エラーに出す。入力の /reset：会話を終える・/summary：いまの要約を見る（確認用）。",
         ],
-        options: [("--auto", "自動モード：道具が「すべて」のとき、作業フォルダの中の書き込みと、基本のコマンド・Jev が無害と判定したコマンドを、確認なしで実行する（ACP・OS の制限つきのときだけ。消す・外へ送る・システムを動かすものは、確認のまま）"), ("--model <値>", "使うモデル（ACP で話すエージェント。一覧は `vc chat-models`。なければ、設定 `chatModels`）"), ("--no-acp", "常駐の接続（ACP）を使わず、質問ごとに CLI を起動する（agy・opencode）"), ("--no-sandbox", "ACP のエージェントを、OS の制限（書き込みを作業フォルダに限る）なしで起動する"), ("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > 会話）"), ("--tools <段階>", "外のエージェントに開ける道具：none・web・read・all（既定は、設定）"), ("--folder <フォルダ>", "道具を開けたときの作業フォルダ"), ("--image <ファイル>", "会話に添える画像（PNG。外のエージェントへは、送る前に、端末で確認する）"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
+        options: [("--auto", "自動モード：道具が「すべて」のとき、作業フォルダの中の書き込みと、基本のコマンド・Jev が無害と判定したコマンドを、確認なしで実行する（ACP・OS の制限つきのときだけ。消す・外へ送る・システムを動かすものは、確認のまま）"), ("--agent-model <値>", "使うモデル（ACP で話すエージェント。一覧は `vc chat-models`。なければ、設定 `chatModels`）"), ("--no-acp", "常駐の接続（ACP）を使わず、質問ごとに CLI を起動する（agy・opencode）"), ("--no-sandbox", "ACP のエージェントを、OS の制限（書き込みを作業フォルダに限る）なしで起動する"), ("--agent <名前>", "このときだけ、会話に使うエージェント（既定は、設定ウィンドウ > 会話）"), ("--tools <段階>", "外のエージェントに開ける道具：none・web・read・all（既定は、設定）"), ("--folder <フォルダ>", "道具を開けたときの作業フォルダ"), ("--image <ファイル>", "会話に添える画像（PNG。外のエージェントへは、送る前に、端末で確認する）"), ("--stats", "終わるときに、往復の数・要約の回数・要約の長さを出す"), ("--delimit", "答えの終わりに、区切り（RS：0x1e）の行を出す（スクリプトで、答えを分けるため）")],
         examples: ["vc chat", "echo '私の好きな色は青です' | vc chat"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -26,13 +26,17 @@ struct ChatCommand: Command {
             guard let chosen = ChatAgent.parse(name) else { fail("--agent「\(name)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）") }
             agent = chosen
         }
-        var chatTools = context.resolveChatTools()
+        var setup = context.chatSetup(agent: agent)
         if let name = arguments.option("--tools") {
             guard let level = ChatToolLevel(rawValue: name) else { fail("--tools「\(name)」は、使えません（\(ChatToolLevel.allCases.map(\.rawValue).joined(separator: "・"))）") }
-            chatTools.level = level
+            setup.tools = level
         }
-        if let folder = arguments.option("--folder") { chatTools.folder = URL(fileURLWithPath: (folder as NSString).expandingTildeInPath) }
-        ChatMode.shared.configure(agent: agent, tools: chatTools.level, folder: chatTools.folder, acp: !arguments.flag("--no-acp") && (context.currentSettings().chatAcp ?? true), sandbox: !arguments.flag("--no-sandbox") && (context.currentSettings().chatSandbox ?? true), model: arguments.option("--model") ?? context.currentSettings().chatModels?[agent.rawValue], auto: arguments.flag("--auto") || (context.currentSettings().chatAuto ?? false))
+        if let folder = arguments.option("--folder") { setup.folder = URL(fileURLWithPath: (folder as NSString).expandingTildeInPath) }
+        if arguments.flag("--no-acp") { setup.acp = false }
+        if arguments.flag("--no-sandbox") { setup.sandbox = false }
+        if let model = arguments.option("--agent-model") { setup.model = model }
+        if arguments.flag("--auto") { setup.auto = true }
+        ChatMode.shared.configure(setup)
         if !agent.isExternal, ChatMode.shared.tools != .none { notice("Apple のモデル＋道具（\(ChatMode.shared.tools.title)）— 検索語と、開いたページの URL が、この Mac の外へ送られます") }
         if agent.isExternal { notice("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます" + (ChatMode.shared.tools == .none ? "" : "（道具：\(ChatMode.shared.tools.title)）")) }
         // 撮ったスクリーンショットを使うかの判定（Tiny-Jev）。読めなければ、言葉で決める

@@ -6,7 +6,7 @@ public typealias CommandJudge = @Sendable (String) async -> Bool
 
 /// 自動モードで、**コマンドの種類を、Tiny-Jev に、多択で選ばせる**判定（`ChatWebNeed` と同じ作り：2 択の言い方は、確率が偏って使えなかった）。
 /// 「何も変えない」「作業フォルダの中に、作る・ビルド」を**無害**・「消す」「外へ送る」「システム・秘密に触れる」を**無害でない**とみなし、**無害の確率**（前 2 つの合計）を返す。
-/// **使い方（`ACPPermission`）**：コードの規則（許可リスト・危ない名前・危ない語）が決められなかった、残りのコマンドだけ。**「無害」の判定は、確認なしにするだけ**：判定できない・長すぎる・しきい値に届かないときは、確認に回す（Jev の誤りは、確認が増えるだけ）。
+/// **使い方（`ACPTurnState.handleRequest`。規則は `ACPAutoPolicy`）**：コードの規則（許可リスト・危ない名前・危ない語）が決められなかった、残りのコマンドだけ。**「無害」の判定は、確認なしにするだけ**：判定できない・長すぎる・しきい値に届かないときは、確認に回す（Jev の誤りは、確認が増えるだけ）。
 /// 長いコマンドは、判定しない（モデルが見られる長さに限りがあり、見えない部分に、何かを隠せるため）。測定は `vc eval-judge command`（`corpus/command-safety*.tsv`。docs/verification.md）。
 public struct CommandSafetyJudge: Sendable {
     /// 「無害」とみなす確率の下限（測定で決めた）。
@@ -30,9 +30,9 @@ public struct CommandSafetyJudge: Sendable {
         return p[0] + p[1]
     }
 
-    /// **自動モードの全体**（コードの規則 → Jev）で、確認を省くか。測定（`vc eval-judge command-auto`）用：本番は、`ACPPermission` が、同じ順で行う。
+    /// **自動モードの全体**（コードの規則 → Jev）で、確認を省くか。測定（`vc eval-judge command-auto`）用。本番（`ACPPermission.decide`）は、これの前に、取り返しのつかないコマンドを断る規則（`ACPCommandPolicy.isCatastrophic`）を置く：この関数は、そこを含まない。
     public func skipsConfirmation(_ command: String, threshold: Double = CommandSafetyJudge.threshold) -> Bool {
-        switch ACPCommandPolicy.autoClass(command) {
+        switch ACPAutoPolicy.treatment(of: command) {
         case .free: return true
         case .confirm: return false
         case .judge: return isHarmless(command, threshold: threshold)

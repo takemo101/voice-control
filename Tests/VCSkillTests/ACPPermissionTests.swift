@@ -92,4 +92,15 @@ import Testing
         #expect(await request("rm a.md", judge: harmless, confirm: confirm) == "deny" && asked.all.count == 3)            // 危ない名前：Jev に聞かず、確認
         #expect(await request("python3 -c 'print(open(\"/etc/hosts\").read())'", judge: harmless, confirm: confirm) == "deny" && asked.all.count == 4)   // 危ない場所：同じ
     }
+
+    @Test func aPermissionRequestThatArrivesAfterTheQuestionWasCancelledIsNotAskedAbout() async {
+        let asked = ACPCollected<String>()
+        let confirm: ToolConfirm = { detail in asked.add(detail); return true }
+        let turn = ACPTurnState(tools: .all, folder: work, sessionID: "s", confirm: confirm, auto: false, judge: nil, onActivity: nil)
+        turn.cancelPendingConfirm()   // Esc
+        let json = #"{"sessionId":"s","toolCall":{"toolCallId":"t","kind":"execute","rawInput":{"command":"touch a.txt"}},"options":[{"optionId":"allow","kind":"allow_once"}]}"#
+        let reply = await turn.handleRequest("session/request_permission", JSONValue.parse(Data(json.utf8))!)
+        #expect(reply?["outcome"]?["outcome"]?.string == "cancelled" && asked.all.isEmpty)
+    }
 }
+

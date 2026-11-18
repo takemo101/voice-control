@@ -25,8 +25,7 @@ enum MarkdownLink {
         guard !path.isEmpty else { return nil }
         let candidate = path.hasPrefix("/") ? URL(fileURLWithPath: path) : base.map { $0.appendingPathComponent(path) }
         guard let candidate else { return nil }
-        let real = MarkdownImage.realPath(candidate.path)
-        guard !real.isEmpty, MarkdownImage.roots(base: base, home: home).contains(where: { real == $0 || real.hasPrefix($0 + "/") }) else { return nil }
+        guard let real = MarkdownImage.readable(candidate.path, base: base, home: home) else { return nil }
         return URL(fileURLWithPath: real)
     }
 

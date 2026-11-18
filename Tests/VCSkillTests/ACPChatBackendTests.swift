@@ -36,7 +36,7 @@ import Testing
         // 決められるなら、決めてから、使う（すべて＝default・読むだけ＝plan）
         let ok = try ACPFixture(); let claude = ok.backend(agent: .claude, tools: .all); defer { claude.teardown() }
         let reply = try await claude.respond(instructions: "", turns: [], user: "q")
-        #expect(reply.contains("n=1") && (ok.log.contains("\"modeId\": \"default\"") || ok.log.contains("\"modeId\":\"default\"")))
+        #expect(reply.contains("n=1") && ok.log.contains("\"modeId\": \"default\""))
     }
 
     @Test func codexAsksOnlyInItsReadOnlyModeSoEveryLevelUsesThatMode() async throws {
@@ -44,7 +44,7 @@ import Testing
             let fx = try ACPFixture(); let backend = fx.backend(agent: .codex, tools: level, flavor: "readonly"); defer { backend.teardown() }
             let reply = try await backend.respond(instructions: "", turns: [], user: "q")
             #expect(reply.contains("n=1"))
-            #expect(fx.log.contains("\"modeId\": \"read-only\"") || fx.log.contains("\"modeId\":\"read-only\""), "\(level)")
+            #expect(fx.log.contains("\"modeId\": \"read-only\""), "\(level)")
         }
         let none = try ACPFixture(); let missing = none.backend(agent: .codex, tools: .all, flavor: "modes"); defer { missing.teardown() }   // read-only がなければ、使わない（従来の方式へ：codex の従来の方式は、別の形の出力を読むので、ここでは、結果でなく、ACP で質問を送っていないことを見る）
         _ = try? await missing.respond(instructions: "", turns: [], user: "q")
@@ -63,7 +63,7 @@ import Testing
         // 一覧にないモデル（古い設定）は、渡さない。何も選ばなければ、エージェントの設定のまま
         let c = try ACPFixture(); let stale = c.backend(agent: .agy, tools: .read, flavor: "models", model: "gone"); defer { stale.teardown() }
         _ = try await stale.respond(instructions: "", turns: [], user: "q")
-        #expect(!c.log.contains("session/set_model") || !c.log.contains("gone"))
+        #expect(!c.log.contains("gone"))   // 一覧にないモデルは、渡さない
         let d = try ACPFixture(); let none = d.backend(agent: .opencode, tools: .read, flavor: "configmodel"); defer { none.teardown() }
         _ = try await none.respond(instructions: "", turns: [], user: "q")
         #expect(!d.log.contains("\"configId\": \"model\""))
@@ -74,7 +74,7 @@ import Testing
         let readOnly = fx.backend(tools: .read); defer { readOnly.teardown() }
         _ = try await readOnly.respond(instructions: "", turns: [], user: "q")
         #expect(fx.log.contains("session/set_model") && fx.log.contains("gemini-4-hydrogen-medium"))
-        #expect(fx.log.contains("\"modeId\": \"plan\"") || fx.log.contains("\"modeId\":\"plan\""))   // 読むだけの段階は、plan
+        #expect(fx.log.contains("\"modeId\": \"plan\""))   // 読むだけの段階は、plan
         let all = try ACPFixture(); let writer = all.backend(tools: .all); defer { writer.teardown() }
         _ = try await writer.respond(instructions: "", turns: [], user: "q")
         #expect(all.log.contains("default"))                                                          // 「すべて」は、確認つきの default
@@ -241,4 +241,14 @@ import Testing
         let next = try await backend.respond(instructions: "", turns: [], user: "q")
         #expect(next.contains("s1 n=1") && launches.value == 2)    // 新しく起動した
     }
+
+    @Test func aSummaryCallDoesNotCountAsAConversationTurnForSessionReuse() async throws {
+        // 要約は、会話の往復ではない。数えると、圧縮のあと、残った往復がちょうど 1 つのとき、本番の質問が、要約のセッションを使い回し、指示・要約・往復なしで送られる
+        let fx = try ACPFixture(); let backend = fx.backend(); defer { backend.teardown() }
+        _ = try await backend.respond(instructions: "要約の指示", turns: [], user: "要約して", options: ChatCallOptions(standalone: true))
+        let kept = [ChatTurn(user: "残った質問", assistant: "残った答え")]
+        let next = try await backend.respond(instructions: "指示", turns: kept, user: "次の質問")
+        #expect(next.contains("s2 n=1") && next.contains("kinds=text"))   // 新しいセッションで、過去の往復を渡す
+    }
 }
+
