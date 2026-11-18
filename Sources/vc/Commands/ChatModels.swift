@@ -11,7 +11,7 @@ struct ChatModelsCommand: Command {
             "絞り込みの語（あいまい検索：順に含まれていればよい。空白で区切った語は、すべて含むもの。例：`son 5`）を渡すと、合うものだけを、よく合う順に出す。一覧は、エージェント自身が返す（こちらは、モデルの名前を持たない）。選んだモデルは、設定 `chatModels`（設定ウィンドウ > 会話）か、`vc chat --model <値>`。",
         ],
         options: [("--no-sandbox", "OS の制限なしで起動する")],
-        examples: ["vc chat-models claude", "vc chat-models opencode haiku", "vc chat --agent codex --model gpt-6.1-sol[high]"])
+        examples: ["vc chat-models claude", "vc chat-models opencode haiku", "vc chat --agent codex --agent-model gpt-6.1-sol[high]"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var arguments = arguments

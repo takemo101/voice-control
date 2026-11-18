@@ -32,7 +32,7 @@ enum ACPPermission {
             if level.usesFolder, let folder, ACPCommandPolicy.isHarmlessInFolder(command, folder: folder) { return .allow }
             // 自動：基本のコマンドは確認なし・危ないものは確認・ほかは Jev（書き込みの範囲は、OS の制限が、作業フォルダに限る）
             if autoActive {
-                switch ACPCommandPolicy.autoClass(command) {
+                switch ACPAutoPolicy.treatment(of: command) {
                 case .free: return .allow
                 case .confirm: return .ask
                 case .judge: return .judge

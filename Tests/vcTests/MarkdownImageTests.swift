@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Testing
 @testable import vc
+import VCCore
 
 /// Markdown の画像：この Mac の中の、読んでよい場所のファイルだけ、文章の中に出す（ネットワークの画像・場所の外・リンク越しの外は、リンクのまま）。
 @MainActor @Suite struct MarkdownImageTests {
@@ -38,7 +39,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: home) }
         try writePNG(generated.appendingPathComponent("exec-1.png"))
         let roots = MarkdownImage.roots(base: nil, home: home.path)
-        #expect(roots.contains(MarkdownImage.realPath(home.path + "/.codex/generated_images")) && !roots.contains(MarkdownImage.realPath(home.path + "/.codex")))
+        #expect(roots.contains(RealPath.existing(home.path + "/.codex/generated_images") ?? "") && !roots.contains(RealPath.existing(home.path + "/.codex") ?? ""))
     }
 
     @Test func aLinkOrDotDotThatLeavesTheFolderIsNotFollowed() throws {
@@ -51,10 +52,10 @@ import Testing
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("link.png"), withDestinationURL: outside.appendingPathComponent("secret.png"))
         // /tmp は、読んでよい場所なので、「作業フォルダの外」を示すには、一時フォルダの外へ出る場所が要る：ホームの代わりに、roots の判定を直接見る
         let roots = MarkdownImage.roots(base: folder, home: "/nonexistent")
-        #expect(roots.contains(MarkdownImage.realPath(folder.path)))
+        #expect(roots.contains(RealPath.existing(folder.path) ?? ""))
         // リンクは、実際の場所に直す（この例では、/tmp の中なので、読んでよい。実際の場所が、返る）
         let resolved = MarkdownImage.file(for: URL(string: "link.png")!, base: folder, home: "/nonexistent")
-        #expect(resolved?.path == MarkdownImage.realPath(outside.appendingPathComponent("secret.png").path))
+        #expect(resolved?.path == RealPath.existing(outside.appendingPathComponent("secret.png").path))
         #expect(MarkdownImage.file(for: URL(string: "../../../../etc/hosts")!, base: folder, home: "/nonexistent") == nil)   // `..` で、場所の外へ
     }
 

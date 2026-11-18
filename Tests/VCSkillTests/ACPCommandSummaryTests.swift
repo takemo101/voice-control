@@ -21,7 +21,8 @@ import Testing
     }
 
     @Test func theProgramIsFoundPastCdSetAndVariablePrefixes() {
-        #expect(ACPCommandSummary.programName(of: #"cd "/tmp/work dir" && python3 x.py"#) == "python3" || ACPCommandSummary.programName(of: #"cd "/tmp/work" && python3 x.py"#) == "python3")
+        #expect(ACPCommandSummary.programName(of: #"cd "/tmp/work dir" && python3 x.py"#) == "python3")
+        #expect(ACPCommandSummary.programName(of: #"cd "/tmp/work" && python3 x.py"#) == "python3")
         #expect(ACPCommandSummary.programName(of: "set -C; printf '%s' hi > a.txt") == "printf")
         #expect(ACPCommandSummary.programName(of: "( set -o noclobber; cat > a.txt )") == "cat")
         #expect(ACPCommandSummary.programName(of: "FOO=1 BAR=2 /usr/bin/node app.js") == "node")

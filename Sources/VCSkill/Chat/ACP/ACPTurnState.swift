@@ -83,6 +83,8 @@ final class ACPTurnState: @unchecked Sendable {
     /// 相手からの要求。許可の確認だけに答える（ファイル・端末の機能は、こちらが宣言していないので、来ない）。
     func handleRequest(_ method: String, _ params: JSONValue) async -> JSONValue? {
         guard method == "session/request_permission", params["sessionId"]?.string == sessionID else { return nil }
+        // 質問が、取りやめになったあとに届いた要求：確認せず、取りやめで答える（パネルを出して、待たない）
+        if lock.withLock({ cancelRequested }) { return ACPPermission.cancelledOutcome }
         let call = ACPToolCall(params["toolCall"] ?? .null)
         let options = params["options"]?.array ?? []
         func answer(_ allow: Bool) -> JSONValue { ACPPermission.outcome(allow: allow, options: options) }
@@ -100,7 +102,7 @@ final class ACPTurnState: @unchecked Sendable {
             lock.withLock { confirming += 1 }
             let detail = ACPPermissionText.detail(call, folder: folder)
             let task = Task { await confirm(detail) }   // 取りやめを、届けるため、自分のタスクで待つ
-            lock.withLock { confirmTask = task }
+            if lock.withLock({ confirmTask = task; return cancelRequested }) { task.cancel() }   // 取りやめが、ここの前に来ていたら、待たずに止める
             let allowed = await task.value
             let cancelled = lock.withLock { () -> Bool in confirmTask = nil; confirming -= 1; lastProgress = Date(); return cancelRequested }
             if cancelled { return ACPPermission.cancelledOutcome }   // 質問が、取りやめになった：仕様どおり、`cancelled` で答える

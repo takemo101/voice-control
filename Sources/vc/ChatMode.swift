@@ -9,25 +9,17 @@ import VCSkill
 @MainActor final class ChatMode {
     static let shared = ChatMode()
     private(set) var conversation = ChatConversation()
-    /// いま使っているエージェント。`configure` で替える（替えると、会話は、新しくなる）。
+    /// 設定で選んだ会話の設定（`agent` は、これが使えないとき、Apple に替わる）。
+    private(set) var setup = ChatSetup(agent: .apple)
+    /// いま答えているエージェントと、そのエージェントに開けている道具の段階。
     private(set) var agent = ChatAgent.apple
-    /// 設定で選んだエージェントと道具の段階（`agent` は、これが使えないとき、Apple に替わる）。
-    private(set) var configured = ChatAgent.apple
+    private(set) var tools = ChatToolLevel.none
     private var needsRebuild = false
     /// 次の `configure` で、同じ設定でも、答える側を作り直す（アダプターを入れた・消したあと：会話は、新しくなる）。
     func invalidate() { needsRebuild = true }
-    private var requestedTools = ChatToolLevel.none
-    /// 外のエージェントに開けている道具の段階と、作業フォルダ。
-    private(set) var tools = ChatToolLevel.none
-    private(set) var folder: URL?
-    /// ACP に対応したエージェントを、常駐の接続で使うか（設定 `chatAcp`）。
-    private(set) var acp = true
-    /// ACP のエージェントを、OS の制限（Seatbelt）つきで起動するか（設定 `chatSandbox`）。
-    private(set) var sandbox = true
-    /// 利用者が選んだモデル（設定 `chatModels`。ACP で話すエージェントだけ）。
-    private(set) var model: String?
+    var folder: URL? { setup.folder }
     /// 自動モード（設定 `chatAuto`）。
-    private(set) var auto = false
+    var auto: Bool { setup.auto }
     /// 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）に使う Tiny-Jev。なければ、言葉で決める（`vc chat` の、モデルを読めないとき）。
     var scorer: OptionScorer?
     /// 撮ったスクリーンショットの、使った印（同じものを、何度も使わない）。
@@ -45,40 +37,32 @@ import VCSkill
     }
 
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
-    func configure(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false) {
-        guard needsRebuild || auto != self.auto || agent != configured || tools != requestedTools || folder != self.folder || acp != self.acp || sandbox != self.sandbox || model != self.model else { return }
+    func configure(_ new: ChatSetup) {
+        guard needsRebuild || new != setup else { return }
         needsRebuild = false
-        configured = agent
-        self.acp = acp
-        self.sandbox = sandbox
-        self.model = model
-        self.auto = auto
-        requestedTools = tools
-        self.agent = agent
-        self.tools = agent.effective(tools)
-        self.folder = folder
-        conversation = ChatConversation(backend: agent.makeBackend(tools: self.tools, folder: folder, acp: acp, sandbox: sandbox, model: model, auto: auto))
+        setup = new
+        conversation = ChatConversation(backend: rebuildBackend(for: new.agent))
         attached = []
         shots = ScreenshotLedger()
     }
 
     /// **質問のたびに**、選んだエージェントが、使えるか確かめる（CLI が、アンインストールなどで、なくなっていないか）。
-    /// 使えなければ、**Apple のモデル**で答える（会話の記録は、そのまま。設定は、変えない：入れ直せば、また使える）。戻り値は、利用者に見せる断り。
+    /// 使えなければ、**Apple のモデル**で答える（会話の記録は、そのまま。設定は、変えない：入れ直せば、また使える）。戻り値は、利用者に見せる断り
     func settleAgent() async -> String? {
-        if configured.isExternal, !AgentLocator.isAvailable(configured) {
-            if agent != .apple {
-                agent = .apple
-                tools = ChatAgent.apple.effective(requestedTools)
-                await conversation.replaceBackend(ChatAgent.apple.makeBackend(tools: tools, folder: folder))
-            }
-            return "\(configured.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました"
+        let chosen = setup.agent
+        if chosen.isExternal, !AgentLocator.isAvailable(chosen) {
+            if agent != .apple { await conversation.replaceBackend(rebuildBackend(for: .apple)) }
+            return "\(chosen.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました"
         }
-        if agent != configured {   // 入れ直された：選んだエージェントへ戻す
-            agent = configured
-            tools = configured.effective(requestedTools)
-            await conversation.replaceBackend(configured.makeBackend(tools: tools, folder: folder, acp: acp, sandbox: sandbox, model: model, auto: auto))
-        }
+        if agent != chosen { await conversation.replaceBackend(rebuildBackend(for: chosen)) }   // 入れ直された：選んだエージェントへ戻す
         return nil
+    }
+
+    /// `runner` で答える側を作る（`agent`・`tools` を、それに合わせる）。**設定の渡し方は、ここ 1 か所**。
+    private func rebuildBackend(for runner: ChatAgent) -> ChatBackend {
+        agent = runner
+        tools = runner.effective(setup.tools)
+        return runner.makeBackend(tools: tools, folder: setup.folder, acp: setup.acp, sandbox: setup.sandbox, model: setup.model, auto: setup.auto)
     }
 
     func end() async {
@@ -226,3 +210,30 @@ final class ActivityLog: @unchecked Sendable {
     }
     var items: [ChatActivity] { lock.lock(); defer { lock.unlock() }; return stored }
 }
+
+/// 会話の設定（どのエージェントを・どの道具で・どの作業フォルダで・どう動かすか）。`ChatMode.configure` に、まとめて渡す：読み出しの場所が散らない。
+struct ChatSetup: Equatable {
+    var agent: ChatAgent
+    /// 利用者が選んだ道具の段階（エージェントが開けられる範囲は、`ChatAgent.effective`）。
+    var tools = ChatToolLevel.none
+    var folder: URL?
+    /// 常駐の接続（ACP）で話すか（設定 `chatAcp`）。
+    var acp = true
+    /// OS の制限つきで動かすか（設定 `chatSandbox`）。
+    var sandbox = true
+    /// 利用者が選んだモデル（設定 `chatModels`。ACP で話すエージェントだけ）。
+    var model: String?
+    /// 自動モード（設定 `chatAuto`）。
+    var auto = false
+}
+
+extension CommandContext {
+    /// 設定（設定ウィンドウ > 会話）から、会話の設定を作る。**設定は、1 回だけ読む**。`vc chat` の引数は、呼ぶ側が、上書きする。
+    func chatSetup(agent: ChatAgent) -> ChatSetup {
+        let settings = currentSettings()
+        let (tools, folder) = resolveChatTools()
+        return ChatSetup(agent: agent, tools: tools, folder: folder, acp: settings.chatAcp ?? true, sandbox: settings.chatSandbox ?? true,
+                         model: settings.chatModels?[agent.rawValue], auto: settings.chatAuto ?? false)
+    }
+}
+

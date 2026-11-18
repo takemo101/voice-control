@@ -127,7 +127,7 @@ import Testing
     @Test func theSecondSummaryUpdatesThePreviousOne() async throws {
         let backend = FakeBackend()
         let chat = ChatConversation(backend: backend, budget: small)
-        for i in 1...16 { _ = try await chat.ask("質問\\(i)：" + long(60)) }
+        for i in 1...16 { _ = try await chat.ask("質問\(i)：" + long(60)) }
         let calls = backend.summaryCalls
         #expect(calls.count >= 2)
         #expect(!calls[0].user.contains("<previous-summary>"))
@@ -141,7 +141,7 @@ import Testing
         backend.summaryFailures = 99
         let chat = ChatConversation(backend: backend, budget: small)
         var failed = 0
-        for i in 1...10 { if try await chat.ask("質問\\(i)：" + long(60)).compactionFailed { failed += 1 } }
+        for i in 1...10 { if try await chat.ask("質問\(i)：" + long(60)).compactionFailed { failed += 1 } }
         let summary = await chat.currentSummary, count = await chat.turnCount
         #expect(failed >= 1)                                     // 失敗が、知らされる
         #expect(summary == nil)                                   // 不完全な要約は、保存しない
@@ -154,7 +154,7 @@ import Testing
         backend.summaryFailures = 99
         let chat = ChatConversation(backend: backend, budget: small)
         _ = try await chat.ask("私の名前はミカです。予算は5万円です。")
-        for i in 1...12 { _ = try await chat.ask("質問\\(i)：" + long(60)) }
+        for i in 1...12 { _ = try await chat.ask("質問\(i)：" + long(60)) }
         let notes = await chat.currentNotes
         #expect(notes == ["私の名前はミカです", "予算は5万円です"])
         let last = try #require(backend.chatCalls.last)
@@ -165,7 +165,7 @@ import Testing
     @Test func aRealOverflowIsRecoveredByCompactingOnceAndRetrying() async throws {
         let backend = FakeBackend()
         let chat = ChatConversation(backend: backend, budget: .standard)   // 見積もりでは、要約不要
-        for i in 1...4 { _ = try await chat.ask("質問\\(i)") }
+        for i in 1...4 { _ = try await chat.ask("質問\(i)") }
         backend.overflowOnce = true
         let reply = try await chat.ask("質問5")
         let summary = await chat.currentSummary, count = await chat.turnCount
@@ -184,7 +184,7 @@ import Testing
         let backend = FakeBackend()
         backend.summaryLength = 1000
         let chat = ChatConversation(backend: backend, budget: small)
-        for i in 1...10 { _ = try await chat.ask("質問\\(i)：" + long(60)) }
+        for i in 1...10 { _ = try await chat.ask("質問\(i)：" + long(60)) }
         let summary = try #require(await chat.currentSummary)
         #expect(summary.count <= small.summaryMaxCharacters * 3 / 2 + 1)
         #expect(backend.summaryCalls.contains { $0.user.contains("長すぎました") })

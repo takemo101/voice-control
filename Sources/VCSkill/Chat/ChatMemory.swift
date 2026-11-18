@@ -1,6 +1,6 @@
 import Foundation
 
-/// 会話の 1 往復（利用者の発言と、答え）。**添付（画像・文章）の要点は、利用者の発言の中に入っている**（`ChatAttachment`）。会話の記録は、メモリだけに置く（ファイル・ログに残さない）。
+/// 会話の 1 往復（利用者の発言と、答え）。**添付（画像・文章）の要点は、利用者の発言の中に入っている**（`ChatAttachments`）。会話の記録は、メモリだけに置く（ファイル・ログに残さない）。
 public struct ChatTurn: Sendable, Equatable {
     public var user: String
     public var assistant: String

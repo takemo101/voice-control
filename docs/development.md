@@ -126,7 +126,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
   - **画面収録の許可は、「そのコマンドを動かしているアプリ」に付く**。エージェントが、Tern のように、**ヘルパー（Tern Daemon.app）経由**でシェルを動かすと、責任アプリがヘルパーになり、アプリ本体に許可があっても、`screencapture` は「could not create image from rect」で失敗する（2026-11-15。左上の 8×8 だけを撮って確かめる）。ヘルパーにも許可を付けても、すぐには直らなかった。サービスの再起動（`launchctl kickstart -k gui/$(id -u)/user.tern-remote`）のあと、撮れた（再起動で直ったのか、許可の反映の遅れかは、特定していない）。
   - `screencapture` は、**出力のファイルが既にあると、上書きできずに失敗する**（`capture.sh` は、撮る前に消す）。
 - **公開**：`main` に `site/**` が入ると、[pages.yml](../.github/workflows/pages.yml) が公開する。**初めに 1 回だけ**、リポジトリの Settings > Pages > Source を「GitHub Actions」にする（利用者の操作）。
-- **リリースのとき**：ページの版（`<span>v0.5.0</span>`）を、新しい版へ上げる（`Sources/vc/Version.swift` と同じ変更に含める）。
+- **リリースのとき**：ページの版（`site/index.html` の `<span>v…</span>`）を、新しい版へ上げる（`Sources/vc/Version.swift` と同じ変更に含める）。
 - **守ること**：外部の通信・解析・外部フォントを足さない（製品の約束と合わせる）。動作例の出力は、**本物の `vc run --dry-run`** のもの（作らない）。数値は、測ったものだけ。レスポンシブは、幅 320・375・414・768・1280 で、横にはみ出さないこと。動きは、`prefers-reduced-motion` で止まること。
 
 ## リリース

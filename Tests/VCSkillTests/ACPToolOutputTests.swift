@@ -43,7 +43,7 @@ import Testing
         let new = old.replacingOccurrences(of: "line 10\n", with: "ten\n")
         let lines = ACPDiff.unified(old: old, new: new).components(separatedBy: "\n")
         #expect(lines == ["…", " line 8", " line 9", "-line 10", "+ten", " line 11", " line 12", "…"])
-        #expect(ACPDiff.unified(old: "a\n", new: "a\n") == "…" || ACPDiff.unified(old: "a\n", new: "a\n").isEmpty || ACPDiff.unified(old: "a\n", new: "a\n") == "")   // 変わらない：変わった行がない
+        #expect(ACPDiff.unified(old: "a\n", new: "a\n") == "…")   // 変わらない：変わった行がないので、省略の印だけ
     }
 
     @Test func aLongOutputIsClippedWithAMarkAndAShortOneIsKept() {
