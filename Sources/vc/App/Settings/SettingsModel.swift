@@ -282,11 +282,7 @@ enum DownloadState: Equatable {
             adapterWork[adapter.agent.rawValue] = .failed("同梱の固定ファイル（adapters/\(adapter.directoryName)）が、見つかりません（ビルドしたままのアプリ？）")
             return
         }
-        NSApplication.shared.activate()
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "\(adapter.agent.rawValue) の ACP アダプターを、入れますか？"
-        alert.informativeText = """
+        let message = """
         \(adapter.package) \(adapter.version)（\(adapter.license)）を、npm から、入れます。約 \(adapter.approximateSizeMB) MB。
 
         入れる先：\(ACPAdapterStore.directory(for: adapter).path)
@@ -295,9 +291,7 @@ enum DownloadState: Equatable {
         ・これは、第三者のプログラムを、この Mac で動かすことになります（会話のたびに、起動します）。消すときは、ここから「消す」か、そのフォルダを消します。
         ・Node.js（npm）を使います。
         """
-        alert.addButton(withTitle: "入れる")
-        alert.addButton(withTitle: "やめる")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard AppAlerts.confirm(title: "\(adapter.agent.rawValue) の ACP アダプターを、入れますか？", message: message, confirm: "入れる") else { return }
         adapterWork[adapter.agent.rawValue] = .working("入れています…（数十秒かかることがあります）")
         Task { [weak self] in
             do {
@@ -361,20 +355,14 @@ enum DownloadState: Equatable {
     /// 自動モードを、オン・オフにする。**オンにするときは、確認のダイアログ**（何が、確認なしになり、何が、確認のままか）。
     func setChatAuto(_ on: Bool) {
         if on {
-            NSApplication.shared.activate()
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "自動モードを、オンにしますか？"
-            alert.informativeText = """
+            let message = """
             作業フォルダの中の書き込みと、安全なコマンドは、確認なしで実行します。
 
             消す・外へ送る・システムを動かす操作は、これまでどおり、確認します。
 
             コードの中の操作は、見抜けないことがあります。
             """
-            alert.addButton(withTitle: "オンにする")
-            alert.addButton(withTitle: "やめる")
-            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+            guard AppAlerts.confirm(title: "自動モードを、オンにしますか？", message: message, confirm: "オンにする", style: .warning) else { objectWillChange.send(); return }
         }
         update { $0.chatAuto = on ? true : nil }
     }
@@ -387,18 +375,9 @@ enum DownloadState: Equatable {
     /// 会話のエージェントに開ける道具の段階を決める。**すべて**は、聞き間違い・Web のページの命令で、意図しない操作が起きえるので、確認を出す。
     func setChatTools(_ level: ChatToolLevel) {
         if level == .all {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "すべての道具を、開けますか？"
             let chosen = ChatAgent.parse(settings.chatAgent ?? "apple") ?? .apple
-            let apple = chosen == .apple
-            let confirms = chosen.speaksACP && (settings.chatAcp ?? true)   // 常駐の接続（ACP）：操作の前に、聞いてくる
-            let body = apple ? "書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。"
-                : (confirms ? "書き込みとコマンドの実行ができるようになります。毎回、確認します。" : "書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。")
-            alert.informativeText = body + "\n\n作業フォルダ：\(chatFolderPath)"
-            alert.addButton(withTitle: "開ける")
-            alert.addButton(withTitle: "やめる")
-            guard alert.runModal() == .alertFirstButtonReturn else { objectWillChange.send(); return }
+            let message = ChatToolLevel.allToolsDialogBody(agent: chosen, acp: settings.chatAcp ?? true) + "\n\n作業フォルダ：\(chatFolderPath)"
+            guard AppAlerts.confirm(title: "すべての道具を、開けますか？", message: message, confirm: "開ける", style: .warning) else { objectWillChange.send(); return }
         }
         update { $0.chatTools = level == .none ? nil : level.rawValue }
     }

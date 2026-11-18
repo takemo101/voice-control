@@ -38,6 +38,8 @@ struct CommandContext {
     /// 確信度の下限（`--floor`）を反映したゲート。
     let gate: Gate
     private let settingsWarning = SettingsWarning()
+    /// 検査済みの「使うもの」（メニューバーのアプリだけ：`resolvingChoices`）。なければ、使うときに、設定から決めて、書き間違いは `fail` で終わる（端末の `vc`）。
+    var choices: ResolvedChoices?
 
     init(options: CommonOptions) {
         self.options = options
@@ -48,8 +50,8 @@ struct CommandContext {
 
     /// スキルを実行するモデル（`--engine` → 設定 → 既定の Apple のモデル）。書き方が違えば、理由を示して終わる。
     var engine: Engine {
-        guard let text = engineText else { return .apple }
-        do { return try Engine.parse(text) } catch { fail("\(options.engine == nil ? "settings.json の engine: " : "")\(error)\(options.engine == nil ? "（設定ウィンドウ > モデル > エンジン で直す）" : "")") }
+        if let choices { return choices.engine }
+        do { return try resolveEngine(settings: currentSettings()) } catch { fail("\(error)") }
     }
 
     /// 使うエンジンの書き方：`--engine` → 設定（設定ウィンドウ > モデル > エンジン）→ なし（Apple）。
@@ -63,16 +65,8 @@ struct CommandContext {
 
     /// 使う音声認識：`--stt` → 設定（`設定ウィンドウ > モデル > 音声認識`）→ 既定（Apple）。名前が違えば、理由を示して終わる。
     var speechChoice: SpeechChoice {
-        if let text = options.stt {
-            switch SpeechChoice.parse(text) {
-            case let .success(choice): return choice
-            case let .failure(error): fail("--stt \(text): \(error)")
-            }
-        }
-        switch currentSettings().speechChoice {
-        case let .success(choice): return choice
-        case let .failure(error): fail("settings.json の stt: \(error)（設定ウィンドウ > モデル > 音声認識 で直す）")
-        }
+        if let choices { return choices.speech }
+        do { return try resolveSpeechChoice(settings: currentSettings()) } catch { fail("\(error)") }
     }
 
     /// 使う音声認識を開く（ダウンロードしたモデルは、ここで読み込む）。開けなければ、理由を示して終わる。

@@ -102,13 +102,8 @@ struct GeneralPage: View {
 extension GeneralPage {
     /// 許可を、リセットして、付け直す（確認のあとで）。
     @MainActor fileprivate func resetAccessibility() {
-        NSApplication.shared.activate()
-        let alert = NSAlert()
-        alert.messageText = "アクセシビリティの許可を、リセットしますか？"
-        alert.informativeText = "設定で「オン」なのに効かないときの、付け直しです。このアプリの許可だけを消して、システム設定を開きます。開いたら、voice-control を、もう一度、オンにして、「もう一度、確かめる」を押してください。"
-        alert.addButton(withTitle: "リセットして、設定を開く")
-        alert.addButton(withTitle: "やめる")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let message = "設定で「オン」なのに効かないときの、付け直しです。このアプリの許可だけを消して、システム設定を開きます。開いたら、voice-control を、もう一度、オンにして、「もう一度、確かめる」を押してください。"
+        guard AppAlerts.confirm(title: "アクセシビリティの許可を、リセットしますか？", message: message, confirm: "リセットして、設定を開く") else { return }
         if let problem = AppActions.resetAccessibility() { AppAlerts.show(title: "リセットできません", message: problem, style: .warning) }
     }
 }

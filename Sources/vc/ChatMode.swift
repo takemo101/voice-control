@@ -27,15 +27,6 @@ import VCSkill
     /// この会話で、すでに添えた画像・文章の印（同じものは、2 度、添えない）。
     private var attached: Set<String> = []
 
-    /// 「会話を終わる」と言ったか（言語モデルを通さず、文字で見分ける）。
-    static func isEndCommand(_ utterance: String) -> Bool {
-        let text = utterance.filter { !" 　、。！？!?.,".contains($0) }
-        // 「会話を終わる」の言い方は、どこにあってもよい。「忘れて」は、短い発話の全体のときだけ（「忘れていた予定を…」を、終わりにしない）
-        let phrases = ["会話を終わ", "会話を終了", "会話をやめ", "会話をリセット", "会話をはじめから", "新しい会話", "会話リセット", "会話終了"]
-        if phrases.contains(where: text.contains) { return true }
-        return ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"].contains(text)
-    }
-
     /// 使うエージェントを決める（声の入力・`vc chat` の開始のとき）。替わったら、会話は、新しくなる（記録を、別の提供元へ、引き継がない）。
     func configure(_ new: ChatSetup) {
         guard needsRebuild || new != setup else { return }
@@ -153,21 +144,19 @@ import VCSkill
                 }
             }
         } else if wants.text {
-            if agent.isExternal {
-                // 外へ出さない決まり：コピーした文章は、この Mac の中のモデルにだけ渡す
-                notes.append("コピーした文章は、外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます）")
-            } else if let clip = TextClipboard.read(), let attachment = ChatAttachments.textAttachment(from: clip) {
-                if attached.contains(attachment.key) { notes.append("同じ文章は、すでに会話に入っています") }
-                else { attachments.append(attachment); attached.insert(attachment.key) }
-            } else {
-                notes.append("コピーした文章がないので、文章なしで答えます")
+            let clipboard = agent.isExternal ? nil : TextClipboard.read().flatMap(ChatAttachments.textAttachment(from:))   // 外のエージェントには渡さないので、読まない
+            switch ChatAttachments.textPlan(agentIsExternal: agent.isExternal, clipboard: clipboard, attached: attached) {
+            case .withheldFromExternal: notes.append("コピーした文章は、外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます）")
+            case .noText: notes.append("コピーした文章がないので、文章なしで答えます")
+            case .alreadyInConversation: notes.append("同じ文章は、すでに会話に入っています")
+            case let .attach(attachment): attachments.append(attachment); attached.insert(attachment.key)
             }
         }
         if let route { onRoute?(route) }   // 画像の扱いは、決まった時点で、ウィンドウへ知らせる（答えが出るまで、待たせない）
         progress("考えています…")
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
         // Apple の会話で、画像・コピーした文章が、会話に入っている間は、Web の道具を外す（画面の内容が、モデルの作る検索語に混ざって、外へ出ないため）
-        let webOff = !agent.isExternal && tools != .none && !attached.isEmpty
+        let webOff = ChatAttachments.suppressesWeb(agentIsExternal: agent.isExternal, tools: tools, conversationHasAttachments: !attached.isEmpty)
         if webOff && !attachments.isEmpty { notes.append("画像・コピーした文章を使うので、この会話では、Web 検索を使いません（画面の内容が、検索語に混ざって、外へ出ないため）") }
         let log = ActivityLog()
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
@@ -190,11 +179,8 @@ enum TextClipboard {
 extension CommandContext {
     /// 会話に使うエージェント：設定（設定ウィンドウ > 会話）。なければ Apple。書き方が違えば、理由を示して終わる。
     func resolveChatAgent() -> ChatAgent {
-        guard let text = currentSettings().chatAgent else { return .apple }
-        guard let agent = ChatAgent.parse(text) else {
-            fail("settings.json の chatAgent「\(text)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）。設定ウィンドウ > モデル で直す")
-        }
-        return agent
+        if let choices { return choices.chatAgent }
+        do { return try resolveChatAgent(settings: currentSettings()) } catch { fail("\(error)") }
     }
 }
 

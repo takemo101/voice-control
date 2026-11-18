@@ -38,7 +38,7 @@ struct ChatPage: View {
                 RowDivider()
                 SwitchRow(model: model, title: "OS の制限つきで動かす（サンドボックス）", detail: "書き込みを、作業フォルダだけに限ります", value: model.settings.chatSandbox ?? true) { $0.chatSandbox = $1 }
             }
-            if agent.speaksACP, model.settings.chatAcp ?? true, ACPAdapter.of(agent).map({ AdapterStatus.of($0).isUsable }) ?? true {
+            if agent.talksACP(enabled: model.settings.chatAcp ?? true), ACPAdapter.of(agent).map({ AdapterStatus.of($0).isUsable }) ?? true {
                 RowDivider()
                 ChatModelRow(model: model, agent: agent)
             }
@@ -66,13 +66,13 @@ struct ChatPage: View {
         }
         if agent.isExternal, model.chatToolLevel == .all {
                 // ACP で話すエージェントは、操作の前に、聞いてくる（毎回、確認する）。それ以外は、確認なし。自動モードは、下の行が示す
-                let confirms = agent.speaksACP && (model.settings.chatAcp ?? true)
+                let confirms = agent.talksACP(enabled: model.settings.chatAcp ?? true)
                 if !confirms || !((model.settings.chatAuto ?? false) && (model.settings.chatSandbox ?? true)) {
                     Label(confirms ? "書き込み・コマンドは、毎回、確認します。" : "確認なしで、書き込み・コマンドができます。意図しない操作が起きえます。", systemImage: "exclamationmark.octagon.fill")
                         .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            if agent.isExternal, agent.speaksACP, model.settings.chatAcp ?? true, model.chatToolLevel == .all {
+            if agent.isExternal, agent.talksACP(enabled: model.settings.chatAcp ?? true), model.chatToolLevel == .all {
                 RowDivider()
                 let sandboxOn = model.settings.chatSandbox ?? true
                 Row("自動モード", detail: sandboxOn ? "作業フォルダの中は、確認なしで実行します" : "「OS の制限つきで動かす」をオンにすると、使えます") {

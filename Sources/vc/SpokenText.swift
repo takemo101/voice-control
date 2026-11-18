@@ -10,7 +10,7 @@ enum SpokenText {
         var skippedCode = false
         for raw in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
             let trimmed = raw.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inCode.toggle(); continue }
+            if MarkdownPreprocess.isFence(trimmed) { inCode.toggle(); continue }
             if inCode { skippedCode = true; continue }   // コードは、読まない（画面に出ている：最後に、そう伝える）
             guard let line = spoken(trimmed) else { continue }
             lines.append(line)
