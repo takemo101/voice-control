@@ -54,7 +54,7 @@
 
 [構成説明](docs/architecture.md) と、変更対象の SPEC の節を読み、次の 4 点を確認する。原則の出典・採用・不採用は [参考にした設計原則](docs/references.md)、具体的な規則は [コーディング指針](docs/coding-guidelines.md)。
 
-1. **変更理由と所有権**：コードは SwiftPM のターゲット `VCCore`（場所・設定・取りやめの合図・外部コマンドの実行）・`VCDecision`（`Decision/` Tiny-Jev の実行・`Choice/` 選択肢の採点・しきい値（`Gate`）・声の「はい」の判定・`Model/` モデルの取得）・`VCSkill`（スキル）・`VCSpeech`（音声）に分け、**依存は下向きだけ**にする（`vc` → `VCSkill`・`VCSpeech`〔互いには依存しない〕、`VCSkill` → `VCDecision`、`VCCore` はどのターゲットも使ってよい。`Package.swift` で宣言し、コンパイラが強制する。差分ビルドでは `--explicit-target-dependency-import-check=error` が要る）。`vc` は、引数・表示・流れの組み立てだけ（コマンドは `Sources/vc/Commands/`。足し方は [開発手順](docs/development.md#コマンドの足し方)）。状態の所有者は、構成説明の表で 1 か所に決める。
+1. **変更理由と所有権**：コードは SwiftPM のターゲット `VCCore`（場所・設定・取りやめの合図・外部コマンドの実行・モデルの置き場所と取得〔`ModelStore`〕）・`VCDecision`（`Decision/` Tiny-Jev の実行・`Choice/` 選択肢の採点・しきい値（`Gate`）・声の「はい」の判定・`Model/` Tiny-Jev の取得先）・`VCSkill`（スキル）・`VCSpeech`（音声）に分け、**依存は下向きだけ**にする（`vc` → `VCSkill`・`VCSpeech`〔互いには依存しない〕、`VCSkill` → `VCDecision`、`VCCore` はどのターゲットも使ってよい。`Package.swift` で宣言し、コンパイラが強制する。差分ビルドでは `--explicit-target-dependency-import-check=error` が要る）。`vc` は、引数・表示・流れの組み立てだけ（コマンドは `Sources/vc/Commands/`。足し方は [開発手順](docs/development.md#コマンドの足し方)）。状態の所有者は、構成説明の表で 1 か所に決める。
 2. **型付きの境界**：外（ファイル・引数・JSON・OS・言語モデルの出力）からの値を、必要な境界で一度だけ検査・変換して型にする（`SkillStore.parse`・`CommandPolicy`）。内側で再検証しない。
 3. **独立して検証できる規則**：許可の照合・SKILL.md の解析・スキルの選び方（`SkillResolver`）・声の「はい」の判定（`Confirmation`）・勝ち抜き戦は、画面・音声・モデルから分けて確かめられる形に保つ（`just test`）。
 4. **明示的な失敗**：失敗・取消・古い操作を区別し、何を継続・停止するかを明確にする。回復できる失敗は `throws`・`Result` と小さな `enum` で返し、見せ方（メッセージ・終了コード）を決めるのは境界（`vc`）だけ。握り潰さない。成功に見える代用品に置き換えない。
@@ -62,7 +62,7 @@
 - 外部の Swift パッケージを足さない。外部ツールは agent-desktop だけ（子プロセスとして呼ぶ）。**例外は、音声認識の推論の実行環境 transcribe.cpp**と、**会話のエージェントを ACP で話すための、アダプター**（`claude-agent-acp`・`codex-acp`：npm のパッケージ。子プロセスとして呼ぶだけ。**利用者が自分で入れたもの、または、利用者が設定ウィンドウ／`vc adapter install` で選んだときだけ、アプリが `~/.voice-control/adapters` へ入れたもの**。版は固定し、同梱の `adapters/<名前>/package-lock.json` どおり〔npm の公式のレジストリ・SHA-512・`--ignore-scripts`〕。`npx` で、確認なしに動かさない。見つからなければ、従来の方式。利用者の判断：2026-11-18）と、**Mermaid の図を描く BeautifulMermaid（MIT）とその配置エンジン elk-swift（EPL-2.0）**（Swift パッケージ。`vc` ターゲットだけが依存し、`Package.swift` の `exact` と `Package.resolved` で版を固定する。WebView・JavaScript・ネットワークは使わない。ライセンス表示は `THIRD_PARTY_NOTICES.md`。利用者の判断：2026-11-16。描けない図は、コードのまま見せる）。transcribe.cpp の説明は、次のとおり：（C++・ggml・MIT。固定した commit を `scripts/build-native.sh` で静的ライブラリにビルドして取り込む。`vc stt`・`--stt`。ライセンス表示は `THIRD_PARTY_NOTICES.md`）。ダウンロードするモデルは、リポジトリ・版・SHA-256 を固定し、利用者が `vc model download` を実行したときだけ取得する。任意で、この Mac のローカルのモデルのサーバー（Ollama・OpenAI 互換。`127.0.0.1` の HTTP。スキルを実行するモデルを替える `--engine`。クラウドのモデルは拒否する）。`Decision/` の複製したファイルは変えない（元は meeting-analyzer）。
 - 不要な確保・コピー・計算を避ける。
 - 一律の層構成・DDD・不要なリポジトリ・全操作の protocol 化を、先回りで導入しない。
-- コマンド：ビルドは `just build`、単体テストは `just test`（`./scripts/test.sh`。1 ターゲットだけなら `--filter <ターゲット>Tests`）、測定は `just eval`（「操作の依頼か」の判定の当たり率）、配布物は `just package`。ビルド・テストの入口は、`--explicit-target-dependency-import-check=error` を付けている（素の `swift build`・`swift test` を直接呼ぶときは、自分で付ける）。一覧と手順は [開発手順](docs/development.md#ビルドと実行)。
+- コマンド：ビルドは `just build`、単体テストは `just test`（`./scripts/test.sh`。1 ターゲットだけなら `--filter <ターゲット>Tests`）、測定は `just eval`（「操作の依頼か」の判定の当たり率）、配布物は `just dmg`。ビルド・テストの入口は、`--explicit-target-dependency-import-check=error` を付けている（素の `swift build`・`swift test` を直接呼ぶときは、自分で付ける）。一覧と手順は [開発手順](docs/development.md#ビルドと実行)。
 
 ## 安全とプライバシー（この製品の不変条件）
 

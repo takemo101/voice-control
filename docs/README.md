@@ -44,17 +44,18 @@ Resources/
 Package.swift          SwiftPM（macOS 26。外部の Swift パッケージは、Mermaid の BeautifulMermaid と elk-swift だけ）
 justfile               開発用コマンド（build・test・app・dmg・install・uninstall・reset-permissions・eval・fixture・vc）
 Sources/
-  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：`skills`・`run`・`listen`（声の流れ：`VoiceLoop` に、発話の処理と出来事の表示を渡す。Enter で録音する通常モードも、同じスキルの流れ）・`hotkey`・`hotkey-check`・`hud-preview`・`doctor`・`model`・`eval-gate`、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
+  vc/                  実行ファイル（main.swift：起動の流れ（`Arguments` を読み、`Commands.all` からコマンドを探して実行）。Arguments.swift：引数の読み方、Command.swift：`Command` と一覧、CommandContext.swift：コマンドが共有するもの、Commands/：コマンドを 1 つ 1 ファイルで置く（一覧は Command.swift の `Commands.all`。声の流れ・会話は、App/ の `VoiceSession` と `VoiceHandlers`・`ChatMode`）、SkillSupport.swift（スキルの読み込み）・HotKeySupport.swift：コマンドが使う共通の処理、TerminalReporter.swift・HUDReporter.swift：スキルの実行の経過の表示（`SkillRunner` の出来事の受け手）、Help.swift：ヘルプ、Output.swift：表示の整形、HUD.swift・HUDContent.swift・HUDSession.swift：録音中などの画面表示、SaySpeaker.swift：読み上げの停止、Version.swift：版〔`vc --version`。リリースのタグと一致させる〕）
   Fixture/             検証用の自作ウィンドウ
-  VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図、ProcessRunner：外部コマンドの実行）
+  VCCore/              どのターゲットも使う小さな部品（VoiceControlHome：場所、Settings：設定、CancelToken：取りやめの合図、ProcessRunner：外部コマンドの実行、ModelStore：モデルの置き場所・取得・検証、RealPath：場所の実際の形）
   VCDecision/          選択と判断の土台
     Decision/          Tiny-Jev の実行（meeting-analyzer からの複製を含む）
     Choice/            選択肢の採点・勝ち抜き戦（Chooser）・しきい値（Gate）・声の「はい」の判定（Confirmation）
-    Model/             Tiny-Jev の取得・検証・置き場所（ModelStore）
+    Model/             Tiny-Jev の取得先・置き場所（TinyJevModel。取得と検証の仕組み ModelStore は VCCore）
   VCSkill/             SKILL.md の読込（Skill・SkillStore・FrontMatter）・許可の照合（CommandPolicy）・実行（CommandRunner・OutputCompactor・RefAliases）・スキルを実行するモデル（SkillAgent＝Apple。ToolLoopAgent＋ChatModel のアダプター OllamaChat・OpenAICompatibleChat＝ローカルのサーバー。Engine：`--engine`。許可の照合・実行・整形は CommandSession が共有）・結果の扱い（ResultNote：メモのファイル。`result: markdown-window` は RunEvent.document）・スキルの取得とインストール（RemoteSkills・RemoteInstall・SkillInstaller）・スキルの選択（SkillRouter：Tiny-Jev で選ぶ。SkillResolver・DefaultSkill：選ばれなければ既定スキル）・実行の流れ（SkillRunner：選ぶ → 確認 → 実行 → 結果。経過は RunEvent で RunReporter へ。SkillExecuting：実行者の口）
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
 Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
-corpus/                評価用の文（gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`。chat-image*.tsv：会話で撮ったスクリーンショットを使うかの判定〔`vc eval-judge image`〕・chat-web*.tsv：最新の情報が要る質問かの判定〔`vc eval-judge web`〕・image-source*.tsv：スクリーンショットとコピーした画像の選び分け〔`vc eval-judge source`〕）
+adapters/              ACP アダプターの版を固定したもの（claude/・codex/ の package.json と package-lock.json。アプリに同梱し、利用者が選んだときだけ入れる）
+corpus/                評価用の文（command-safety*.tsv：自動モードのコマンドの無害判定〔`vc eval-judge command` と command-auto〕・gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`。chat-image*.tsv：会話で撮ったスクリーンショットを使うかの判定〔`vc eval-judge image`〕・chat-web*.tsv：最新の情報が要る質問かの判定〔`vc eval-judge web`〕・image-source*.tsv：スクリーンショットとコピーした画像の選び分け〔`vc eval-judge source`〕）
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 .voice-control/
@@ -72,6 +73,7 @@ scripts/
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
   build-native.sh      音声認識の実行環境 transcribe.cpp を、固定した commit から、静的ライブラリにビルドする
   eval-skills.py       スキルの選択・実行の測定（corpus/skills.tsv）
+  update-adapters.sh   ACP アダプター（claude・codex）の版を上げる（adapters/<名前>/ の package.json・package-lock.json を作り直す）
   site/                製品ページ・README の画像と動画の作り方：render.sh（設定のウィンドウを、画面の外で描く。許可不要）・capture.sh と encode.sh（画面収録の許可が要る。パネル・Markdown のウィンドウ・会話のウィンドウ）・stage.swift（撮影用の背景）
 site/                  製品ページ（GitHub Pages。素の HTML・CSS・JavaScript。assets/ に、画像・動画）
 .github/workflows/
