@@ -24,7 +24,7 @@ final class LiveCaption: @unchecked Sendable {
 
     /// 録音の始まり：認識を始める（前のものが残っていれば、終える）。
     func begin() {
-        let (enabled, old, language): (Bool, LiveCaptioner?, AppLanguage) = lock.withLock { (isEnabled, captioner, language) }
+        let (enabled, old, language): (Bool, LiveCaptioner?, AppLanguage) = lock.withLock { (self.isEnabled, self.captioner, self.language) }
         old?.finish()
         guard enabled else { lock.withLock { captioner = nil }; return }
         let next = LiveCaptioner(locale: Locale(identifier: language.bcp47)) { caption in HUD.shared.pushLiveText(LiveCaptionText(confirmed: caption.confirmed, tentative: caption.tentative)) }
