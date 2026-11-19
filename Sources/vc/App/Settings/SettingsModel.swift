@@ -120,7 +120,7 @@ enum DownloadState: Equatable {
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
     var uiLanguage: AppLanguage { settings.displayLanguage }
-    var sttLanguage: AppLanguage { (try? settings.recognitionLanguage.get()) ?? .ja }
+    var sttLanguage: AppLanguage { settings.recognitionLanguageOrDefault }
     func setUILanguage(_ language: AppLanguage) { update(restart: false) { $0.uiLanguage = language == .ja ? nil : language.rawValue } }
     func setSTTLanguage(_ language: AppLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
 
@@ -132,8 +132,7 @@ enum DownloadState: Equatable {
         do {
             try next.save()
             settings = next
-            L10n.shared.use(next.displayLanguage)   // 表示言語
-            L10n.shared.useAnswerLanguage((try? next.recognitionLanguage.get()) ?? .ja)   // 答えの言語
+            AppLocalization.apply(next)   // 言語（表示言語・答えの言語）
             problem = nil
             if restart {
                 pendingApply = AppRuntime.shared.scheduleReload()

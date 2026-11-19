@@ -22,7 +22,7 @@ public enum AppLanguage: String, CaseIterable, Sendable, Equatable {
 }
 
 /// 表示言語の切り替えと、翻訳の表（英語）。**表は、日本語の文（鍵）→ 英語の文**。表にない文は、日本語のまま出す（欠けても、読める）。
-/// 翻訳する場所は、`tr`。**設定ウィンドウとダイアログだけ**（メニュー・上のパネル・会話のウィンドウ・端末の出力は、日本語のまま）。
+/// 翻訳する場所は、`tr`。**画面の言葉すべて**（設定ウィンドウ・ダイアログ・メニュー・上のパネル・画像・会話・Markdown のウィンドウ・端末の `vc`）。モデルへの指示・照合の語・開発用のコマンドは、翻訳しない（`// l10n-skip`）。
 /// `@unchecked Sendable` の理由：可変な状態（`language`・`english`）は、すべて `lock` で守る。
 public final class L10n: @unchecked Sendable {
     public static let shared = L10n()
@@ -98,3 +98,6 @@ public struct L10nKey: ExpressibleByStringInterpolation, Sendable {
 
 /// 表示言語に合わせた文（日本語の文を渡す。英語のときは、表の英語）。
 public func tr(_ text: L10nKey) -> String { L10n.shared.translate(text.key, args: text.args) }
+
+/// **実行時に決まる文**（組み込みのデータの説明など）を、そのまま鍵にして引く。コードに文が書けないとき（`tr("…")` が使えないとき）だけ。表の行には、`// l10n-dynamic` を付ける（使われない鍵として、報告されない）。
+public func tr(verbatim text: String) -> String { L10n.shared.translate(text, args: []) }

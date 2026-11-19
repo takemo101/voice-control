@@ -51,5 +51,22 @@ import Testing
         #expect(L10n.shared.inAnswerLanguage(prompt) == "Answer in English, briefly. Reply: done: <one short sentence in English>.")
         #expect(!L10n.shared.inAnswerLanguage(prompt).contains("Japanese"))
     }
+
+    @Test func placeholdersAreFilledStrictlyAndOddTextIsLeftAlone() {
+        // `%` が、置き換えの印でないとき・番号が足りないとき・引数がないとき：壊さずに、そのまま
+        #expect(L10n.fill("完了率 100%", ["x"]) == "完了率 100%")
+        #expect(L10n.fill("%@ と %3$@", ["a"]) == "a と %3$@")
+        #expect(L10n.fill("%@ と %@", ["a"]) == "a と %@")
+        #expect(L10n.fill("そのまま %@", []) == "そのまま %@")
+        #expect(L10n.fill("%2$@ %1$@ %2$@", ["a", "b"]) == "b a b")   // 同じ番号を、何度でも
+    }
+
+    @Test func verbatimLooksUpRuntimeTextAndFallsBackToItself() {
+        withEnglishTable {
+            L10n.shared.use(.en)
+            #expect(tr(verbatim: "保存しました") == "Saved")
+            #expect(tr(verbatim: "表にない、実行時の文") == "表にない、実行時の文")
+        }
+    }
 }
 

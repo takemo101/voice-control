@@ -3,9 +3,9 @@ import Foundation
 extension EnglishTables {
     /// 設定ウィンドウ（モデル・音声認識）と、その行が使う VCSpeech・VCDecision・VCCore の文。
     static let models: [String: String] = [
-        "どのスキルにも当てはまらない依頼を、agent-desktop と基本のコマンドで実行する（組み込み）": "Runs requests that match no skill, using agent-desktop and basic commands (built in)",
+        "どのスキルにも当てはまらない依頼を、agent-desktop と基本のコマンドで実行する（組み込み）": "Runs requests that match no skill, using agent-desktop and basic commands (built in)",   // l10n-dynamic
         // モデル
-        "スキルを実行するモデル": "Skill model",
+        "スキルを実行するモデル": "Model that runs skills",
         "この Mac のサーバー（127.0.0.1）だけ使えます。クラウドのモデルは、使えません。": "Only servers on this Mac (127.0.0.1) can be used. Cloud models are not allowed.",
         "エンジン": "Engine",
         "OpenAI 互換": "OpenAI-compatible",
@@ -27,14 +27,14 @@ extension EnglishTables {
         "取得": "Download",
         "削除": "Delete",
         // SettingsRules
-        "声で頼む": "Ask by voice",
+        "声で頼む": "Voice command",
         "音声入力": "Dictation",
         "会話": "Chat",
         "画面撮影": "Screenshot",
         "入力のあとに送るキー": "Key to send after typing",
         "押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）": "Speak while holding the key; on release, a skill is chosen and run (default: hold shift)",
         "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）": "Speak while holding the key; on release, your speech is typed into the frontmost app (no skills are used)",
-        "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）": "Speak while holding the key; on release, your speech is asked as a chat question (no skills are used; you can also type in the Chat window; experimental)",
+        "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）": "Speak while holding the key; on release, your speech is sent as a chat question (no skills are used; you can also type in the Chat window; experimental)",
         "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）": "Press to select an area, then ask by voice (key combinations only)",
         "文字を入れたあとに押すキー（既定：Enter）。送信が ⌘Enter などのアプリに合わせられます": "Key pressed after the text is typed (default: Enter). Lets you match apps that send with ⌘Enter",
         "Apple（この Mac の中。既定）": "Apple (on this Mac, default)",
@@ -44,9 +44,9 @@ extension EnglishTables {
         "モデルの名前を入れてください": "Enter a model name",
         // スキル
         "スキル": "Skills",
-        "有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。": "Turning skills on or off takes effect immediately (no restart). To get skills, use \"Install skills\" below or run vc skills install in Terminal. To create skills, use vc skills in Terminal (the vc command can be installed from General).",
+        "有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。": "Turning skills on or off takes effect immediately (no restart). To get skills, use “Install skills” below or run vc skills install in Terminal. To create skills, use vc skills in Terminal (the vc command can be installed from General).",
         "スキルが、まだありません": "No skills yet",
-        "下の「スキルをインストール」から入れるか、フォルダに置いてください": "Install some with \"Install skills\" below, or put them in the folder",
+        "下の「スキルをインストール」から入れるか、フォルダに置いてください": "Install some with “Install skills” below, or put them in the folder",
         "読めないスキル: %@：%@": "Unreadable skill: %1$@: %2$@",
         "スキルのフォルダを開く": "Open skills folder",
         "スキルをインストール": "Install skills",
@@ -85,14 +85,14 @@ extension EnglishTables {
         "検索を消す": "Clear search",
         "%@ に、選べるモデルを聞いています…": "Asking %@ for available models…",
         "一覧を取れませんでした": "Couldn't get the list",
-        "「%@」に合うモデルは、ありません": "No models match \"%@\"",
+        "「%@」に合うモデルは、ありません": "No models match “%@”",
         "短い語・一部の文字で、探してみてください（順に含まれていれば合います）": "Try a shorter word or a few letters (letters only need to appear in order)",
         "エージェントの設定（既定）": "Agent's setting (default)",
         "いまの設定：%@": "Current: %@",
         "いまの設定": "Current",
         "既定": "Default",
-        "%@ 件": "%@ models",
-        "%@ 件／全 %@ 件": "%1$@ of %2$@ models",
+        "%@ 件": "Models: %@",
+        "%@ 件／全 %@ 件": "Showing %1$@ of %2$@",
         "移動": "Move",
         "決定": "Select",
         "閉じる": "Close",
@@ -104,6 +104,6 @@ extension EnglishTables {
         "語が長すぎます（%@ 文字まで）": "The word is too long (up to %@ characters)",
         "文字（かな・漢字・英数字）を含む語にしてください": "Use a word that contains letters or digits",
         "語が多すぎます（%@ 語まで）": "Too many words (up to %@)",
-        "語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）": "The word seems to end with a Japanese particle (を, は, も, が, に). Give the word only (e.g. \"なんか\", not \"なんかを\")",
+        "語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）": "The word seems to end with a Japanese particle (を, は, も, が, に). Give the word only (e.g. “なんか”, not “なんかを”)",
     ]
 }

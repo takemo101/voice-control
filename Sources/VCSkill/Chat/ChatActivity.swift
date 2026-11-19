@@ -12,7 +12,7 @@ public struct ChatActivity: Equatable, Sendable {
             switch self {
             case .run: return tr("実行")
             case .search: return tr("検索")
-            case .fetch: return tr("取得")
+            case .fetch: return tr("ページを取得")
             case .read: return tr("読む")
             case .write: return tr("書く")
             case .list: return tr("一覧")

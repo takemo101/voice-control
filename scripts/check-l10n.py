@@ -13,18 +13,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JA = re.compile(r'[\u3040-\u30ff\u4e00-\u9fff]')
 
 # 翻訳の対象のファイル（`--uncovered` の範囲）：設定ウィンドウとダイアログ
-SCOPE = [
-    'Sources/vc/**/*.swift',
-    # 画面に出る文字を持つ、ほかのターゲットのファイル（足したら、ここへ）
-    'Sources/VCSkill/AppleIntelligence.swift', 'Sources/VCSkill/Engine.swift', 'Sources/VCSkill/FrontMatter.swift', 'Sources/VCSkill/CommandPolicy.swift', 'Sources/VCSkill/SkillStore.swift',
-    'Sources/VCSkill/Chat/ChatActivity.swift', 'Sources/VCSkill/Chat/ChatAgent.swift', 'Sources/VCSkill/Chat/ChatBackend.swift', 'Sources/VCSkill/Chat/ToolUseGuard.swift', 'Sources/VCSkill/Chat/AgentStream.swift', 'Sources/VCSkill/Chat/ACP/ACPPermissionText.swift', 'Sources/VCSkill/Chat/ACP/ACPCommandSummary.swift', 'Sources/VCSkill/Chat/ACP/ACPChatBackend.swift', 'Sources/VCSkill/Chat/ACP/ACPConnection.swift',
-    'Sources/VCSkill/DefaultSkill.swift', 'Sources/VCSkill/SkillRunner.swift', 'Sources/VCSkill/Skill.swift', 'Sources/VCSkill/ImageOps.swift', 'Sources/VCSkill/VisionModel.swift', 'Sources/VCSkill/ImageSource.swift', 'Sources/VCSkill/BackgroundRemoval.swift', 'Sources/VCSkill/FileSearch.swift', 'Sources/VCSkill/RemoteSkills.swift', 'Sources/VCSkill/CommandSession.swift', 'Sources/VCSkill/ImageEditing.swift', 'Sources/VCSkill/ToolLoopAgent.swift',
-    'Sources/VCSpeech/FileTranscriber.swift', 'Sources/VCSpeech/HotKeySpec.swift', 'Sources/VCSpeech/KeyStroke.swift', 'Sources/VCSpeech/LocalTranscriber.swift', 'Sources/VCSpeech/ClipboardPaste.swift', 'Sources/VCSpeech/HandsFreeTrigger.swift',
-    'Sources/VCSpeech/MicRecorder.swift', 'Sources/VCSpeech/SpeechVoice.swift', 'Sources/VCSpeech/FillerWords.swift', 'Sources/VCSpeech/SpeechEngine.swift', 'Sources/VCCore/ModelStore.swift',
-]
+# `--uncovered` の範囲：`Sources/vc` の全部と、**`tr(` を 1 つでも使っている**ほかのターゲットのファイル（足すときに、ここへ書かなくてよい）。
+# 日本語の文字列が、まったく包まれていない（`tr` を使っていない）ほかのターゲットのファイルは、調べない（モデルへの指示・照合の語が多い）。
+SCOPE_ALWAYS = ['Sources/vc/**/*.swift']
+SCOPE_ANY_TARGET = 'Sources/**/*.swift'
 # 翻訳しないもの（開発用のコマンド・検証用の窓・表そのもの・モデルへの指示を持つファイル）。ここにないファイルで、日本語の文字列が `tr(` に包まれていなければ、報告する
 EXCLUDE = [
-    'Sources/vc/L10n/', 'Sources/vc/Commands/ChatCheck.swift', 'Sources/vc/Commands/EvalJudge.swift', 'Sources/vc/Commands/EvalPlan.swift', 'Sources/vc/Commands/EvalGate.swift',
+    'Sources/VCCore/L10n.swift', 'Sources/vc/L10n/', 'Sources/vc/Commands/ChatCheck.swift', 'Sources/vc/Commands/EvalJudge.swift', 'Sources/vc/Commands/EvalPlan.swift', 'Sources/vc/Commands/EvalGate.swift',
     'Sources/vc/Commands/HudPreview.swift', 'Sources/vc/Commands/ChatPreview.swift', 'Sources/vc/Commands/SettingsPreview.swift', 'Sources/Fixture/',
 ]
 
@@ -95,8 +90,9 @@ def used_keys():
 LINE = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,?\s*(//.*)?$')
 
 
+
 def table():
-    entries, dups = {}, []
+    entries, dups, dynamic = {}, [], set()
     for path in sorted(glob.glob(os.path.join(ROOT, 'Sources/vc/L10n/English*.swift'))):
         if path.endswith('EnglishTables.swift'):
             continue
@@ -114,7 +110,9 @@ def table():
             if k in entries and entries[k] != v:
                 dups.append((os.path.relpath(path, ROOT), n, k + '（別のファイルで、違う訳）'))
             entries[k] = v
-    return entries, dups
+            if m.group(3) and 'l10n-dynamic' in m.group(3):
+                dynamic.add(k)
+    return entries, dups, dynamic
 
 
 def blank_tr_literals(text):
@@ -133,8 +131,14 @@ def blank_tr_literals(text):
 
 def uncovered():
     found = []
-    for pattern in SCOPE:
-        for path in sorted(glob.glob(os.path.join(ROOT, pattern), recursive=True)):
+    files = set()
+    for pattern in SCOPE_ALWAYS:
+        files.update(glob.glob(os.path.join(ROOT, pattern), recursive=True))
+    for path in glob.glob(os.path.join(ROOT, SCOPE_ANY_TARGET), recursive=True):
+        if re.search(r'(?<![A-Za-z0-9_.])tr\(', open(path, encoding='utf-8').read()):
+            files.add(path)
+    if True:
+        for path in sorted(files):
             if any(os.path.relpath(path, ROOT).startswith(x) for x in EXCLUDE):
                 continue
             original = open(path, encoding='utf-8').read().split('\n')
@@ -163,7 +167,7 @@ def uncovered():
 
 def main():
     used = used_keys()
-    entries, dups = table()
+    entries, dups, dynamic = table()
     problems = 0
     for k, places in sorted(used.items()):
         if k not in entries:
@@ -180,7 +184,7 @@ def main():
     for path, n, k in dups:
         problems += 1
         print(f'重複：{path}:{n}  「{k[:60]}」')
-    unused = [k for k in entries if k not in used]
+    unused = [k for k in entries if k not in used and k not in dynamic]
     for k in unused[:20]:
         print(f'警告：使われない鍵「{k[:60]}」')
     if len(unused) > 20:

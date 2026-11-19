@@ -154,6 +154,8 @@ extension Settings {
         guard let sttLanguage else { return .success(.ja) }
         return AppLanguage.parse(sttLanguage).map { .success($0) } ?? .failure(UnknownLanguage(text: sttLanguage))
     }
+    /// 画面・指示に使う、音声認識の言語（書き間違いは、日本語。書き間違いを知らせるのは、起動の検査：`CommandContext.resolveSttLanguage`）。
+    public var recognitionLanguageOrDefault: AppLanguage { (try? recognitionLanguage.get()) ?? .ja }
     public struct UnknownLanguage: Error, Equatable, CustomStringConvertible {
         public let text: String
         public var description: String { "sttLanguage「\(text)」は、使えません（ja・en）" }

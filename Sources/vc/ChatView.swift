@@ -353,7 +353,7 @@ private struct EmptyState: View {
                 Image(systemName: "waveform.and.mic").vcFont(26, weight: .semibold).foregroundStyle(ChatPalette.brand)
             }
             Text(tr("話しかけてみましょう")).vcFont(16, weight: .semibold).foregroundStyle(.white.opacity(0.9))
-            Text(tr("会話のキーを押している間、話します。") + "\n" + tr("質問と答えが、ここに続いていきます。")).vcFont(12).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.5))
+            Text(tr("会話のキーを押している間、話します。\n質問と答えが、ここに続いていきます。")).vcFont(12).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.5))
         }
     }
 }

@@ -58,16 +58,13 @@ extension CommandContext {
     return try spec.makeTrigger()
 }
 
-/// 使い方の文の頭（「…て、離す」につなぐ。端末の `hotkey-check`（開発用）だけが使う：日本語の文の組み立てなので、翻訳しない）。
-func holdInstruction(_ spec: HotKeySpec) -> String {
-    spec.isHold ? "\(spec.description) を単独で 0.35 秒以上押し続け" : "\(spec.description) を押し"   // l10n-skip
-}
-
 /// 「押している間だけ」の文。日本語の語尾のつなぎを、英語へ持ち込まないために、文ごと翻訳する。
 func holdWhile(_ spec: HotKeySpec, _ phrase: HoldPhrase) -> String {
     switch (spec.isHold, phrase) {
     case (true, .listen): tr("\(spec.description) を単独で 0.35 秒以上押し続けている間だけ聞きます")
     case (false, .listen): tr("\(spec.description) を押している間だけ聞きます")
+    case (true, .check): tr("\(spec.description) を単独で 0.35 秒以上押し続けて、離す")
+    case (false, .check): tr("\(spec.description) を押して、離す")
     case (true, .chat): tr("\(spec.description) を単独で 0.35 秒以上押し続けている間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）")
     case (false, .chat): tr("\(spec.description) を押している間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）")
     case (true, .dictate): tr("\(spec.description) を単独で 0.35 秒以上押し続けている間だけ（前面のアプリへ入力）")
@@ -77,7 +74,8 @@ func holdWhile(_ spec: HotKeySpec, _ phrase: HoldPhrase) -> String {
     }
 }
 
-enum HoldPhrase { case listen, chat, dictate, screenshot }
+/// `check`：端末の `hotkey-check`（キーが届くかの確認）の案内。
+enum HoldPhrase { case listen, chat, dictate, screenshot, check }
 
 /// スクリーンショットのショートカット（`shotHotkey`）。範囲を選ぶ操作の起点なので、**キーの組み合わせ**だけ（長押しは使えない）。
 enum ScreenKeys {

@@ -52,7 +52,7 @@ struct CurrentDateTool: Tool {
     func call(arguments: GeneratedContent) async throws -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy年M月d日 EEEE HH:mm（zzz）"
+        formatter.dateFormat = "yyyy年M月d日 EEEE HH:mm（zzz）"   // l10n-skip：モデルへの指示・書式（画面に出ない）
         return formatter.string(from: Date())
     }
 }
@@ -63,7 +63,7 @@ struct WebSearchTool: Tool {
     let web: WebAccess
     let activity: ToolActivity
 
-    var parameters: GenerationSchema { schema("WebSearchArgs", "query", "a short search query, e.g. ギフティ 最新ニュース") }
+    var parameters: GenerationSchema { schema("WebSearchArgs", "query", "a short search query, e.g. ギフティ 最新ニュース") }   // l10n-skip：モデルへの指示・書式（画面に出ない）
 
     func call(arguments: GeneratedContent) async throws -> String {
         let query = try arguments.value(String.self, forProperty: "query").trimmingCharacters(in: .whitespacesAndNewlines)

@@ -18,7 +18,7 @@ struct SkillsPage: View {
             }
             ForEach(Array(loaded.skills.enumerated()), id: \.element.name) { index, skill in
                 if index > 0 { RowDivider() }
-                Row(skill.name, detail: skill.scope == .builtin ? tr(L10nKey(stringLiteral: skill.description)) : skill.description) {   // 組み込みのスキルの説明だけ、翻訳する（利用者のスキルの説明は、そのまま）
+                Row(skill.name, detail: skill.scope == .builtin ? tr(verbatim: skill.description) : skill.description) {   // 組み込みのスキルの説明だけ、翻訳する（利用者のスキルの説明は、そのまま）
                     BrandSwitch(isOn: Binding(get: { model.settings.isEnabled(skill.name) }, set: { model.setSkill(skill.name, enabled: $0) }), tint: [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)])
                 }
             }

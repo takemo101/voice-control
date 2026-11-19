@@ -134,7 +134,7 @@ private struct Sidebar: View {
             }
             .padding(.horizontal, 10)
             Spacer()
-            Text(tr("音声・画面は、") + "\n" + tr("この Mac の外へ出しません")).font(.system(size: 10)).foregroundStyle(.tertiary).padding(16)
+            Text(tr("音声・画面は、\nこの Mac の外へ出しません")).font(.system(size: 10)).foregroundStyle(.tertiary).padding(16)
         }
         .frame(maxHeight: .infinity)
         .background(VisualEffect(material: .sidebar))

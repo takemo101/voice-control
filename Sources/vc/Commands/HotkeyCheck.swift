@@ -38,7 +38,7 @@ struct HotkeyCheckCommand: Command {
                 print(Style.dim("▲ released")); fflush(stdout)
                 HUD.shared.show(tr("離しました"), mode: .info, hideAfter: 1)
             }
-            print(tr("\(holdInstruction(spec))て、離す") + Style.dim(tr("（\(spec.description)・\(source)・\(Int(seconds)) 秒間。マイクは使いません）")))
+            print(holdWhile(spec, .check) + Style.dim(tr("（\(spec.description)・\(source)・\(Int(seconds)) 秒間。マイクは使いません）")))
             fflush(stdout)
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { _ = hotkey; exit(0) }
             NSApplication.shared.setActivationPolicy(.accessory)
