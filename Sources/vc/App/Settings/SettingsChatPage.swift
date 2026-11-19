@@ -54,7 +54,7 @@ struct ChatPage: View {
                     Text(tr("＋読む")).tag(ChatToolLevel.read)
                     Text(tr("すべて")).tag(ChatToolLevel.all)
                 }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 250)
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
             if !agent.isExternal, model.chatToolLevel == .all {
             Label(tr("書き込みとコマンドの実行ができます。上書きと安全でないコマンドは、毎回、確認します。"), systemImage: "exclamationmark.octagon.fill")

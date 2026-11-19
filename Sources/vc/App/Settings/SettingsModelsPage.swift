@@ -18,7 +18,7 @@ struct ModelsPage: View {
                     Text("Ollama").tag(SettingsRules.EngineKind.ollama)
                     Text(tr("OpenAI 互換")).tag(SettingsRules.EngineKind.openai)
                 }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 270)
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
             if model.engineKind != .apple {
                 RowDivider()
