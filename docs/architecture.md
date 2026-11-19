@@ -57,7 +57,7 @@ flowchart TB
 ### 言語（表示言語・音声認識の言語）
 
 - **`VCCore` の `L10n`・`tr`・`AppLanguage`**：`tr("日本語の文")`（補間は `%@`。`%1$@` で語順を替えられる）は、日本語のときは、そのまま。英語のときは、表の英語（表にない文は、日本語のまま：欠けても読める）。**呼び出すたびに引く**：`static let` に入れた `tr` は、最初の言語に固まるので、使わない（表示の文は、計算プロパティか関数に）。
-- **対象は、設定ウィンドウとダイアログだけ**（メニュー・HUD・会話・端末は、日本語のまま）。英語の表は `Sources/vc/L10n/English*.swift`（`EnglishTables.all` が束ねる。`AppLocalization.bootstrap` が、起動の最初〔アプリ：`applicationDidFinishLaunching`・端末：`main`〕に、表を入れて言語を決める。設定を変えたら、`SettingsModel.update` が、言語を切り替える）。鍵（日本語の文）が、同じ文で別の訳が要る所は、`tr` を使わず、言語で分ける（例：サイドバーの「モデル」→ Models）。
+- **対象は、画面の言葉すべて**（設定ウィンドウ・ダイアログ・メニュー・HUD・スクリーンショット・画像のパネル・会話・Markdown のウィンドウ・読み上げる文・端末の `vc`）。**対象外**：開発用のコマンド・`Fixture`・スキルの名前と説明・エージェントとモデルの答え・モデルへの指示（日本語の言葉の一致の規則を含む。`// l10n-skip`）。**モデルへの指示の「答えの言語」は、`L10n.shared.inAnswerLanguage`**（指示の `Japanese` を、認識する言語の名前にする。`ChatConversation`・`CommandSession`・`VisionModel`・`AppleChatTools`。利用者のスキルの本文は、触らない）。英語の表は `Sources/vc/L10n/English*.swift`（`EnglishTables.all` が束ねる。`AppLocalization.bootstrap` が、起動の最初〔アプリ：`applicationDidFinishLaunching`・端末：`main`〕に、表を入れて言語を決める。設定を変えたら、`SettingsModel.update` が、言語を切り替える）。鍵（日本語の文）が、同じ文で別の訳が要る所は、`tr` を使わず、言語で分ける（例：サイドバーの「モデル」→ Models）。
 - **音声認識の言語**（設定 `sttLanguage`）は、`ResolvedChoices.sttLanguage`（書き間違いは `StartupProblem`）→ `SpeechEngine.make(_, language:)`（Apple は `Locale`、ダウンロードしたモデルは言語の符号）・`LiveCaption`・`SaySpeaker`（その言語の声）。`AppRuntime` は、言語が変わったら、認識を開き直す。
 - **確認**：`scripts/check-l10n.py`（`just l10n`・CI）が、`tr` の鍵が表にあるか・置き換えの数・表の重複（Swift の辞書は、重複で、実行時に落ちる）・包まれていない日本語の文字列を調べる。`EnglishTablesTests` が、表の整合を確かめる。
 

@@ -18,8 +18,8 @@ Audio and screen contents never leave your Mac, except where you explicitly choo
 
 Two settings, both defaulting to Japanese:
 
-- **Display language** (Settings > General > Language): the settings window and dialogs are shown in Japanese or English. The menu, the on-screen panel, and the chat window stay in Japanese. Permission prompts (microphone etc.) follow your Mac's language.
-- **Speech recognition language** (Settings > Voice > Language): the language you speak. It affects recognition (Apple SpeechTranscriber `en-US`, or the downloaded Whisper model), live captions, the spoken voice, and the spoken "yes" for confirmations.
+- **Display language** (Settings > General > Language): the UI text (settings window, dialogs, menu, on-screen panel, screenshot selection, chat and Markdown windows, the `vc` command help) is shown in Japanese or English. Skill names/descriptions and agent answers are not translated. Permission prompts (microphone etc.) follow your Mac's language.
+- **Speech recognition language** (Settings > Voice > Language): the language you speak. It affects recognition (Apple SpeechTranscriber `en-US`, or the downloaded Whisper model), live captions, the spoken voice, the spoken "yes" for confirmations, and the language the models are told to answer in.
 
 The skill selection was built and measured in Japanese. With the same sentences translated to English it worked (action vs. chat: 19/20 and 20/20 on 40 sentences), but confidence is lower, so you may see more confirmations. Japanese-specific word rules (for example "end the chat" phrases in chat) do not work in English.
 
