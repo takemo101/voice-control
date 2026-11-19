@@ -27,14 +27,15 @@ enum VoiceHandlers {
             if tag == VoiceMode.dictate { return true }
             let isChat = tag == VoiceMode.chat
             let chip = chips[tag] ?? fallbackChip
-            say("聞き間違いかもしれません。\(text)でよいですか")
-            var content = HUDContent(phase: .confirm, title: "聞き間違いかもしれません", hint: "確信度 \(Int((confidence * 100).rounded()))%。この内容で\(isChat ? "質問" : "実行")しますか？" + ConfirmGuide.howToAnswer, chip: chip, heard: text)
+            say(tr("聞き間違いかもしれません。\(text)でよいですか"))
+            let percent = Int((confidence * 100).rounded())
+            var content = HUDContent(phase: .confirm, title: tr("聞き間違いかもしれません"), hint: isChat ? tr("確信度 \(percent)%。この内容で質問しますか？\(ConfirmGuide.howToAnswer)") : tr("確信度 \(percent)%。この内容で実行しますか？\(ConfirmGuide.howToAnswer)"), chip: chip, heard: text)
             content.choices = true
             HUD.shared.show(content)
-            notice("聞き取りに自信がありません（\(Int((confidence * 100).rounded()))%）。確認待ち：パネルの\(ConfirmGuide.howToAnswer)")
+            notice(tr("聞き取りに自信がありません（\(percent)%）。確認待ち：パネルの\(ConfirmGuide.howToAnswer)"))
             do {
                 let yes = try await askByPanelOrVoice(confirmation: confirmation, next: next)
-                if !yes { HUD.shared.show(HUDContent(phase: .info, title: "やめました", chip: chip), hideAfter: 2.5) }
+                if !yes { HUD.shared.show(HUDContent(phase: .info, title: tr("やめました"), chip: chip), hideAfter: 2.5) }
                 return yes
             } catch { return false }
         }
@@ -48,8 +49,8 @@ enum VoiceHandlers {
         return { utterance, token, next, _ in
             do {
                 guard !utterance.isEmpty else {
-                    notice("聞き取れなかった")
-                    HUD.shared.show(HUDContent(phase: .failure, title: "聞き取れませんでした", hint: "もう一度、はっきり話してください", chip: chip), hideAfter: 2.5)
+                    notice(tr("聞き取れなかった"))
+                    HUD.shared.show(HUDContent(phase: .failure, title: tr("聞き取れませんでした"), hint: tr("もう一度、はっきり話してください"), chip: chip), hideAfter: 2.5)
                     return
                 }
                 let skills = context.loadSkills()

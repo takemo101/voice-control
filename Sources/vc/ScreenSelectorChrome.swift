@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VCCore
 
 /// 選択の面の上に重ねる、暗い覆い・枠・大きさの表示・拡大鏡・案内。**下の静止画は、ここで描き直さない**（覆いに、選んだ所だけ穴をあける）。
 @MainActor final class ChromeView: NSView {
@@ -27,7 +28,7 @@ import SwiftUI
         addSubview(guideHost)
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }   // l10n-skip（開発者向け）
 
     override func layout() {
         super.layout()
@@ -296,18 +297,18 @@ struct GuideBar: View {
         HStack(spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "viewfinder").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color(red: 0.40, green: 0.82, blue: 1.0))
-                Text("範囲をドラッグ・ウィンドウをクリック").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Text(tr("範囲をドラッグ・ウィンドウをクリック")).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
             }
             Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 16)
             HStack(spacing: 10) {
-                Key(key: "⇧", label: "正方形")
-                Key(key: "⌥", label: "中心から")
-                Key(key: "Space", label: "動かす")
-                Key(key: "↩", label: "全画面")
-                Key(key: "R", label: "前回")
-                Key(key: "Z", label: state.loupe ? "拡大鏡 ON" : "拡大鏡", on: state.loupe)
-                if state.loupe { Key(key: "C", label: "色をコピー") }
-                Key(key: "esc", label: "やめる")
+                Key(key: "⇧", label: tr("正方形"))
+                Key(key: "⌥", label: tr("中心から"))
+                Key(key: "Space", label: tr("動かす"))
+                Key(key: "↩", label: tr("全画面"))
+                Key(key: "R", label: tr("前回"))
+                Key(key: "Z", label: state.loupe ? tr("拡大鏡 ON") : tr("拡大鏡"), on: state.loupe)
+                if state.loupe { Key(key: "C", label: tr("色をコピー")) }
+                Key(key: "esc", label: tr("やめる"))
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 11)

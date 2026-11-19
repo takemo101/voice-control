@@ -8,15 +8,16 @@ enum ACPPermissionText {
         let title = visible(call.title)
         let path = call.path.map { visible(displayPath($0, folder: folder)) }
         switch call.kind {
-        case "edit": return "ファイルを書き込む：\(path ?? title)"
-        case "delete": return "ファイルを削除する：\(path ?? title)"
-        case "move": return "ファイルを移動する：\(path ?? title)"
+        case "edit": return tr("ファイルを書き込む：\(path ?? title)")
+        case "delete": return tr("ファイルを削除する：\(path ?? title)")
+        case "move": return tr("ファイルを移動する：\(path ?? title)")
         case "execute":
-            guard let command = call.command else { return "コマンドを実行する：\(title)" }
+            guard let command = call.command else { return tr("コマンドを実行する：\(title)") }
             // 長いコマンドは、1 行目に、何をするかの見出し・2 行目に、抜粋（読み上げは、1 行目だけ）。短いものは、そのまま（1 行）
             let summary = ACPCommandSummary.summarize(visible(command))
-            return summary.preview.isEmpty ? "コマンドを実行する：" + summary.headline : "コマンドを実行する：" + summary.headline + "\n" + summary.preview
-        default: return "操作する：\(path ?? title)"
+            let head = tr("コマンドを実行する：\(summary.headline)")
+            return summary.preview.isEmpty ? head : head + "\n" + summary.preview
+        default: return tr("操作する：\(path ?? title)")
         }
     }
 
@@ -26,7 +27,7 @@ enum ACPPermissionText {
         let target = RealPath.eventual(path)
         if target == root { return "." }
         if RealPath.isInside(target, root: root) { return String(target.dropFirst(root.count + 1)) }
-        return target + "（作業フォルダの外）"
+        return tr("\(target)（作業フォルダの外）")
     }
 
     /// 確認の文に出す、エージェントの文字：**見えない文字・向きを変える文字・制御文字を、見える形（`⟨U+202E⟩`）にする**（仕様の安全の指針：コマンド・場所に、紛れ込ませて、読み違えさせる手を、防ぐ）。改行・タブは、空白。

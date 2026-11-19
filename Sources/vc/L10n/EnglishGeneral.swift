@@ -136,7 +136,7 @@ extension EnglishTables {
         "聞こえている文字を、字幕のように（実験）": "Shows what it hears like captions (experimental)",
         "聞き取りに自信がないとき、確かめる": "Double-check when unsure what was said",
         "実行の前に、聞こえた文を確かめます（実験）": "Confirms the heard sentence before running it (experimental)",
-        "読み上げ": "Speech",
+        "読み上げ": "Read aloud",
         "確認の問いかけは、いつも読み上げます。より自然な声は、システム設定 > アクセシビリティ > 読み上げコンテンツ で入れられます。": "Confirmation prompts are always read aloud. You can install more natural voices in System Settings > Accessibility > Spoken Content.",
         "実行の結果・会話の答えを、声で読み上げる": "Read results and chat answers aloud",
         "会話の答えは、全文を読みます。止めるには、Esc・トリガーを押す・メニューバーの「読み上げを止める」": "Chat answers are read in full. To stop: press Esc or the trigger key, or choose “Stop speaking” in the menu bar",

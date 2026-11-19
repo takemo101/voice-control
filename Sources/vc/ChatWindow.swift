@@ -122,7 +122,7 @@ import VCSkill
             }
         case .cancelled: break
         case let .failed(reason):
-            HUD.shared.show(HUDContent(phase: .failure, title: "画面を撮れませんでした", hint: reason), hideAfter: 5)
+            HUD.shared.show(HUDContent(phase: .failure, title: tr("画面を撮れませんでした"), hint: reason), hideAfter: 5)
         }
     }
 
@@ -172,8 +172,8 @@ import VCSkill
     /// 見た目の確認用（`vc settings-preview --chat`）：見本の会話を入れて、画面の外に置いたウィンドウを返す（利用者の画面には、出ない）。
     /// 見た目の確認用：**ウィンドウを作る前に**、質問と答えを記録しておいて、そのあと、ウィンドウを出す（パネルが出ていない間に会話して、あとから開く流れ）。
     func previewLateWindow() -> NSWindow {
-        let id = begin(question: "ウィンドウがないときの質問", agent: "Apple のモデル", warning: nil, tools: nil)
-        finish(id, answer: "答えは、ウィンドウを作る前に、届きました。**これが見えれば、よい**です。", activities: [], notes: [], startedNew: false)
+        let id = begin(question: "ウィンドウがないときの質問", agent: "Apple のモデル", warning: nil, tools: nil)   // l10n-skip: preview sample
+        finish(id, answer: "答えは、ウィンドウを作る前に、届きました。**これが見えれば、よい**です。", activities: [], notes: [], startedNew: false)   // l10n-skip: preview sample
         let window = makeWindowIfNeeded()
         state.solid = true
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -202,8 +202,8 @@ import VCSkill
     func previewWindow(pendingOnly: Bool = false) -> NSWindow {
         let window = makeWindowIfNeeded()
         state.agent = "Claude Code"
-        state.warning = "この Mac の外へ送信"
-        state.tools = "すべて"
+        state.warning = "この Mac の外へ送信"   // l10n-skip: preview sample
+        state.tools = "すべて"   // l10n-skip: preview sample
         func entry(_ question: String, answer: String?, status: String? = nil, activities: [ChatActivity] = [], notes: [String] = []) -> ChatEntry {
             var e = ChatEntry(question: question)
             e.status = status
@@ -215,17 +215,17 @@ import VCSkill
             return e
         }
         state.entries = [
-            entry("このフォルダのファイルを、一覧にして", answer: "## 見つけたファイル\n\nフォルダには、次の 2 つがあります。\n\n| 名前 | 内容 |\n|---|---|\n| **note.txt** | メモ（16 バイト） |\n| **memo.txt** | 「確認済み」 |\n\n1. `memo.txt` は、さっき作りました\n2. 詳しくは [公式の説明](https://example.com/doc) を見てください\n\n> 書き込みは、作業フォルダの中だけです。\n\n```sh\nls -la\n```", activities: [ChatActivity(.run, "ls -la", output: .init(text: "total 16\n-rw-r--r--  1 user  staff  16 Nov 17 09:00 note.txt\n-rw-r--r--  1 user  staff  24 Nov 17 09:01 memo.txt")), ChatActivity(.write, "memo.txt", output: .init(text: "--- memo.txt\n 買い物\n-牛乳\n+牛乳（2 本）\n+パン\n 卵", isDiff: true))]),
-            entry("東京の明日の天気は？", answer: "明日の東京は、**晴れ時々くもり**で、最高気温は 24 度の予報です。降水確率は午前 10%、午後 30% で、夕方から風が少し強くなります。傘は、念のため、持っていくと安心です。気温の変化が大きいので、薄手の上着があると、朝晩の移動が楽になります。", notes: ["しばらく話さなかったので、前の会話は終わりました"]),
-            entry("ギフティのニュースを、調べて", answer: nil, status: nil),
-            entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),
+            entry("このフォルダのファイルを、一覧にして", answer: "## 見つけたファイル\n\nフォルダには、次の 2 つがあります。\n\n| 名前 | 内容 |\n|---|---|\n| **note.txt** | メモ（16 バイト） |\n| **memo.txt** | 「確認済み」 |\n\n1. `memo.txt` は、さっき作りました\n2. 詳しくは [公式の説明](https://example.com/doc) を見てください\n\n> 書き込みは、作業フォルダの中だけです。\n\n```sh\nls -la\n```", activities: [ChatActivity(.run, "ls -la", output: .init(text: "total 16\n-rw-r--r--  1 user  staff  16 Nov 17 09:00 note.txt\n-rw-r--r--  1 user  staff  24 Nov 17 09:01 memo.txt")), ChatActivity(.write, "memo.txt", output: .init(text: "--- memo.txt\n 買い物\n-牛乳\n+牛乳（2 本）\n+パン\n 卵", isDiff: true))]),   // l10n-skip: preview sample
+            entry("東京の明日の天気は？", answer: "明日の東京は、**晴れ時々くもり**で、最高気温は 24 度の予報です。降水確率は午前 10%、午後 30% で、夕方から風が少し強くなります。傘は、念のため、持っていくと安心です。気温の変化が大きいので、薄手の上着があると、朝晩の移動が楽になります。", notes: ["しばらく話さなかったので、前の会話は終わりました"]),   // l10n-skip: preview sample
+            entry("ギフティのニュースを、調べて", answer: nil, status: nil),   // l10n-skip: preview sample
+            entry("もう少し詳しく教えて", answer: nil, status: ChatActivity.search("東京 天気 明日").text),   // l10n-skip: preview sample
         ]
         let sample = Self.sampleThumbnail()
         state.image = AttachedImage(thumbnail: sample, takenAt: Date().addingTimeInterval(-40))
         state.entries[0].image = EntryImage(thumbnail: sample, route: .sent("claude"))
         state.entries[1].image = EntryImage(thumbnail: sample, route: .local)
-        state.entries[2].outcome = .stopped("新しい質問を優先しました")
-        state.keyHint = "右 ⌥（ropt）"
+        state.entries[2].outcome = .stopped("新しい質問を優先しました")   // l10n-skip: preview sample
+        state.keyHint = "右 ⌥（ropt）"   // l10n-skip: preview sample
         state.submit = { _ in }
         if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.image = nil; state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
         state.solid = true
@@ -287,7 +287,7 @@ import VCSkill
 
     private func copyAll() {
         let text = state.entries.map { entry in
-            "あなた：\(entry.question)\n\n" + (entry.answer ?? "") + (entry.activities.isEmpty ? "" : "\n\n実行した操作：\n" + entry.activities.map { "- \($0.text)" }.joined(separator: "\n"))
+            tr("あなた：\(entry.question)") + "\n\n" + (entry.answer ?? "") + (entry.activities.isEmpty ? "" : "\n\n" + tr("実行した操作：") + "\n" + entry.activities.map { "- \($0.text)" }.joined(separator: "\n"))
         }.joined(separator: "\n\n---\n\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)

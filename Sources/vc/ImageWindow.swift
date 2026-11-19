@@ -62,14 +62,14 @@ import VCSkill
     /// 見た目の確認用：**画面に出さず**（画面の外に置いて）、カードを、画像（PNG）に書き出す（`vc preview --render`。画面は撮らない：ほかのアプリのウィンドウが、写らない）。
     static func render(png: Data, savedURL: URL?, title: String, expiresAt: Date?, to file: URL) throws {
         _ = NSApplication.shared
-        guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail("画像を読めません") }
+        guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail(tr("画像を読めません")) }
         let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title, expiresAt: expiresAt, solid: true)
         controller.window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
         controller.window.orderFront(nil)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        guard let view = controller.window.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { fail("描けません") }
+        guard let view = controller.window.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { fail(tr("描けません")) }
         view.cacheDisplay(in: view.bounds, to: bitmap)
-        guard let data = bitmap.representation(using: .png, properties: [:]) else { fail("PNG にできません") }
+        guard let data = bitmap.representation(using: .png, properties: [:]) else { fail(tr("PNG にできません")) }
         try data.write(to: file)
     }
 
@@ -77,7 +77,7 @@ import VCSkill
     static func runUntilClosed(png: Data, savedURL: URL?, title: String, expiresAt: Date? = nil) -> Never {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
-        guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail("画像を読めません") }
+        guard let image = NSImage(data: png), let rep = NSBitmapImageRep(data: png) else { fail(tr("画像を読めません")) }
         let controller = ImageWindow(png: png, image: image, pixelSize: CGSize(width: rep.pixelsWide, height: rep.pixelsHigh), savedURL: savedURL, title: title, expiresAt: expiresAt)
         controller.window.alphaValue = 0
         controller.window.orderFrontRegardless()   // 前面のアプリから、キーを奪わない
@@ -128,7 +128,7 @@ import VCSkill
             state.savedPath = url.path
             return url
         } catch {
-            state.error = "保存できません（\(error.localizedDescription)）"
+            state.error = tr("保存できません（\(error.localizedDescription)）")
             return nil
         }
     }

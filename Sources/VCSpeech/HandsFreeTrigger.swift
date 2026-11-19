@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// **ダブルタップ**の見分け（押した・離した・タップの時刻だけを見る。キー・マイクを知らない）。
 /// - **押し続ける**：離すまで録音（従来どおり）。離したら `stop`。
@@ -248,7 +249,7 @@ public struct DoubleTapGesture: Sendable, Equatable {
 
 /// 複数のトリガー（声で頼む・音声入力）の、手放しの録音を、まとめて扱う（マイクは 1 つ：同時に録音するのは、どれか 1 つ）。
 @MainActor public final class HandsFreeGroup {
-    public nonisolated static let hint = "話し終わると自動で認識します（もう一度タップすると、すぐ認識・Esc で取りやめ）"
+    public nonisolated static var hint: String { tr("話し終わると自動で認識します（もう一度タップすると、すぐ認識・Esc で取りやめ）") }
     private let list = TriggerList()
     /// 手放しの録音が始まった（`tag`：`wrap` で渡した印）。
     public var onHandsFree: (@Sendable (_ tag: String) -> Void)?

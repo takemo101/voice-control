@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話のエージェントが、いましていること（道具の呼び出し）：実行したコマンド・検索・開いたページ・読んだ／書いたファイルなど。画面に出す（何が実行されたかを、利用者が見られるように）。
 /// 種類（`Kind`）と中身（`detail`）を、別々に持つ：表示（アイコン）と、「何かを変えたか」の判定は、種類で行い、文字の先頭を読まない。
@@ -9,13 +10,13 @@ public struct ChatActivity: Equatable, Sendable {
         /// 画面に出す、短い名前。
         public var label: String {
             switch self {
-            case .run: return "実行"
-            case .search: return "検索"
-            case .fetch: return "取得"
-            case .read: return "読む"
-            case .write: return "書く"
-            case .list: return "一覧"
-            case .find: return "探す"
+            case .run: return tr("実行")
+            case .search: return tr("検索")
+            case .fetch: return tr("取得")
+            case .read: return tr("読む")
+            case .write: return tr("書く")
+            case .list: return tr("一覧")
+            case .find: return tr("探す")
             case .other: return ""
             }
         }
@@ -37,7 +38,7 @@ public struct ChatActivity: Equatable, Sendable {
             if lines.count > Self.maxLines { clipped = true; lines = Array(lines.prefix(Self.maxLines)) }
             var joined = lines.joined(separator: "\n")
             if joined.count > Self.maxCharacters { clipped = true; joined = String(joined.prefix(Self.maxCharacters)) }
-            self.text = joined + (clipped ? "\n…（長いので、ここまで）" : "")
+            self.text = joined + (clipped ? "\n" + tr("…（長いので、ここまで）") : "")
             self.isDiff = isDiff
         }
     }

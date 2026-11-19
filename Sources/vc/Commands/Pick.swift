@@ -1,18 +1,19 @@
 import Foundation
+import VCCore
 import VCSkill
 
 struct PickCommand: Command {
     static let info = CommandInfo(
-        name: "pick", group: .skills, summary: "候補の中から、依頼に合うものを、Tiny-Jev で選ぶ",
-        usage: ["vc pick --query <文字> --option <候補> [--option <候補>…] [--threshold <0〜1>] [--top <件数>]", "<候補を 1 行ずつ出すコマンド> | vc pick --query <文字>"],
+        name: "pick", group: .skills, summary: tr("候補の中から、依頼に合うものを、Tiny-Jev で選ぶ"),
+        usage: [tr("vc pick --query <文字> --option <候補> [--option <候補>…] [--threshold <0〜1>] [--top <件数>]"), tr("<候補を 1 行ずつ出すコマンド> | vc pick --query <文字>")],
         details: [
-            "短い 1 行の候補（名前・種類・日付など）と、依頼の文を比べて、確率つきで順位を付ける。**確信できたとき（既定 0.70 以上）だけ「選んだ」**（verdict: picked）、迷えば「迷っている」（ambiguous：利用者に聞く）、合うものがなければ「どれでもない」（none）。",
-            "候補は、--option（何回でも）か、標準入力の行。候補が多くても（32 を超えても）、勝ち抜き戦で選ぶ。長い候補は、90 文字で切る。",
-            "測定（自作の 16 場面：ファイルの候補）：名前・種類・フォルダでの選択は 14/16。外れたのは、「新しいほう」「古いほう」（日付の大小）：Tiny-Jev は、日付の大小を読めない。日付・順番は、並べ替え（`vc find --oldest`）や番号で扱う。",
-            "スキルの中では、`allowed-commands` に `vc pick` を書くと、言語モデルが呼べる。直前の `vc find` の候補（または、直前のコマンドの出力の行）から、利用者の依頼で、選ぶ。",
+            tr("短い 1 行の候補（名前・種類・日付など）と、依頼の文を比べて、確率つきで順位を付ける。**確信できたとき（既定 0.70 以上）だけ「選んだ」**（verdict: picked）、迷えば「迷っている」（ambiguous：利用者に聞く）、合うものがなければ「どれでもない」（none）。"),
+            tr("候補は、--option（何回でも）か、標準入力の行。候補が多くても（32 を超えても）、勝ち抜き戦で選ぶ。長い候補は、90 文字で切る。"),
+            tr("測定（自作の 16 場面：ファイルの候補）：名前・種類・フォルダでの選択は 14/16。外れたのは、「新しいほう」「古いほう」（日付の大小）：Tiny-Jev は、日付の大小を読めない。日付・順番は、並べ替え（`vc find --oldest`）や番号で扱う。"),
+            tr("スキルの中では、`allowed-commands` に `vc pick` を書くと、言語モデルが呼べる。直前の `vc find` の候補（または、直前のコマンドの出力の行）から、利用者の依頼で、選ぶ。"),
         ],
-        options: [("--query <文字>", "何を選ぶか（依頼の文）"), ("--option <候補>", "候補（何回でも）。なければ、標準入力の行"), ("--threshold <0〜1>", "選んだとみなす確率（既定 0.70）"), ("--top <件数>", "順位を、上位何件まで出すか（既定 5）")],
-        examples: ["vc pick --query \"先月の請求書\" --option \"請求書_10月.pdf — 経理（pdf・10/28）\" --option \"請求書_9月.pdf — 経理（pdf・09/30）\"", "ls ~/Documents | vc pick --query 家計簿"])
+        options: [(tr("--query <文字>"), tr("何を選ぶか（依頼の文）")), (tr("--option <候補>"), tr("候補（何回でも）。なければ、標準入力の行")), (tr("--threshold <0〜1>"), tr("選んだとみなす確率（既定 0.70）")), (tr("--top <件数>"), tr("順位を、上位何件まで出すか（既定 5）"))],
+        examples: ["vc pick --query \"先月の請求書\" --option \"請求書_10月.pdf — 経理（pdf・10/28）\" --option \"請求書_9月.pdf — 経理（pdf・09/30）\"", "ls ~/Documents | vc pick --query 家計簿"])   // l10n-skip: 入力例のコマンド
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         var stdin: String?

@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import VCCore
 
 /// 範囲選択の画面の部品：案内の状態・ディスプレイ 1 つを覆うパネル・選択の面（`SelectorView`）。流れ（撮る・終わる・キー）は、`ScreenSelector`。描く物は、`ChromeView`（`ScreenSelectorChrome.swift`）。
 
@@ -71,7 +72,7 @@ final class SelectorPanel: NSPanel {
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil))
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }   // l10n-skip（開発者向け）
 
     override func layout() {
         super.layout()
@@ -227,7 +228,7 @@ final class SelectorPanel: NSPanel {
         guard controller?.loupeOn == true, let hex = colorHexUnderPointer() else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(hex, forType: .string)
-        chrome.toast("\(hex) をコピーしました")
+        chrome.toast(tr("\(hex) をコピーしました"))
     }
 
     /// 画像のピクセル座標（左上が原点）の色。

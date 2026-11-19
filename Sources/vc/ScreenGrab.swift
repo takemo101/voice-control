@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import VCCore
 import ScreenCaptureKit
 
 /// 画面の取り込み：**選び始める前に、ディスプレイごとの静止画を撮る**（ScreenCaptureKit。`vc` 自身のウィンドウは、写さない）。選択の画面は、この静止画を見せる（動画・ポップアップが、選ぶ間に変わらない）。
@@ -20,7 +21,7 @@ enum ScreenGrab {
     static func frames() async throws -> [Frame] {
         let content: SCShareableContent
         do { content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) }
-        catch { throw Failure(description: "画面を読み取れません（\(error.localizedDescription)）。\(ScreenCapture.permissionHint)") }
+        catch { throw Failure(description: tr("画面を読み取れません（\(error.localizedDescription)）。\(ScreenCapture.permissionHint)")) }
         let own = ProcessInfo.processInfo.processIdentifier
         let ownWindows = content.windows.filter { $0.owningApplication?.processID == own }
         var frames: [Frame] = []
@@ -34,9 +35,9 @@ enum ScreenGrab {
             do {
                 let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
                 frames.append(Frame(displayID: display.displayID, image: image))
-            } catch { throw Failure(description: "画面を撮れません（\(error.localizedDescription)）。\(ScreenCapture.permissionHint)") }
+            } catch { throw Failure(description: tr("画面を撮れません（\(error.localizedDescription)）。\(ScreenCapture.permissionHint)")) }
         }
-        guard !frames.isEmpty else { throw Failure(description: "ディスプレイが見つかりません") }
+        guard !frames.isEmpty else { throw Failure(description: tr("ディスプレイが見つかりません")) }
         return frames
     }
 

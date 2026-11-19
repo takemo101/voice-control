@@ -132,7 +132,8 @@ enum DownloadState: Equatable {
         do {
             try next.save()
             settings = next
-            L10n.shared.use(next.displayLanguage)   // 表示言語（設定ウィンドウ・ダイアログ）
+            L10n.shared.use(next.displayLanguage)   // 表示言語
+            L10n.shared.useAnswerLanguage((try? next.recognitionLanguage.get()) ?? .ja)   // 答えの言語
             problem = nil
             if restart {
                 pendingApply = AppRuntime.shared.scheduleReload()

@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import Foundation
+import VCCore
 
 /// 「押している間だけ聞く」トリガーの設定の書き方（`~/.voice-control/settings.json` の `hotkey`・`--trigger`）。
 /// - 修飾キーだけ（`shift`・`ctrl+opt`）→ **長押し**（他のキーなしで 0.35 秒以上。`ModifierHold`。アクセシビリティの許可が要る）
@@ -60,9 +61,9 @@ public struct HotKeySpec: Equatable, Sendable {
     /// 画面に出す名前。
     public var displayName: String {
         let symbols: [Modifier: String] = [.control: "⌃", .option: "⌥", .shift: "⇧", .command: "⌘"]
-        let mods = (side == .right ? "右" : "") + Modifier.allCases.filter(modifiers.contains).map { symbols[$0]! }.joined()
+        let mods = (side == .right ? tr("右") : "") + Modifier.allCases.filter(modifiers.contains).map { symbols[$0]! }.joined()
         let keyName = key.map { $0 == "space" ? "Space" : $0.uppercased() } ?? ""
-        return isHold ? "\(mods)（長押し）" : mods + keyName
+        return isHold ? tr("\(mods)（長押し）") : mods + keyName
     }
 
     var modifierFlags: NSEvent.ModifierFlags { modifiers.reduce(into: []) { $0.insert($1.flag) } }
@@ -106,14 +107,14 @@ public struct HotKeySpec: Equatable, Sendable {
 
     public static func parse(_ text: String) -> Result<HotKeySpec, Failure> {
         let lowered = text.lowercased().trimmingCharacters(in: .whitespaces)
-        guard !lowered.isEmpty else { return .failure(Failure(reason: "空です")) }
+        guard !lowered.isEmpty else { return .failure(Failure(reason: tr("空です"))) }
         let separator: Character = lowered.contains("+") ? "+" : "-"
         let tokens = lowered.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
-        if tokens.contains(where: \.isEmpty) { return .failure(Failure(reason: "「\(text)」は読めません（キーを「+」でつなぐ。例：ctrl+opt+space）")) }
+        if tokens.contains(where: \.isEmpty) { return .failure(Failure(reason: tr("「\(text)」は読めません（キーを「+」でつなぐ。例：ctrl+opt+space）"))) }
 
         if tokens.contains(where: { rightAliases[$0] != nil }) {
             guard tokens.count == 1, let m = rightAliases[tokens[0]] else {
-                return .failure(Failure(reason: "右側のキー（rshift・rcmd・ropt・rctrl）は、1 つだけで、長押しにだけ使えます（ほかのキーと、組み合わせられません）"))
+                return .failure(Failure(reason: tr("右側のキー（rshift・rcmd・ropt・rctrl）は、1 つだけで、長押しにだけ使えます（ほかのキーと、組み合わせられません）")))
             }
             return .success(HotKeySpec(modifiers: [m], key: nil, side: .right))
         }
@@ -122,16 +123,16 @@ public struct HotKeySpec: Equatable, Sendable {
         for token in tokens {
             if let m = aliases[token] { modifiers.insert(m) } else { keys.append(keyAliases[token] ?? token) }
         }
-        if keys.count > 1 { return .failure(Failure(reason: "キーは 1 つだけです（\(keys.joined(separator: "・"))）")) }
+        if keys.count > 1 { return .failure(Failure(reason: tr("キーは 1 つだけです（\(keys.joined(separator: tr("・")))）"))) }
         if let key = keys.first {
-            guard keyCodes[key] != nil else { return .failure(Failure(reason: "知らないキー「\(key)」（英字・数字・space・return・tab・escape・矢印・f1〜f12）")) }
+            guard keyCodes[key] != nil else { return .failure(Failure(reason: tr("知らないキー「\(key)」（英字・数字・space・return・tab・escape・矢印・f1〜f12）"))) }
             let isFunctionKey = key.hasPrefix("f") && key.count > 1
             if modifiers.isEmpty && !isFunctionKey {
-                return .failure(Failure(reason: "「\(key)」だけは使えません（普通の入力を奪うため）。修飾キー（ctrl・opt・shift・cmd）をつけるか、f1〜f12 にします"))
+                return .failure(Failure(reason: tr("「\(key)」だけは使えません（普通の入力を奪うため）。修飾キー（ctrl・opt・shift・cmd）をつけるか、f1〜f12 にします")))
             }
             return .success(HotKeySpec(modifiers: modifiers, key: key))
         }
-        guard !modifiers.isEmpty else { return .failure(Failure(reason: "キーがありません")) }
+        guard !modifiers.isEmpty else { return .failure(Failure(reason: tr("キーがありません"))) }
         return .success(HotKeySpec(modifiers: modifiers, key: nil))
     }
 

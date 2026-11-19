@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 結果の見せ先：Markdown の答え（`vc show` のウィンドウ）・加工した画像（画像のパネル）。どちらも、別のプロセスで開く。起こせなければ、理由を返す。
 /// `HUDReporter`・`TerminalReporter` に、差し込む（テストで、差し替える）。
@@ -8,5 +9,5 @@ struct ResultPresenters: Sendable {
 
     static let live = ResultPresenters(
         document: { DocumentWindow.present(markdown: $0) },
-        image: { ImagePanel.present(file: $0, title: "加工した画像") })
+        image: { ImagePanel.present(file: $0, title: tr("加工した画像")) })
 }

@@ -11,6 +11,8 @@ public enum AppLanguage: String, CaseIterable, Sendable, Equatable {
     public var bcp47: String { self == .ja ? "ja-JP" : "en-US" }
     /// transcribe.cpp（Whisper）に渡す言語の符号。
     public var whisperCode: String { rawValue }
+    /// モデルへの指示に書く、言語の名前（「Answer in …」）。
+    public var englishName: String { self == .ja ? "Japanese" : "English" }
 
     /// 設定の書き方（`ja`・`en`）から。知らない書き方は nil（呼ぶ側が、日本語に戻すか、理由を示す）。
     public static func parse(_ text: String?) -> AppLanguage? {
@@ -26,6 +28,7 @@ public final class L10n: @unchecked Sendable {
     public static let shared = L10n()
     private let lock = NSLock()
     private var current = AppLanguage.ja
+    private var answering = AppLanguage.ja
     private var english: [String: String] = [:]
 
     /// いまの表示言語。
@@ -33,6 +36,16 @@ public final class L10n: @unchecked Sendable {
 
     /// 表示言語を決める。nil（設定なし）は、日本語。
     public func use(_ language: AppLanguage?) { lock.withLock { current = language ?? .ja } }
+
+    /// **答えの言語**（会話・スキルの結果・画像の説明を、モデルに書かせる言語）：認識する言語（設定 `sttLanguage`）。モデルへの指示の「Answer in …」に入る。
+    public var answerLanguage: AppLanguage { lock.withLock { answering } }
+    public func useAnswerLanguage(_ language: AppLanguage) { lock.withLock { answering = language } }
+
+    /// モデルへの指示（英語）の「Japanese」を、答えの言語の名前にする（日本語なら、そのまま）。指示は、**呼び出すたびに**作る（言語は、設定で替わる）。
+    public func inAnswerLanguage(_ prompt: String) -> String {
+        let language = answerLanguage
+        return language == .ja ? prompt : prompt.replacingOccurrences(of: "Japanese", with: language.englishName)
+    }
 
     /// 英語の表を足す（同じ鍵は、あとのものが勝つ）。アプリの起動で、1 回。
     public func install(english table: [String: String]) { lock.withLock { english.merge(table) { _, new in new } } }

@@ -12,9 +12,9 @@ struct LoadedSkills {
 
     /// 読めなかったスキルの理由と、未信頼のプロジェクトのスキルを読み込んでいないことを、標準エラーへ出す。
     func reportProblems() {
-        loaded.problems.forEach { eprint(Style.yellow("スキルを読めない: \($0.location)：\($0.reason)")) }
+        loaded.problems.forEach { eprint(Style.yellow(tr("スキルを読めない: \($0.location)：\($0.reason)"))) }
         if loaded.untrustedProjectCount > 0, let directory = loaded.projectDirectory {
-            eprint(Style.yellow("このプロジェクトのスキル \(loaded.untrustedProjectCount) 件（\(directory.path)）は、未信頼のため、読み込んでいません。内容を確かめて、vc skills trust"))
+            eprint(Style.yellow(tr("このプロジェクトのスキル \(loaded.untrustedProjectCount) 件（\(directory.path)）は、未信頼のため、読み込んでいません。内容を確かめて、vc skills trust")))
         }
     }
 }
@@ -30,7 +30,7 @@ extension CommandContext {
 /// 端末での確認：`--yes` なら聞かずに承認。そうでなければ `[y/N]` を聞く（`vc run`・Enter で録音する 声の入力）。
 func askOnTerminal(yes: Bool) -> Bool {
     if yes { return true }
-    print("  実行しますか？ [y/N] ", terminator: "")
+    print(tr("  実行しますか？ [y/N] "), terminator: "")
     return (readLine() ?? "").lowercased().hasPrefix("y")
 }
 
@@ -40,6 +40,6 @@ func askOnTerminal(yes: Bool) -> Bool {
 func requireAppleIntelligence(for engine: Engine) {
     guard engine == .apple else { return }
     if case .unavailable(let reason) = AppleIntelligence.current() {
-        fail("\(reason.summary)。\(reason.remedy)。確認：vc doctor")
+        fail(tr("\(reason.summary)。\(reason.remedy)。確認：vc doctor"))
     }
 }

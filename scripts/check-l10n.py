@@ -14,8 +14,18 @@ JA = re.compile(r'[\u3040-\u30ff\u4e00-\u9fff]')
 
 # 翻訳の対象のファイル（`--uncovered` の範囲）：設定ウィンドウとダイアログ
 SCOPE = [
-    'Sources/vc/App/Settings/*.swift', 'Sources/vc/App/AppRuntime.swift', 'Sources/vc/App/AppActions.swift',
-    'Sources/vc/App/DiagnosticsWindow.swift', 'Sources/vc/Update/*.swift', 'Sources/vc/Adapters/*.swift', 'Sources/vc/CommandChoices.swift',
+    'Sources/vc/**/*.swift',
+    # 画面に出る文字を持つ、ほかのターゲットのファイル（足したら、ここへ）
+    'Sources/VCSkill/AppleIntelligence.swift', 'Sources/VCSkill/Engine.swift', 'Sources/VCSkill/FrontMatter.swift', 'Sources/VCSkill/CommandPolicy.swift', 'Sources/VCSkill/SkillStore.swift',
+    'Sources/VCSkill/Chat/ChatActivity.swift', 'Sources/VCSkill/Chat/ChatAgent.swift', 'Sources/VCSkill/Chat/ChatBackend.swift', 'Sources/VCSkill/Chat/ToolUseGuard.swift', 'Sources/VCSkill/Chat/AgentStream.swift', 'Sources/VCSkill/Chat/ACP/ACPPermissionText.swift', 'Sources/VCSkill/Chat/ACP/ACPCommandSummary.swift', 'Sources/VCSkill/Chat/ACP/ACPChatBackend.swift', 'Sources/VCSkill/Chat/ACP/ACPConnection.swift',
+    'Sources/VCSkill/DefaultSkill.swift', 'Sources/VCSkill/SkillRunner.swift', 'Sources/VCSkill/Skill.swift', 'Sources/VCSkill/ImageOps.swift', 'Sources/VCSkill/VisionModel.swift', 'Sources/VCSkill/ImageSource.swift', 'Sources/VCSkill/BackgroundRemoval.swift', 'Sources/VCSkill/FileSearch.swift', 'Sources/VCSkill/RemoteSkills.swift', 'Sources/VCSkill/CommandSession.swift', 'Sources/VCSkill/ImageEditing.swift', 'Sources/VCSkill/ToolLoopAgent.swift',
+    'Sources/VCSpeech/FileTranscriber.swift', 'Sources/VCSpeech/HotKeySpec.swift', 'Sources/VCSpeech/KeyStroke.swift', 'Sources/VCSpeech/LocalTranscriber.swift', 'Sources/VCSpeech/ClipboardPaste.swift', 'Sources/VCSpeech/HandsFreeTrigger.swift',
+    'Sources/VCSpeech/MicRecorder.swift', 'Sources/VCSpeech/SpeechVoice.swift', 'Sources/VCSpeech/FillerWords.swift', 'Sources/VCSpeech/SpeechEngine.swift', 'Sources/VCCore/ModelStore.swift',
+]
+# 翻訳しないもの（開発用のコマンド・検証用の窓・表そのもの・モデルへの指示を持つファイル）。ここにないファイルで、日本語の文字列が `tr(` に包まれていなければ、報告する
+EXCLUDE = [
+    'Sources/vc/L10n/', 'Sources/vc/Commands/ChatCheck.swift', 'Sources/vc/Commands/EvalJudge.swift', 'Sources/vc/Commands/EvalPlan.swift', 'Sources/vc/Commands/EvalGate.swift',
+    'Sources/vc/Commands/HudPreview.swift', 'Sources/vc/Commands/ChatPreview.swift', 'Sources/vc/Commands/SettingsPreview.swift', 'Sources/Fixture/',
 ]
 
 ESC = {'n': '\n', 't': '\t', '"': '"', '\\': '\\', "'": "'", '0': '\0'}
@@ -107,36 +117,47 @@ def table():
     return entries, dups
 
 
+def blank_tr_literals(text):
+    """`tr("…")` の文字列を、空白に置き換える（行の数は、そのまま）。補間の中の文字列も、含めて。"""
+    out = list(text)
+    for m in re.finditer(r'(?<![A-Za-z0-9_.])tr\(\s*"', text):
+        start = m.end() - 1
+        got = read_literal(text, start)
+        if got is None:
+            continue
+        for i in range(start, got[1]):
+            if out[i] != '\n':
+                out[i] = ' '
+    return ''.join(out)
+
+
 def uncovered():
     found = []
     for pattern in SCOPE:
-        for path in sorted(glob.glob(os.path.join(ROOT, pattern))):
-            text = open(path, encoding='utf-8').read()
-            lines = text.split('\n')
+        for path in sorted(glob.glob(os.path.join(ROOT, pattern), recursive=True)):
+            if any(os.path.relpath(path, ROOT).startswith(x) for x in EXCLUDE):
+                continue
+            original = open(path, encoding='utf-8').read().split('\n')
+            lines = blank_tr_literals('\n'.join(original)).split('\n')
             for n, line in enumerate(lines, 1):
-                code = line
-                if code.strip().startswith('//') or 'l10n-skip' in line:
+                if original[n - 1].strip().startswith('//') or 'l10n-skip' in original[n - 1]:
                     continue
                 # 文字列の外の `//` 以降は、コメント
                 i, in_str, out = 0, False, ''
-                while i < len(code):
-                    c = code[i]
+                while i < len(line):
+                    c = line[i]
                     if in_str:
                         out += c
-                        if c == '\\': out += code[i + 1:i + 2]; i += 2; continue
+                        if c == '\\': out += line[i + 1:i + 2]; i += 2; continue
                         if c == '"': in_str = False
                     else:
-                        if code.startswith('//', i): break
+                        if line.startswith('//', i): break
                         if c == '"': in_str = True
                         out += c
                     i += 1
                 for m in re.finditer(r'"((?:[^"\\]|\\.)*)"', out):
-                    if not JA.search(m.group(1)):
-                        continue
-                    before = out[:m.start()].rstrip()
-                    if before.endswith('tr(') or before.endswith('tr(verbatim:'):
-                        continue
-                    found.append((os.path.relpath(path, ROOT), n, m.group(0)[:60]))
+                    if JA.search(m.group(1)):
+                        found.append((os.path.relpath(path, ROOT), n, m.group(0)[:60]))
     return found
 
 

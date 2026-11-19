@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 import VCSkill
 
 /// 質問に付いた画像（サムネイルと、どう扱われたか）。
@@ -25,7 +26,7 @@ struct ChatEntry: Identifiable {
     var question: String
     let asked = Date()
     var outcome = Outcome.pending
-    var status: String? = "考えています…"
+    var status: String? = tr("考えています…")
     var answer: String?
     var activities: [ChatActivity] = []
     var notes: [String] = []
@@ -47,7 +48,7 @@ extension Array where Element == ChatEntry {
     mutating func begin(_ entry: ChatEntry) {
         for index in indices where self[index].isPending {
             self[index].cancel?()   // 文字で送った質問は、処理も止める（止めた質問を、会話の記録に入れない）
-            stopEntry(at: index, reason: "新しい質問を優先しました")
+            stopEntry(at: index, reason: tr("新しい質問を優先しました"))
         }
         append(entry)
     }
@@ -86,7 +87,7 @@ extension Array where Element == ChatEntry {
     mutating func fail(_ id: UUID, message: String) {
         updatePending(id) {
             $0.outcome = .failed(message); $0.status = nil
-            if let route = $0.image?.route { $0.image?.route = route } else { $0.image?.route = .notUsed("答えが出ませんでした") }
+            if let route = $0.image?.route { $0.image?.route = route } else { $0.image?.route = .notUsed(tr("答えが出ませんでした")) }
         }
     }
 

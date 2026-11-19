@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 長いコマンドの、**確認用の要約**（**純粋**）：何を実行するのかが、ひと目で分かるように、**1 行の見出し**（何のプログラムで・何をするか・どのファイルへ）と、**短い抜粋**に分ける。
 /// 例：`python3 -c 'from pathlib import Path; Path("a.md").open("x").write("""…長い本文…""")'` → 見出し「python3 のコードを実行：a.md を新しく作る（全 790 文字）」・抜粋「python3 -c 'from pathlib import Path; …（残り 650 文字は、略しています）」。
@@ -21,12 +22,15 @@ enum ACPCommandSummary {
         let text = collapsed.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
         guard text.count > shortLimit else { return Summary(headline: text, preview: "") }
         let program = programName(of: text)
-        let kind = isInterpreter(program) ? "\(program) のコードを実行" : (shellKeywords.contains(program) ? "シェルのスクリプトを実行" : "\(program) を実行")
+        let kind = isInterpreter(program) ? tr("\(program) のコードを実行") : (shellKeywords.contains(program) ? tr("シェルのスクリプトを実行") : tr("\(program) を実行"))
         var headline = kind
         let writes = writtenFiles(in: text)
-        if !writes.isEmpty { headline += "：" + writes.prefix(3).map { "\($0.file) を\($0.verb)" }.joined(separator: "・") + (writes.count > 3 ? " ほか" : "") }
-        headline += "（全 \(text.count) 文字）"
-        let preview = text.count > previewLimit ? String(text.prefix(previewLimit)) + "…（残り \(text.count - previewLimit) 文字は、略しています）" : text
+        if !writes.isEmpty {
+            let list = writes.prefix(3).map { tr("\($0.file) を\($0.verb)") }.joined(separator: tr("・")) + (writes.count > 3 ? tr(" ほか") : "")
+            headline = tr("\(kind)：\(list)")
+        }
+        headline = tr("\(headline)（全 \(text.count) 文字）")
+        let preview = text.count > previewLimit ? tr("\(String(text.prefix(previewLimit)))…（残り \(text.count - previewLimit) 文字は、略しています）") : text
         return Summary(headline: headline, preview: preview)
     }
 
@@ -55,7 +59,7 @@ enum ACPCommandSummary {
         }
         let word = rest.prefix(while: { $0 != " " && $0 != ";" && $0 != "&" && $0 != "|" })
         let name = String(word.split(separator: "/").last ?? word).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-        return name.isEmpty ? "コマンド" : name
+        return name.isEmpty ? tr("コマンド") : name
     }
 
     /// 書き込む先のファイル（コードの中の `open("名前", "モード")`・`Path("名前").write_text`・シェルの `>`・`>>`・`tee`）と、やり方（新しく作る・上書き・追記）。**見つかったものだけ**（見つからなくても、実行の内容は、変わらない：抜粋で確かめられる）。
@@ -72,14 +76,14 @@ enum ACPCommandSummary {
                 body((0..<match.numberOfRanges).map { match.range(at: $0).location == NSNotFound ? "" : ns.substring(with: match.range(at: $0)) })
             }
         }
-        func verb(forMode mode: String) -> String { mode.contains("x") ? "新しく作る" : (mode.contains("a") ? "追記する" : "書き込む") }
+        func verb(forMode mode: String) -> String { mode.contains("x") ? tr("新しく作る") : (mode.contains("a") ? tr("追記する") : tr("書き込む")) }
         // python：open("名前", "x") / .open("x") の前の Path("名前")
         matches(#"open\(\s*["']([^"']+)["']\s*,\s*(?:mode\s*=\s*)?["']([rwaxb+]+)["']"#) { add($0[1], verb(forMode: $0[2])) }
         matches(#"Path\(\s*["']([^"']+)["']\s*\)\s*\.open\(\s*["']([rwaxb+]+)["']"#) { add($0[1], verb(forMode: $0[2])) }
-        matches(#"Path\(\s*["']([^"']+)["']\s*\)\s*\.write_(?:text|bytes)\("#) { add($0[1], "書き込む") }
+        matches(#"Path\(\s*["']([^"']+)["']\s*\)\s*\.write_(?:text|bytes)\("#) { add($0[1], tr("書き込む")) }
         // シェル：> 名前・>> 名前・tee 名前（`2>&1`・`>&2`・`/dev/null` は除く）
-        matches(#"(?<![0-9&>])(>>?)\s*["']?([A-Za-z0-9_./~\-][^\s"'|;&<>)]*)"#) { add($0[2], $0[1] == ">>" ? "追記する" : "書き込む") }
-        matches(#"\btee\s+(-a\s+)?["']?([A-Za-z0-9_./~\-][^\s"'|;&<>)]*)"#) { add($0[2], $0[1].isEmpty ? "書き込む" : "追記する") }
+        matches(#"(?<![0-9&>])(>>?)\s*["']?([A-Za-z0-9_./~\-][^\s"'|;&<>)]*)"#) { add($0[2], $0[1] == ">>" ? tr("追記する") : tr("書き込む")) }
+        matches(#"\btee\s+(-a\s+)?["']?([A-Za-z0-9_./~\-][^\s"'|;&<>)]*)"#) { add($0[2], $0[1].isEmpty ? tr("書き込む") : tr("追記する")) }
         return found
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 画面の上に出す表示の中身。
 struct HUDContent: Sendable {
@@ -42,5 +43,5 @@ struct HUDContent: Sendable {
 
 /// 確認（声の流れ）の答え方の案内。画面の上のパネルと、端末で、同じ文を使う。
 enum ConfirmGuide {
-    static let howToAnswer = "ボタン・キー（← → と Return、y / n）で答えるか、もう一度トリガーを押して「はい」と言う"
+    static var howToAnswer: String { tr("ボタン・キー（← → と Return、y / n）で答えるか、もう一度トリガーを押して「はい」と言う") }
 }

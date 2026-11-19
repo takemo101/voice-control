@@ -48,7 +48,7 @@ final class ToolLoopAgent: SkillExecuting {
             }
             return session.openAsNoteIfRequested(Self.withoutThinking(reply.content))
         }
-        return "failed: コマンドの回数が上限に達しました"
+        return "failed: " + tr("コマンドの回数が上限に達しました")
     }
 
     /// 考えの部分（`<think>…</think>`）を除く。

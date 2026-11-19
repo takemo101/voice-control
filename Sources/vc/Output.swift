@@ -47,7 +47,13 @@ func notice(_ text: String) { print(noticeText(text)) }
 
 func pct(_ p: Double) -> String { String(format: "%5.1f%%", p * 100) }
 
-func seconds(elapsed: TimeInterval) -> String { String(format: "%.1f 秒", elapsed) }
+func seconds(elapsed: TimeInterval) -> String { tr("\(String(format: "%.1f", elapsed)) 秒") }
+
+/// 一覧の区切り（日本語は「、」）。
+func listJoin(_ items: [String]) -> String { items.joined(separator: tr("、")) }
+
+/// ラベル列の幅：日本語（全角は 2 桁）と、英語（長い）で変える。
+func colWidth(ja: Int, en: Int) -> Int { L10n.shared.language == .en ? en : ja }
 
 /// 標準エラーへ（エラー・進行の通知）。
 func eprint(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
@@ -59,14 +65,14 @@ enum FailurePresenter {
 
 /// エラーを出して終了（終了コード 1）。
 func fail(_ message: String) -> Never {
-    eprint(Style.errRed("エラー:") + " " + message)
+    eprint(Style.errRed(tr("エラー:")) + " " + message)
     FailurePresenter.show?(message)
     exit(1)
 }
 
 /// 使い方の誤り（終了コード 2）。そのコマンドの `--help` を案内する。
 func usageError(_ command: String, _ message: String) -> Never {
-    eprint(Style.errRed("使い方が違います:") + " " + message)
-    eprint("詳しくは: vc \(command) --help")
+    eprint(Style.errRed(tr("使い方が違います:")) + " " + message)
+    eprint(tr("詳しくは: vc \(command) --help"))
     exit(2)
 }

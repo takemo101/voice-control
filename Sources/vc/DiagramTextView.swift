@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 
 extension NSAttributedString.Key {
     /// 図（Mermaid）の画像の印：値は、元の Mermaid の文字。クリックで、拡大の窓を開く（`DiagramTextView`）。
@@ -28,7 +29,7 @@ final class DiagramTextView: NSTextView {
             return
         }
         if let image = zoomImage(at: point) {
-            MainActor.assumeIsolated { ImageZoomWindow.show(image: image, title: "画像") }
+            MainActor.assumeIsolated { ImageZoomWindow.show(image: image, title: tr("画像")) }
             return
         }
         super.mouseDown(with: event)

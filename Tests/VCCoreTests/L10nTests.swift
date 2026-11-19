@@ -41,4 +41,15 @@ import Testing
         #expect(settings.displayLanguage == .ja)                          // 画面は、書き間違いでも、読める
         #expect((try? settings.recognitionLanguage.get()) == nil)         // 認識は、黙って日本語にしない
     }
+
+    @Test func promptsFollowTheAnswerLanguageOnlyWhenItIsNotJapanese() {
+        defer { L10n.shared.useAnswerLanguage(.ja) }
+        let prompt = "Answer in Japanese, briefly. Reply: done: <one short sentence in Japanese>."
+        L10n.shared.useAnswerLanguage(.ja)
+        #expect(L10n.shared.inAnswerLanguage(prompt) == prompt)
+        L10n.shared.useAnswerLanguage(.en)
+        #expect(L10n.shared.inAnswerLanguage(prompt) == "Answer in English, briefly. Reply: done: <one short sentence in English>.")
+        #expect(!L10n.shared.inAnswerLanguage(prompt).contains("Japanese"))
+    }
 }
+

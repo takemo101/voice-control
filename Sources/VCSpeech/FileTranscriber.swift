@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import VCCore
 import Speech
 
 public enum TranscriptionError: Error, Equatable, CustomStringConvertible {
@@ -11,10 +12,10 @@ public enum TranscriptionError: Error, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .unsupportedLocale(let id): return "この言語には対応していません（\(id)）"
-        case .unreadableAudio(let name): return "録音を読めません（\(name)）"
-        case .failed(let reason): return "文字にできませんでした（\(reason)）"
-        case .timedOut(let stage, let seconds): return "\(stage)が \(seconds) 秒以内に終わらなかったので、やめました。もう一度、話してください"
+        case .unsupportedLocale(let id): return tr("この言語には対応していません（\(id)）")
+        case .unreadableAudio(let name): return tr("録音を読めません（\(name)）")
+        case .failed(let reason): return tr("文字にできませんでした（\(reason)）")
+        case .timedOut(let stage, let seconds): return tr("\(stage)が \(seconds) 秒以内に終わらなかったので、やめました。もう一度、話してください")
         }
     }
 }
@@ -74,7 +75,7 @@ public struct FileTranscriber: Sendable {
             return try await attempt(first)
         } catch is DeadlineExceeded {
             // やり直しは、読み直す（止まった 1 回目が、まだ、前のファイルを読んでいるかもしれない）
-            do { return try await attempt(try open()) } catch is DeadlineExceeded { throw TranscriptionError.timedOut(stage: "音声の認識", seconds: Int(seconds)) }
+            do { return try await attempt(try open()) } catch is DeadlineExceeded { throw TranscriptionError.timedOut(stage: tr("音声の認識"), seconds: Int(seconds)) }
         }
     }
 
@@ -85,7 +86,7 @@ public struct FileTranscriber: Sendable {
             // この確認も、止まりうる OS の呼び出しなので、用意と同じ上限の中で行う
             supported = try await withDeadline(seconds: preparationTimeout) { await SpeechTranscriber.supportedLocales.contains { $0.identifier(.bcp47) == wanted } }
         } catch is DeadlineExceeded {
-            throw TranscriptionError.timedOut(stage: "対応言語の確認", seconds: Int(preparationTimeout))
+            throw TranscriptionError.timedOut(stage: tr("対応言語の確認"), seconds: Int(preparationTimeout))
         }
         guard supported else { throw TranscriptionError.unsupportedLocale(locale.identifier) }
         let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
@@ -94,10 +95,10 @@ public struct FileTranscriber: Sendable {
                 if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) { try await request.downloadAndInstall() }
             }
         } catch is DeadlineExceeded {
-            throw TranscriptionError.timedOut(stage: "言語モデルの用意", seconds: Int(preparationTimeout))
+            throw TranscriptionError.timedOut(stage: tr("言語モデルの用意"), seconds: Int(preparationTimeout))
         } catch is CancellationError {
             throw CancellationError()
-        } catch { throw TranscriptionError.failed("言語モデルを用意できません: \(error.localizedDescription)") }
+        } catch { throw TranscriptionError.failed(tr("言語モデルを用意できません: \(error.localizedDescription)")) }
     }
 
     /// 1 回分の録音を、文字にする。取りやめられたら、認識を止める（止まったままで応えなくても、呼び出し側は、待たない）。

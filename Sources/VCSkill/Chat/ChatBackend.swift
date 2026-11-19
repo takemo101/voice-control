@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話の答えを作る側（Apple のオンデバイスのモデル：`AppleChatBackend`・外のエージェント：常駐の接続の `ACPChatBackend`・CLI の `ExternalChatBackend`）。**毎回、指示と過去の往復から、会話を組み立てる**（状態を持たない：要約で、過去を差し替えやすい）。
 public protocol ChatBackend: Sendable {
@@ -22,9 +23,9 @@ public enum ConversationError: Error, CustomStringConvertible, Equatable {
     case failed(String)
     public var description: String {
         switch self {
-        case .contextOverflow: return "会話が長すぎて、モデルの文脈に入りません"
+        case .contextOverflow: return tr("会話が長すぎて、モデルの文脈に入りません")
         case let .unavailable(reason): return reason
-        case let .failed(message): return "答えを作れませんでした（\(message)）"
+        case let .failed(message): return tr("答えを作れませんでした（\(message)）")
         }
     }
 }

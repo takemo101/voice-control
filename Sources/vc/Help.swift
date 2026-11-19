@@ -1,53 +1,59 @@
 import Foundation
+import VCCore
 
 enum Help {
     /// Tiny-Jev のモデルを読むコマンド（共通のオプションを案内する）。
     static let modelUsers: Set<String> = ["run"]
 
     /// `vc help` の説明。実際の処理は、`handle` が、コマンドを探す前に済ませる（コマンドではない）。
-    static let helpInfo = CommandInfo(
-        name: "help", group: .skills, summary: "ヘルプを表示する",
-        usage: ["vc help [コマンド]", "vc --help", "vc <コマンド> --help"], details: [], options: [], examples: ["vc help run"])
+    static var helpInfo: CommandInfo {
+        CommandInfo(
+            name: "help", group: .skills, summary: tr("ヘルプを表示する"),
+            usage: [tr("vc help [コマンド]"), "vc --help", tr("vc <コマンド> --help")], details: [], options: [], examples: ["vc help run"])
+    }
 
-    static let common: [(flag: String, text: String)] = [
-        ("--model <dir>", "Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：アプリの設定 > モデル）"),
-        ("--length <トークン数>", "Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）"),
-        ("--floor <0〜1>", "確信度の下限（既定 0.40。未満は実行しない）"),
-        ("--engine <エンジン>", "スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら vc engine set）"),
-        ("--stt <音声認識>", "使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：設定ウィンドウ > モデル。常にそうするなら 設定ウィンドウ > モデル > 音声認識）"),
-        ("-h, --help", "このヘルプを表示"),
-        ("-V, --version", "版を表示"),
-    ]
+    /// 表示のたびに作る（表示言語は、起動のあとで決まる）。
+    static var common: [(flag: String, text: String)] {
+        [
+            ("--model <dir>", tr("Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：アプリの設定 > モデル）")),
+            (tr("--length <トークン数>"), tr("Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）")),
+            (tr("--floor <0〜1>"), tr("確信度の下限（既定 0.40。未満は実行しない）")),
+            (tr("--engine <エンジン>"), tr("スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら vc engine set）")),
+            (tr("--stt <音声認識>"), tr("使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：設定ウィンドウ > モデル。常にそうするなら 設定ウィンドウ > モデル > 音声認識）")),
+            ("-h, --help", tr("このヘルプを表示")),
+            ("-V, --version", tr("版を表示")),
+        ]
+    }
 
     /// 一覧の並びは、`Commands.all` の並び（グループの中）。`help` は、最後。
-    static let commands: [CommandInfo] = Commands.all.map { $0.info } + [helpInfo]
+    static var commands: [CommandInfo] { Commands.all.map { $0.info } + [helpInfo] }
 
     // MARK: 表示
 
     static func overview() -> String {
         var lines: [String] = []
-        lines.append(Style.bold("vc") + " " + AppInfo.version + " — スキルが使うコマンドと、診断")
-        lines.append(Style.dim("声の入力・設定は、メニューバーのアプリ（VoiceControl.app。引数なしで vc を動かすと、起動する）。"))
+        lines.append(Style.bold("vc") + " " + AppInfo.version + " — " + tr("スキルが使うコマンドと、診断"))
+        lines.append(Style.dim(tr("声の入力・設定は、メニューバーのアプリ（VoiceControl.app。引数なしで vc を動かすと、起動する）。")))
         lines.append("")
-        lines.append(Style.bold("使い方") + ": vc <コマンド> [引数] [オプション]")
+        lines.append(Style.bold(tr("使い方")) + ": " + tr("vc <コマンド> [引数] [オプション]"))
         for group in CommandGroup.allCases {
             lines.append("")
-            lines.append(Style.cyan(group.rawValue))
+            lines.append(Style.cyan(group.title))
             for c in commands where c.group == group {
                 lines.append("  " + Style.bold(pad(c.name, to: 14)) + c.summary)
             }
         }
         lines.append("")
-        lines.append(Style.cyan("共通のオプション"))
+        lines.append(Style.cyan(tr("共通のオプション")))
         for o in common { lines.append("  " + pad(o.flag, to: 24) + o.text) }
         lines.append("")
-        lines.append(Style.cyan("環境変数"))
-        lines.append("  " + pad("VC_HOME", to: 24) + "~/.voice-control の場所（スキル・設定）")
-        lines.append("  " + pad("VC_MODEL_DIR", to: 24) + "Tiny-Jev のモデルの場所")
-        lines.append("  " + pad("NO_COLOR", to: 24) + "設定すると、色を使わない")
+        lines.append(Style.cyan(tr("環境変数")))
+        lines.append("  " + pad("VC_HOME", to: 24) + tr("~/.voice-control の場所（スキル・設定）"))
+        lines.append("  " + pad("VC_MODEL_DIR", to: 24) + tr("Tiny-Jev のモデルの場所"))
+        lines.append("  " + pad("NO_COLOR", to: 24) + tr("設定すると、色を使わない"))
         lines.append("")
-        lines.append("コマンドごとの説明: " + Style.bold("vc <コマンド> --help"))
-        lines.append("例: vc skills / vc run \"Safariを開いて\" --dry-run / vc doctor")
+        lines.append(tr("コマンドごとの説明: ") + Style.bold(tr("vc <コマンド> --help")))
+        lines.append(tr("例: vc skills / vc run \"Safariを開いて\" --dry-run / vc doctor"))
         return lines.joined(separator: "\n")
     }
 
@@ -55,16 +61,16 @@ enum Help {
         var lines: [String] = []
         lines.append(Style.bold("vc " + c.name) + " — " + c.summary)
         lines.append("")
-        lines.append(Style.cyan("使い方"))
+        lines.append(Style.cyan(tr("使い方")))
         c.usage.forEach { lines.append("  " + $0) }
         if !c.details.isEmpty {
             lines.append("")
-            lines.append(Style.cyan("説明"))
+            lines.append(Style.cyan(tr("説明")))
             c.details.forEach { lines.append("  " + $0) }
         }
         if !c.options.isEmpty {
             lines.append("")
-            lines.append(Style.cyan("オプション"))
+            lines.append(Style.cyan(tr("オプション")))
             let width = min(26, c.options.map { displayWidth($0.flag) }.max() ?? 0)
             for o in c.options {
                 if displayWidth(o.flag) > width { lines.append("  " + o.flag); lines.append("  " + String(repeating: " ", count: width + 2) + o.text) }
@@ -73,12 +79,12 @@ enum Help {
         }
         if Self.modelUsers.contains(c.name) {
             lines.append("")
-            lines.append(Style.cyan("共通のオプション") + Style.dim("（モデルを使うコマンド）"))
+            lines.append(Style.cyan(tr("共通のオプション")) + Style.dim(tr("（モデルを使うコマンド）")))
             for o in common { lines.append("  " + pad(o.flag, to: 24) + o.text) }
         }
         if !c.examples.isEmpty {
             lines.append("")
-            lines.append(Style.cyan("例"))
+            lines.append(Style.cyan(tr("例")))
             c.examples.forEach { lines.append("  " + Style.dim("$ ") + $0) }
         }
         return lines.joined(separator: "\n")

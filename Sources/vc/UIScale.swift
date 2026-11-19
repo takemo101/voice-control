@@ -44,7 +44,7 @@ import VCCore
         apply(next)
         var settings = Settings.loadOrDefault().settings
         settings.fontSize = next == Self.standard ? nil : next
-        do { try settings.save() } catch { FileHandle.standardError.write(Data("文字の大きさを、保存できませんでした（\(error)）\n".utf8)) }
+        do { try settings.save() } catch { FileHandle.standardError.write(Data((tr("文字の大きさを、保存できませんでした（\(error)）") + "\n").utf8)) }
     }
 
     private static func stored() -> Int { clamp(Settings.loadOrDefault().settings.fontSize ?? standard) }

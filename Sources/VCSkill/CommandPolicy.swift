@@ -121,16 +121,16 @@ public enum CommandPolicy {
 
     /// 実行してよいか。許可なら `nil`、拒否なら理由。
     public static func check(argv: [String], allowed: [String]) -> Violation? {
-        guard let first = argv.first else { return Violation(reason: "コマンドが空") }
-        if first.contains("/") { return Violation(reason: "パスでの指定は不可（\(first)）。コマンド名だけ") }
-        if forbidden.contains(first) { return Violation(reason: "\(first) は、許可できない") }
-        if argv.contains(where: { $0.contains("\0") }) { return Violation(reason: "引数に、使えない文字がある") }
+        guard let first = argv.first else { return Violation(reason: tr("コマンドが空")) }
+        if first.contains("/") { return Violation(reason: tr("パスでの指定は不可（\(first)）。コマンド名だけ")) }
+        if forbidden.contains(first) { return Violation(reason: tr("\(first) は、許可できない")) }
+        if argv.contains(where: { $0.contains("\0") }) { return Violation(reason: tr("引数に、使えない文字がある")) }
         // agent-desktop の、危険なキー（アプリの終了など）の保護を、外す指定は不可。
-        if first == "agent-desktop", argv.contains("--force") { return Violation(reason: "agent-desktop --force は不可") }
+        if first == "agent-desktop", argv.contains("--force") { return Violation(reason: tr("agent-desktop --force は不可")) }
         let permitted = allowed.contains { entry in
             guard case .success(let prefix) = normalize(entry) else { return false }
             return matches(prefix: prefix, argv: argv)
         }
-        return permitted ? nil : Violation(reason: "このスキルでは許可されていない（許可：\(allowed.joined(separator: "、"))）")
+        return permitted ? nil : Violation(reason: tr("このスキルでは許可されていない（許可：\(allowed.joined(separator: tr("、")))）"))
     }
 }

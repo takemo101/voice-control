@@ -1,6 +1,7 @@
 import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
+import VCCore
 
 /// 1 回押すキー（修飾キーつきでも）：**音声入力のあとに送るキー**（設定 `dictateKey`。既定は Enter）。
 /// 書き方と、キーの名前の語彙は、`HotKeySpec` と同じ（`return`・`cmd+return`・`shift+return`・`tab`…）。違い：**単独のキーも、よい**（トリガーは、普通の入力を奪うので、単独を断る。こちらは、「送る」側）。修飾キーだけは、使えない（押す対象がない）。
@@ -34,19 +35,19 @@ public struct KeyStroke: Equatable, Sendable {
     /// 文字列 → キー。書けない形は、理由を返す。
     public static func parse(_ text: String) -> Result<KeyStroke, HotKeySpec.Failure> {
         let lowered = text.lowercased().trimmingCharacters(in: .whitespaces)
-        guard !lowered.isEmpty else { return .failure(.init(reason: "空です")) }
+        guard !lowered.isEmpty else { return .failure(.init(reason: tr("空です"))) }
         let separator: Character = lowered.contains("+") ? "+" : "-"
         let tokens = lowered.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
-        if tokens.contains(where: \.isEmpty) { return .failure(.init(reason: "「\(text)」は読めません（キーを「+」でつなぐ。例：cmd+return）")) }
+        if tokens.contains(where: \.isEmpty) { return .failure(.init(reason: tr("「\(text)」は読めません（キーを「+」でつなぐ。例：cmd+return）"))) }
         var modifiers = Set<HotKeySpec.Modifier>()
         var keys: [String] = []
         for token in tokens {
             if let modifier = HotKeySpec.aliases[token] { modifiers.insert(modifier) } else { keys.append(HotKeySpec.keyAliases[token] ?? token) }
         }
         guard keys.count == 1, let key = keys.first else {
-            return .failure(.init(reason: keys.isEmpty ? "キーがありません（修飾キーだけは、使えません）" : "キーは 1 つだけです（\(keys.joined(separator: "・"))）"))
+            return .failure(.init(reason: keys.isEmpty ? tr("キーがありません（修飾キーだけは、使えません）") : tr("キーは 1 つだけです（\(keys.joined(separator: tr("・")))）")))
         }
-        guard HotKeySpec.keyCodes[key] != nil else { return .failure(.init(reason: "知らないキー「\(key)」（英字・数字・space・return・tab・escape・矢印・f1〜f12）")) }
+        guard HotKeySpec.keyCodes[key] != nil else { return .failure(.init(reason: tr("知らないキー「\(key)」（英字・数字・space・return・tab・escape・矢印・f1〜f12）"))) }
         return .success(KeyStroke(modifiers: modifiers, key: key))
     }
 }

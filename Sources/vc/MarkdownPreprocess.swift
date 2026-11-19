@@ -182,7 +182,7 @@ enum MarkdownPreprocess {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if isFence(trimmed) { fenced.toggle(); return line }
             if fenced || !line.contains("![](") { return line }
-            return line.components(separatedBy: "`").enumerated().map { $0.offset % 2 == 0 ? $0.element.replacingOccurrences(of: "![](", with: "![画像](") : $0.element }.joined(separator: "`")
+            return line.components(separatedBy: "`").enumerated().map { $0.offset % 2 == 0 ? $0.element.replacingOccurrences(of: "![](", with: "![画像](") : $0.element }.joined(separator: "`")   // l10n-skip：照合に使う語・名前（画面に出ない）
         }.joined(separator: "\n")
     }
 

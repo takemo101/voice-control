@@ -14,8 +14,8 @@ import VCCore
 public enum FillerWords {
     /// 既定の辞書。日本語は、つなぎ言葉だと、まず間違いない形だけ（「あの」「その」「まあ」は、ふつうの語でもあるので、入れない）。
     public static let defaults: [String] = [
-        "えーっと", "ええっと", "えーと", "えっと", "ええと",
-        "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー",
+        "えーっと", "ええっと", "えーと", "えっと", "ええと",   // l10n-skip：照合に使う語・名前（画面に出ない）
+        "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー",   // l10n-skip：照合に使う語・名前（画面に出ない）
         "uh", "um", "uhm", "umm", "uhh", "hmm", "erm",
     ]
 
@@ -53,7 +53,7 @@ public enum FillerWords {
         if collapsed.count > maxLength { return .failure(.tooLong) }
         if !collapsed.contains(where: { $0.isLetter || $0.isNumber }) { return .failure(.notAWord) }
         // 声から取り出した語に、助詞が付いてくることがある（「なんかを」）：誤って辞書に入らないよう、断る
-        if collapsed.count >= 3, let last = collapsed.last, !last.isASCII, "をはもがに".contains(last) { return .failure(.endsWithParticle) }
+        if collapsed.count >= 3, let last = collapsed.last, !last.isASCII, "をはもがに".contains(last) { return .failure(.endsWithParticle) }   // l10n-skip：照合に使う語・名前（画面に出ない）
         return .success(collapsed)
     }
 
@@ -85,7 +85,7 @@ public enum FillerWords {
 
     private static let commas: Set<Character> = ["、", "，", ",", "…"]
     private static let sentenceEnds: Set<Character> = ["。", "．", ".", "！", "？", "!", "?"]
-    private static let boundaries: Set<Character> = ["、", "。", "，", "．", ",", ".", "!", "?", "！", "？", "…", "・", "「", "」", "『", "』", "（", "）", "(", ")", "“", "”", "\"", ":", ";", "：", "；"]
+    private static let boundaries: Set<Character> = ["、", "。", "，", "．", ",", ".", "!", "?", "！", "？", "…", "・", "「", "」", "『", "』", "（", "）", "(", ")", "“", "”", "\"", ":", ";", "：", "；"]   // l10n-skip：照合に使う語・名前（画面に出ない）
 
     private static func isWordish(_ c: Character) -> Bool { c.isLetter || c.isNumber || c == "-" || c == "'" || c == "’" }
     private static func isAsciiWord(_ c: Character) -> Bool { c.isASCII && (c.isLetter || c.isNumber) }

@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話（セッション）：質問を重ねられ、**長くなったら、古い往復を要約して、続けられる**（compaction。piの仕組みを、8,192 トークンの小さな文脈に合わせた）。
 /// - 会話の記録は、**メモリだけ**（ファイル・ログに残さない）。終わると（`reset`・しばらく話さない・プロセスの終了）、消える。
@@ -62,7 +63,7 @@ public actor ChatConversation {
     public var turnCount: Int { turns.count }
 
     private func fixedInstructions() -> String {
-        var text = Self.instructions + "\n\n" + backend.capabilityNote
+        var text = L10n.shared.inAnswerLanguage(Self.instructions) + "\n\n" + backend.capabilityNote
         if !notes.isEmpty {
             text += "\n\nThings the user told you earlier in this conversation (their own words, so they are about the USER, not about you. They are true. Use them only when the user asks about themselves or when they are clearly needed; never bring them up otherwise):\n" + notes.map { "- " + $0 }.joined(separator: "\n")
         }
@@ -96,7 +97,7 @@ public actor ChatConversation {
         }
         let answer = text.trimmingCharacters(in: .whitespacesAndNewlines)
         // 空の答えは、答えにしない（画面に、何も出ない往復を、記録に入れない）
-        guard !answer.isEmpty else { throw ConversationError.failed("答えが空でした。もう一度、聞いてください（言い方を変えると、答えることがあります）") }
+        guard !answer.isEmpty else { throw ConversationError.failed(tr("答えが空でした。もう一度、聞いてください（言い方を変えると、答えることがあります）")) }
         turns.append(ChatTurn(user: user, assistant: answer))
         lastActivity = now()
         stats.turns += 1
@@ -189,7 +190,7 @@ public actor ChatConversation {
             text = again.count < text.count ? again : text
             if text.count > budget.summaryMaxCharacters * 3 / 2 { text = String(text.prefix(budget.summaryMaxCharacters * 3 / 2)) + "…" }
         }
-        guard !text.isEmpty else { throw ConversationError.failed("要約が空でした") }
+        guard !text.isEmpty else { throw ConversationError.failed(tr("要約が空でした")) }
         return text
     }
 }

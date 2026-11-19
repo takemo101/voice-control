@@ -43,7 +43,7 @@ import VCSkill
         let chosen = setup.agent
         if chosen.isExternal, !AgentLocator.isAvailable(chosen) {
             if agent != .apple { await conversation.replaceBackend(rebuildBackend(for: .apple)) }
-            return "\(chosen.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました"
+            return tr("\(chosen.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました")
         }
         if agent != chosen { await conversation.replaceBackend(rebuildBackend(for: chosen)) }   // 入れ直された：選んだエージェントへ戻す
         return nil
@@ -105,7 +105,7 @@ import VCSkill
         if let shotKey {
             switch plan {
             case .screenshot, .attached: shots.markUsed(shotKey)
-            case .skippedScreenshot: if shots.shouldNoteSkip(shotKey) { notes.append("撮ったスクリーンショットは、この質問には使いませんでした（使うときは、会話のウィンドウの「画面を撮る」で添えてください）") }
+            case .skippedScreenshot: if shots.shouldNoteSkip(shotKey) { notes.append(tr("撮ったスクリーンショットは、この質問には使いませんでした（使うときは、会話のウィンドウの「画面を撮る」で添えてください）")) }
             default: break
             }
         }
@@ -116,7 +116,7 @@ import VCSkill
                 let source = ImageSource.any.resolve(for: utterance)
                 switch source.materialize(for: utterance) {
                 case let .success(found): file = found; cleanup.append { source.discard() }
-                case let .failure(missing): file = nil; route = .notUsed("画像がありません"); notes.append("画像がないので、画像なしで答えます（\(missing)）")
+                case let .failure(missing): file = nil; route = .notUsed(tr("画像がありません")); notes.append(tr("画像がないので、画像なしで答えます（\(missing)）"))
                 }
             }
             if let file {
@@ -128,17 +128,17 @@ import VCSkill
                         if await confirmImage(file, agent) { imageToSend = file; route = .sent(agent.rawValue) }
                         else { route = .declined(agent.rawValue) }
                     } else {
-                        route = .notUsed("確認できないので、送りません")
+                        route = .notUsed(tr("確認できないので、送りません"))
                     }
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
-                    if attached.contains(key) { route = .local; if plan != .attached { notes.append("同じ画像は、すでに会話に入っています") } }
+                    if attached.contains(key) { route = .local; if plan != .attached { notes.append(tr("同じ画像は、すでに会話に入っています")) } }
                     else {
-                        progress("画像を読んでいます…")
+                        progress(tr("画像を読んでいます…"))
                         let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
                         switch digest {
                         case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key); route = .local
-                        case let .failure(failure): route = .notUsed("読めませんでした"); notes.append("画像を読めませんでした（\(failure.message)）。画像なしで答えます")
+                        case let .failure(failure): route = .notUsed(tr("読めませんでした")); notes.append(tr("画像を読めませんでした（\(failure.message)）。画像なしで答えます"))
                         }
                     }
                 }
@@ -146,27 +146,27 @@ import VCSkill
         } else if wants.text {
             let clipboard = agent.isExternal ? nil : TextClipboard.read().flatMap(ChatAttachments.textAttachment(from:))   // 外のエージェントには渡さないので、読まない
             switch ChatAttachments.textPlan(agentIsExternal: agent.isExternal, clipboard: clipboard, attached: attached) {
-            case .withheldFromExternal: notes.append("コピーした文章は、外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます）")
-            case .noText: notes.append("コピーした文章がないので、文章なしで答えます")
-            case .alreadyInConversation: notes.append("同じ文章は、すでに会話に入っています")
+            case .withheldFromExternal: notes.append(tr("コピーした文章は、外のエージェントには、渡しません（この Mac の外へ出さないため。Apple のモデルの会話では、使えます）"))
+            case .noText: notes.append(tr("コピーした文章がないので、文章なしで答えます"))
+            case .alreadyInConversation: notes.append(tr("同じ文章は、すでに会話に入っています"))
             case let .attach(attachment): attachments.append(attachment); attached.insert(attachment.key)
             }
         }
         if let route { onRoute?(route) }   // 画像の扱いは、決まった時点で、ウィンドウへ知らせる（答えが出るまで、待たせない）
-        progress("考えています…")
+        progress(tr("考えています…"))
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
         // Apple の会話で、画像・コピーした文章が、会話に入っている間は、Web の道具を外す（画面の内容が、モデルの作る検索語に混ざって、外へ出ないため）
         let webOff = ChatAttachments.suppressesWeb(agentIsExternal: agent.isExternal, tools: tools, conversationHasAttachments: !attached.isEmpty)
-        if webOff && !attachments.isEmpty { notes.append("画像・コピーした文章を使うので、この会話では、Web 検索を使いません（画面の内容が、検索語に混ざって、外へ出ないため）") }
+        if webOff && !attachments.isEmpty { notes.append(tr("画像・コピーした文章を使うので、この会話では、Web 検索を使いません（画面の内容が、検索語に混ざって、外へ出ないため）")) }
         let log = ActivityLog()
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
         }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
             judgeCommand: auto ? scorer.map { scorer -> CommandJudge in { command in await Task.detached { CommandSafetyJudge(scorer: scorer).isHarmless(command) }.value } } : nil))
-        if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append("しばらく話さなかったので、前の会話は終わりました") }
-        if reply.compacted { notes.append("古いやり取りを、要約しました") }
-        if reply.compactionFailed { notes.append("要約に失敗して、古いやり取りを忘れました") }
+        if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append(tr("しばらく話さなかったので、前の会話は終わりました")) }
+        if reply.compacted { notes.append(tr("古いやり取りを、要約しました")) }
+        if reply.compactionFailed { notes.append(tr("要約に失敗して、古いやり取りを忘れました")) }
         return Outcome(answer: reply.text, notes: notes, activities: log.items, startedNew: reply.startedNew, imageRoute: route)
     }
 }

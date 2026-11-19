@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// スキルを実行するモデルとの、やりとり 1 回分の文（どのモデルの通信にも共通の形）。通信の形（Ollama・OpenAI 互換）への変換は、各アダプターが持つ。
 struct ChatMessage: Sendable, Equatable {
@@ -44,10 +45,10 @@ enum ChatError: Error, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .notRunning(let server, let endpoint): return "\(server) に接続できません（\(endpoint)）。起動してください"
-        case .modelNotFound(let model, let hint): return "モデル「\(model)」がありません。\(hint)"
-        case .http(let status, let body): return "モデルのサーバーがエラーを返しました（HTTP \(status)）：\(body.prefix(200))"
-        case .badResponse(let why): return "モデルのサーバーの応答を読めません（\(why)）"
+        case .notRunning(let server, let endpoint): return tr("\(server) に接続できません（\(endpoint)）。起動してください")
+        case .modelNotFound(let model, let hint): return tr("モデル「\(model)」がありません。\(hint)")
+        case .http(let status, let body): return tr("モデルのサーバーがエラーを返しました（HTTP \(status)）：\(body.prefix(200))")
+        case .badResponse(let why): return tr("モデルのサーバーの応答を読めません（\(why)）")
         }
     }
 }

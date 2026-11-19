@@ -6,18 +6,18 @@ import VCSpeech
 
 struct DoctorCommand: Command {
     static let info = CommandInfo(
-        name: "doctor", group: .skills, summary: "動かすのに必要なものが、そろっているかを確かめる",
-        usage: ["vc doctor [--engine <エンジン>]"],
+        name: "doctor", group: .skills, summary: tr("動かすのに必要なものが、そろっているかを確かめる"),
+        usage: [tr("vc doctor [--engine <エンジン>]")],
         details: [
-            "Apple Intelligence（スキルの実行に使う言語モデル）・Tiny-Jev のモデル（スキルの選択）が使えるかを確かめ、使えないものは、直す手順を示す。",
-            "任意の機能に要るもの（agent-desktop・アクセシビリティ・画面収録・マイクの許可・設定ファイル）も確かめる。許可の確認ダイアログは出さず、設定も変えない。",
-            "必須（Apple Intelligence・Tiny-Jev）が使えなければ、終了コード 1。任意のものだけなら、0。",
+            tr("Apple Intelligence（スキルの実行に使う言語モデル）・Tiny-Jev のモデル（スキルの選択）が使えるかを確かめ、使えないものは、直す手順を示す。"),
+            tr("任意の機能に要るもの（agent-desktop・アクセシビリティ・画面収録・マイクの許可・設定ファイル）も確かめる。許可の確認ダイアログは出さず、設定も変えない。"),
+            tr("必須（Apple Intelligence・Tiny-Jev）が使えなければ、終了コード 1。任意のものだけなら、0。"),
         ],
         options: [], examples: ["vc doctor", "vc doctor --engine ollama:qwen3.5:4b", "vc doctor --engine openai:qwen3-4b@1234"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
         let report = DoctorReport(checks: await Self.collect(context))
-        heading("vc doctor" + Style.dim("（vc \(AppInfo.version)・macOS \(Self.osVersion)）"))
+        heading("vc doctor" + Style.dim(tr("（vc \(AppInfo.version)・macOS \(Self.osVersion)）")))
         report.lines().forEach { print($0) }
         if report.hasFailure { exit(1) }
     }

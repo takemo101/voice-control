@@ -11,6 +11,9 @@ enum EnglishTables {
         .merging(dialogs) { $1 }
         .merging(shared) { $1 }
         .merging(system) { $1 }
+        .merging(chatui) { $1 }
+        .merging(panels) { $1 }
+        .merging(cli) { $1 }
 }
 
 /// 言語の設定を、アプリ・端末の `vc` に反映する（起動の最初と、設定を変えたとき）。
@@ -19,5 +22,6 @@ enum AppLocalization {
     static func bootstrap(settings: Settings) {
         L10n.shared.install(english: EnglishTables.all)
         L10n.shared.use(settings.displayLanguage)
+        L10n.shared.useAnswerLanguage((try? settings.recognitionLanguage.get()) ?? .ja)
     }
 }

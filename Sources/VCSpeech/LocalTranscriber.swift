@@ -1,6 +1,7 @@
 import AVFoundation
 import CTranscribe
 import Foundation
+import VCCore
 
 /// ネイティブ（transcribe.cpp）の呼び出しの失敗。
 enum NativeSpeechError: Error, Equatable, CustomStringConvertible {
@@ -8,8 +9,8 @@ enum NativeSpeechError: Error, Equatable, CustomStringConvertible {
     case run(String)
     var description: String {
         switch self {
-        case let .load(reason): return "モデルを開けません（\(reason)）。壊れているか、形式が違います（設定ウィンドウ > モデル で取り直す）"
-        case let .run(reason): return "認識に失敗しました（\(reason)）"
+        case let .load(reason): return tr("モデルを開けません（\(reason)）。壊れているか、形式が違います（設定ウィンドウ > モデル で取り直す）")
+        case let .run(reason): return tr("認識に失敗しました（\(reason)）")
         }
     }
 }

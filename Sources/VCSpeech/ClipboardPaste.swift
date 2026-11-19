@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 
 /// クリップボード（ペーストボード）への、小さな口。実装は `SystemPasteboard`。テストでは、偽物に替える。
 @MainActor public protocol PasteboardAccess: AnyObject {
@@ -88,7 +89,7 @@ import Foundation
 @MainActor public final class ClipboardPaste {
     public enum Failure: Error, CustomStringConvertible, Equatable {
         case notTrusted
-        public var description: String { "入力するには、アクセシビリティの許可が要ります（システム設定 > プライバシーとセキュリティ > アクセシビリティ）" }
+        public var description: String { tr("入力するには、アクセシビリティの許可が要ります（システム設定 > プライバシーとセキュリティ > アクセシビリティ）") }
     }
 
     public enum Outcome: Equatable {

@@ -12,13 +12,13 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     /// 表示名（提供元）。
     public var label: String {
         switch self {
-        case .apple: return "Apple のモデル（この Mac の中）"
-        case .agy: return "Antigravity（agy。Google）"
-        case .claude: return "Claude Code（claude。Anthropic）"
-        case .codex: return "Codex（codex。OpenAI）"
-        case .grok: return "Grok（grok。xAI）"
-        case .opencode: return "OpenCode（opencode。設定したモデルの提供元）"
-        case .pi: return "pi（pi。設定したモデルの提供元）"
+        case .apple: return tr("Apple のモデル（この Mac の中）")
+        case .agy: return tr("Antigravity（agy。Google）")
+        case .claude: return tr("Claude Code（claude。Anthropic）")
+        case .codex: return tr("Codex（codex。OpenAI）")
+        case .grok: return tr("Grok（grok。xAI）")
+        case .opencode: return tr("OpenCode（opencode。設定したモデルの提供元）")
+        case .pi: return tr("pi（pi。設定したモデルの提供元）")
         }
     }
 
@@ -26,13 +26,13 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     public static func parse(_ text: String) -> ChatAgent? {
         let key = text.trimmingCharacters(in: .whitespaces).lowercased()
         let aliases: [String: ChatAgent] = [
-            "apple": .apple, "fm": .apple, "アップル": .apple,
-            "agy": .agy, "antigravity": .agy, "アンチグラビティ": .agy,
-            "claude": .claude, "クロード": .claude,
-            "codex": .codex, "コーデックス": .codex,
-            "grok": .grok, "グロック": .grok,
-            "opencode": .opencode, "open code": .opencode, "オープンコード": .opencode,
-            "pi": .pi, "パイ": .pi,
+            "apple": .apple, "fm": .apple, "アップル": .apple,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "agy": .agy, "antigravity": .agy, "アンチグラビティ": .agy,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "claude": .claude, "クロード": .claude,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "codex": .codex, "コーデックス": .codex,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "grok": .grok, "グロック": .grok,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "opencode": .opencode, "open code": .opencode, "オープンコード": .opencode,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "pi": .pi, "パイ": .pi,   // l10n-skip：照合に使う語・名前（画面に出ない）
         ]
         return aliases[key]
     }
