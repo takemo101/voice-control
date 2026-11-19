@@ -41,33 +41,5 @@ struct VoicePage: View {
                 }
             }
         }
-        Card(tr("音声入力"), footer: tr("送るキーを選ぶと、送信ボタンやコマンドの実行まで、声だけでできます。メッセージ・ターミナルでは、そのまま送られます（キーを送る前の 0.8 秒に、Esc で取りやめられます）。")) {
-            Row(tr("入力したあとに送るキー"), detail: tr("文字を入れてから、選んだキーを押します。候補は、キーのページで決めます")) {
-                let send = model.settings.dictateSend
-                Picker("", selection: Binding(get: { send.active }, set: { model.setDictateMode($0) })) {
-                    ForEach(Array(send.modes.enumerated()), id: \.offset) { Text($0.element.title).tag($0.offset) }
-                }
-                .labelsHidden().frame(width: 150)
-            }
-            RowDivider()
-            SwitchRow(model: model, title: tr("英語の前に、空白を足す"), detail: tr("英語を、単語のすぐあとに入れるとき、空白を 1 つ足します（日本語には、足しません）"), value: model.settings.smartSpacing ?? true, restart: false) { $0.smartSpacing = $1 ? nil : false }
-        }
-        Card(tr("音声入力のつなぎ言葉"), footer: (model.settings.removeFillers ?? false) ? tr("消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。") : tr("オンにすると、消す言葉の一覧を、ここで直せます。音声入力だけに効きます（声で頼む内容には、使いません）。")) {
-            SwitchRow(model: model, title: tr("つなぎ言葉（えーと・um など）を消す"), detail: nil, value: model.settings.removeFillers ?? false) { $0.removeFillers = $1 }
-            if model.settings.removeFillers ?? false {   // オフのときは、言葉の欄を、出さない（空の大きな欄が、目立つ）
-                RowDivider()
-                VStack(alignment: .leading, spacing: 8) {
-                    TextEditor(text: $model.fillersText)
-                        .font(.system(size: 12)).frame(height: 84).scrollContentBackground(.hidden)
-                        .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-                    HStack {
-                        Button(tr("保存")) { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
-                        Button(tr("既定に戻す")) { model.resetFillers() }.controlSize(.small)
-                    }
-                }
-                .padding(14)
-            }
-        }
     }
 }

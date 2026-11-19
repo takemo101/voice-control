@@ -4,12 +4,16 @@ import VCSkill
 import VCSpeech
 
 /// 設定画面の、画面から分けて確かめられる規則（キーの書き方・重なり・エンジンの組み立て）。設定ファイルの値は、ここで一度だけ検査してから書く。
-enum KeyKind: CaseIterable, Hashable {
+enum KeyKind: Hashable {
     case listen, dictate, chat, shot
-    /// 音声入力のあとに送るキーの候補（`dictateKey`・`dictateKey2`〜`4`）。**トリガーではない**（押している間だけ話すキーではなく、1 回押すキー：単独のキーも、よい）。
-    case sendKey, sendKey2, sendKey3, sendKey4
+    /// 音声入力のあとに送るキー（一覧の `index` 番目。`Settings.sendKeyList`）。**トリガーではない**（押している間だけ話すキーではなく、1 回押すキー：単独のキーも、よい）。一覧の長さ以上の番号は、「これから足す」キー。
+    case sendKey(Int)
     /// 操作のショートカット（キーの組み合わせだけ）：直前の入力の貼り直し・送るキーの切り替え。
     case pasteLast, cycleSend
+
+    /// 設定ウィンドウの欄が 1 つずつある、固定のキー（送るキーは、一覧で、足し引きする）。
+    static var fixed: [KeyKind] { [.listen, .dictate, .chat, .shot, .pasteLast, .cycleSend] }
+    static var triggers: [KeyKind] { [.listen, .dictate, .chat, .shot] }
 
     var title: String {
         switch self {
@@ -17,56 +21,67 @@ enum KeyKind: CaseIterable, Hashable {
         case .dictate: return tr("音声入力")
         case .chat: return tr("会話")
         case .shot: return tr("画面撮影")
-        case .sendKey: return tr("送るキー 1")
-        case .sendKey2: return tr("送るキー 2")
-        case .sendKey3: return tr("送るキー 3")
-        case .sendKey4: return tr("送るキー 4")
+        case let .sendKey(index): return tr("キー \(index + 1)")
         case .pasteLast: return tr("直前の入力を貼り直す")
         case .cycleSend: return tr("送るキーを切り替える")
         }
     }
 
-    /// 1 回押すキー（送るキーの候補）か。`false` は、キーの組み合わせ・長押しのトリガーの書き方（`HotKeySpec`）。
-    var isStroke: Bool { Self.sendKeys.contains(self) }
+    /// 1 回押すキー（送るキー）か。`false` は、キーの組み合わせ・長押しのトリガーの書き方（`HotKeySpec`）。
+    var isStroke: Bool { if case .sendKey = self { return true } else { return false } }
     /// `HotKeySpec` の書き方のキー（押している間だけ話すキー・画面撮影・操作のショートカット）。
     var isTrigger: Bool { !isStroke }
     /// キーの組み合わせだけ使える、操作のショートカットか（長押しは、使えない）。
     var isAction: Bool { self == .shot || self == .pasteLast || self == .cycleSend }
-    static var triggers: [KeyKind] { [.listen, .dictate, .chat, .shot] }
-    static var sendKeys: [KeyKind] { [.sendKey, .sendKey2, .sendKey3, .sendKey4] }
-    static var actions: [KeyKind] { [.pasteLast, .cycleSend] }
 
-    var help: String {
+    var help: String? {
         switch self {
         case .listen: return tr("押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）")
         case .dictate: return tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）")
         case .chat: return tr("押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）")
         case .shot: return tr("押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）")
-        case .sendKey: return tr("文字を入れたあとに押すキー（既定：Enter）。送信が ⌘Enter などのアプリに合わせられます")
-        case .sendKey2, .sendKey3, .sendKey4: return tr("もう 1 つ、送るキーの候補（空なら、使わない）")
+        case .sendKey: return nil
         case .pasteLast: return tr("直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）")
-        case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → 送るキー 1 → 2 …）。キーの組み合わせだけ")
+        case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます")
         }
     }
 
-    /// 空にできる（使わない）か。声で頼むキーは、空にすると、既定（shift の長押し）。
-    var isOptional: Bool { self != .listen }
+    /// 空にできる（使わない）か。声で頼むキーは、空にすると、既定（shift の長押し）。送るキーは、一覧から外す。
+    var isOptional: Bool { self != .listen && !isStroke }
 
     /// 空にしたときの、実際のキー（空のままの欄の表示と、「既定に戻す」）。
-    var fallback: String? { self == .listen ? "shift" : (self == .sendKey ? "return" : nil) }
+    var fallback: String? { self == .listen ? "shift" : nil }
 
-    var keyPath: WritableKeyPath<Settings, String?> {
+    /// 設定に書かれている書き方（なければ nil）。
+    func value(in settings: Settings) -> String? {
         switch self {
-        case .listen: return \.hotkey
-        case .dictate: return \.dictateHotkey
-        case .chat: return \.chatHotkey
-        case .shot: return \.shotHotkey
-        case .sendKey: return \.dictateKey
-        case .sendKey2: return \.dictateKey2
-        case .sendKey3: return \.dictateKey3
-        case .sendKey4: return \.dictateKey4
-        case .pasteLast: return \.pasteLastHotkey
-        case .cycleSend: return \.dictateCycleHotkey
+        case .listen: return settings.hotkey
+        case .dictate: return settings.dictateHotkey
+        case .chat: return settings.chatHotkey
+        case .shot: return settings.shotHotkey
+        case let .sendKey(index): let list = settings.sendKeyList; return list.indices.contains(index) ? list[index] : nil
+        case .pasteLast: return settings.pasteLastHotkey
+        case .cycleSend: return settings.dictateCycleHotkey
+        }
+    }
+
+    /// 設定へ書く。`nil`・空は、外す（送るキーは、一覧から取る。一覧の末尾の次の番号は、足す）。送るキーは、一覧（`dictateKeys`）に書き、古い `dictateKey` は、外す。
+    func set(_ text: String?, in settings: inout Settings) {
+        let value = text.flatMap { $0.isEmpty ? nil : $0 }
+        switch self {
+        case .listen: settings.hotkey = value
+        case .dictate: settings.dictateHotkey = value
+        case .chat: settings.chatHotkey = value
+        case .shot: settings.shotHotkey = value
+        case let .sendKey(index):
+            var list = settings.sendKeyList
+            if list.indices.contains(index) {
+                if let value { list[index] = value } else { list.remove(at: index) }
+            } else if let value { list.append(value) }
+            settings.dictateKeys = list
+            settings.dictateKey = nil
+        case .pasteLast: settings.pasteLastHotkey = value
+        case .cycleSend: settings.dictateCycleHotkey = value
         }
     }
 
@@ -76,7 +91,7 @@ enum KeyKind: CaseIterable, Hashable {
         case .shot: return ["ctrl+opt+s", "ctrl+opt+space", "f5"]
         case .pasteLast: return ["opt+shift+v", "ctrl+opt+v", "f6"]
         case .cycleSend: return ["opt+shift+e", "ctrl+opt+e", "f7"]
-        case .sendKey, .sendKey2, .sendKey3, .sendKey4: return ["return", "cmd+return", "shift+return", "opt+return", "ctrl+return", "tab"]
+        case .sendKey: return ["return", "cmd+return", "shift+return", "opt+return", "ctrl+return", "tab"]
         default: return ["shift", "ctrl", "rshift", "rcmd", "ropt", "ctrl+opt+space", "f5"]
         }
     }
@@ -92,10 +107,10 @@ enum SettingsRules {
         }
         var candidate = settings
         if trimmed.isEmpty {
-            candidate[keyPath: kind.keyPath] = nil
+            kind.set(nil, in: &candidate)
         } else {
             if case let .failure(f) = HotKeySpec.parse(trimmed) { return f.reason }
-            candidate[keyPath: kind.keyPath] = trimmed
+            kind.set(trimmed, in: &candidate)
         }
         guard case let .success(listen) = candidate.hotkeySpec else { return nil }   // すでに書かれている声で頼むキーが壊れている：その直しは、そのキーの欄で
         func spec(_ text: String?) -> HotKeySpec? { text.flatMap { try? HotKeySpec.parse($0).get() } }

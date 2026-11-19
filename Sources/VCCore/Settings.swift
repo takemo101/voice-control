@@ -26,7 +26,7 @@ import Foundation
 /// - `sttLanguage`：**音声認識の言語**（`ja`・`en`・`auto`。`auto` は、ダウンロードしたモデルだけが音声から判定する：Apple は、Mac の言語）。録音の認識・録音中の文字・読み上げの声に効く。なければ、日本語。
 /// - `history`：**音声入力の履歴**を、ファイル（`~/.voice-control/history.jsonl`。自分だけが読める）に残すか。**なければ、残さない**（既定オフ。SPEC F64。利用者の判断：2026-11-19）。`historyDays`：残す日数（なければ 7・1〜365）。
 /// - `pasteLastHotkey`：**直前の入力を、もう一度、前面のアプリへ入れる**ショートカット（キーの組み合わせ。なければ、ショートカットなし。メニューからも、できる）。直前の入力は、メモリだけに持つ。
-/// - `dictateKey2`・`dictateKey3`・`dictateKey4`：**音声入力のあとに送るキーの、ほかの候補**（`dictateKey` の次。空なら、使わない）。`dictateMode`：いま使う候補（0＝送らない・1＝`dictateKey`・2〜4＝`dictateKey2`〜`4`）。なければ、`dictateEnter` に従う（古い設定のまま）。`dictateCycleHotkey`：候補を、順に切り替えるショートカット。
+/// - `dictateKeys`：**音声入力のあとに送るキーの一覧**（利用者が、設定ウィンドウ > 音声入力 で、足し引きする。`cmd+return`・`shift+return`・`tab`…）。なければ、`dictateKey`（古い設定。さらになければ Enter）の 1 つ。`dictateMode`：いま使う候補（0＝送らない・1〜＝一覧の 1 番目から）。なければ、`dictateEnter` に従う（古い設定のまま）。`dictateCycleHotkey`：候補を、順に切り替えるショートカット（キーの組み合わせ。なければ、ショートカットなし。メニューからも、できる）。
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
@@ -50,9 +50,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var historyDays: Int?
     public var pasteLastHotkey: String?
     public var dictateCycleHotkey: String?
-    public var dictateKey2: String?
-    public var dictateKey3: String?
-    public var dictateKey4: String?
+    public var dictateKeys: [String]?
     public var dictateMode: Int?
     public var smartSpacing: Bool?
     public var uiLanguage: String?
@@ -95,9 +93,7 @@ public struct Settings: Codable, Sendable, Equatable {
         historyDays = try c.decodeIfPresent(Int.self, forKey: .historyDays)
         pasteLastHotkey = try c.decodeIfPresent(String.self, forKey: .pasteLastHotkey)
         dictateCycleHotkey = try c.decodeIfPresent(String.self, forKey: .dictateCycleHotkey)
-        dictateKey2 = try c.decodeIfPresent(String.self, forKey: .dictateKey2)
-        dictateKey3 = try c.decodeIfPresent(String.self, forKey: .dictateKey3)
-        dictateKey4 = try c.decodeIfPresent(String.self, forKey: .dictateKey4)
+        dictateKeys = try c.decodeIfPresent([String].self, forKey: .dictateKeys)
         dictateMode = try c.decodeIfPresent(Int.self, forKey: .dictateMode)
         smartSpacing = try c.decodeIfPresent(Bool.self, forKey: .smartSpacing)
         uiLanguage = try c.decodeIfPresent(String.self, forKey: .uiLanguage)

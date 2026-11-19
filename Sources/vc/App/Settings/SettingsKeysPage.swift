@@ -18,20 +18,10 @@ struct KeysPage: View {
                 KeyRow(model: model, kind: kind)
             }
         }
-        Card(tr("入力のあとに送るキー"), footer: tr("音声入力のあと、文字を入れてから、いまの候補のキーを送ります。候補は、「送らない」と、ここに決めたキーです。切り替えは、ショートカット・メニューバーのメニュー・音声ページから。")) {
-            ForEach(Array(KeyKind.sendKeys.enumerated()), id: \.element) { index, kind in
-                if index > 0 { RowDivider() }
-                KeyRow(model: model, kind: kind)
-            }
-        }
-        Card(tr("ショートカット"), footer: tr("キーの組み合わせだけ使えます（⌃ ⌥ ⇧ ⌘ のどれかと、ふつうのキー）。どちらも、メニューバーのメニューからも、できます。")) {
-            ForEach(Array(KeyKind.actions.enumerated()), id: \.element) { index, kind in
-                if index > 0 { RowDivider() }
-                KeyRow(model: model, kind: kind)
-            }
-        }
         Card(tr("操作")) {
             SwitchRow(model: model, title: tr("手放し（ダブルタップ）"), detail: tr("キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）"), value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
+            RowDivider()
+            KeyRow(model: model, kind: .pasteLast)
         }
     }
 }
@@ -41,7 +31,7 @@ struct KeyRow: View {
     let kind: KeyKind
 
     var body: some View {
-        let saved = model.settings[keyPath: kind.keyPath] ?? ""
+        let saved = kind.value(in: model.settings) ?? ""
         let isRecording = model.recording == kind
         let effective = saved.isEmpty ? (kind.fallback ?? "") : saved
         let label: String = {
@@ -51,26 +41,8 @@ struct KeyRow: View {
         }()
         VStack(alignment: .leading, spacing: 6) {
             Row(kind.title, detail: kind.help) {
-                HStack(spacing: 8) {
-                    Button { isRecording ? model.stopRecording() : model.startRecording(kind) } label: {
-                        Text(isRecording ? tr("キーを押してください…") : label)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(isRecording ? Brand.rec1 : (effective.isEmpty ? Color.secondary : Color.primary))
-                            .padding(.horizontal, 12).frame(minWidth: 86, minHeight: 28)
-                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(isRecording ? Brand.rec2.opacity(0.14) : Color(nsColor: .windowBackgroundColor)))
-                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(isRecording ? Brand.rec1 : Color.primary.opacity(0.18), lineWidth: isRecording ? 1.5 : 1))
-                            .shadow(color: .black.opacity(isRecording ? 0 : 0.16), radius: 0, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                    .help(tr("押して、使いたいキーを押す（Esc で取りやめ）"))
-                    Menu {
-                        ForEach(kind.presets, id: \.self) { preset in
-                            Button(KeyRow.title(of: preset, trigger: kind.isTrigger)) { model.setDraft(kind, preset); model.commitKey(kind) }
-                        }
-                        if kind.isOptional { Divider(); Button(kind == .sendKey ? tr("既定（Enter）に戻す") : tr("使わない")) { model.setDraft(kind, ""); model.commitKey(kind) } }
-                    } label: { Image(systemName: "ellipsis.circle") }
-                    .menuStyle(.borderlessButton).fixedSize().help(tr("候補から選ぶ"))
-                }
+                KeyChip(model: model, kind: kind, label: label, isEmpty: effective.isEmpty,
+                        extra: kind.isOptional ? (tr("使わない"), { model.setDraft(kind, ""); model.commitKey(kind) }) : nil)
             }
             if isRecording {
                 Label(model.recordingHint ?? (kind.isTrigger ? tr("修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。") : tr("送りたいキーを押してください（⌘Enter のように、修飾キーと一緒でも）。Esc で取りやめ。")), systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
@@ -93,5 +65,43 @@ struct KeyRow: View {
         if trigger, case let .success(spec) = HotKeySpec.parse(preset) { return label(of: spec) }
         if !trigger, case let .success(stroke) = KeyStroke.parse(preset) { return "\(stroke.displayName)  \(stroke.description)" }
         return preset
+    }
+}
+
+/// キーの欄：押して、使いたいキーを押す（記録）＋ 候補のメニュー。送るキーの行（`SendKeyRow`）と、キーの行（`KeyRow`）が、共有する。
+struct KeyChip: View {
+    @ObservedObject var model: SettingsModel
+    let kind: KeyKind
+    let label: String
+    let isEmpty: Bool
+    /// 候補のメニューに足す項目（「使わない」など）。
+    var extra: (title: String, action: () -> Void)?
+
+    var body: some View {
+        let isRecording = model.recording == kind
+        HStack(spacing: 8) {
+            Button { isRecording ? model.stopRecording() : model.startRecording(kind) } label: {
+                Text(isRecording ? tr("キーを押してください…") : label)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isRecording ? Brand.rec1 : (isEmpty ? Color.secondary : Color.primary))
+                    .padding(.horizontal, 12).frame(minWidth: 86, minHeight: 28)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(isRecording ? Brand.rec2.opacity(0.14) : Color(nsColor: .windowBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(isRecording ? Brand.rec1 : Color.primary.opacity(0.18), lineWidth: isRecording ? 1.5 : 1))
+                    .shadow(color: .black.opacity(isRecording ? 0 : 0.16), radius: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .help(tr("押して、使いたいキーを押す（Esc で取りやめ）"))
+            Menu {
+                ForEach(kind.presets, id: \.self) { preset in
+                    Button(KeyRow.title(of: preset, trigger: kind.isTrigger)) { choose(preset) }
+                }
+                if let extra { Divider(); Button(extra.title, action: extra.action) }
+            } label: { Image(systemName: "ellipsis.circle") }
+            .menuStyle(.borderlessButton).fixedSize().help(tr("候補から選ぶ"))
+        }
+    }
+
+    private func choose(_ preset: String) {
+        if case let .sendKey(index) = kind { model.setSendKey(index, preset) } else { model.setDraft(kind, preset); model.commitKey(kind) }
     }
 }

@@ -36,7 +36,6 @@ extension EnglishTables {
         "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）": "Speak while holding the key; on release, your speech is typed into the frontmost app (no skills are used)",
         "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）": "Speak while holding the key; on release, your speech is sent as a chat question (no skills are used; you can also type in the Chat window; experimental)",
         "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）": "Press to select an area, then ask by voice (key combinations only)",
-        "文字を入れたあとに押すキー（既定：Enter）。送信が ⌘Enter などのアプリに合わせられます": "Key pressed after the text is typed (default: Enter). Lets you match apps that send with ⌘Enter",
         "Apple（この Mac の中。既定）": "Apple (on this Mac, default)",
         "Ollama（この Mac のサーバー）": "Ollama (server on this Mac)",
         "OpenAI 互換（この Mac のサーバー）": "OpenAI-compatible (server on this Mac)",

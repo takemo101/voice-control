@@ -121,7 +121,7 @@ flowchart LR
 | モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。設定ウィンドウ > モデル が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
 | 直近の入力（最大 5 件） | `RecentDictations.shared`（`VCCore`。ロックで守る） | メモリだけ。アプリを終えると消える。履歴がオフでも持つ（貼り直し・コピー用） |
 | 音声入力の履歴 | `DictationHistory`（`VCCore`。ファイルは `~/.voice-control/history.jsonl`・0600／フォルダ 0700）。書くのは、`DictationActions.record`（設定 `history` がオンのときだけ）。読む・消すのは、設定ウィンドウ > 履歴（`HistoryList`） | 利用者がオンにしたときだけ。残す日数（既定 7）・2000 件で、古いものから消える。文字と時刻だけ（アプリ名・画面・音声は持たない）。SPEC F64 |
-| 入力のあとに送るキーの候補・いまの候補 | `Settings`（`dictateKey`・`dictateKey2`〜`4`・`dictateMode`）。解釈は `DictateSendModes`（`VCSpeech`。純粋）。切り替えは `DictationActions.setSendMode`（設定を保存→`settingsChanged` で、開いている設定ウィンドウが読み直す） | 設定ファイル。入力のたびに、`DictationFlow` が設定を読むので、切り替えに再起動は要らない |
+| 入力のあとに送るキーの候補・いまの候補 | `Settings`（`dictateKeys`〔利用者が、設定ウィンドウ > 音声入力 で、足し引きする一覧。なければ古い `dictateKey`〕・`dictateMode`）。解釈は `DictateSendModes`（`VCSpeech`。純粋）。切り替えは `DictationActions.setSendMode`（設定を保存→`settingsChanged` で、開いている設定ウィンドウが読み直す） | 設定ファイル。入力のたびに、`DictationFlow` が設定を読むので、切り替えに再起動は要らない |
 | ホットキーの設定 | `~/.voice-control/settings.json` の `hotkey`（`Settings`） | 利用者の設定。設定ウィンドウ > キー が書く |
 | 録音中・実行の経過・結果の表示 | `HUD`（`NSPanel`。1 つを使い回す。**窓の管理〔位置・フェード・Space・キー・クリックを通すか〕は AppKit、中身は SwiftUI**〔`HUDSwiftUI.swift`：Liquid Glass のカード。状態は参照型の `HUDModel`：この環境には SwiftUI の `@State` のマクロのプラグインがない〕。**トリガーのキー監視を入れる前に、`warmUp()` で 1 回出しておく**：先に監視を入れると、確認のボタンが、クリックを受けられない〔実測〕）と、中身を持つ `HUDSession`（更新はロックで守る）。声の流れでは、`HUDReporter` が、1 回の発話ごとに 1 つ持つ | プロセスの間だけ。クリックを通し、フォーカスを奪わない。聞こえた文・コマンド・出力の先頭 1 行・返事は、画面に出すだけで、保存しない |
 
