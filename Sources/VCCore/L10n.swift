@@ -21,6 +21,35 @@ public enum AppLanguage: String, CaseIterable, Sendable, Equatable {
     }
 }
 
+/// 音声認識の言語（設定 `sttLanguage`）：日本語・英語・**自動**。
+/// 自動は、**ダウンロードしたモデル（Whisper）だけ**が、音声から言語を判定できる（Apple の `SpeechTranscriber` は、言語を決めて始める）。
+/// Apple のときの自動は、**Mac の言語**（日本語なら日本語・それ以外は英語）で認識する（`resolved`）。
+public enum SpeechLanguage: String, CaseIterable, Sendable, Equatable {
+    case ja, en, auto
+
+    /// 画面に出す名前（日本語・English は、その言語の名前：翻訳しない。自動は、呼ぶ側が翻訳する）。
+    public var displayName: String? { self == .auto ? nil : (self == .ja ? AppLanguage.ja.displayName : AppLanguage.en.displayName) }
+    public var isAuto: Bool { self == .auto }
+
+    /// 言語を決めて始める認識（Apple）・録音中の文字・声の見つけ方に使う言語。自動は、Mac の言語。
+    public var resolved: AppLanguage { resolved(systemLanguages: Locale.preferredLanguages) }
+    public func resolved(systemLanguages: [String]) -> AppLanguage {
+        switch self {
+        case .ja: return .ja
+        case .en: return .en
+        case .auto: return (systemLanguages.first ?? "").lowercased().hasPrefix("ja") ? .ja : .en
+        }
+    }
+
+    /// transcribe.cpp（Whisper）へ渡す言語の符号。自動は nil（モデルが、音声から判定する）。
+    public var whisperCode: String? { self == .auto ? nil : rawValue }
+
+    public static func parse(_ text: String?) -> SpeechLanguage? {
+        guard let text else { return nil }
+        return SpeechLanguage(rawValue: text.lowercased())
+    }
+}
+
 /// 表示言語の切り替えと、翻訳の表（英語）。**表は、日本語の文（鍵）→ 英語の文**。表にない文は、日本語のまま出す（欠けても、読める）。
 /// 翻訳する場所は、`tr`。**画面の言葉すべて**（設定ウィンドウ・ダイアログ・メニュー・上のパネル・画像・会話・Markdown のウィンドウ・端末の `vc`）。モデルへの指示・照合の語・開発用のコマンドは、翻訳しない（`// l10n-skip`）。
 /// `@unchecked Sendable` の理由：可変な状態（`language`・`english`）は、すべて `lock` で守る。
@@ -28,7 +57,7 @@ public final class L10n: @unchecked Sendable {
     public static let shared = L10n()
     private let lock = NSLock()
     private var current = AppLanguage.ja
-    private var answering = AppLanguage.ja
+    private var answering: AppLanguage? = .ja   // nil：自動（利用者の言語で答えさせる）
     private var english: [String: String] = [:]
 
     /// いまの表示言語。
@@ -38,12 +67,13 @@ public final class L10n: @unchecked Sendable {
     public func use(_ language: AppLanguage?) { lock.withLock { current = language ?? .ja } }
 
     /// **答えの言語**（会話・スキルの結果・画像の説明を、モデルに書かせる言語）：認識する言語（設定 `sttLanguage`）。モデルへの指示の「Answer in …」に入る。
-    public var answerLanguage: AppLanguage { lock.withLock { answering } }
-    public func useAnswerLanguage(_ language: AppLanguage) { lock.withLock { answering = language } }
+    public var answerLanguage: AppLanguage? { lock.withLock { answering } }
+    /// 自動のときは、固定せず、「利用者の言語」で答えさせる。
+    public func useAnswerLanguage(_ language: SpeechLanguage) { lock.withLock { answering = language == .auto ? nil : language.resolved } }
 
     /// モデルへの指示（英語）の「Japanese」を、答えの言語の名前にする（日本語なら、そのまま）。指示は、**呼び出すたびに**作る（言語は、設定で替わる）。
     public func inAnswerLanguage(_ prompt: String) -> String {
-        let language = answerLanguage
+        guard let language = answerLanguage else { return prompt.replacingOccurrences(of: "Japanese", with: "the user's language") }
         return language == .ja ? prompt : prompt.replacingOccurrences(of: "Japanese", with: language.englishName)
     }
 

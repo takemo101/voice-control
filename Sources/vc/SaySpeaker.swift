@@ -21,7 +21,7 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     static let shared = SaySpeaker()
     private let lock = NSLock()
     private var preferredVoice: String?
-    private var voiceLanguage = AppLanguage.ja
+    private var voiceLanguage = SpeechLanguage.ja
     private var speakingFlags: [SpeechChannel: Bool] = [:]
     private var synthesizer: AVSpeechSynthesizer?                  // メインスレッドだけ
     private var pending: [ObjectIdentifier: SpeechChannel] = [:]   // メインスレッドだけ：読む予定・読み中の発話
@@ -34,11 +34,18 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     func prefer(_ voice: String?) { lock.lock(); preferredVoice = voice; lock.unlock() }
 
     /// 声の言語（認識する言語：設定 `sttLanguage`）。聞き始める前に、決める。
-    func use(language: AppLanguage) { lock.lock(); voiceLanguage = language; lock.unlock() }
+    func use(language: SpeechLanguage) { lock.lock(); voiceLanguage = language; lock.unlock() }
+
+    /// 読む言語：固定ならそれ。**自動**は、読む文字の言語（決められなければ、Mac の言語）。
+    static func language(_ setting: SpeechLanguage, reading text: String?) -> AppLanguage {
+        guard setting == .auto, let text else { return setting.resolved }
+        return SpeechVoice.language(of: text, fallback: setting.resolved)
+    }
 
     /// いま使う声。
-    func currentVoice() -> SpeechVoice.Info? {
-        lock.lock(); let preferred = preferredVoice, language = voiceLanguage; lock.unlock()
+    func currentVoice(reading text: String? = nil) -> SpeechVoice.Info? {
+        lock.lock(); let preferred = preferredVoice, setting = voiceLanguage; lock.unlock()
+        let language = Self.language(setting, reading: text)
         return SpeechVoice.resolve(preferred: preferred, voices: SpeechVoice.installed(language: language), language: language)
     }
 
@@ -59,8 +66,8 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     /// 塊ごとに、続けて読む（止めたら、残りも、読まない）。
     func say(chunks: [String], channel: SpeechChannel = .notice) {
         guard !chunks.isEmpty else { return }
-        let voice = currentVoice()
-        let language = lock.withLock { voiceLanguage }
+        let voice = currentVoice(reading: chunks.joined(separator: " "))
+        let language = Self.language(lock.withLock { voiceLanguage }, reading: chunks.joined(separator: " "))
         DispatchQueue.main.async { [self] in
             let synthesizer = self.synthesizer ?? AVSpeechSynthesizer()
             synthesizer.delegate = self

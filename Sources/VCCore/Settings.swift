@@ -23,7 +23,11 @@ import Foundation
 /// - `chatSandbox`：ACP で話す会話のエージェント（`agy`・`opencode`）を、**OS の制限（macOS の Seatbelt）つき**で起動するか（書き込みを、作業フォルダ〔「すべて」のとき〕とエージェント自身の置き場だけに限る。鍵の置き場は、読めない）。なければ、使う（設定ウィンドウ > 会話）。
 /// - `chatFolder`：道具を開けたとき（`read`・`all`）の、作業フォルダ。なければ、`~/.voice-control/chat`。
 /// - `uiLanguage`：**表示言語**（`ja`・`en`。設定ウィンドウとダイアログ）。なければ、日本語。
-/// - `sttLanguage`：**音声認識の言語**（`ja`・`en`）。録音の認識・録音中の文字・読み上げの声に効く。なければ、日本語。
+/// - `sttLanguage`：**音声認識の言語**（`ja`・`en`・`auto`。`auto` は、ダウンロードしたモデルだけが音声から判定する：Apple は、Mac の言語）。録音の認識・録音中の文字・読み上げの声に効く。なければ、日本語。
+/// - `history`：**音声入力の履歴**を、ファイル（`~/.voice-control/history.jsonl`。自分だけが読める）に残すか。**なければ、残さない**（既定オフ。SPEC F64。利用者の判断：2026-11-19）。`historyDays`：残す日数（なければ 7・1〜365）。
+/// - `pasteLastHotkey`：**直前の入力を、もう一度、前面のアプリへ入れる**ショートカット（キーの組み合わせ。なければ、ショートカットなし。メニューからも、できる）。直前の入力は、メモリだけに持つ。
+/// - `dictateKey2`・`dictateKey3`・`dictateKey4`：**音声入力のあとに送るキーの、ほかの候補**（`dictateKey` の次。空なら、使わない）。`dictateMode`：いま使う候補（0＝送らない・1＝`dictateKey`・2〜4＝`dictateKey2`〜`4`）。なければ、`dictateEnter` に従う（古い設定のまま）。`dictateCycleHotkey`：候補を、順に切り替えるショートカット。
+/// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -42,6 +46,15 @@ public struct Settings: Codable, Sendable, Equatable {
     public var chatAcp: Bool?
     public var chatSandbox: Bool?
     public var stt: String?
+    public var history: Bool?
+    public var historyDays: Int?
+    public var pasteLastHotkey: String?
+    public var dictateCycleHotkey: String?
+    public var dictateKey2: String?
+    public var dictateKey3: String?
+    public var dictateKey4: String?
+    public var dictateMode: Int?
+    public var smartSpacing: Bool?
     public var uiLanguage: String?
     public var sttLanguage: String?
     public var shotHotkey: String?
@@ -78,6 +91,15 @@ public struct Settings: Codable, Sendable, Equatable {
         chatAcp = try c.decodeIfPresent(Bool.self, forKey: .chatAcp)
         chatSandbox = try c.decodeIfPresent(Bool.self, forKey: .chatSandbox)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
+        history = try c.decodeIfPresent(Bool.self, forKey: .history)
+        historyDays = try c.decodeIfPresent(Int.self, forKey: .historyDays)
+        pasteLastHotkey = try c.decodeIfPresent(String.self, forKey: .pasteLastHotkey)
+        dictateCycleHotkey = try c.decodeIfPresent(String.self, forKey: .dictateCycleHotkey)
+        dictateKey2 = try c.decodeIfPresent(String.self, forKey: .dictateKey2)
+        dictateKey3 = try c.decodeIfPresent(String.self, forKey: .dictateKey3)
+        dictateKey4 = try c.decodeIfPresent(String.self, forKey: .dictateKey4)
+        dictateMode = try c.decodeIfPresent(Int.self, forKey: .dictateMode)
+        smartSpacing = try c.decodeIfPresent(Bool.self, forKey: .smartSpacing)
         uiLanguage = try c.decodeIfPresent(String.self, forKey: .uiLanguage)
         sttLanguage = try c.decodeIfPresent(String.self, forKey: .sttLanguage)
         shotHotkey = try c.decodeIfPresent(String.self, forKey: .shotHotkey)
@@ -150,15 +172,15 @@ extension Settings {
     /// 表示言語（設定 `uiLanguage`。なければ、書き間違いも、日本語：画面は、読めることを優先する）。
     public var displayLanguage: AppLanguage { AppLanguage.parse(uiLanguage) ?? .ja }
     /// 音声認識の言語（設定 `sttLanguage`）。書き間違いは、nil（呼ぶ側が、理由を示す）。なければ、日本語。
-    public var recognitionLanguage: Result<AppLanguage, UnknownLanguage> {
+    public var recognitionLanguage: Result<SpeechLanguage, UnknownLanguage> {
         guard let sttLanguage else { return .success(.ja) }
-        return AppLanguage.parse(sttLanguage).map { .success($0) } ?? .failure(UnknownLanguage(text: sttLanguage))
+        return SpeechLanguage.parse(sttLanguage).map { .success($0) } ?? .failure(UnknownLanguage(text: sttLanguage))
     }
     /// 画面・指示に使う、音声認識の言語（書き間違いは、日本語。書き間違いを知らせるのは、起動の検査：`CommandContext.resolveSttLanguage`）。
-    public var recognitionLanguageOrDefault: AppLanguage { (try? recognitionLanguage.get()) ?? .ja }
+    public var recognitionLanguageOrDefault: SpeechLanguage { (try? recognitionLanguage.get()) ?? .ja }
     public struct UnknownLanguage: Error, Equatable, CustomStringConvertible {
         public let text: String
-        public var description: String { "sttLanguage「\(text)」は、使えません（ja・en）" }
+        public var description: String { "sttLanguage「\(text)」は、使えません（ja・en・auto）" }
     }
 }
 

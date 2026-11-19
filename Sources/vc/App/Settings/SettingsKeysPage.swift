@@ -18,6 +18,18 @@ struct KeysPage: View {
                 KeyRow(model: model, kind: kind)
             }
         }
+        Card(tr("入力のあとに送るキー"), footer: tr("音声入力のあと、文字を入れてから、いまの候補のキーを送ります。候補は、「送らない」と、ここに決めたキーです。切り替えは、ショートカット・メニューバーのメニュー・音声ページから。")) {
+            ForEach(Array(KeyKind.sendKeys.enumerated()), id: \.element) { index, kind in
+                if index > 0 { RowDivider() }
+                KeyRow(model: model, kind: kind)
+            }
+        }
+        Card(tr("ショートカット"), footer: tr("キーの組み合わせだけ使えます（⌃ ⌥ ⇧ ⌘ のどれかと、ふつうのキー）。どちらも、メニューバーのメニューからも、できます。")) {
+            ForEach(Array(KeyKind.actions.enumerated()), id: \.element) { index, kind in
+                if index > 0 { RowDivider() }
+                KeyRow(model: model, kind: kind)
+            }
+        }
         Card(tr("操作")) {
             SwitchRow(model: model, title: tr("手放し（ダブルタップ）"), detail: tr("キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）"), value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
         }
@@ -55,7 +67,7 @@ struct KeyRow: View {
                         ForEach(kind.presets, id: \.self) { preset in
                             Button(KeyRow.title(of: preset, trigger: kind.isTrigger)) { model.setDraft(kind, preset); model.commitKey(kind) }
                         }
-                        if kind.isOptional { Divider(); Button(kind.isTrigger ? tr("使わない") : tr("既定（Enter）に戻す")) { model.setDraft(kind, ""); model.commitKey(kind) } }
+                        if kind.isOptional { Divider(); Button(kind == .sendKey ? tr("既定（Enter）に戻す") : tr("使わない")) { model.setDraft(kind, ""); model.commitKey(kind) } }
                     } label: { Image(systemName: "ellipsis.circle") }
                     .menuStyle(.borderlessButton).fixedSize().help(tr("候補から選ぶ"))
                 }

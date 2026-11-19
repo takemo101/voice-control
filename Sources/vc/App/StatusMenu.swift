@@ -55,6 +55,32 @@ import VCCore
         }
         menu.addItem(.separator())
         if SaySpeaker.shared.isSpeaking() { menu.addItem(action(tr("読み上げを止める"), #selector(stopSpeaking))) }
+        // 音声入力：直前の入力の貼り直し・直近の入力のコピー・入力のあとに送るキーの切り替え
+        let recent = RecentDictations.shared.recent
+        let pasteItem = action(tr("直前の入力を貼り直す"), #selector(pasteLastDictation))
+        pasteItem.isEnabled = !recent.isEmpty
+        menu.addItem(pasteItem)
+        let copyItem = NSMenuItem(title: tr("最近の入力をコピー"), action: nil, keyEquivalent: "")
+        let copyMenu = NSMenu()
+        for text in recent {
+            let item = NSMenuItem(title: Self.excerpt(text), action: #selector(copyDictation(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = text
+            copyMenu.addItem(item)
+        }
+        if recent.isEmpty { copyMenu.addItem(label(tr("まだ入力がありません"))) }
+        copyItem.submenu = copyMenu
+        menu.addItem(copyItem)
+        let sendItem = NSMenuItem(title: tr("入力のあとに送るキー"), action: nil, keyEquivalent: "")
+        let sendMenu = NSMenu()
+        let send = Settings.loadOrDefault().settings.dictateSend
+        for (index, mode) in send.modes.enumerated() {
+            let item = NSMenuItem(title: mode.title, action: #selector(chooseSendMode(_:)), keyEquivalent: "")
+            item.target = self; item.tag = index; item.state = index == send.active ? .on : .off
+            sendMenu.addItem(item)
+        }
+        sendItem.submenu = sendMenu
+        menu.addItem(sendItem)
+        menu.addItem(.separator())
         menu.addItem(action(tr("会話を開く"), #selector(openChat)))
         menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
         menu.addItem(action(tr("診断…"), #selector(showDoctor)))
@@ -112,6 +138,24 @@ import VCCore
     }
 
     @objc private func resetConversation() { AppActions.resetConversation() }
+
+    /// メニューの題に出す、入力の抜粋（1 行・短く）。
+    private static func excerpt(_ text: String) -> String {
+        let line = text.replacingOccurrences(of: "\n", with: " ")
+        return line.count > 40 ? String(line.prefix(40)) + "…" : line
+    }
+
+    /// 貼り直す：メニューが閉じて、前面のアプリに、フォーカスが戻ってから。
+    @objc private func pasteLastDictation() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))   // try?: 取りやめられたら、そのまま続ける（待つだけ）
+            await DictationActions.pasteLast(paste: DictationActions.menuPaste, settings: Settings.loadOrDefault().settings)
+        }
+    }
+
+    @objc private func copyDictation(_ sender: NSMenuItem) { if let text = sender.representedObject as? String { DictationActions.copy(text) } }
+
+    @objc private func chooseSendMode(_ sender: NSMenuItem) { DictationActions.setSendMode(sender.tag) }
 
     @objc private func openChat() { ChatWindow.shared.show(activate: true) }
 

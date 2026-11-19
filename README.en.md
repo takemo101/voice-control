@@ -14,6 +14,8 @@
 
 Audio and screen contents never leave your Mac, except where you explicitly choose an external agent (the settings window says so).
 
+**Dictation extras (experimental)**: register up to four keys to press after typing (Enter, ⌘Enter, …) and switch between them and “don't send” with a shortcut, the menu bar, or Settings > Voice; paste the last input again or copy a recent one (the last five are kept in memory only); an opt-in history (Settings > History, off by default; text and time only, in a file only you can read, auto-deleted after 7 days by default); speech language “Auto” (with a downloaded model) and a space added before English text typed right after a word.
+
 ## Languages
 
 Two settings, both defaulting to Japanese:

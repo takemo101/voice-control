@@ -70,7 +70,7 @@ struct CommandContext {
     }
 
     /// 音声認識の言語（設定 `sttLanguage`。なければ日本語）。書き方が違えば、理由を示して終わる。
-    var sttLanguage: AppLanguage {
+    var sttLanguage: SpeechLanguage {
         if let choices { return choices.sttLanguage }
         do { return try resolveSttLanguage(settings: currentSettings()) } catch { fail("\(error)") }
     }

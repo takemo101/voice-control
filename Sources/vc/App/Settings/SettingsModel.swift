@@ -6,12 +6,13 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, keys, voice, chat, models, skills
+    case general, keys, voice, history, chat, models, skills
     var id: String { rawValue }
     var title: String {
         switch self {
         case .keys: return tr("キー")
         case .voice: return tr("音声")
+        case .history: return tr("履歴")
         case .chat: return tr("会話")
         case .models: return L10n.shared.language == .en ? "Models" : "モデル"   // l10n-skip：行の「モデル」（Model）と、訳が違う
         case .skills: return tr("スキル")
@@ -22,6 +23,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .keys: return "keyboard"
         case .voice: return "waveform"
+        case .history: return "clock.arrow.circlepath"
         case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"
@@ -77,7 +79,13 @@ enum DownloadState: Equatable {
         problem = loaded.problem?.description
         syncDrafts()
         runtimeToken = AppRuntime.shared.observe { [weak self] in MainActor.assumeIsolated { self?.runtimeChanged() } }
+        // ショートカット・メニューで、送るキーを切り替えたとき：開いているウィンドウも、読み直す（古い値で、上書きしない）
+        externalChange = NotificationCenter.default.addObserver(forName: DictationActions.settingsChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reload() }
+        }
     }
+
+    private var externalChange: NSObjectProtocol?
 
     private func runtimeChanged() {
         guard pendingApply else { return }
@@ -120,9 +128,14 @@ enum DownloadState: Equatable {
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
     var uiLanguage: AppLanguage { settings.displayLanguage }
-    var sttLanguage: AppLanguage { settings.recognitionLanguageOrDefault }
+    var sttLanguage: SpeechLanguage { settings.recognitionLanguageOrDefault }
     func setUILanguage(_ language: AppLanguage) { update(restart: false) { $0.uiLanguage = language == .ja ? nil : language.rawValue } }
-    func setSTTLanguage(_ language: AppLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
+    /// ダウンロードした音声認識のモデルを、使っているか（言語の「自動」は、これだけが、音声から判定できる）。
+    var usesLocalSpeechModel: Bool { if case .local = (try? settings.speechChoice.get()) ?? .apple { return true } else { return false } }
+    /// 入力のあとに送るキーの候補を、選ぶ（入力のたびに読む設定：声の入力は、作り直さない）。
+    func setDictateMode(_ index: Int) { update(restart: false) { $0.dictateMode = index } }
+
+    func setSTTLanguage(_ language: SpeechLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
 
     /// 設定を変えて、保存する。書けなければ、理由を出して、変えない。`restart`：声の入力の起動のときに読む設定か。
     func update(restart: Bool = true, _ change: (inout Settings) -> Void) {

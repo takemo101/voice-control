@@ -17,7 +17,7 @@ final class LiveCaption: @unchecked Sendable {
     func enable(_ on: Bool) { lock.withLock { isEnabled = on } }
 
     /// 認識する言語（設定 `sttLanguage`。聞き始める前に、決める）。
-    func use(language: AppLanguage) { lock.withLock { self.language = language } }
+    func use(language: SpeechLanguage) { lock.withLock { self.language = language.resolved } }   // 自動は、Mac の言語（Apple は、言語を決めて始める）
 
     /// いま使っているか（録音のカプセルに、文字の欄を出すか）。
     var enabled: Bool { lock.withLock { isEnabled } }
