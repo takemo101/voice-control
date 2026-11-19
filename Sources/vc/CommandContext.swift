@@ -69,9 +69,15 @@ struct CommandContext {
         do { return try resolveSpeechChoice(settings: currentSettings()) } catch { fail("\(error)") }
     }
 
+    /// 音声認識の言語（設定 `sttLanguage`。なければ日本語）。書き方が違えば、理由を示して終わる。
+    var sttLanguage: AppLanguage {
+        if let choices { return choices.sttLanguage }
+        do { return try resolveSttLanguage(settings: currentSettings()) } catch { fail("\(error)") }
+    }
+
     /// 使う音声認識を開く（ダウンロードしたモデルは、ここで読み込む）。開けなければ、理由を示して終わる。
     func makeSpeechEngine() -> SpeechEngine {
-        do { return try SpeechEngine.make(speechChoice) } catch { fail("\(error)") }
+        do { return try SpeechEngine.make(speechChoice, language: sttLanguage) } catch { fail("\(error)") }
     }
 
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（設定ウィンドウ > モデル で取得した置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。

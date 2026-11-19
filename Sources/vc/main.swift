@@ -23,6 +23,7 @@ import VCCore
     let options = CommonOptions(consuming: &arguments)
     guard let name = arguments.command else { print(Help.overview()); exit(0) }
     let context = CommandContext(options: options)
+    AppLocalization.bootstrap(settings: context.currentSettings())   // 表示言語（設定ウィンドウ・ダイアログ）
     guard let command = Commands.find(name) else {
         eprint(Style.errRed("不明なコマンド:") + " \(name)")
         eprint("コマンドの一覧: vc --help")

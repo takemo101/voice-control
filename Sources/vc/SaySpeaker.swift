@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import Foundation
+import VCCore
 import VCSpeech
 
 /// 読み上げの種類。**会話のウィンドウは、会話の答えの読み上げだけに反応する**（スキルの結果・確認の問いかけの読み上げでは、「読み上げ中」を出さない）。
@@ -20,6 +21,7 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     static let shared = SaySpeaker()
     private let lock = NSLock()
     private var preferredVoice: String?
+    private var voiceLanguage = AppLanguage.ja
     private var speakingFlags: [SpeechChannel: Bool] = [:]
     private var synthesizer: AVSpeechSynthesizer?                  // メインスレッドだけ
     private var pending: [ObjectIdentifier: SpeechChannel] = [:]   // メインスレッドだけ：読む予定・読み中の発話
@@ -31,10 +33,13 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     /// 使う声（識別子か名前。なければ、自動）。聞き始める前に、決める。
     func prefer(_ voice: String?) { lock.lock(); preferredVoice = voice; lock.unlock() }
 
+    /// 声の言語（認識する言語：設定 `sttLanguage`）。聞き始める前に、決める。
+    func use(language: AppLanguage) { lock.lock(); voiceLanguage = language; lock.unlock() }
+
     /// いま使う声。
     func currentVoice() -> SpeechVoice.Info? {
-        lock.lock(); let preferred = preferredVoice; lock.unlock()
-        return SpeechVoice.resolve(preferred: preferred, voices: SpeechVoice.installed())
+        lock.lock(); let preferred = preferredVoice, language = voiceLanguage; lock.unlock()
+        return SpeechVoice.resolve(preferred: preferred, voices: SpeechVoice.installed(language: language), language: language)
     }
 
     /// いま、読んでいるか（どのスレッドからでも）。`channel` を渡すと、その種類だけ。
@@ -55,11 +60,12 @@ final class SaySpeaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendab
     func say(chunks: [String], channel: SpeechChannel = .notice) {
         guard !chunks.isEmpty else { return }
         let voice = currentVoice()
+        let language = lock.withLock { voiceLanguage }
         DispatchQueue.main.async { [self] in
             let synthesizer = self.synthesizer ?? AVSpeechSynthesizer()
             synthesizer.delegate = self
             self.synthesizer = synthesizer
-            let resolved = voice.flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) } ?? AVSpeechSynthesisVoice(language: "ja-JP")
+            let resolved = voice.flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) } ?? AVSpeechSynthesisVoice(language: language.bcp47)
             for chunk in chunks {
                 let utterance = AVSpeechUtterance(string: chunk)
                 utterance.voice = resolved

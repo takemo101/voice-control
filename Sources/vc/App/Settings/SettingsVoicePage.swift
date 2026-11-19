@@ -11,6 +11,14 @@ struct VoicePage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
+        Card(tr("言語"), footer: tr("録音の認識・録音中の文字・読み上げの声の言語です。声で頼む機能（スキルの選択）は、日本語で測っています。英語の精度は、日本語より低いことがあります。")) {
+            Row(tr("音声認識の言語"), detail: tr("話す言語")) {
+                Picker("", selection: Binding(get: { model.sttLanguage }, set: { model.setSTTLanguage($0) })) {
+                    ForEach(AppLanguage.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 150)
+            }
+        }
         Card("録音") {
             SwitchRow(model: model, title: "録音中は、ほかの音を消す", detail: "マイクが、再生中の音楽や通話を拾わないように", value: model.settings.mute ?? true) { $0.mute = $1 }
             RowDivider()
@@ -25,7 +33,7 @@ struct VoicePage: View {
                 HStack {
                     Picker("", selection: Binding(get: { model.settings.voice ?? "" }, set: { value in model.update { $0.voice = value.isEmpty ? nil : value } })) {
                         Text("自動").tag("")
-                        ForEach(SpeechVoice.installed().sorted { ($0.quality, $1.identifier) > ($1.quality, $0.identifier) }, id: \.identifier) { Text($0.name).tag($0.identifier) }
+                        ForEach(SpeechVoice.installed(language: model.sttLanguage).sorted { ($0.quality, $1.identifier) > ($1.quality, $0.identifier) }, id: \.identifier) { Text($0.name).tag($0.identifier) }
                     }
                     .labelsHidden().frame(width: 150)
                     Button { say("声の確認です。こんにちは。") } label: { Image(systemName: "speaker.wave.2.fill") }.help("試しに読む")

@@ -22,6 +22,7 @@ struct ResolvedKeys {
 struct ResolvedChoices {
     let engine: Engine
     let speech: SpeechChoice
+    let sttLanguage: AppLanguage
     let chatAgent: ChatAgent
     let keys: ResolvedKeys
 }
@@ -50,6 +51,14 @@ extension CommandContext {
         }
     }
 
+    /// 音声認識の言語（設定 `sttLanguage`。なければ日本語）。
+    func resolveSttLanguage(settings: Settings) throws -> AppLanguage {
+        switch settings.recognitionLanguage {
+        case let .success(language): return language
+        case let .failure(error): throw StartupProblem("settings.json の \(error)（設定ウィンドウ > 音声 で直す）", page: .voice)
+        }
+    }
+
     /// 会話に使うエージェント（設定。なければ Apple）。
     func resolveChatAgent(settings: Settings) throws -> ChatAgent {
         guard let text = settings.chatAgent else { return .apple }
@@ -63,7 +72,7 @@ extension CommandContext {
     func resolvingChoices() throws -> CommandContext {
         let settings = currentSettings()
         var resolved = self
-        resolved.choices = ResolvedChoices(engine: try resolveEngine(settings: settings), speech: try resolveSpeechChoice(settings: settings), chatAgent: try resolveChatAgent(settings: settings), keys: try resolveKeys(settings: settings))
+        resolved.choices = ResolvedChoices(engine: try resolveEngine(settings: settings), speech: try resolveSpeechChoice(settings: settings), sttLanguage: try resolveSttLanguage(settings: settings), chatAgent: try resolveChatAgent(settings: settings), keys: try resolveKeys(settings: settings))
         return resolved
     }
 }

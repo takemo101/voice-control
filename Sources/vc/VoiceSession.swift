@@ -73,6 +73,8 @@ import VCSpeech
         let paste = ClipboardPaste()
         let session = RecordingSession()
         session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
+        LiveCaption.shared.use(language: context.sttLanguage)
+        SaySpeaker.shared.use(language: context.sttLanguage)   // 読み上げの声は、認識する言語の声
         LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（録音中の文字の表示）
         session.setBufferHandler { LiveCaption.shared.feed($0) }
         let loop = VoiceLoop(

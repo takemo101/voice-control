@@ -118,6 +118,12 @@ enum DownloadState: Equatable {
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
     }
 
+    /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
+    var uiLanguage: AppLanguage { settings.displayLanguage }
+    var sttLanguage: AppLanguage { (try? settings.recognitionLanguage.get()) ?? .ja }
+    func setUILanguage(_ language: AppLanguage) { update(restart: false) { $0.uiLanguage = language == .ja ? nil : language.rawValue } }
+    func setSTTLanguage(_ language: AppLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
+
     /// 設定を変えて、保存する。書けなければ、理由を出して、変えない。`restart`：声の入力の起動のときに読む設定か。
     func update(restart: Bool = true, _ change: (inout Settings) -> Void) {
         var next = settings
@@ -126,6 +132,7 @@ enum DownloadState: Equatable {
         do {
             try next.save()
             settings = next
+            L10n.shared.use(next.displayLanguage)   // 表示言語（設定ウィンドウ・ダイアログ）
             problem = nil
             if restart {
                 pendingApply = AppRuntime.shared.scheduleReload()

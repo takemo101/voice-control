@@ -62,6 +62,14 @@ struct GeneralPage: View {
         Card("起動", footer: "オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。") {
             LoginRow(model: model)
         }
+        Card("Language / 言語", footer: tr("設定ウィンドウとダイアログの言葉です。音声認識の言語は、設定 > 音声 で決めます。")) {
+            Row(tr("表示言語"), detail: tr("設定ウィンドウとダイアログ")) {
+                Picker("", selection: Binding(get: { model.uiLanguage }, set: { model.setUILanguage($0) })) {
+                    ForEach(AppLanguage.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 150)
+            }
+        }
         Card("表示", footer: "会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。") {
             Row("文字の大きさ", detail: "10 〜 24") {
                 HStack(spacing: 10) {

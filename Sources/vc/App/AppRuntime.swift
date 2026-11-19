@@ -70,12 +70,13 @@ import VCSpeech
     /// 設定を読んで、声の流れを作り、始める。Tiny-Jev・音声認識（変わっていなければ）は、使い回す。
     private func bringUp(_ context: CommandContext) throws {
         guard let jev else { throw StartupProblem("Tiny-Jev のモデルが、まだ読まれていません") }
-        let choice = context.speechChoice
-        if speech == nil || speechID != choice.id {
+        let choice = context.speechChoice, language = context.sttLanguage
+        let wanted = "\(choice.id)/\(language.rawValue)"   // 言語が変わったら、開き直す
+        if speech == nil || speechID != wanted {
             speech?.close()
             speech = nil
-            speech = try SpeechEngine.make(choice)
-            speechID = choice.id
+            speech = try SpeechEngine.make(choice, language: language)
+            speechID = wanted
         }
         guard let speech else { throw StartupProblem("音声認識を、用意できません") }
         var none = Arguments([])
@@ -169,6 +170,7 @@ enum AppAlerts {
     private var termination: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLocalization.bootstrap(settings: Settings.loadOrDefault().settings)   // 表示言語（設定ウィンドウ・ダイアログ）
         statusMenu = StatusMenu(runtime: AppRuntime.shared)
         // SIGTERM も、通常の終了と同じ道（後始末）を通す
         signal(SIGTERM, SIG_IGN)
