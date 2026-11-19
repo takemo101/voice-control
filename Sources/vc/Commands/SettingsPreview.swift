@@ -6,12 +6,12 @@ import VCSkill
 struct SettingsPreviewCommand: Command {
     static let info = CommandInfo(
         name: "settings-preview", group: .evaluation, summary: "設定ウィンドウの見本を、画像（PNG）に書き出す（見た目の確認用。画面は撮らない）",
-        usage: ["vc settings-preview <出力のフォルダ> [--page keys|voice|models|skills|general]"],
+        usage: ["vc settings-preview <出力のフォルダ> [--page general|keys|voice|dictation|chat|models|skills] [--height <数>]"],
         details: [
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
         ],
-        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--chat-late", "ウィンドウを作る前に会話してから開いた状態を描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
+        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--height <数>", "ウィンドウの高さ（下まで見たいとき）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--chat-late", "ウィンドウを作る前に会話してから開いた状態を描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
         examples: ["VC_HOME=/tmp/demo-home vc settings-preview /tmp/settings-shots"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -77,9 +77,10 @@ struct SettingsPreviewCommand: Command {
         for page in SettingsPage.allCases where only == nil || only == page.rawValue {
             model.page = page
             if catalog, page == .skills { model.skillCatalog.loadCatalog(); for _ in 0..<60 { if case .loading = model.skillCatalog.state { Self.spin(seconds: 0.5) } else { break } } }
-            if recording, page == .keys { model.startRecording(.dictate) } else { model.stopRecording() }
+            if recording, page == .keys { model.startRecording(.dictate) } else if recording, page == .dictation { model.startRecording(.sendKey(model.settings.sendKeyList.count)) } else { model.stopRecording() }
             let window = SettingsWindow.makeWindow(model: model)
             guard let hosting = window.contentView else { fail("描けません（\(page.rawValue)）") }
+            if let height = arguments.option("--height").flatMap(Double.init) { window.setContentSize(NSSize(width: hosting.bounds.width, height: height)) }
             window.setFrameOrigin(NSPoint(x: -6000, y: -6000))   // 画面の外に置いて、アクティブな見た目で描く（利用者の画面には、出ない）
             window.makeKeyAndOrderFront(nil)
             // 描く前に、ランループを少し回す（SwiftUI の更新を、済ませる）

@@ -39,4 +39,15 @@ import VCSpeech
         #expect(KeyConflicts.message(listen: spec("shift"), dictate: nil, shot: spec("shift")) != nil)
         #expect(KeyConflicts.message(listen: spec("ctrl+opt+space"), dictate: nil, shot: spec("ctrl+opt+space")) != nil)
     }
+
+    @Test func actionShortcutsMustBeCombinationsAndMustNotClashWithAnyOtherKey() {
+        func conflict(_ actions: [(String, String)], shot: String? = nil) -> String? {
+            KeyConflicts.message(listen: spec("shift"), dictate: spec("ctrl"), shot: shot.map(spec), actions: actions.map { ($0.0, spec($0.1)) })
+        }
+        #expect(conflict([("a", "opt+shift+v"), ("b", "opt+shift+e")], shot: "ctrl+opt+s") == nil)
+        #expect(conflict([("a", "rshift")]) != nil)                                   // 長押しの書き方は、使えない
+        #expect(conflict([("a", "opt+shift+v"), ("b", "opt+shift+v")]) != nil)         // 操作どうしの重なり
+        #expect(conflict([("a", "ctrl+opt+s")], shot: "ctrl+opt+s") != nil)           // 画面撮影との重なり
+    }
 }
+

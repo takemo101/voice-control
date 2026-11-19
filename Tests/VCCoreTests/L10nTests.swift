@@ -2,33 +2,32 @@ import Testing
 @testable import VCCore
 
 /// 表示言語：日本語のときは、鍵のまま（補間を入れて）。英語のときは、表の英語（なければ、日本語のまま）。
-@Suite(.serialized) struct L10nTests {
-    private func withEnglishTable(_ body: () -> Void) {
-        let l10n = L10n.shared
+/// **グローバルの言語（`L10n.shared`）は、動かさない**：ほかのテストが、同じプロセスで、日本語の文を確かめている。テストごとに、自分の `L10n` を作る。
+@Suite struct L10nTests {
+    private func english() -> L10n {
+        let l10n = L10n()
         l10n.install(english: ["保存しました": "Saved", "%@ 件を読み込みました": "Loaded %@ items", "%@ を %@ に移しました": "Moved to %2$@ from %1$@"])
-        defer { l10n.use(nil) }
-        body()
+        return l10n
     }
+    private func translate(_ l10n: L10n, _ text: L10nKey) -> String { l10n.translate(text.key, args: text.args) }
 
     @Test func japaneseKeepsTheKeyAndEnglishUsesTheTableWithFallback() {
-        withEnglishTable {
-            L10n.shared.use(nil)
-            #expect(tr("保存しました") == "保存しました")
-            L10n.shared.use(.en)
-            #expect(tr("保存しました") == "Saved")
-            #expect(tr("表にない文") == "表にない文")   // 欠けても、読める
-        }
+        let l10n = english()
+        #expect(translate(l10n, "保存しました") == "保存しました")
+        l10n.use(.en)
+        #expect(translate(l10n, "保存しました") == "Saved")
+        #expect(translate(l10n, "表にない文") == "表にない文")   // 欠けても、読める
+        l10n.use(nil)
+        #expect(translate(l10n, "保存しました") == "保存しました")
     }
 
     @Test func interpolationsBecomeNumberedOrSequentialSlots() {
-        withEnglishTable {
-            let count = 3, from = "a.md", to = "b.md"
-            L10n.shared.use(nil)
-            #expect(tr("\(count) 件を読み込みました") == "3 件を読み込みました")   // 日本語でも、補間が入る
-            L10n.shared.use(.en)
-            #expect(tr("\(count) 件を読み込みました") == "Loaded 3 items")
-            #expect(tr("\(from) を \(to) に移しました") == "Moved to b.md from a.md")   // 語順が変わる言語のために、番号で入れられる
-        }
+        let l10n = english()
+        let count = 3, from = "a.md", to = "b.md"
+        #expect(translate(l10n, "\(count) 件を読み込みました") == "3 件を読み込みました")   // 日本語でも、補間が入る
+        l10n.use(.en)
+        #expect(translate(l10n, "\(count) 件を読み込みました") == "Loaded 3 items")
+        #expect(translate(l10n, "\(from) を \(to) に移しました") == "Moved to b.md from a.md")   // 語順が変わる言語のために、番号で入れられる
     }
 
     @Test func settingsLanguagesDefaultToJapaneseAndTheSttOneReportsATypo() {
@@ -43,13 +42,11 @@ import Testing
     }
 
     @Test func promptsFollowTheAnswerLanguageOnlyWhenItIsNotJapanese() {
-        defer { L10n.shared.useAnswerLanguage(.ja) }
+        let l10n = L10n()
         let prompt = "Answer in Japanese, briefly. Reply: done: <one short sentence in Japanese>."
-        L10n.shared.useAnswerLanguage(.ja)
-        #expect(L10n.shared.inAnswerLanguage(prompt) == prompt)
-        L10n.shared.useAnswerLanguage(.en)
-        #expect(L10n.shared.inAnswerLanguage(prompt) == "Answer in English, briefly. Reply: done: <one short sentence in English>.")
-        #expect(!L10n.shared.inAnswerLanguage(prompt).contains("Japanese"))
+        #expect(l10n.inAnswerLanguage(prompt) == prompt)
+        l10n.useAnswerLanguage(.en)
+        #expect(l10n.inAnswerLanguage(prompt) == "Answer in English, briefly. Reply: done: <one short sentence in English>.")
     }
 
     @Test func placeholdersAreFilledStrictlyAndOddTextIsLeftAlone() {
@@ -61,12 +58,25 @@ import Testing
         #expect(L10n.fill("%2$@ %1$@ %2$@", ["a", "b"]) == "b a b")   // 同じ番号を、何度でも
     }
 
-    @Test func verbatimLooksUpRuntimeTextAndFallsBackToItself() {
-        withEnglishTable {
-            L10n.shared.use(.en)
-            #expect(tr(verbatim: "保存しました") == "Saved")
-            #expect(tr(verbatim: "表にない、実行時の文") == "表にない、実行時の文")
-        }
+    @Test func runtimeTextIsLookedUpAsItIsAndFallsBackToItself() {
+        let l10n = english()
+        l10n.use(.en)
+        #expect(l10n.translate("保存しました", args: []) == "Saved")
+        #expect(l10n.translate("表にない、実行時の文", args: []) == "表にない、実行時の文")
+    }
+
+    @Test func autoSpeechLanguageFollowsTheMacAndGivesNoCodeToTheModel() {
+        #expect(SpeechLanguage.auto.resolved(systemLanguages: ["ja-JP", "en-US"]) == .ja)
+        #expect(SpeechLanguage.auto.resolved(systemLanguages: ["en-JP"]) == .en)
+        #expect(SpeechLanguage.auto.resolved(systemLanguages: []) == .en)
+        #expect(SpeechLanguage.auto.whisperCode == nil && SpeechLanguage.en.whisperCode == "en")
+        var settings = Settings(); settings.sttLanguage = "AUTO"
+        #expect((try? settings.recognitionLanguage.get()) == .auto)
+    }
+
+    @Test func automaticAnswerLanguageAsksForTheUsersOwnLanguage() {
+        let l10n = L10n()
+        l10n.useAnswerLanguage(.auto)
+        #expect(l10n.inAnswerLanguage("Answer in Japanese, briefly.") == "Answer in the user's language, briefly.")
     }
 }
-

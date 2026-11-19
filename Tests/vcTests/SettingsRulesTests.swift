@@ -49,12 +49,25 @@ import VCCore
     @Test func theSendKeyOnlyNeedsAReadableStrokeAndNeverClashesWithTriggers() {
         var settings = Settings()
         settings.hotkey = "cmd+return"   // 同じ組み合わせのトリガーがあっても、1 回押すキーは、重なりを見ない
-        #expect(SettingsRules.keyProblem(.sendKey, text: "cmd+return", in: settings) == nil)
-        #expect(SettingsRules.keyProblem(.sendKey, text: "return", in: settings) == nil)            // 単独も、よい
-        #expect(SettingsRules.keyProblem(.sendKey, text: "", in: settings) == nil)                   // 空＝既定（Enter）
-        #expect(SettingsRules.keyProblem(.sendKey, text: "cmd", in: settings) != nil)                // 修飾キーだけは、読めない
-        #expect(SettingsRules.keyProblem(.sendKey, text: "enterr", in: settings) != nil)
-        #expect(KeyKind.triggers == [.listen, .dictate, .chat, .shot] && KeyKind.sendKey.fallback == "return")
+        #expect(SettingsRules.keyProblem(.sendKey(0), text: "cmd+return", in: settings) == nil)
+        #expect(SettingsRules.keyProblem(.sendKey(0), text: "return", in: settings) == nil)            // 単独も、よい
+        #expect(SettingsRules.keyProblem(.sendKey(0), text: "", in: settings) == nil)                   // 空は、問題ではない（外す）
+        #expect(SettingsRules.keyProblem(.sendKey(0), text: "cmd", in: settings) != nil)                // 修飾キーだけは、読めない
+        #expect(SettingsRules.keyProblem(.sendKey(0), text: "enterr", in: settings) != nil)
+        #expect(KeyKind.triggers == [.listen, .dictate, .chat, .shot])
+    }
+
+    @Test func theSendKeyListIsEditedByPositionAndTheLegacyKeyIsDroppedOnTheFirstWrite() {
+        var settings = Settings(); settings.dictateKey = "cmd+return"
+        KeyKind.sendKey(1).set("tab", in: &settings)                       // 一覧の末尾の次：足す（古い 1 つが、先頭に残る）
+        #expect(settings.dictateKeys == ["cmd+return", "tab"] && settings.dictateKey == nil)
+        KeyKind.sendKey(0).set("return", in: &settings)                    // 置き換える
+        KeyKind.sendKey(1).set(nil, in: &settings)                         // 外す
+        #expect(settings.dictateKeys == ["return"])
+        KeyKind.sendKey(0).set("", in: &settings)
+        #expect(settings.dictateKeys == [] && settings.dictateSend.modes.count == 1)   // 空にしても、Enter に戻らない
+        KeyKind.sendKey(5).set(nil, in: &settings)                         // 範囲外の取り外しは、何もしない
+        #expect(settings.dictateKeys == [])
     }
 }
 

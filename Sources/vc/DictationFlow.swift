@@ -42,21 +42,22 @@ enum DictationFlow {
             HUD.shared.show(HUDContent(phase: .info, title: tr("認識しました（入力しません：--dry-run）"), chip: chip, reply: utterance), hideAfter: 2.5)
             return
         }
+        DictationActions.record(utterance, settings: settings)   // 直近の入力（メモリ）と、履歴（設定がオンのときだけ）
+        // 英語の文字を、単語のすぐあとに入れるときは、空白を 1 つ足す（日本語には、働かない。読めなければ、足さない）
+        let typed = (settings.smartSpacing ?? true) ? SmartSpacing.adjusted(utterance, before: CaretContext.characterBeforeCaret()) : utterance
         do {
-            switch try await paste.insert(utterance) {
+            switch try await paste.insert(typed) {
             case .inserted:
                 print("  " + Style.green("✓") + tr(" 入力しました（\(utterance.count) 文字）"))
-                guard settings.dictateEnter ?? false else {
-                    HUD.shared.show(HUDContent(phase: .success, title: tr("入力しました"), chip: chip, reply: utterance), hideAfter: 1.8)
+                // 入れたあとに送るキー：いまの候補（設定 `dictateMode`。古い設定は `dictateEnter`）。「送らない」なら、ここまで
+                let mode = settings.dictateSend.current
+                if let problem = mode.problem {
+                    print("  " + Style.yellow(tr("送るキーを読めません: \(problem)")))
+                    HUD.shared.show(HUDContent(phase: .failure, title: tr("キーを送れませんでした"), hint: tr("設定の送るキーを読めません: \(problem)"), chip: chip, reply: utterance), hideAfter: 5)   // 読めないキーを、Enter に、黙って、替えない
                     return
                 }
-                // 設定：入れたあとに、キー（`dictateKey`。既定は Enter）を送る。書き方が読めなければ、送らない（Enter に、黙って、替えない）
-                let stroke: KeyStroke
-                switch settings.dictateKeyStroke {
-                case let .success(value): stroke = value
-                case let .failure(failure):
-                    print("  " + Style.yellow(tr("送るキーを読めません: \(failure.reason)")))
-                    HUD.shared.show(HUDContent(phase: .failure, title: tr("キーを送れませんでした"), hint: tr("設定のキー「\(settings.dictateKey ?? "")」: \(failure.reason)"), chip: chip, reply: utterance), hideAfter: 5)
+                guard let stroke = mode.stroke else {
+                    HUD.shared.show(HUDContent(phase: .success, title: tr("入力しました"), chip: chip, reply: utterance), hideAfter: 1.8)
                     return
                 }
                 let name = stroke.displayName

@@ -8,6 +8,8 @@ public enum VoiceControlHome {
     }
     public static var skillsDirectory: URL { root.appendingPathComponent("skills") }
     public static var settingsFile: URL { root.appendingPathComponent("settings.json") }
+    /// 音声入力の履歴（設定 `history` がオンのときだけ、書く。`DictationHistory`）。
+    public static var historyFile: URL { root.appendingPathComponent("history.jsonl") }
     /// プロジェクトのスキルの置き場所：`<プロジェクトのルート>/.voice-control/skills`。ルートは、コマンドを起動した場所（カレントディレクトリ）。
     public static func projectSkillsDirectory(root: URL) -> URL { root.appendingPathComponent(".voice-control/skills") }
     /// 起動した場所（プロジェクトのルート）。

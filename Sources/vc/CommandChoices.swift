@@ -16,13 +16,15 @@ struct ResolvedKeys {
     let dictate: (spec: HotKeySpec, source: String)?
     let chat: HotKeySpec?
     let shot: HotKeySpec?
+    let pasteLast: HotKeySpec?
+    let cycleSend: HotKeySpec?
 }
 
 /// 設定・引数から決まる、**使うもの**（スキルを実行するモデル・音声認識・会話のエージェント・キー）。書き間違いは、ここで一度だけ検査して、型にする。
 struct ResolvedChoices {
     let engine: Engine
     let speech: SpeechChoice
-    let sttLanguage: AppLanguage
+    let sttLanguage: SpeechLanguage
     let chatAgent: ChatAgent
     let keys: ResolvedKeys
 }
@@ -52,7 +54,7 @@ extension CommandContext {
     }
 
     /// 音声認識の言語（設定 `sttLanguage`。なければ日本語）。
-    func resolveSttLanguage(settings: Settings) throws -> AppLanguage {
+    func resolveSttLanguage(settings: Settings) throws -> SpeechLanguage {
         switch settings.recognitionLanguage {
         case let .success(language): return language
         case let .failure(error): throw StartupProblem(tr("settings.json の \(error)（設定ウィンドウ > 音声 で直す）"), page: .voice)

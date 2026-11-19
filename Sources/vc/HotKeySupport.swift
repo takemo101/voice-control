@@ -29,7 +29,11 @@ extension CommandContext {
         do { return try resolveKeys(settings: currentSettings()).shot } catch { fail("\(error)") }
     }
 
-    /// 4 つのキーを、検査して、型にする。
+    /// 直前の入力の貼り直し・送るキーの切り替えのショートカット。なければ nil。
+    func resolvePasteLastHotKey() -> HotKeySpec? { choices?.keys.pasteLast ?? (try? resolveKeys(settings: currentSettings()))?.pasteLast }
+    func resolveCycleSendHotKey() -> HotKeySpec? { choices?.keys.cycleSend ?? (try? resolveKeys(settings: currentSettings()))?.cycleSend }
+
+    /// 6 つのキーを、検査して、型にする。
     func resolveKeys(settings: Settings) throws -> ResolvedKeys {
         func parse(_ text: String, _ name: String) throws -> HotKeySpec {
             switch HotKeySpec.parse(text) {
@@ -45,7 +49,9 @@ extension CommandContext {
         return ResolvedKeys(listen: listen,
                             dictate: try settings.dictateHotkey.map { (try parse($0, tr("音声入力")), tr("設定")) },
                             chat: try settings.chatHotkey.map { try parse($0, tr("会話")) },
-                            shot: try settings.shotHotkey.map { try parse($0, tr("スクリーンショット")) })
+                            shot: try settings.shotHotkey.map { try parse($0, tr("スクリーンショット")) },
+                            pasteLast: try settings.pasteLastHotkey.map { try parse($0, tr("直前の入力を貼り直す")) },
+                            cycleSend: try settings.dictateCycleHotkey.map { try parse($0, tr("送るキーを切り替える")) })
     }
 }
 

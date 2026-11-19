@@ -49,14 +49,25 @@ final class NativeRecognizer: @unchecked Sendable {
     deinit { close() }
 
     /// 16 kHz・モノラル・float（-1〜1）の音声 1 つ（発話 1 つ）を、文字にする。
-    func transcribe(_ samples: [Float], language: String) throws -> String {
+    /// `language`：言語の符号。nil は、モデルが、音声から判定する（自動）。
+    func transcribe(_ samples: [Float], language: String?) throws -> String {
         lock.lock(); defer { lock.unlock() }
         guard !samples.isEmpty, let session else { return "" }
-        var run = transcribe_run_params()
-        transcribe_run_params_init(&run)
-        let status = language.withCString { code -> transcribe_status in
-            run.language = code
-            return samples.withUnsafeBufferPointer { transcribe_run(session, $0.baseAddress, Int32($0.count), &run) }
+        var run0 = transcribe_run_params()
+        transcribe_run_params_init(&run0)
+        func run(_ params: inout transcribe_run_params) -> transcribe_status {
+            samples.withUnsafeBufferPointer { transcribe_run(session, $0.baseAddress, Int32($0.count), &params) }
+        }
+        let status: transcribe_status
+        if let language {
+            status = language.withCString { code -> transcribe_status in
+                var params = run0
+                params.language = code
+                return run(&params)
+            }
+        } else {
+            var params = run0   // language は NULL のまま：自動
+            status = run(&params)
         }
         guard status.rawValue == 0 else { throw NativeSpeechError.run(describe(status)) }
         return String(cString: transcribe_full_text(session))
@@ -95,9 +106,9 @@ enum AudioSamples {
 /// **モデルは、作るときに開く**（開けなければ、そこで投げる。使うときに、初めて失敗しない）。`close()` で手放す。
 public final class LocalTranscriber: Transcribing, @unchecked Sendable {
     private let recognizer: NativeRecognizer
-    public let language: String
+    public let language: String?
 
-    public init(modelFile: URL, language: String = "ja") throws {
+    public init(modelFile: URL, language: String? = "ja") throws {
         recognizer = try NativeRecognizer(modelURL: modelFile)
         self.language = language
     }

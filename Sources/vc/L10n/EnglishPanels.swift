@@ -232,7 +232,6 @@ extension EnglishTables {
         "設定": "Settings",
         "設定の「%@」のキー「%@」: %@（設定ウィンドウ > キー で直す）": "The “%@” key “%@” in Settings: %@ (fix it in Settings > Keys)",
         "設定の「声で頼む」のキー「%@」: %@（設定ウィンドウ > キー で直す）": "The “Voice command” key “%@” in Settings: %@ (fix it in Settings > Keys)",
-        "設定のキー「%@」: %@": "Key “%@” in Settings: %@",
         "診断…": "Diagnostics…",
         "話してください…": "Speak now…",
         "話し終わると自動で認識します（もう一度タップすると、すぐ認識・Esc で取りやめ）": "Recognizes automatically when you stop talking (tap again to recognize now, Esc to cancel)",

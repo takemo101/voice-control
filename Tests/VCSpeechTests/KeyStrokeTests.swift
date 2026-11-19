@@ -20,13 +20,4 @@ import Testing
             if case .success(let stroke) = KeyStroke.parse(bad) { Issue.record("読めてしまった：\(bad) → \(stroke)") }
         }
     }
-
-    @Test func anUnsetOrBrokenSettingFallsBackToEnterOnlyWhenUnset() {
-        var settings = Settings()
-        #expect((try? settings.dictateKeyStroke.get()) == .enter)                                // なければ、Enter
-        settings.dictateKey = "cmd+return"
-        #expect((try? settings.dictateKeyStroke.get())?.description == "cmd+return")
-        settings.dictateKey = "nonsense"
-        if case .success = settings.dictateKeyStroke { Issue.record("壊れた設定が、黙って、Enter になった") }   // 成功に見える代用品にしない
-    }
 }

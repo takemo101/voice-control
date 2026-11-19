@@ -24,6 +24,7 @@ extension SettingsPage {
         switch self {
         case .keys: return [Brand.rec2, Brand.rec1]
         case .voice: return [Brand.think1, Color(red: 0.25, green: 0.55, blue: 0.95)]
+        case .dictation: return [Color(red: 0.98, green: 0.72, blue: 0.30), Color(red: 0.90, green: 0.50, blue: 0.20)]
         case .chat: return [Color(red: 0.40, green: 0.82, blue: 1.0), Color(red: 0.58, green: 0.40, blue: 0.96)]
         case .models: return [Brand.think2, Color(red: 0.45, green: 0.30, blue: 0.90)]
         case .skills: return [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)]
@@ -34,7 +35,8 @@ extension SettingsPage {
     var subtitle: String {
         switch self {
         case .keys: return tr("押している間だけ話す、キーを決めます")
-        case .voice: return tr("録音・読み上げ・つなぎ言葉")
+        case .voice: return tr("言語・録音・読み上げ")
+        case .dictation: return tr("入力のあとのキー・整え方・履歴")
         case .chat: return tr("エージェント・道具・画像・記録")
         case .models: return tr("スキルを動かすモデル・音声認識")
         case .skills: return tr("声で頼めることの、有効・無効・インストール")
@@ -177,10 +179,16 @@ struct SwitchRow: View {
     let detail: String?
     let value: Bool
     let set: (inout VCCore.Settings, Bool) -> Void
+    /// 声の入力を、作り直す（再起動する）設定か。入力のたびに読む設定は、false。
+    var restart = true
+
+    init(model: SettingsModel, title: String, detail: String?, value: Bool, restart: Bool = true, set: @escaping (inout VCCore.Settings, Bool) -> Void) {
+        self.model = model; self.title = title; self.detail = detail; self.value = value; self.restart = restart; self.set = set
+    }
 
     var body: some View {
         Row(title, detail: detail) {
-            BrandSwitch(isOn: Binding(get: { value }, set: { newValue in model.update { set(&$0, newValue) } }))
+            BrandSwitch(isOn: Binding(get: { value }, set: { newValue in model.update(restart: restart) { set(&$0, newValue) } }))
         }
     }
 }

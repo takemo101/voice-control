@@ -61,6 +61,13 @@ flowchart TB
 - **音声認識の言語**（設定 `sttLanguage`）は、`ResolvedChoices.sttLanguage`（書き間違いは `StartupProblem`）→ `SpeechEngine.make(_, language:)`（Apple は `Locale`、ダウンロードしたモデルは言語の符号）・`LiveCaption`・`SaySpeaker`（その言語の声）。`AppRuntime` は、言語が変わったら、認識を開き直す。
 - **確認**：`scripts/check-l10n.py`（`just l10n`・CI）が、`tr` の鍵が表にあるか・置き換えの数・表の重複（Swift の辞書は、重複で、実行時に落ちる）・包まれていない日本語の文字列を調べる。`EnglishTablesTests` が、表の整合を確かめる。**`--uncovered` の範囲は、`Sources/vc` の全部と、`tr(` を使っているほかのターゲットのファイル**（足すときに、スクリプトへ書かなくてよい）。**同じ日本語の鍵に、別の訳が要る所**（例：サイドバーの「モデル」＝ Models・行の「モデル」＝ Model）は、鍵を分けるか、言語で分ける。
 
+### 音声入力の周辺（`DictationFlow`・`DictationActions`）
+
+- **入れる前**：認識した文字を、`DictationActions.record`（直近の入力＋履歴）に渡し、`SmartSpacing.adjusted`（前の 1 文字は、`CaretContext`＝アクセシビリティ。**読んだら捨てる**）で、空白を足すかを決めてから、`ClipboardPaste.insert` に渡す。履歴・直近の入力には、空白を足す前の文を置く。
+- **入れた後**：`DictateSendModes.current`（いまの候補）が、キーを持てば、従来の 0.8 秒（Esc で取りやめ）のあと、送る。読めないキーは、送らずに理由を出す（Enter に替えない）。
+- **操作のショートカット**（直前の貼り直し・送るキーの切り替え）は、`DictationActions.install` が、`ScreenFlow` と同じ `makeTrigger` で登録する。キーの重なりは、`KeyConflicts`（`actions:`）が、起動時と設定ウィンドウで、同じ規則で調べる。メニューバーの項目も、同じ `DictationActions` を呼ぶ。
+- **言語の「自動」**：`SpeechLanguage.auto`。ダウンロードしたモデル（`LocalTranscriber`）は `language` を渡さず、音声から判定。Apple（`FileTranscriber`・`LiveCaption`）は `resolved`（この Mac の言語）。読み上げ（`SaySpeaker`）は、読む文字から日本語・英語を決める。
+
 ### スキルの実行の流れ（`SkillRunner`）
 
 「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・声の入力（メニューバーのアプリ）（Enter で録音する通常モード。端末）・声の流れ（声の入力（メニューバーのアプリ）。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。
@@ -112,6 +119,9 @@ flowchart LR
 | 範囲選択の画面・画像のパネル | `ScreenSelector`（ディスプレイごとの全面のパネル・`SelectorView`・`ChromeView`。メインアクター。選び終わると、画像だけを返す）・`ScreenGeometry`（幾何：純粋な計算）・`ScreenGrab`（`ScreenCaptureKit` の静止画・ウィンドウの一覧）。`ImageWindow`・`ImageCard`（別のプロセス `vc preview`。`ImagePanel` が起こし、PNG を標準入力で渡す。起こし方は `DetachedChild`〔`DocumentWindow` と共通〕）。結果の見せ先（ウィンドウ・パネル）は `ResultPresenters` で、`HUDReporter`・`TerminalReporter` に差し込む。声のトリガーの組み立ては `VoiceTriggers`（手放しで包む・`ModeTrigger` にまとめる）・キーどうしの重なりの検査は `KeyConflicts`。手放しの録音（ちょっと押すと、黙るまで）：`HandsFreeTrigger`（キーのトリガーを包む。離しを遅らせるだけ：`VoiceLoop` は、知らない）・`DoubleTapGesture`（押す・離す・もう一度、の見分け：純粋）・`SilenceEndpoint`（黙ったかの判定：純粋） | 画面ごとの静止画（選び終わると、解放）・前回の範囲（声の入力（メニューバーのアプリ） のプロセスの中だけ）。パネルの画像は、パネルのプロセスの中だけ |
 | いまのスクリーンショット | `ScreenshotStore`（`~/.voice-control/shot/current.png`）。置くのは、`ScreenCapture`（`vc`。`ScreenSelector` が選び、`ScreenGrab` が静止画を撮る）と、`vc image`（加工の結果で置き換える）。読むのは、`vc see`・`vc image` | 1 枚だけ・自分だけが読める・**180 秒で使えない**・声の入力（メニューバーのアプリ） の終了（シグナルを含む）で削除。`vc ocr` の画像は、読み取ったらすぐ削除。ログ・文書に残さない |
 | モデルのファイル | `~/.voice-control/models/tiny-jev-0.6b`（`ModelStore`。設定ウィンドウ > モデル が置く）。開発用に `./models/` も探す | リポジトリ外・Git 対象外。SHA-256 で検証して取得。取得中は `.part` に書き、一致したものだけを正式な名前にする |
+| 直近の入力（最大 5 件） | `RecentDictations.shared`（`VCCore`。ロックで守る） | メモリだけ。アプリを終えると消える。履歴がオフでも持つ（貼り直し・コピー用） |
+| 音声入力の履歴 | `DictationHistory`（`VCCore`。ファイルは `~/.voice-control/history.jsonl`・0600／フォルダ 0700）。書くのは、`DictationActions.record`（設定 `history` がオンのときだけ）。読む・消すのは、設定ウィンドウ > 履歴（`HistoryList`） | 利用者がオンにしたときだけ。残す日数（既定 7）・2000 件で、古いものから消える。文字と時刻だけ（アプリ名・画面・音声は持たない）。SPEC F64 |
+| 入力のあとに送るキーの候補・いまの候補 | `Settings`（`dictateKeys`〔利用者が、設定ウィンドウ > 音声入力 で、足し引きする一覧。なければ古い `dictateKey`〕・`dictateMode`）。解釈は `DictateSendModes`（`VCSpeech`。純粋）。切り替えは `DictationActions.setSendMode`（設定を保存→`settingsChanged` で、開いている設定ウィンドウが読み直す） | 設定ファイル。入力のたびに、`DictationFlow` が設定を読むので、切り替えに再起動は要らない |
 | ホットキーの設定 | `~/.voice-control/settings.json` の `hotkey`（`Settings`） | 利用者の設定。設定ウィンドウ > キー が書く |
 | 録音中・実行の経過・結果の表示 | `HUD`（`NSPanel`。1 つを使い回す。**窓の管理〔位置・フェード・Space・キー・クリックを通すか〕は AppKit、中身は SwiftUI**〔`HUDSwiftUI.swift`：Liquid Glass のカード。状態は参照型の `HUDModel`：この環境には SwiftUI の `@State` のマクロのプラグインがない〕。**トリガーのキー監視を入れる前に、`warmUp()` で 1 回出しておく**：先に監視を入れると、確認のボタンが、クリックを受けられない〔実測〕）と、中身を持つ `HUDSession`（更新はロックで守る）。声の流れでは、`HUDReporter` が、1 回の発話ごとに 1 つ持つ | プロセスの間だけ。クリックを通し、フォーカスを奪わない。聞こえた文・コマンド・出力の先頭 1 行・返事は、画面に出すだけで、保存しない |
 

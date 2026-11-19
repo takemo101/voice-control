@@ -23,10 +23,10 @@ public struct SpeechEngine: Sendable {
     }
 
     /// `language`：認識する言語（設定 `sttLanguage`）。Apple は `Locale`、ダウンロードしたモデルは、言語の符号で渡す。
-    public static func make(_ choice: SpeechChoice, language: AppLanguage = .ja) throws -> SpeechEngine {
+    public static func make(_ choice: SpeechChoice, language: SpeechLanguage = .ja) throws -> SpeechEngine {
         switch choice {
         case .apple:
-            return SpeechEngine(choice: choice, transcriber: GatedTranscriber(FileTranscriber(locale: Locale(identifier: language.bcp47))), closer: {})
+            return SpeechEngine(choice: choice, transcriber: GatedTranscriber(FileTranscriber(locale: Locale(identifier: language.resolved.bcp47))), closer: {})
         case let .local(model):
             guard model.isInstalled else { throw Failure.modelMissing(model) }
             let local: LocalTranscriber

@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import NaturalLanguage
 import VCCore
 
 /// 読み上げの声（日本語・英語。認識する言語に合わせる）の選び方。**入っている声のうち、品質がいちばん高いものを、自動で使う**（高品質〔Premium・拡張〕の声を、利用者がダウンロードすると、その声になる）。
@@ -40,6 +41,18 @@ public enum SpeechVoice {
             if let found = candidates.max(by: { $0.quality < $1.quality }) { return found }
         }
         return best(voices, language: language)
+    }
+
+    /// 文字の言語（日本語か英語。**自動**のとき、読む文字に、声を合わせる）。決められなければ `fallback`。
+    public static func language(of text: String, fallback: AppLanguage) -> AppLanguage {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.languageConstraints = [.japanese, .english]
+        recognizer.processString(text)
+        switch recognizer.dominantLanguage {
+        case .japanese: return .ja
+        case .english: return .en
+        default: return fallback
+        }
     }
 
     /// この Mac に入っている、その言語の声。

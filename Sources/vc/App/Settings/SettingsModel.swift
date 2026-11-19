@@ -6,12 +6,13 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, keys, voice, chat, models, skills
+    case general, keys, voice, dictation, chat, models, skills
     var id: String { rawValue }
     var title: String {
         switch self {
         case .keys: return tr("キー")
         case .voice: return tr("音声")
+        case .dictation: return tr("音声入力")
         case .chat: return tr("会話")
         case .models: return L10n.shared.language == .en ? "Models" : "モデル"   // l10n-skip：行の「モデル」（Model）と、訳が違う
         case .skills: return tr("スキル")
@@ -22,6 +23,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .keys: return "keyboard"
         case .voice: return "waveform"
+        case .dictation: return "text.cursor"
         case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"
@@ -77,7 +79,13 @@ enum DownloadState: Equatable {
         problem = loaded.problem?.description
         syncDrafts()
         runtimeToken = AppRuntime.shared.observe { [weak self] in MainActor.assumeIsolated { self?.runtimeChanged() } }
+        // ショートカット・メニューで、送るキーを切り替えたとき：開いているウィンドウも、読み直す（古い値で、上書きしない）
+        externalChange = NotificationCenter.default.addObserver(forName: DictationActions.settingsChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reload() }
+        }
     }
+
+    private var externalChange: NSObjectProtocol?
 
     private func runtimeChanged() {
         guard pendingApply else { return }
@@ -109,7 +117,7 @@ enum DownloadState: Equatable {
     }
 
     private func syncDrafts() {
-        for kind in KeyKind.allCases { keyDrafts[kind] = settings[keyPath: kind.keyPath] ?? "" }
+        for kind in KeyKind.fixed { keyDrafts[kind] = kind.value(in: settings) ?? "" }
         keyProblems = [:]
         let split = SettingsRules.splitEngine(settings.engine)
         engineKind = split.kind
@@ -120,9 +128,35 @@ enum DownloadState: Equatable {
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
     var uiLanguage: AppLanguage { settings.displayLanguage }
-    var sttLanguage: AppLanguage { settings.recognitionLanguageOrDefault }
+    var sttLanguage: SpeechLanguage { settings.recognitionLanguageOrDefault }
     func setUILanguage(_ language: AppLanguage) { update(restart: false) { $0.uiLanguage = language == .ja ? nil : language.rawValue } }
-    func setSTTLanguage(_ language: AppLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
+    /// ダウンロードした音声認識のモデルを、使っているか（言語の「自動」は、これだけが、音声から判定できる）。
+    var usesLocalSpeechModel: Bool { if case .local = (try? settings.speechChoice.get()) ?? .apple { return true } else { return false } }
+    /// 入力のあとに送るキーの候補を、選ぶ（入力のたびに読む設定：声の入力は、作り直さない）。
+    func setDictateMode(_ index: Int) { update(restart: false) { $0.dictateMode = index } }
+
+    /// 送るキーを、一覧の `index` 番目に決める（一覧の長さ以上なら、足す）。書き方が読めなければ、直さずに、理由を出す。
+    func setSendKey(_ index: Int, _ text: String) {
+        let kind = KeyKind.sendKey(index)
+        if let why = SettingsRules.keyProblem(kind, text: text, in: settings) { keyProblems[kind] = why; return }
+        keyProblems[kind] = nil
+        guard index < DictateSendModes.maxKeys else { return }
+        update(restart: false) { kind.set(text, in: &$0) }
+    }
+
+    /// 送るキーを、一覧から外す。いま使っている候補は、そのまま（外したキーなら、「送らない」。後ろのキーは、番号が 1 つ繰り上がる）。
+    func removeSendKey(_ index: Int) {
+        let before = settings.dictateSend
+        guard before.modes.indices.contains(index + 1) else { return }
+        let active = before.active == index + 1 ? 0 : (before.active > index + 1 ? before.active - 1 : before.active)
+        update(restart: false) {
+            KeyKind.sendKey(index).set(nil, in: &$0)
+            $0.dictateMode = active
+        }
+        keyProblems[.sendKey(index)] = nil
+    }
+
+    func setSTTLanguage(_ language: SpeechLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
 
     /// 設定を変えて、保存する。書けなければ、理由を出して、変えない。`restart`：声の入力の起動のときに読む設定か。
     func update(restart: Bool = true, _ change: (inout Settings) -> Void) {
@@ -155,7 +189,7 @@ enum DownloadState: Equatable {
         let text = (keyDrafts[kind] ?? "").trimmingCharacters(in: .whitespaces)
         if let why = SettingsRules.keyProblem(kind, text: text, in: settings) { keyProblems[kind] = why; return }
         keyProblems[kind] = nil
-        update { $0[keyPath: kind.keyPath] = text.isEmpty ? nil : text }
+        update { kind.set(text, in: &$0) }
     }
 
     /// 画面の文字の大きさを変える（標準なら、設定から外す）。開いている画面も、すぐ変わる。声の入力の再起動は、要らない。
@@ -216,8 +250,10 @@ enum DownloadState: Equatable {
         case let .rejected(reason): recordingHint = reason
         case let .recorded(text):
             stopRecording()
-            setDraft(kind, text)
-            commitKey(kind)
+            if case let .sendKey(index) = kind { setSendKey(index, text) } else {
+                setDraft(kind, text)
+                commitKey(kind)
+            }
         }
     }
 
