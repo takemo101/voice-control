@@ -153,6 +153,8 @@ public final class VoiceLoop {
     private let queue = VoiceInputQueue()
     /// 自信がないときの確認（なければ、確認しない）。`run` の前に、決める。
     public var uncertainty: Uncertainty?
+    /// 新しい発話が来たとき、実行中の処理を、**取りやめずに**、順番を待たせるか（引数：新しい発話の印・実行中の処理の印）。なければ、いつも、取りやめる。会話の質問が、考えている間に、続けて話したときに使う。
+    public var keepsRunning: (@Sendable (_ newTag: String, _ runningTag: String?) -> Bool)?
 
     /// - `onEvent`：表示のための出来事（`VoiceLoopEvent`）。
     public convenience init(trigger: PushToTalkTrigger, escape: EscapeSource, recorder: Recording, transcriber: Transcribing,
@@ -186,6 +188,9 @@ public final class VoiceLoop {
     /// 録音中・認識中・実行中・認識待ちの音声があるか（設定を反映するために、作り直してよいかの判断に使う）。
     public var isBusy: Bool { activity.isActive }
 
+    /// 実行中の処理を、いますぐ、取りやめる（会話の「今すぐ送る」）。
+    public func interruptRunning() { _ = activity.interruptRunning() }
+
     /// 止める：待ち行列の処理を終えて、このループを手放せるようにする（トリガー・Esc は、このループが手放されると、解放されて、登録が外れる）。
     /// **設定を変えたとき、作り直すために使う**。処理の最中は、呼ばない（`isBusy` が偽のときだけ）。止めたあとの `begin`・`run` は、できない。
     @MainActor public func stop() {
@@ -208,6 +213,7 @@ public final class VoiceLoop {
         // 受け口のクロージャは、`self` ではなく、必要な部品だけを持つ（トリガー → クロージャ → `self` → トリガーの循環を作らない）。
         let activity = self.activity, queue = self.queue, recorder = self.recorder, escape = self.escape
         let emit = self.emit, scheduler = self.scheduler, rearmDelays = self.rearmDelays, tags = self.tags
+        let keepsRunning = self.keepsRunning   // `run` の前に、決める（`self` を、クロージャに持たせない）
         // 録音を始めたトリガーの印（トリガー → クロージャ → トリガーの循環を作らないよう、弱く持つ）
         weak let tagged = trigger as? TaggedTrigger
         let currentTag: @Sendable () -> String = { MainActor.assumeIsolated { tagged?.tag ?? "" } }
@@ -234,7 +240,8 @@ public final class VoiceLoop {
                     tags.push(tag)
                     queue.push(.audio(file))
                     // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）
-                    if activity.interruptForNewUtterance() { emit(.interrupted, tag) }
+                    let keeps = keepsRunning
+                    if activity.interruptForNewUtterance(keepsRunning: keeps.map { keep in { running in keep(tag, running) } }) { emit(.interrupted, tag) }
                 } else {
                     activity.stopRecording(queuedAudio: false)
                     emit(.recordingEmpty, tag)
@@ -252,6 +259,8 @@ public final class VoiceLoop {
             case .work:
                 // 先に知らせる（読み上げを止める）。そのあとで、待っている処理を起こす。
                 emit(.cancelling, "")
+                // 取りやめずに、順番を待たせていた発話は、やめる（取りやめたあとに、動き出さないように）。割り込んだ発話は、従来どおり、続ける
+                for _ in 0..<queue.discardAudio(limit: activity.takeDeferred()) { activity.consumedAudio(); _ = tags.pop() }
                 queue.push(.cancel)   // 発話や確認の返事を待っている処理を起こす
             case .nothing:
                 break
@@ -268,7 +277,7 @@ public final class VoiceLoop {
             if stopped { try? FileManager.default.removeItem(at: file); break }   // 止めたあとに来た音声は、処理せず、捨てる   // 待っている処理がないときの Esc の合図は、読み捨てる
             let tag = tags.pop()
             let token = CancelToken()
-            activity.beginWork(token)
+            activity.beginWork(token, tag: tag)
             let work = Task { await self.process(file, token, tag) }
             activity.setTask(work)
             await work.value

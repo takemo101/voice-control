@@ -70,4 +70,11 @@ import Testing
         entries.setRoute(asked.id, .sent("agy"))                            // 答えが出たあとの、遅れた知らせは、変えない
         #expect(entries[0].image?.route == .declined("agy"))
     }
+
+    @Test func stoppedWaitingQuestionsAreKeptWithTheReasonAndAreNotPending() {
+        var entries: [ChatEntry] = []
+        entries.addStopped(question: "待っていた質問", reason: "送られませんでした（停止）")
+        #expect(entries.count == 1 && entries[0].outcome == .stopped("送られませんでした（停止）") && !entries.hasPending)
+    }
 }
+

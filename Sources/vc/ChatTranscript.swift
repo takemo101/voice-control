@@ -83,6 +83,13 @@ extension Array where Element == ChatEntry {
         if let index = firstIndex(where: { $0.id == id }), self[index].isPending { stopEntry(at: index, reason: reason) }
     }
 
+    /// 送られなかった質問を、理由つきで残す（停止で、順番待ちが捨てられた）。
+    mutating func addStopped(question: String, reason: String) {
+        var entry = ChatEntry(question: question)
+        entry.outcome = .stopped(reason); entry.status = nil
+        append(entry)
+    }
+
     /// 答えを作れなかった（理由つきで、残す）。
     mutating func fail(_ id: UUID, message: String) {
         updatePending(id) {

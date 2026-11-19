@@ -36,6 +36,10 @@ struct ChatView: View {
                 Rule()
                 AttachmentBar(image: image, external: state.warning != nil, retake: attach, detach: detach)
             }
+            if !state.queue.isEmpty {
+                Rule()
+                QueueList(state: state)
+            }
             Rule()
             ComposerBar(state: state, attach: attach)
         }
@@ -190,6 +194,7 @@ private struct ComposerBar: View {
     let attach: () -> Void
 
     private var busy: Bool { state.entries.hasPending }
+    private var draftIsEmpty: Bool { state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -197,17 +202,24 @@ private struct ComposerBar: View {
             HStack(spacing: 8) {
                 AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
                 if state.submit != nil {
-                    TextField(busy ? tr("考えている間は、送れません（話して、中断もできます）") : tr("メッセージを入力（Enter で送信）"), text: $state.draft)
+                    TextField(busy ? tr("考えている間は、順番待ちに入ります（Enter）") : tr("メッセージを入力（Enter で送信）"), text: $state.draft)
                         .textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Capsule().fill(.white.opacity(0.09)))
                         .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
-                        .disabled(busy)
                         .onSubmit(send)
-                    Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill").vcFont(26).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
+                    if busy && draftIsEmpty {
+                        // 考えている間で、入力欄が空：送信ボタンが、停止になる（待っている質問も、送らない）
+                        Button { state.stopTurn?() } label: {
+                            Image(systemName: "stop.circle.fill").vcFont(26).foregroundStyle(ChatPalette.orange)
+                        }
+                        .buttonStyle(.plain).accessibilityLabel(tr("停止")).help(tr("考えているのを止める（待っている質問は、送りません）"))
+                    } else {
+                        Button(action: send) {
+                            Image(systemName: "arrow.up.circle.fill").vcFont(26).foregroundStyle(canSend ? AnyShapeStyle(ChatPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
+                        }
+                        .buttonStyle(.plain).disabled(!canSend).accessibilityLabel(tr("送信"))
                     }
-                    .buttonStyle(.plain).disabled(!canSend).accessibilityLabel(tr("送信"))
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -216,7 +228,7 @@ private struct ComposerBar: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
-    private var canSend: Bool { !busy && !state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var canSend: Bool { !draftIsEmpty }
 
     private func send() {
         let text = state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -239,13 +251,42 @@ private struct ComposerBar: View {
             Label(tr("文字にしています…"), systemImage: "waveform").vcFont(11.5, weight: .semibold).foregroundStyle(ChatPalette.accent)
         case .idle:
             if busy {
-                Label(tr("考えています…（話すと、この質問を中断して、新しい質問を優先します）"), systemImage: "hourglass").vcFont(11.5).foregroundStyle(ChatPalette.accent.opacity(0.9))
+                Label(tr("考えています…（話すと、順番待ちに入ります）"), systemImage: "hourglass").vcFont(11.5).foregroundStyle(ChatPalette.accent.opacity(0.9))
             } else if let key = state.keyHint {
                 Label(tr("\(key) を押している間、話します"), systemImage: "mic.fill").vcFont(11.5).foregroundStyle(.white.opacity(0.55))
             } else {
                 Label(tr("会話のキーが、決まっていません（設定 > キー）。文字で質問できます"), systemImage: "mic.slash").vcFont(11.5).foregroundStyle(.white.opacity(0.5))
             }
         }
+    }
+}
+
+/// 順番待ちの質問（考えている間に送ったもの）：1 件ずつ、「今すぐ送る」（いまの質問を止めて、これを先に）と「取り下げ」。
+private struct QueueList: View {
+    @ObservedObject var state: ChatWindowState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(tr("順番待ち（いまの質問が終わったら、送ります）"), systemImage: "list.number").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.55))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(state.queue.items) { item in
+                        HStack(spacing: 8) {
+                            Image(systemName: item.source == .voice ? "mic.fill" : "keyboard").vcFont(11).foregroundStyle(.white.opacity(0.5)).frame(width: 14)
+                            Text(item.text).vcFont(12).foregroundStyle(.white.opacity(0.9)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                            Button { state.sendNow?(item.id) } label: { Image(systemName: "arrow.turn.down.right") }
+                                .buttonStyle(.plain).foregroundStyle(ChatPalette.accent).help(tr("今すぐ送る（いまの質問を止めて、これを先に）"))
+                            Button { state.removeQueued?(item.id) } label: { Image(systemName: "trash") }
+                                .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("取り下げる"))
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0.07)))
+                    }
+                }
+            }
+            .frame(maxHeight: 130)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
     }
 }
 

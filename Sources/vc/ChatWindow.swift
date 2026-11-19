@@ -20,11 +20,22 @@ import VCSkill
 
     var isVisible: Bool { window?.isVisible == true }
 
-    /// 入力欄から送られた質問を、処理する（声の流れの組み立てで、決める：`VoiceSession`）。なければ、入力欄は出さない。
-    var submit: (@MainActor (String) -> Void)? {
-        get { state.submit }
-        set { state.submit = newValue }
+    /// 文字の質問を、**始める**（声の流れの組み立てで、決める：`VoiceSession`）。なければ、入力欄は出さない。考えている間に送られた質問は、ここへ来ずに、順番待ちに入る（`submitTyped`）。
+    var startTyped: (@MainActor (String) -> Void)? {
+        didSet {
+            if startTyped == nil { state.submit = nil } else { state.submit = { [unowned self] text in self.submitTyped(text) } }
+        }
     }
+
+    /// いま考えている声の質問を、取りやめる（声の流れが持つ：`VoiceSession`）。「今すぐ送る」で、使う。
+    var interruptVoiceTurn: (@MainActor () -> Void)?
+
+    /// 質問を始めようとしている（始める処理が、`begin` を呼ぶまでの間）。この間に来た質問も、順番待ちに入る。
+    private var starting = false
+    /// 停止（ボタン）で、止めている最中。順番待ちは、送らずに、捨てる。
+    private var stopRequested = false
+    /// 順番を待っている声の質問（声の流れの処理が、待っている）。
+    private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
     /// 声の状態（録音・認識）を、知らせる（下の案内に出す）。
     func setVoiceState(_ voice: ChatVoiceState) { state.voice = voice }
@@ -32,6 +43,10 @@ import VCSkill
     /// 会話のキーの名前（案内に出す）。
     func setKeyHint(_ hint: String?) { state.keyHint = hint }
     var hasPending: Bool { state.entries.hasPending }
+    /// 順番待ちの文（古い順）。
+    var queuedTexts: [String] { state.queue.items.map(\.text) }
+    /// 考えている最中か（質問を始めようとしている間も含む）。
+    var isBusy: Bool { state.entries.hasPending || starting }
 
     private override init() {
         super.init()
@@ -41,6 +56,9 @@ import VCSkill
             if !speaking { self?.state.speakingEntry = nil }
         }
         state.speaking = SaySpeaker.shared.isSpeaking(.conversation)
+        state.sendNow = { [unowned self] id in sendNow(id) }
+        state.removeQueued = { [unowned self] id in removeQueued(id) }
+        state.stopTurn = { [unowned self] in stopCurrent() }
     }
 
     // MARK: 記録の更新
@@ -49,6 +67,7 @@ import VCSkill
     /// 戻り値の `id` で、この往復を指す（答え・中断・失敗の知らせを、この往復だけに、届けるため）。
     @discardableResult
     func begin(question: String, agent: String, warning: String?, tools: String?, cancel: (() -> Void)? = nil) -> UUID {
+        starting = false
         state.agent = agent
         state.warning = warning
         state.tools = tools
@@ -76,18 +95,120 @@ import VCSkill
     func finish(_ id: UUID, answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
         state.entries.finish(id, answer: answer, rendered: Self.render(answer), activities: activities, notes: notes, route: imageRoute, startedNew: startedNew)
         state.scrollToken += 1
+        turnEnded(dropsQueue: false)
     }
 
     /// 中断・取りやめた：質問を、理由つきで残す（会話の記録には、入らない）。
-    func stop(_ id: UUID, reason: String) { state.entries.stop(id, reason: reason) }
+    /// `dropsQueue`：利用者の取りやめ（Esc・停止）：順番待ちも、送らずに捨てる。新しい質問に取って代わられたときは、false。
+    func stop(_ id: UUID, reason: String, dropsQueue: Bool = false) {
+        let requested = stopRequested
+        state.entries.stop(id, reason: requested ? tr("取りやめました（停止）") : reason)
+        turnEnded(dropsQueue: dropsQueue || requested)
+    }
 
     /// 答えを作れなかった：質問を、理由つきで残す。
-    func fail(_ id: UUID, message: String) { state.entries.fail(id, message: message) }
+    func fail(_ id: UUID, message: String) {
+        state.entries.fail(id, message: message)
+        turnEnded(dropsQueue: false)
+    }
 
     /// 記録を、すべて消す（会話の終了・リセット）。添えた画像も、外す。
     func clear() {
         state.entries = []
+        dropQueue(reason: nil)
+        starting = false
         detachImage()
+    }
+
+    // MARK: 順番待ち（考えている間に送った質問）
+
+    /// 入力欄から、文字の質問が来た：考えていなければ、すぐ始める。考えている間は、順番待ちに入れる。
+    func submitTyped(_ text: String) {
+        if isBusy || !state.queue.isEmpty {
+            state.queue.enqueue(text, source: .typed)
+            state.scrollToken += 1
+            dispatchNext()   // 考えていなければ（取りこぼし）、ここで動かす
+        } else {
+            starting = true
+            startTyped?(text)
+        }
+    }
+
+    /// 声の質問の、順番を待つ。すぐ始められれば true。考えている間は、順番待ちに入れて、順番が来るまで待つ（来たら true。取り下げ・取りやめ・停止なら false）。
+    func waitForTurn(_ text: String) async -> Bool {
+        if !isBusy && state.queue.isEmpty { starting = true; return true }
+        let item = state.queue.enqueue(text, source: .voice)
+        state.scrollToken += 1
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { waiters[item.id] = $0 }
+        } onCancel: {
+            Task { @MainActor in ChatWindow.shared.cancelWaiter(item.id) }
+        }
+    }
+
+    /// 質問を始められなかった（取りやめ）：始める予約を、外す。
+    func releaseStart() {
+        starting = false
+        dispatchNext()
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        guard let waiter = waiters.removeValue(forKey: id) else { return }
+        state.queue.remove(id)
+        waiter.resume(returning: false)
+    }
+
+    /// 次の順番を、始める（考えていないときだけ）。
+    private func dispatchNext() {
+        guard !isBusy, let batch = state.queue.takeNext() else { return }
+        starting = true
+        switch batch.source {
+        case .typed: startTyped?(batch.text)
+        case .voice: waiters.removeValue(forKey: batch.ids[0])?.resume(returning: true)
+        }
+    }
+
+    /// 1 往復が、終わった（答え・取りやめ・失敗）。
+    private func turnEnded(dropsQueue: Bool) {
+        stopRequested = false
+        if dropsQueue { dropQueue(reason: tr("送られませんでした（停止）")) } else { dispatchNext() }
+    }
+
+    /// 順番待ちを、すべて捨てる。`reason`：あれば、質問を、理由つきで、記録に残す。
+    private func dropQueue(reason: String?) {
+        for item in state.queue.removeAll() {
+            if let reason { state.entries.addStopped(question: item.text, reason: reason) }
+            waiters.removeValue(forKey: item.id)?.resume(returning: false)
+        }
+    }
+
+    /// 順番待ちの 1 件を、取り下げる（文字なら、入力欄が空のとき、戻す）。
+    private func removeQueued(_ id: UUID) {
+        guard let item = state.queue.remove(id) else { return }
+        if item.source == .voice { waiters.removeValue(forKey: id)?.resume(returning: false) } else if state.draft.isEmpty { state.draft = item.text }
+    }
+
+    /// テスト用：順番待ちの `index` 番目を、「今すぐ送る」。
+    func sendNowForTesting(_ index: Int) { if state.queue.items.indices.contains(index) { sendNow(state.queue.items[index].id) } }
+
+    /// 「今すぐ送る」：いまの質問を止めて、この 1 件を先に始める（残りは、そのあと）。
+    private func sendNow(_ id: UUID) {
+        guard state.queue.items.contains(where: { $0.id == id }) else { return }
+        state.queue.moveToFront(id)
+        if isBusy { cancelCurrent() } else { dispatchNext() }
+    }
+
+    /// 停止：いまの質問を止める。順番待ちは、送らない。
+    private func stopCurrent() {
+        guard state.entries.hasPending else { return }
+        stopRequested = true
+        cancelCurrent()
+    }
+
+    /// いま考えている質問を、取りやめる（文字の質問は、自分の取りやめ。声の質問は、声の流れの取りやめ）。
+    private func cancelCurrent() {
+        guard let current = state.entries.last(where: { $0.isPending }) else { return }
+        if let cancel = current.cancel { cancel() } else { interruptVoiceTurn?() }
     }
 
     // MARK: 画像の添付（「画面を撮る」）
@@ -227,6 +348,10 @@ import VCSkill
         state.entries[2].outcome = .stopped("新しい質問を優先しました")   // l10n-skip: preview sample
         state.keyHint = "右 ⌥（ropt）"   // l10n-skip: preview sample
         state.submit = { _ in }
+        if pendingOnly {   // 考えている最中：順番待ちも、見本で出す
+            state.queue.enqueue("もう少し詳しく教えて", source: .typed)   // l10n-skip: preview sample
+            state.queue.enqueue("それと、明後日の天気も", source: .voice)   // l10n-skip: preview sample
+        }
         if pendingOnly { state.entries = Array(state.entries.suffix(2)); state.image = nil; state.speaking = false } else { state.speaking = true; state.speakingEntry = state.entries.first?.id }
         state.solid = true
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -339,8 +464,14 @@ enum ChatVoiceState: Equatable {
     @Published var image: AttachedImage?
     /// 範囲を選んでいる間。
     @Published var capturing = false
-    /// 入力欄から質問を送る（声の流れの組み立てが、決める）。
+    /// 順番待ち（考えている間に送った質問）。
+    @Published var queue = ChatQueue()
+    /// 入力欄から質問を送る（`ChatWindow` が決める：考えていなければ始め、考えている間は順番待ちへ）。
     var submit: (@MainActor (String) -> Void)?
+    /// 順番待ちの「今すぐ送る」・「取り下げ」・考えている質問の「停止」。
+    var sendNow: (@MainActor (UUID) -> Void)?
+    var removeQueued: (@MainActor (UUID) -> Void)?
+    var stopTurn: (@MainActor () -> Void)?
     /// 画像に描く確認用：ガラスの代わりに、暗い面を敷く。
     @Published var solid = false
 }

@@ -36,7 +36,7 @@ import VCSpeech
         return yes
     }
 
-    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance, cancelHook: (() -> Void)? = nil) async {
+    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance, cancelHook: (() -> Void)? = nil, fromQueue: Bool = false) async {
         guard !utterance.isEmpty else {
             notice("聞き取れなかった")   // l10n-skip: log
             HUD.shared.show(HUDContent(phase: .failure, title: tr("聞き取れませんでした"), hint: tr("もう一度、はっきり話してください"), chip: chip), hideAfter: 2.5)
@@ -49,9 +49,14 @@ import VCSpeech
             if speakResults { say(tr("会話を終わりました")) }
             return
         }
+        let window = ChatWindow.shared
+        // 考えている最中なら、順番を待つ（Zed・Codync と同じ：考えている間の質問は、キューに入る）。文字の質問は、ウィンドウが、順番に始める（`fromQueue`）
+        if !fromQueue {
+            guard await window.waitForTurn(utterance) else { return }   // 取り下げ・取りやめ・停止
+            if token.isCancelled || token.isSuperseded { window.releaseStart(); return }
+        }
         let fallbackNote = await ChatMode.shared.settleAgent()   // 選んだエージェントが、なくなっていたら、Apple で答える
         let agent = ChatMode.shared.agent
-        let window = ChatWindow.shared
         let level = ChatMode.shared.tools
         let toolLabel: String? = level == .none ? nil : (level == .all ? (ChatMode.shared.auto ? tr("すべて・自動") : tr("すべて")) : (level == .read ? tr("＋読む") : "Web"))   // l10n-skip: "Web" is the same in both languages
         let id = window.begin(question: utterance, agent: agent.isExternal ? agent.label : tr("Apple のモデル（この Mac の中）"),
@@ -69,7 +74,7 @@ import VCSpeech
             let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImage(id, file: $0) }, onRoute: { window.setImageRoute(id, $0) }, progress: { text in
                 window.setStatus(id, text)
             }, confirm: confirm, confirmImage: confirmImage)
-            if token.isCancelled || token.isSuperseded { window.stop(id, reason: token.isSuperseded ? tr("新しい質問を優先しました") : tr("取りやめました（Esc）")); return }
+            if token.isCancelled || token.isSuperseded { window.stop(id, reason: token.isSuperseded ? tr("新しい質問を優先しました") : tr("取りやめました（Esc）"), dropsQueue: !token.isSuperseded); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }
             for activity in outcome.activities { print("  " + Style.dim("▸ " + activity.text)) }
             print("  " + Style.bold(tr("回答")) + "  " + (outcome.answer.count > 90 ? String(outcome.answer.prefix(90)) + "…" : outcome.answer).replacingOccurrences(of: "\n", with: " "))
@@ -80,7 +85,7 @@ import VCSpeech
             // 中断・失敗した質問も、ウィンドウに残す（理由つき。会話の記録には、入らない）
             if token.isSuperseded { window.stop(id, reason: tr("新しい質問を優先しました")); return }
             if token.isCancelled || error is CancellationError {
-                window.stop(id, reason: tr("取りやめました（Esc）"))
+                window.stop(id, reason: tr("取りやめました（Esc）"), dropsQueue: true)
                 VoiceUI.showCancelled(chip: chip)
             } else {
                 window.fail(id, message: "\(error)")
