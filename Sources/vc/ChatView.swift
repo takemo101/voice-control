@@ -36,10 +36,6 @@ struct ChatView: View {
                 Rule()
                 AttachmentBar(image: image, external: state.warning != nil, retake: attach, detach: detach)
             }
-            if !state.queue.isEmpty {
-                Rule()
-                QueueList(state: state)
-            }
             Rule()
             ComposerBar(state: state, attach: attach)
         }
@@ -85,6 +81,15 @@ struct ChatView: View {
                     ForEach(state.entries) { entry in
                         EntryView(entry: entry, speakingThis: state.speakingEntry == entry.id, stopSpeaking: stopSpeaking, speak: speak).id(entry.id)
                     }
+                    // 順番待ち：考えている間に送った質問は、会話の流れの中に、「待っている吹き出し」として並ぶ（点線の縁・淡い色）
+                    VStack(alignment: .trailing, spacing: 12) {
+                        ForEach(Array(state.queue.items.enumerated()), id: \.element.id) { index, item in
+                            QueuedBubble(item: item, position: index + 1, sendNow: { state.sendNow?(item.id) }, remove: { state.removeQueued?(item.id) })
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .animation(.easeInOut(duration: 0.22), value: state.queue.items.map(\.id))
                 }
                 .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 22)
             }
@@ -202,7 +207,7 @@ private struct ComposerBar: View {
             HStack(spacing: 8) {
                 AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
                 if state.submit != nil {
-                    TextField(busy ? tr("考えている間は、順番待ちに入ります（Enter）") : tr("メッセージを入力（Enter で送信）"), text: $state.draft)
+                    TextField(busy ? tr("続けて質問すると、順番待ちに入ります（Enter）") : tr("メッセージを入力（Enter で送信）"), text: $state.draft)
                         .textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Capsule().fill(.white.opacity(0.09)))
@@ -251,7 +256,7 @@ private struct ComposerBar: View {
             Label(tr("文字にしています…"), systemImage: "waveform").vcFont(11.5, weight: .semibold).foregroundStyle(ChatPalette.accent)
         case .idle:
             if busy {
-                Label(tr("考えています…（話すと、順番待ちに入ります）"), systemImage: "hourglass").vcFont(11.5).foregroundStyle(ChatPalette.accent.opacity(0.9))
+                Label(state.queue.isEmpty ? tr("考えています…（続けて質問すると、順番待ちに入ります）") : tr("考えています…（順番待ち \(state.queue.items.count) 件。終わったら、送ります）"), systemImage: "hourglass").vcFont(11.5).foregroundStyle(ChatPalette.accent.opacity(0.9))
             } else if let key = state.keyHint {
                 Label(tr("\(key) を押している間、話します"), systemImage: "mic.fill").vcFont(11.5).foregroundStyle(.white.opacity(0.55))
             } else {
@@ -261,32 +266,56 @@ private struct ComposerBar: View {
     }
 }
 
-/// 順番待ちの質問（考えている間に送ったもの）：1 件ずつ、「今すぐ送る」（いまの質問を止めて、これを先に）と「取り下げ」。
-private struct QueueList: View {
-    @ObservedObject var state: ChatWindowState
+/// 順番待ちの質問（考えている間に送ったもの）：送った質問の吹き出しと同じ形で、**まだ送られていない**ことが分かるように、淡く・点線の縁で、並べる。下に、順番と、「今すぐ送る」（いまの質問を止めて、これを先に）・「取り下げ」。
+private struct QueuedBubble: View {
+    let item: QueuedMessage
+    let position: Int
+    let sendNow: () -> Void
+    let remove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(tr("順番待ち（いまの質問が終わったら、送ります）"), systemImage: "list.number").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.55))
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(state.queue.items) { item in
-                        HStack(spacing: 8) {
-                            Image(systemName: item.source == .voice ? "mic.fill" : "keyboard").vcFont(11).foregroundStyle(.white.opacity(0.5)).frame(width: 14)
-                            Text(item.text).vcFont(12).foregroundStyle(.white.opacity(0.9)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                            Button { state.sendNow?(item.id) } label: { Image(systemName: "arrow.turn.down.right") }
-                                .buttonStyle(.plain).foregroundStyle(ChatPalette.accent).help(tr("今すぐ送る（いまの質問を止めて、これを先に）"))
-                            Button { state.removeQueued?(item.id) } label: { Image(systemName: "trash") }
-                                .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("取り下げる"))
-                        }
-                        .padding(.horizontal, 10).padding(.vertical, 7)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0.07)))
-                    }
+        let shape = UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 5, topTrailingRadius: 18, style: .continuous)
+        HStack {
+            Spacer(minLength: 56)
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(item.text)
+                    .vcFont(14, weight: .medium).foregroundStyle(.white.opacity(0.88))
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(shape.fill(.white.opacity(0.07)))
+                    .overlay(shape.strokeBorder(ChatPalette.bubble, style: StrokeStyle(lineWidth: 1.1, dash: [5, 3])).opacity(0.8))
+                HStack(spacing: 8) {
+                    Image(systemName: item.source == .voice ? "mic.fill" : "keyboard").vcFont(10).foregroundStyle(.white.opacity(0.4))
+                    Text(tr("順番待ち \(position)")).vcFont(10.5, weight: .semibold).foregroundStyle(.white.opacity(0.5))
+                    QueueAction(symbol: "arrow.turn.down.right", title: tr("今すぐ送る"), tint: ChatPalette.accent, help: tr("今すぐ送る（いまの質問を止めて、これを先に）"), action: sendNow)
+                    QueueAction(symbol: "trash", title: tr("取り下げ"), tint: .white.opacity(0.55), help: tr("取り下げる"), action: remove)
                 }
+                .padding(.trailing, 4)
             }
-            .frame(maxHeight: 130)
         }
-        .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+}
+
+/// 順番待ちの吹き出しの下の、小さな操作（記号＋文字：何が起きるかが、読める）。
+private struct QueueAction: View {
+    let symbol: String
+    let title: String
+    let tint: Color
+    let help: String
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol).vcFont(10, weight: .bold)
+                Text(title).vcFont(10.5, weight: .semibold)
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(hover.on ? 0.22 : 0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).onHover { hover.on = $0 }.help(help)
     }
 }
 

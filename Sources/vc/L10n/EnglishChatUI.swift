@@ -147,10 +147,13 @@ extension EnglishTables {
         "停止": "Stop",
         "取りやめました（停止）": "Stopped",
         "取り下げる": "Remove",
-        "考えています…（話すと、順番待ちに入ります）": "Thinking… (if you speak, it joins the queue)",
         "考えているのを止める（待っている質問は、送りません）": "Stop thinking (queued questions won't be sent)",
-        "考えている間は、順番待ちに入ります（Enter）": "While thinking, messages join the queue (Enter)",
         "送られませんでした（停止）": "Not sent — stopped",
-        "順番待ち（いまの質問が終わったら、送ります）": "Queue (sent when the current question finishes)",
+        "今すぐ送る": "Send now",
+        "取り下げ": "Remove",
+        "続けて質問すると、順番待ちに入ります（Enter）": "Ask again to join the queue (Enter)",
+        "考えています…（続けて質問すると、順番待ちに入ります）": "Thinking… (ask again to join the queue)",
+        "考えています…（順番待ち %@ 件。終わったら、送ります）": "Thinking… (%@ queued; sent when this finishes)",
+        "順番待ち %@": "Queued %@",
     ]
 }
