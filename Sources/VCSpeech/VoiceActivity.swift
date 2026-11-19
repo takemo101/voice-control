@@ -4,6 +4,8 @@ import VCCore
 /// 声の流れ（声の入力）に届く入力：録音した音声か、Esc による取りやめの合図（待っている処理を起こす）。
 enum VoiceInput: Sendable {
     case audio(URL)
+    /// 認識済みの発話（会話の順番待ちが、順番になった：認識は、すでに済んでいる）。`tag`：どの流れの発話か。
+    case text(String, tag: String)
     case cancel
 }
 
@@ -26,19 +28,6 @@ final class VoiceInputQueue: @unchecked Sendable {
             items.append(input)
             lock.unlock()
         }
-    }
-
-    /// 順番を待っている音声を、古いほうから `limit` 件、捨てる（Esc：「取りやめ」は、待たせていた発話も、やめる）。捨てた数（音声の一時ファイルも、消す）。
-    func discardAudio(limit: Int) -> Int {
-        lock.lock()
-        var dropped: [URL] = []
-        items.removeAll { item in
-            guard dropped.count < limit, case let .audio(file) = item else { return false }
-            dropped.append(file); return true
-        }
-        lock.unlock()
-        for file in dropped { try? FileManager.default.removeItem(at: file) }   // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
-        return dropped.count
     }
 
     /// 入力が来るまで待つ。**待っている `Task` が取りやめられたら、`.cancel` で戻る**（確認で、パネルのボタンが先に押されたとき、声の返事を待つ処理が、次の発話を横取りしないように）。
@@ -81,8 +70,6 @@ final class VoiceActivity: @unchecked Sendable {
     private var running = false
     /// 実行中の処理の印（どの流れの発話か）。新しい発話が、実行中の処理を、取りやめるかの判断に使う。
     private var runningTag: String?
-    /// 実行中の処理を、取りやめずに、順番を待たせた発話の数（Esc で、これだけ、捨てる）。
-    private var deferred = 0
     private var awaitingReply = 0
     private var token: CancelToken?
     private var task: Task<Void, Never>?
@@ -132,16 +119,21 @@ final class VoiceActivity: @unchecked Sendable {
     func endAwaitingReply() { lock.lock(); awaitingReply = max(0, awaitingReply - 1); lock.unlock() }
 
     /// 新しい発話が来た：**実行中（認識中を含む）の処理を、取りやめる**（新しい依頼を、先に進めるため）。
-    /// 確認の返事を待っている間は、取りやめない（来た発話は、返事）。`keepsRunning`：実行中の処理の印を見て、**取りやめずに、順番を待たせる**なら true（会話の質問に、続けて話したとき）。取りやめたら true。
-    func interruptForNewUtterance(keepsRunning: ((String?) -> Bool)? = nil) -> Bool {
+    /// 確認の返事を待っている間は、取りやめない（来た発話は、返事）。取りやめたら true。
+    func interruptForNewUtterance() -> Bool {
         lock.lock()
         guard running, awaitingReply == 0 else { lock.unlock(); return false }
-        if keepsRunning?(runningTag) ?? false { deferred += 1; lock.unlock(); return false }
         let (token, task) = (self.token, self.task)
         lock.unlock()
         token?.supersede()
         task?.cancel()
         return true
+    }
+
+    /// 新しい発話を、実行中の処理を**取りやめずに**、先に認識して、順番を待たせるか（`keepsRunning`：実行中の処理の印を見て決める。会話の質問に、続けて話したとき）。確認の返事を待っている間は、false（来た発話は、返事）。
+    func defersNewUtterance(keepsRunning: (String?) -> Bool) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return running && awaitingReply == 0 && keepsRunning(runningTag)
     }
 
     /// 実行中の処理を、いますぐ、取りやめる（会話の「今すぐ送る」：確認の返事を待っていても、やめる）。取りやめたら true。
@@ -155,12 +147,9 @@ final class VoiceActivity: @unchecked Sendable {
         return true
     }
 
-    func beginWork(_ token: CancelToken, tag: String? = nil) { commit { self.token = token; runningTag = tag; deferred = 0; running = true } }
-
-    /// 順番を待たせた発話の数を、取り出す（Esc：これだけ、捨てる）。
-    func takeDeferred() -> Int { lock.lock(); defer { lock.unlock() }; let count = deferred; deferred = 0; return count }
+    func beginWork(_ token: CancelToken, tag: String? = nil) { commit { self.token = token; runningTag = tag; running = true } }
     func setTask(_ task: Task<Void, Never>) { lock.lock(); self.task = task; lock.unlock() }
-    func endWork() { commit { running = false; runningTag = nil; deferred = 0; token = nil; task = nil } }
+    func endWork() { commit { running = false; runningTag = nil; token = nil; task = nil } }
 
     /// Esc：録音中なら、録音を捨てる。そうでなく、処理中なら、取りやめる。
     func escape() -> Target {

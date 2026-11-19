@@ -65,4 +65,16 @@ import Testing
         window.releaseStart()
         #expect(!window.isBusy)
     }
+
+    @Test func aSpokenQuestionRecognizedAheadIsHandedBackToTheVoiceFlowWhenItsTurnComes() async {
+        let window = ChatWindow.shared; window.clear(); defer { window.clear(); window.startTyped = nil; window.injectSpoken = nil }
+        let injected = Started(); window.startTyped = { _ in }; window.injectSpoken = { injected.texts.append($0) }
+        window.submitTyped("running"); let running = begin(window, "running")
+        window.enqueueSpoken("spoken ahead")
+        #expect(window.queuedTexts == ["spoken ahead"] && injected.texts.isEmpty)       // 考えている間は、待つ
+        window.finish(running, answer: "done", activities: [], notes: [], startedNew: false)
+        #expect(injected.texts == ["spoken ahead"] && window.queuedTexts.isEmpty)       // 順番が来た：声の流れへ戻す
+        #expect(await window.waitForTurn("spoken ahead") == true && window.isBusy)      // 戻ってきた発話は、待たずに通る（予約は、済み）
+    }
 }
+

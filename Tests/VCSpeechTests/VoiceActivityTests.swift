@@ -90,15 +90,17 @@ import VCCore
         if case .audio(let got) = await queue.next() { #expect(got == url) } else { Issue.record("次の発話が、横取りされた") }
     }
 
-    @Test func aNewUtteranceOfTheSameKindCanWaitInsteadOfCancellingTheRunningWork() {
+    @Test func aNewUtteranceOfTheSameKindIsDeferredInsteadOfCancellingTheRunningWork() {
         let activity = VoiceActivity()
         let token = CancelToken()
+        #expect(!activity.defersNewUtterance(keepsRunning: { _ in true }))             // 何も動いていなければ、待たせない
         activity.beginWork(token, tag: "chat")
-        #expect(!activity.interruptForNewUtterance(keepsRunning: { $0 == "chat" }))   // 会話に、会話が続く：待たせる
+        #expect(activity.defersNewUtterance(keepsRunning: { $0 == "chat" }))           // 会話に、会話が続く：先に認識して、待たせる
+        #expect(!activity.defersNewUtterance(keepsRunning: { $0 == "listen" }))        // 別の流れ：従来どおり
+        activity.beginAwaitingReply()
+        #expect(!activity.defersNewUtterance(keepsRunning: { _ in true }))             // 確認の返事を待っている間は、来た発話は、返事
+        activity.endAwaitingReply()
         #expect(!token.isCancelled && !token.isSuperseded)
-        #expect(activity.takeDeferred() == 1 && activity.takeDeferred() == 0)         // Esc で捨てる数
-        #expect(activity.interruptForNewUtterance(keepsRunning: { $0 == "listen" }))  // 別の流れ：従来どおり、取って代わる
-        #expect(token.isSuperseded)
     }
 
     @Test func forcedInterruptWorksEvenWhileWaitingForAConfirmationReply() {
@@ -111,19 +113,4 @@ import VCCore
         activity.endAwaitingReply(); activity.endWork()
         #expect(!activity.interruptRunning())             // 何もしていなければ、何もしない
     }
-
-    @Test func discardingWaitingAudioRemovesTheFilesAndKeepsOtherInputs() async throws {
-        let queue = VoiceInputQueue()
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("vc-queue-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let files = (0..<2).map { directory.appendingPathComponent("\($0).wav") }
-        for file in files { try Data([0]).write(to: file) }
-        queue.push(.audio(files[0])); queue.push(.cancel); queue.push(.audio(files[1]))
-        #expect(queue.discardAudio(limit: 1) == 1)                                       // 古いほうから、数だけ
-        #expect(!FileManager.default.fileExists(atPath: files[0].path) && FileManager.default.fileExists(atPath: files[1].path))
-        guard case .cancel = await queue.next() else { Issue.record("音声以外の入力まで、捨てた"); return }
-        #expect(queue.discardAudio(limit: 5) == 1 && !FileManager.default.fileExists(atPath: files[1].path))
-    }
 }
-

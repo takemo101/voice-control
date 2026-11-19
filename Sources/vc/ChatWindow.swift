@@ -30,8 +30,13 @@ import VCSkill
     /// いま考えている声の質問を、取りやめる（声の流れが持つ：`VoiceSession`）。「今すぐ送る」で、使う。
     var interruptVoiceTurn: (@MainActor () -> Void)?
 
+    /// 順番待ちの声の質問（先に認識したもの）を、声の流れの処理へ戻す（声の流れが持つ：`VoiceSession`）。
+    var injectSpoken: (@MainActor (String) -> Void)?
+    /// 戻した発話（その発話の `waitForTurn` は、待たずに通す）。
+    private var injectedText: String?
     /// 質問を始めようとしている（始める処理が、`begin` を呼ぶまでの間）。この間に来た質問も、順番待ちに入る。
     private var starting = false
+    private var reservation = 0
     /// 停止（ボタン）で、止めている最中。順番待ちは、送らずに、捨てる。
     private var stopRequested = false
     /// 順番を待っている声の質問（声の流れの処理が、待っている）。
@@ -129,14 +134,36 @@ import VCSkill
             state.scrollToken += 1
             dispatchNext()   // 考えていなければ（取りこぼし）、ここで動かす
         } else {
-            starting = true
+            reserveStart()
             startTyped?(text)
         }
     }
 
+    /// 始める予約をする（`begin` が呼ばれるまで、ほかの質問を割り込ませない）。**予約が、残り続けない**ように、一定時間（15 秒）で、質問が始まっていなければ、外す（始める処理が、途中で消えたとき：設定の反映での作り直しなど）。
+    private func reserveStart() {
+        starting = true
+        reservation += 1
+        let mine = reservation
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(15))   // try?: 取りやめられても、予約の見張りが、なくなるだけ
+            guard let self, self.starting, self.reservation == mine, !self.state.entries.hasPending else { return }
+            self.starting = false
+            self.injectedText = nil
+            self.dispatchNext()
+        }
+    }
+
+    /// 声の質問が、先に認識できた（考えている間に、続けて話した）：順番待ちに入れる。考えていなければ、すぐ、声の流れへ戻す。
+    func enqueueSpoken(_ text: String) {
+        state.queue.enqueue(text, source: .voice)
+        state.scrollToken += 1
+        dispatchNext()
+    }
+
     /// 声の質問の、順番を待つ。すぐ始められれば true。考えている間は、順番待ちに入れて、順番が来るまで待つ（来たら true。取り下げ・取りやめ・停止なら false）。
     func waitForTurn(_ text: String) async -> Bool {
-        if !isBusy && state.queue.isEmpty { starting = true; return true }
+        if let injected = injectedText, injected == text { injectedText = nil; return true }   // 順番が来て、声の流れへ戻した発話（予約は、済み）
+        if !isBusy && state.queue.isEmpty { reserveStart(); return true }
         let item = state.queue.enqueue(text, source: .voice)
         state.scrollToken += 1
         return await withTaskCancellationHandler {
@@ -161,10 +188,19 @@ import VCSkill
     /// 次の順番を、始める（考えていないときだけ）。
     private func dispatchNext() {
         guard !isBusy, let batch = state.queue.takeNext() else { return }
-        starting = true
+        reserveStart()
         switch batch.source {
         case .typed: startTyped?(batch.text)
-        case .voice: waiters.removeValue(forKey: batch.ids[0])?.resume(returning: true)
+        case .voice:
+            if let waiter = waiters.removeValue(forKey: batch.ids[0]) {
+                waiter.resume(returning: true)
+            } else if let injectSpoken {   // 先に認識した発話：声の流れの処理（確認の返事・読み上げ）へ戻す
+                injectedText = batch.text
+                injectSpoken(batch.text)
+            } else {
+                starting = false   // 戻す先がない：始められない（記録に、残す）
+                state.entries.addStopped(question: batch.text, reason: tr("送られませんでした（声の流れが止まっています）"))
+            }
         }
     }
 

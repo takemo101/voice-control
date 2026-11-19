@@ -155,6 +155,9 @@ public final class VoiceLoop {
     public var uncertainty: Uncertainty?
     /// 新しい発話が来たとき、実行中の処理を、**取りやめずに**、順番を待たせるか（引数：新しい発話の印・実行中の処理の印）。なければ、いつも、取りやめる。会話の質問が、考えている間に、続けて話したときに使う。
     public var keepsRunning: (@Sendable (_ newTag: String, _ runningTag: String?) -> Bool)?
+    /// 順番を待たせた発話が、**文字になった**とき（その場で、先に認識する）。`(文字・発話の印)`。空の文字も届く（聞き取れなかった）。順番が来たら、`inject` で、この流れに戻す。
+    public var onDeferred: (@Sendable (_ text: String, _ tag: String) -> Void)?
+    private let deferredRecognizer: DeferredRecognizer
 
     /// - `onEvent`：表示のための出来事（`VoiceLoopEvent`）。
     public convenience init(trigger: PushToTalkTrigger, escape: EscapeSource, recorder: Recording, transcriber: Transcribing,
@@ -173,6 +176,7 @@ public final class VoiceLoop {
         self.scheduler = scheduler
         self.rearmDelays = rearmDelays
         self.emit = onEvent
+        self.deferredRecognizer = DeferredRecognizer(transcriber: transcriber, emit: onEvent)
     }
 
     /// 聞き始めて、アプリのイベントループ（`NSApplication.run()`）を回す（終わらない）。`onReady`：準備ができたときの表示（イベントループの前に、同期で呼ぶ）。
@@ -187,6 +191,9 @@ public final class VoiceLoop {
 
     /// 録音中・認識中・実行中・認識待ちの音声があるか（設定を反映するために、作り直してよいかの判断に使う）。
     public var isBusy: Bool { activity.isActive }
+
+    /// 認識済みの発話を、この流れの処理に、戻す（順番待ちが、順番になった：会話）。ほかの処理が、動いていなければ、すぐ始まる。
+    public func inject(_ text: String, tag: String) { queue.push(.text(text, tag: tag)) }
 
     /// 実行中の処理を、いますぐ、取りやめる（会話の「今すぐ送る」）。
     public func interruptRunning() { _ = activity.interruptRunning() }
@@ -214,6 +221,8 @@ public final class VoiceLoop {
         let activity = self.activity, queue = self.queue, recorder = self.recorder, escape = self.escape
         let emit = self.emit, scheduler = self.scheduler, rearmDelays = self.rearmDelays, tags = self.tags
         let keepsRunning = self.keepsRunning   // `run` の前に、決める（`self` を、クロージャに持たせない）
+        let deferredRecognizer = self.deferredRecognizer
+        deferredRecognizer.deliver = onDeferred
         // 録音を始めたトリガーの印（トリガー → クロージャ → トリガーの循環を作らないよう、弱く持つ）
         weak let tagged = trigger as? TaggedTrigger
         let currentTag: @Sendable () -> String = { MainActor.assumeIsolated { tagged?.tag ?? "" } }
@@ -236,12 +245,17 @@ public final class VoiceLoop {
             }
             do {
                 if let file = try recorder.stop() {
-                    activity.stopRecording(queuedAudio: true)
-                    tags.push(tag)
-                    queue.push(.audio(file))
-                    // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）
-                    let keeps = keepsRunning
-                    if activity.interruptForNewUtterance(keepsRunning: keeps.map { keep in { running in keep(tag, running) } }) { emit(.interrupted, tag) }
+                    if let keep = keepsRunning, activity.defersNewUtterance(keepsRunning: { keep(tag, $0) }) {
+                        // 会話の質問に、続けて話した：実行中の処理は、取りやめない。この発話は、**その場で、先に認識**して、順番待ちに入れる（順番が来たら、`inject` で戻る）
+                        activity.stopRecording(queuedAudio: false)
+                        deferredRecognizer.submit(file, tag: tag)
+                    } else {
+                        activity.stopRecording(queuedAudio: true)
+                        tags.push(tag)
+                        queue.push(.audio(file))
+                        // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）
+                        if activity.interruptForNewUtterance() { emit(.interrupted, tag) }
+                    }
                 } else {
                     activity.stopRecording(queuedAudio: false)
                     emit(.recordingEmpty, tag)
@@ -259,8 +273,7 @@ public final class VoiceLoop {
             case .work:
                 // 先に知らせる（読み上げを止める）。そのあとで、待っている処理を起こす。
                 emit(.cancelling, "")
-                // 取りやめずに、順番を待たせていた発話は、やめる（取りやめたあとに、動き出さないように）。割り込んだ発話は、従来どおり、続ける
-                for _ in 0..<queue.discardAudio(limit: activity.takeDeferred()) { activity.consumedAudio(); _ = tags.pop() }
+                deferredRecognizer.cancelAll()   // 先に認識していた、待たせた発話は、やめる（取りやめたあとに、動き出さないように）
                 queue.push(.cancel)   // 発話や確認の返事を待っている処理を起こす
             case .nothing:
                 break
@@ -273,7 +286,21 @@ public final class VoiceLoop {
     /// 列の音声を、1 つずつ、順に処理する（発話ごとに、取りやめの合図と `Task` を作る。Esc は、これらを止める）。
     @MainActor private func consume() async {
         while !stopped {
-            guard case let .audio(file) = await queue.next() else { continue }
+            let input = await queue.next()
+            if case let .text(text, tag) = input {   // 認識済みの発話（順番待ちが、順番になった）
+                if stopped { break }
+                let token = CancelToken()
+                activity.beginWork(token, tag: tag)
+                let work = Task {
+                    let next: NextUtterance = { [self] in try await nextUtterance(token, tag) }
+                    await self.handler(text, token, next, tag)
+                }
+                activity.setTask(work)
+                await work.value
+                activity.endWork()
+                continue
+            }
+            guard case let .audio(file) = input else { continue }
             if stopped { try? FileManager.default.removeItem(at: file); break }   // 止めたあとに来た音声は、処理せず、捨てる   // 待っている処理がないときの Esc の合図は、読み捨てる
             let tag = tags.pop()
             let token = CancelToken()
@@ -323,7 +350,63 @@ public final class VoiceLoop {
             switch await queue.next() {
             case .cancel: if token.isCancelled || Task.isCancelled { return nil }   // 前の処理の取りやめの合図は、読み捨てる。この待ち自体が取りやめられたら（ボタンが先に答えた）、やめる
             case let .audio(file): return try await transcribe(file, token, tags.pop())?.text   // 確認の返事は、確信度を見ない
+            case let .text(text, _): return text
             }
         }
+    }
+}
+
+/// 順番を待たせた発話を、**その場で、先に認識する**（実行中の処理の裏で。認識は、1 つずつ、順に）。文字になったら、`deliver` へ渡す。Esc で、まだの認識は、やめる。
+/// `@unchecked Sendable` の理由：可変な状態（`tokens`・`tail`・`deliver`）は、すべて `lock` で守る。
+final class DeferredRecognizer: @unchecked Sendable {
+    private let transcriber: Transcribing
+    private let emit: @Sendable (VoiceLoopEvent, String) -> Void
+    private let lock = NSLock()
+    private var tokens: [UUID: CancelToken] = [:]
+    private var tail: Task<Void, Never>?
+    private var deliverHandler: (@Sendable (String, String) -> Void)?
+
+    init(transcriber: Transcribing, emit: @escaping @Sendable (VoiceLoopEvent, String) -> Void) {
+        self.transcriber = transcriber
+        self.emit = emit
+    }
+
+    var deliver: (@Sendable (String, String) -> Void)? {
+        get { lock.withLock { deliverHandler } }
+        set { lock.withLock { deliverHandler = newValue } }
+    }
+
+    func submit(_ file: URL, tag: String) {
+        let key = UUID(), token = CancelToken()
+        let task: Task<Void, Never> = lock.withLock {
+            let previous = tail
+            tokens[key] = token
+            let task = Task { [transcriber, emit] in
+                await previous?.value   // 認識は、1 つずつ
+                defer {
+                    try? FileManager.default.removeItem(at: file)   // try?: 一時の録音ファイルの片付け。消せなくても、結果は変わらない
+                    lock.withLock { tokens[key] = nil }
+                }
+                guard !token.isCancelled else { return }
+                do {
+                    let heard = try await transcriber.transcribeWithConfidence(file: file)
+                    guard !token.isCancelled else { return }
+                    emit(.recognized(heard.text), tag)
+                    deliver?(heard.text, tag)
+                } catch {
+                    guard !token.isCancelled else { return }
+                    emit(.recognitionFailed(error), tag)
+                }
+            }
+            tail = task
+            return task
+        }
+        _ = task
+    }
+
+    /// まだの認識を、すべてやめる（Esc）。
+    func cancelAll() {
+        let all = lock.withLock { Array(tokens.values) }
+        all.forEach { $0.cancel() }
     }
 }

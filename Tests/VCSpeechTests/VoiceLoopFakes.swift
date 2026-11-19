@@ -164,10 +164,12 @@ final class EventLog: @unchecked Sendable {
     let log = EventLog()
     let loop: VoiceLoop
 
-    init(rearmDelays: [TimeInterval] = [0.05, 0.3], handler: @escaping UtteranceHandler) {
+    init(rearmDelays: [TimeInterval] = [0.05, 0.3], keepsRunning: (@Sendable (String, String?) -> Bool)? = nil, onDeferred: (@Sendable (String, String) -> Void)? = nil, handler: @escaping UtteranceHandler) {
         let log = self.log
         loop = VoiceLoop(trigger: trigger, escape: escape, recorder: recorder, transcriber: transcriber, handler: handler,
                          scheduler: main.scheduler, rearmDelays: rearmDelays, onEvent: { event, _ in log.add(event) })
+        loop.keepsRunning = keepsRunning
+        loop.onDeferred = onDeferred
         loop.start()
     }
 
