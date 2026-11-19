@@ -42,20 +42,22 @@ import VCSpeech
             HUD.shared.show(HUDContent(phase: .failure, title: tr("聞き取れませんでした"), hint: tr("もう一度、はっきり話してください"), chip: chip), hideAfter: 2.5)
             return
         }
+        let window = ChatWindow.shared
         if ChatEndCommand.matches(utterance) {
+            window.dropInjection(utterance)   // 順番待ちから戻った発話なら、始める予約を外す（質問にならずに終わる）
             await ChatMode.shared.end()
             print("  " + Style.dim(tr("会話を終わりました（記録は、消しました）")))
             HUD.shared.show(HUDContent(phase: .info, title: tr("会話を終わりました"), hint: tr("記録は、消しました"), chip: chip, heard: utterance), hideAfter: 2.5)
             if speakResults { say(tr("会話を終わりました")) }
             return
         }
-        let window = ChatWindow.shared
-        // 考えている最中なら、順番を待つ（Zed・Codync と同じ：考えている間の質問は、キューに入る）。文字の質問は、ウィンドウが、順番に始める（`fromQueue`）
-        if !fromQueue {
-            guard await window.waitForTurn(utterance) else { return }   // 取り下げ・取りやめ・停止
-            if token.isCancelled || token.isSuperseded { window.releaseStart(); return }
+        // 考えている最中なら、順番待ちに入れて、すぐ戻る（Zed・Codync と同じ：考えている間の質問は、キューに入る。**待たない**：声の流れを、塞がない）。文字の質問は、ウィンドウが、順番に始める（`fromQueue`）
+        if !fromQueue, !window.claimTurn(utterance) {
+            HUD.shared.hide()   // 「認識中…」を、外す（待っている質問は、会話のウィンドウに出ている）
+            return
         }
         let fallbackNote = await ChatMode.shared.settleAgent()   // 選んだエージェントが、なくなっていたら、Apple で答える
+        if token.isCancelled || token.isSuperseded { window.releaseStart(); return }   // 始める前に、取りやめられた
         let agent = ChatMode.shared.agent
         let level = ChatMode.shared.tools
         let toolLabel: String? = level == .none ? nil : (level == .all ? (ChatMode.shared.auto ? tr("すべて・自動") : tr("すべて")) : (level == .read ? tr("＋読む") : "Web"))   // l10n-skip: "Web" is the same in both languages

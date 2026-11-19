@@ -126,7 +126,11 @@ final class ManualScheduler: @unchecked Sendable {
 final class EventLog: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [String] = []
+    private var offMain: [String] = []
     private let mailbox = Mailbox<String>()
+
+    /// メインスレッドの外で届いた出来事（受け口は、画面を触るので、メインで呼ばれる前提）。
+    var eventsOffMain: [String] { lock.lock(); defer { lock.unlock() }; return offMain }
 
     func add(_ event: VoiceLoopEvent) {
         let label: String
@@ -142,7 +146,7 @@ final class EventLog: @unchecked Sendable {
         case .cancelling: label = "cancelling"
         case .interrupted: label = "interrupted"
         }
-        lock.lock(); items.append(label); lock.unlock()
+        lock.lock(); items.append(label); if !Thread.isMainThread { offMain.append(label) }; lock.unlock()
         mailbox.put(label)
     }
 
@@ -164,10 +168,12 @@ final class EventLog: @unchecked Sendable {
     let log = EventLog()
     let loop: VoiceLoop
 
-    init(rearmDelays: [TimeInterval] = [0.05, 0.3], handler: @escaping UtteranceHandler) {
+    init(rearmDelays: [TimeInterval] = [0.05, 0.3], keepsRunning: (@Sendable (String, String?) -> Bool)? = nil, onDeferred: (@Sendable (String, String) -> Void)? = nil, handler: @escaping UtteranceHandler) {
         let log = self.log
         loop = VoiceLoop(trigger: trigger, escape: escape, recorder: recorder, transcriber: transcriber, handler: handler,
                          scheduler: main.scheduler, rearmDelays: rearmDelays, onEvent: { event, _ in log.add(event) })
+        loop.keepsRunning = keepsRunning
+        loop.onDeferred = onDeferred
         loop.start()
     }
 

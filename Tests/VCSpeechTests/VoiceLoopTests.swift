@@ -400,4 +400,59 @@ final class EventTags: @unchecked Sendable {
         for _ in 0..<50 { await Task.yield() }
         #expect(!h.log.labels.contains("recognized:text-late"))
     }
+
+    /// 会話に会話が続いたとき（`keepsRunning`）：実行中の処理は、取りやめず、続けて話した発話は、**その場で先に認識**されて、順番待ちに渡される。順番が来たら、`inject` で、同じ流れの処理に戻る。
+    @Test func anUtteranceThatFollowsOnIsRecognizedAtOnceAndRunsLaterWhenInjected() async {
+        let started = Mailbox<String>()
+        let gate = Gate()
+        let delivered = Mailbox<String>()
+        let tokens = Mailbox<Bool>()
+        let h = Harness(keepsRunning: { _, _ in true }, onDeferred: { text, _ in delivered.put(text) }) { utterance, token, _, _ in
+            started.put(utterance)
+            if utterance == "text-a1" { await gate.wait(); tokens.put(token.isCancelled || token.isSuperseded) }
+        }
+        h.speak("a1")
+        #expect(await started.take() == "text-a1")
+        h.speak("a2")                                   // 実行中に、続けて話す
+        #expect(await delivered.take() == "text-a2")    // 先に認識されて、渡る（実行中の処理は、まだ動いている）
+        gate.open()
+        #expect(await tokens.take() == false)           // 取りやめられていない
+        #expect(!h.log.labels.contains("interrupted"))
+        h.loop.inject("text-a2", tag: "")               // 順番が来た
+        #expect(await started.take() == "text-a2")      // 同じ流れの処理に、戻った
+        #expect(h.log.eventsOffMain.isEmpty)            // 先の認識の出来事も、メインで届く（メインの外から呼んで、アプリが落ちた）
+    }
+
+    @Test func escCancelsADeferredRecognitionThatIsStillRunning() async {
+        let started = Mailbox<String>()
+        let gate = Gate()
+        let hold = Gate()
+        let delivered = Counter()
+        let finished = Mailbox<Void>()
+        let h = Harness(keepsRunning: { _, _ in true }, onDeferred: { _, _ in _ = delivered.next() }) { utterance, _, _, _ in
+            started.put(utterance)
+            await gate.wait()
+            finished.put(())
+        }
+        h.transcriber.hold("a2", hold)
+        h.speak("a1")
+        #expect(await started.take() == "text-a1")
+        h.speak("a2")
+        _ = await h.transcriber.entered.take()          // a1
+        _ = await h.transcriber.entered.take()          // a2（先に認識が始まった。止められている）
+        h.escapeKey()                                   // Esc：待たせていた発話は、やめる
+        hold.open()
+        gate.open()
+        await finished.take()
+        try? await Task.sleep(nanoseconds: 200_000_000)   // 認識の後始末が、済むまで
+        #expect(!h.log.labels.contains("recognized:text-a2") && delivered.next() == 1)   // 渡っていない（`next()` の初回の値が 1＝まだ、呼ばれていない）
+    }
+
+    @Test func anUtteranceCannotBeInjectedIntoAStoppedLoop() {
+        let h = Harness { _, _, _, _ in }
+        #expect(h.loop.inject("ok", tag: ""))
+        h.loop.stop()
+        #expect(!h.loop.inject("late", tag: ""))     // 止まった流れへは、戻せない（呼び出し側が、記録に残す）
+    }
 }
+

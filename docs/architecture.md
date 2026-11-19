@@ -72,7 +72,7 @@ flowchart TB
 
 - **所有者は `ChatWindow`**（メインアクター）：`ChatQueue`（純粋な値。文字は、続けて待っていたらまとめる・声は 1 件ずつ・今すぐ送る＝その 1 件を先頭へ）と、考えている印（`hasPending`＋始める予約 `starting`）。質問を始める処理（`ChatVoice.handle`）が `begin` を呼ぶまでの間も、予約で、ほかの質問を割り込ませない。
 - **文字**：入力欄 → `submitTyped`。考えていなければ `startTyped`（`VoiceSession` が組む）で始め、考えていれば、順番待ちに入れる。答え・失敗・取って代わられたとき（`turnEnded`）に、次を始める。**利用者の取りやめ（Esc・停止）**は、順番待ちを捨てて、「送られませんでした」として記録に残す。
-- **声**：`ChatVoice.handle` が、始める前に `waitForTurn` で順番を待つ（取り下げ・取りやめ・停止なら false）。声の流れ（`VoiceLoop`）は、1 つずつ処理するので、**会話の発話に会話の発話が続いたときだけ**、実行中の処理を取りやめず、待たせる（`keepsRunning`。待たせた数は、Esc で捨てる）。ほかの流れの発話は、従来どおり、取って代わる（F36）。
+- **声**（**声の流れを、塞がない**：発話の処理は、順番待ちに入れて、すぐ戻る）：(1) 声の処理が始まるとき、`ChatVoice.handle` が `ChatWindow.claimTurn` を呼ぶ。考えていなければ、始める予約を持って進む。考えていれば、順番待ちに入れて、戻る。(2) **会話の発話に会話の発話が続いた**（声の流れが、1 つずつ処理していて、いまの処理が会話）：`VoiceActivity.disposition` が、いまの処理の段階で、扱いを決める。発話の処理に入っている（`recognizeNow`）：実行中の処理を取りやめず（`keepsRunning`）、続けた発話を、その場で**先に認識**して（`DeferredRecognizer`。メインアクターで、出来事を出す・1 つずつ）、`onDeferred` → `ChatWindow.enqueueSpoken` で順番待ちに並べる。**まだ認識中**（`queueBehind`）：先に認識すると、順番が入れ替わり、塞がるので、列で、順番を待つ。(3) 順番が来たら、`injectSpoken` → `VoiceLoop.inject`（認識済みの文字を、列へ戻す。止まっていれば false）で、同じ流れの処理（確認の返事・読み上げ）に戻る。戻した発話は、`injectedText` で、自分の `claimTurn` を、待たずに通る。質問にならずに終わる発話（「会話を終わりにして」）は、`dropInjection` で、予約を外す。(4) **始める予約は、`begin` なしに、残り続けない**（`reservationTimeout`＝15 秒で外れて、次へ進む）。Esc は、まだの先の認識をやめ（`cancelAll`）、考えている質問を止めて、順番待ちを捨てる。ほかの流れの発話は、従来どおり、取って代わる（F36）。
 - **今すぐ送る**：文字の質問は、記録の手続き（`cancel`）で、声の質問は、`VoiceLoop.interruptRunning` で止める。止まったあと、先頭（その 1 件）が始まる。
 
 ### スキルの実行の流れ（`SkillRunner`）

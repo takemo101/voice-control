@@ -155,5 +155,6 @@ extension EnglishTables {
         "考えています…（続けて質問すると、順番待ちに入ります）": "Thinking… (ask again to join the queue)",
         "考えています…（順番待ち %@ 件。終わったら、送ります）": "Thinking… (%@ queued; sent when this finishes)",
         "順番待ち %@": "Queued %@",
+        "送られませんでした（声の流れが止まっています）": "Not sent — the voice flow is stopped",
     ]
 }

@@ -98,6 +98,15 @@ import VCSpeech
         // 会話の質問が、考えている間に、続けて話したとき：取りやめずに、順番を待たせる（Zed・Codync と同じ。ほかの流れの発話は、従来どおり、取って代わる）
         loop.keepsRunning = { newTag, runningTag in newTag == VoiceMode.chat && runningTag == VoiceMode.chat }
         ChatWindow.shared.interruptVoiceTurn = { loop.interruptRunning() }
+        // 続けて話した発話は、その場で先に認識して、順番待ちに入れる。順番が来たら、声の流れへ戻す（確認の返事・読み上げは、いつもどおり）
+        loop.onDeferred = { text, _ in
+            Task { @MainActor in
+                HUD.shared.hide()   // 「認識中…」を、外す（会話は、ウィンドウに出ている）
+                guard !text.isEmpty else { return }
+                ChatWindow.shared.enqueueSpoken(text)
+            }
+        }
+        ChatWindow.shared.injectSpoken = { text in loop.inject(text, tag: VoiceMode.chat) }   // 止まっていれば、false（ウィンドウが、記録に残す）
         loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
             HUD.shared.show(HUDContent(phase: .recording, title: tr("録音中"), hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
