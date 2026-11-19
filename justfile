@@ -17,6 +17,10 @@ build:
 test:
     ./scripts/test.sh
 
+# 英語の翻訳（設定ウィンドウとダイアログ）の抜け・重複・包まれていない日本語の文字列
+l10n:
+    python3 scripts/check-l10n.py --uncovered
+
 # build/VoiceControl.app（メニューバーのアプリ。Apple silicon、ad-hoc 署名）を作る
 app:
     ./scripts/build-app.sh

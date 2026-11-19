@@ -44,7 +44,7 @@ import VCSpeech
     func start() {
         isActive = true
         state = .starting
-        FailurePresenter.show = { message in AppAlerts.show(title: "vc を続けられません", message: message, style: .critical) }
+        FailurePresenter.show = { message in AppAlerts.show(title: tr("vc を続けられません"), message: message, style: .critical) }
         do {
             let context = try Self.makeContext()
             let jev = try Self.preflight(context)
@@ -55,7 +55,7 @@ import VCSpeech
         } catch {
             let reason = "\(error)"
             state = .stopped(reason: reason)
-            AppAlerts.show(title: "声の入力を始められません", message: reason, style: .warning)
+            AppAlerts.show(title: tr("声の入力を始められません"), message: reason, style: .warning)
             // 直せる場所を、開く（モデルがなければ「モデル」・許可がなければ「一般」）
             if let page = (error as? StartupProblem)?.page { SettingsWindow.shared.show(page: page) }
         }
@@ -69,7 +69,7 @@ import VCSpeech
 
     /// 設定を読んで、声の流れを作り、始める。Tiny-Jev・音声認識（変わっていなければ）は、使い回す。
     private func bringUp(_ context: CommandContext) throws {
-        guard let jev else { throw StartupProblem("Tiny-Jev のモデルが、まだ読まれていません") }
+        guard let jev else { throw StartupProblem(tr("Tiny-Jev のモデルが、まだ読まれていません")) }
         let choice = context.speechChoice, language = context.sttLanguage
         let wanted = "\(choice.id)/\(language.rawValue)"   // 言語が変わったら、開き直す
         if speech == nil || speechID != wanted {
@@ -78,7 +78,7 @@ import VCSpeech
             speech = try SpeechEngine.make(choice, language: language)
             speechID = wanted
         }
-        guard let speech else { throw StartupProblem("音声認識を、用意できません") }
+        guard let speech else { throw StartupProblem(tr("音声認識を、用意できません")) }
         var none = Arguments([])
         let muter = VoiceUI.muter(&none, context, command: "app")
         self.muter?.restore()
@@ -125,8 +125,8 @@ import VCSpeech
         }
         guard MicRecorder.authorize() else { throw StartupProblem(MicRecorder.deniedMessage(), page: .general) }
         do { return try context.tryLoadJev() } catch let missing as CommandContext.ModelMissing {
-            throw StartupProblem("\(missing)。設定ウィンドウ > モデル の「Tiny-Jev」を取得してください（約 1.2 GB。取得だけが、外部との通信です）", page: .models)
-        } catch { throw StartupProblem("Tiny-Jev のモデルを読めません: \(error)") }
+            throw StartupProblem(tr("\(missing)。設定ウィンドウ > モデル の「Tiny-Jev」を取得してください（約 1.2 GB。取得だけが、外部との通信です）"), page: .models)
+        } catch { throw StartupProblem(tr("Tiny-Jev のモデルを読めません: \(error)")) }
     }
 
     /// 終了の後始末（消音を戻す・認識を閉じる・撮ったスクリーンショットを消す）。
@@ -139,14 +139,14 @@ import VCSpeech
 
 enum AppAlerts {
     /// 2 つのボタンの確認（`confirm` を押したときだけ true）。
-    @MainActor static func confirm(title: String, message: String, confirm: String, cancel: String = "やめる", style: NSAlert.Style = .informational) -> Bool {
+    @MainActor static func confirm(title: String, message: String, confirm: String, cancel: String? = nil, style: NSAlert.Style = .informational) -> Bool {
         NSApplication.shared.activate()
         let alert = NSAlert()
         alert.alertStyle = style
         alert.messageText = title
         alert.informativeText = message
         alert.addButton(withTitle: confirm)
-        alert.addButton(withTitle: cancel)
+        alert.addButton(withTitle: cancel ?? tr("やめる"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -157,7 +157,7 @@ enum AppAlerts {
             alert.messageText = title
             alert.informativeText = message
             alert.alertStyle = style
-            alert.addButton(withTitle: "閉じる")
+            alert.addButton(withTitle: tr("閉じる"))
             alert.runModal()
         }
         if Thread.isMainThread { present() } else { DispatchQueue.main.sync(execute: present) }

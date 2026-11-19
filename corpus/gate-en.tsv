@@ -1,0 +1,42 @@
+# gate.tsv の英語版（同じ 40 文の、そのままの訳：日本語と英語の当たり率を、比べるため）。操作の依頼か（op）・会話や独り言か（chat）の正解つき。自作・少数。
+# 形：正解<TAB>発話
+op	Quit Safari
+op	Send this email
+op	Close the window
+op	Move the file to the trash
+op	Open a new tab in Chrome
+op	Open the calculator
+op	Scroll down
+op	Type a shopping list in Notes
+op	Maximize the browser
+op	Turn the volume down
+op	Take a screenshot
+op	Open the Downloads folder in Finder
+op	Click the settings button
+op	Launch Slack
+op	Close the current tab
+op	Empty the trash
+op	Bookmark this page
+op	Open the terminal and run ls
+op	Add a meeting to the calendar
+op	Quit all apps
+chat	Good work today
+chat	It's hot today
+chat	I wonder what the weather will be like tomorrow
+chat	Hmm, what should I do
+chat	That's funny
+chat	Wait a second
+chat	I see, so that's what it was
+chat	Thank you
+chat	Um
+chat	Did you watch yesterday's game
+chat	I'm hungry
+chat	I think I'll head home soon
+chat	Nice weather, isn't it
+chat	What does this mean, I wonder
+chat	I'll think about it later
+chat	Let's take a short break
+chat	Do you really think so
+chat	Sorry, I couldn't hear you
+chat	Yes, I understand
+chat	Anyway, about what we were saying earlier

@@ -1,3 +1,4 @@
+import VCCore
 import Foundation
 
 /// SKILL.md の読み込み（フロントマターの解析）。
@@ -6,29 +7,29 @@ extension SkillStore {
 
     /// SKILL.md の文字列 → `Skill`。
     static func parse(_ text: String, directoryName: String, file: URL) -> Result<Skill, ParseError> {
-        guard let (front, body) = splitFrontMatter(text) else { return .failure(ParseError(reason: "先頭に、フロントマター（--- で囲む）がない")) }
+        guard let (front, body) = splitFrontMatter(text) else { return .failure(ParseError(reason: tr("先頭に、フロントマター（--- で囲む）がない"))) }
         let fields = parseFields(front)
-        guard let name = fields["name"]?.scalar, !name.isEmpty else { return .failure(ParseError(reason: "name がない")) }
-        guard name.range(of: "^[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil else { return .failure(ParseError(reason: "name は、英小文字・数字・ハイフン（40 文字まで）")) }
-        guard name == directoryName else { return .failure(ParseError(reason: "name（\(name)）が、ディレクトリ名（\(directoryName)）と違う")) }
-        guard let description = fields["description"]?.scalar, !description.isEmpty else { return .failure(ParseError(reason: "description がない")) }
-        guard description.count <= maxDescription else { return .failure(ParseError(reason: "description が長い（\(description.count) 文字。\(maxDescription) まで）")) }
+        guard let name = fields["name"]?.scalar, !name.isEmpty else { return .failure(ParseError(reason: tr("name がない"))) }
+        guard name.range(of: "^[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil else { return .failure(ParseError(reason: tr("name は、英小文字・数字・ハイフン（40 文字まで）"))) }
+        guard name == directoryName else { return .failure(ParseError(reason: tr("name（\(name)）が、ディレクトリ名（\(directoryName)）と違う"))) }
+        guard let description = fields["description"]?.scalar, !description.isEmpty else { return .failure(ParseError(reason: tr("description がない"))) }
+        guard description.count <= maxDescription else { return .failure(ParseError(reason: tr("description が長い（\(description.count) 文字。\(maxDescription) まで）"))) }
         // 形：リスト（`- open`）、インライン（`[open, say]`）、1 つだけなら `allowed-commands: open`。
         let field = fields["allowed-commands"]
         let commands = (field?.list ?? field?.scalar.map { [$0] } ?? []).map { expandSkillDir($0, file: file) }
-        guard !commands.isEmpty else { return .failure(ParseError(reason: "allowed-commands がない（実行してよいコマンドを、明示する）")) }
+        guard !commands.isEmpty else { return .failure(ParseError(reason: tr("allowed-commands がない（実行してよいコマンドを、明示する）"))) }
         for c in commands {
             // 許可は、発話で変えられない（`${USER_REQUEST}` は、本文だけ）。知らない記号は、書き間違い
-            if c.contains("${\(SkillPlaceholder.screenshot)}") { return .failure(ParseError(reason: "allowed-commands「\(c)」：${SCREENSHOT} は、本文だけに書ける（許可は、実行のたびに変わる値で決めないため）")) }
-            if c.contains("${\(SkillPlaceholder.userRequest)}") { return .failure(ParseError(reason: "allowed-commands「\(c)」：${USER_REQUEST} は、本文だけに書ける（許可を、発話で変えないため）")) }
-            if let unknown = SkillPlaceholder.unknownNames(in: c).first { return .failure(ParseError(reason: "allowed-commands「\(c)」：知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}）")) }
-            if let why = CommandPolicy.validateEntry(c) { return .failure(ParseError(reason: "allowed-commands「\(c)」：\(why)")) }
+            if c.contains("${\(SkillPlaceholder.screenshot)}") { return .failure(ParseError(reason: tr("allowed-commands「\(c)」：${SCREENSHOT} は、本文だけに書ける（許可は、実行のたびに変わる値で決めないため）"))) }
+            if c.contains("${\(SkillPlaceholder.userRequest)}") { return .failure(ParseError(reason: tr("allowed-commands「\(c)」：${USER_REQUEST} は、本文だけに書ける（許可を、発話で変えないため）"))) }
+            if let unknown = SkillPlaceholder.unknownNames(in: c).first { return .failure(ParseError(reason: tr("allowed-commands「\(c)」：知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}）"))) }
+            if let why = CommandPolicy.validateEntry(c) { return .failure(ParseError(reason: tr("allowed-commands「\(c)」：\(why)"))) }
         }
         let confirm = (fields["confirm"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         // 返事の扱い：書かなければ、画面に出すだけ。`markdown-note` なら、Markdown のファイルにして開く。`markdown-window` なら、整形して、ウィンドウに表示する
         var resultMode = Skill.ResultMode.text
         if let text = fields["result"]?.scalar {
-            guard let mode = Skill.ResultMode(rawValue: text) else { return .failure(ParseError(reason: "result「\(text)」は使えない（markdown-note・markdown-window）")) }
+            guard let mode = Skill.ResultMode(rawValue: text) else { return .failure(ParseError(reason: tr("result「\(text)」は使えない（markdown-note・markdown-window）"))) }
             resultMode = mode
         }
         // コマンド 1 つの実行時間の上限（秒）。書かなければ、既定（30 秒）。範囲外・数でないものは、書き間違いなので、読み込みの失敗にする
@@ -36,20 +37,20 @@ extension SkillStore {
         if let text = fields["timeout"]?.scalar {
             let range = Skill.commandTimeoutRange
             guard let seconds = Int(text), range.contains(seconds) else {
-                return .failure(ParseError(reason: "timeout「\(text)」は使えない（\(range.lowerBound)〜\(range.upperBound) の整数。秒）"))
+                return .failure(ParseError(reason: tr("timeout「\(text)」は使えない（\(range.lowerBound)〜\(range.upperBound) の整数。秒）")))
             }
             commandTimeout = TimeInterval(seconds)
         }
         let trimmed = expandSkillDir(body, file: file).trimmingCharacters(in: .whitespacesAndNewlines)
         if let unknown = SkillPlaceholder.unknownNames(in: trimmed).first {
-            return .failure(ParseError(reason: "本文に、知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}・${USER_REQUEST}・${SCREENSHOT}。書き間違いでなければ、$ と { の間に、スペースなどを入れる）"))
+            return .failure(ParseError(reason: tr("本文に、知らない記号 ${\(unknown)}（使えるのは ${SKILL_DIR}・${USER_REQUEST}・${SCREENSHOT}。書き間違いでなければ、$ と { の間に、スペースなどを入れる）")))
         }
-        guard !trimmed.isEmpty else { return .failure(ParseError(reason: "本文（言語モデルへの指示）が空")) }
+        guard !trimmed.isEmpty else { return .failure(ParseError(reason: tr("本文（言語モデルへの指示）が空"))) }
         var skill = Skill(name: name, description: description, allowedCommands: commands, confirm: confirm, body: trimmed, file: file)
         skill.result = resultMode
         skill.external = (fields["external"]?.scalar).flatMap { $0.isEmpty ? nil : $0 }
         if let value = fields["image"]?.scalar, !value.isEmpty, !["false", "no", "off"].contains(value.lowercased()) {
-            guard let source = ImageSource.parse(value) else { return .failure(ParseError(reason: "image「\(value.prefix(20))」は、true・screenshot（撮ったスクリーンショット）・clipboard（コピーした画像）・any（どちらでも）のどれかです")) }
+            guard let source = ImageSource.parse(value) else { return .failure(ParseError(reason: tr("image「\(value.prefix(20))」は、true・screenshot（撮ったスクリーンショット）・clipboard（コピーした画像）・any（どちらでも）のどれかです"))) }
             skill.imageSource = source
         }
         skill.commandTimeout = commandTimeout

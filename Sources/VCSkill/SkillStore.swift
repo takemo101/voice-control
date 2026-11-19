@@ -28,7 +28,7 @@ public enum SkillStore {
             let file = dir.appendingPathComponent("SKILL.md")
             // SKILL.md が読めないものは、下で『読めなかったスキル』として理由を返す（握りつぶさない）
             guard let text = try? String(contentsOf: file, encoding: .utf8) else {
-                result.problems.append(SkillProblem(location: entry, reason: "SKILL.md が読めない"))
+                result.problems.append(SkillProblem(location: entry, reason: tr("SKILL.md が読めない")))
                 continue
             }
             switch parse(text, directoryName: entry, file: file) {
@@ -67,7 +67,7 @@ public enum SkillStore {
             result.untrustedProjectCount = project.skills.count + project.problems.count
             return result
         }
-        result.problems += project.problems.map { SkillProblem(location: "プロジェクト: \($0.location)", reason: $0.reason) }
+        result.problems += project.problems.map { SkillProblem(location: tr("プロジェクト: \($0.location)"), reason: $0.reason) }
         for skill in project.skills {
             if let index = result.skills.firstIndex(where: { $0.name == skill.name }) {
                 result.overridden.append(skill.name)

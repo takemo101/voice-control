@@ -5,7 +5,7 @@
   既定：コードの `tr("…")` の鍵（補間は %@）が、英語の表（Sources/vc/L10n/English*.swift）にあるか。
         表の値の %@ の数が、鍵と合うか。表の鍵の重複（Swift の辞書は、重複で実行時に落ちる）。使われない鍵（警告）。
   --uncovered：設定ウィンドウ・ダイアログのファイルで、`tr(` に包まれていない日本語の文字列を探す（`// l10n-skip` を付けた行は除く）。
-終了コード：問題（抜け・不一致・重複）があれば 1。警告（使われない鍵・包まれていない文字列）だけなら 0。
+終了コード：問題（抜け・不一致・重複・`--uncovered` で見つけた包まれていない文字列）があれば 1。警告（使われない鍵）だけなら 0。
 """
 import re, sys, glob, os
 
@@ -101,6 +101,8 @@ def table():
             if k in seen:
                 dups.append((os.path.relpath(path, ROOT), n, k))
             seen.add(k)
+            if k in entries and entries[k] != v:
+                dups.append((os.path.relpath(path, ROOT), n, k + '（別のファイルで、違う訳）'))
             entries[k] = v
     return entries, dups
 
@@ -168,6 +170,7 @@ def main():
         for path, n, s in found:
             print(f'包まれていない：{path}:{n}  {s}')
         print(f'包まれていない日本語の文字列：{len(found)} 件')
+        problems += len(found)
     sys.exit(1 if problems else 0)
 
 

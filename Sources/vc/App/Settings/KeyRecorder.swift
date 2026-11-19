@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 import VCSpeech
 
 /// 設定画面の、キーの記録（「クリックして、キーを押す」）の判断。**画面・イベントから分けて確かめられる**（`NSEvent` は、`SettingsModel` が、`Input` に直す）。
@@ -48,9 +49,9 @@ struct KeyRecorder {
         case let .key(code, modifiers):
             usedKey = true
             if code == Self.escape, modifiers.isEmpty { reset(); return .cancelled }
-            guard let name = HotKeySpec.keyName(forCode: code) else { return .rejected("このキーは、使えません") }
+            guard let name = HotKeySpec.keyName(forCode: code) else { return .rejected(tr("このキーは、使えません")) }
             if !recordsStroke, modifiers.isEmpty, !(name.hasPrefix("f") && name.count <= 3 && Int(name.dropFirst()) != nil) {
-                return .rejected("修飾キー（⌃ ⌥ ⇧ ⌘）と一緒に押してください（F キーだけは、単独で使えます）")
+                return .rejected(tr("修飾キー（⌃ ⌥ ⇧ ⌘）と一緒に押してください（F キーだけは、単独で使えます）"))
             }
             let mods = Self.order.filter(modifiers.contains).map(\.rawValue)
             return .recorded((mods + [name]).joined(separator: "+"))

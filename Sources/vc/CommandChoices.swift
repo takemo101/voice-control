@@ -33,7 +33,7 @@ extension CommandContext {
         guard let text = options.engine ?? settings.engine else { return .apple }
         do { return try Engine.parse(text) } catch {
             let fromSettings = options.engine == nil
-            throw StartupProblem("\(fromSettings ? "settings.json の engine: " : "")\(error)" + (fromSettings ? "（設定ウィンドウ > モデル > エンジン で直す）" : ""), page: fromSettings ? .models : nil)
+            throw StartupProblem(fromSettings ? tr("settings.json の engine: \(error)（設定ウィンドウ > モデル > エンジン で直す）") : "\(error)", page: fromSettings ? .models : nil)
         }
     }
 
@@ -47,7 +47,7 @@ extension CommandContext {
         }
         switch settings.speechChoice {
         case let .success(choice): return choice
-        case let .failure(error): throw StartupProblem("settings.json の stt: \(error)（設定ウィンドウ > モデル > 音声認識 で直す）", page: .models)
+        case let .failure(error): throw StartupProblem(tr("settings.json の stt: \(error)（設定ウィンドウ > モデル > 音声認識 で直す）"), page: .models)
         }
     }
 
@@ -55,7 +55,7 @@ extension CommandContext {
     func resolveSttLanguage(settings: Settings) throws -> AppLanguage {
         switch settings.recognitionLanguage {
         case let .success(language): return language
-        case let .failure(error): throw StartupProblem("settings.json の \(error)（設定ウィンドウ > 音声 で直す）", page: .voice)
+        case let .failure(error): throw StartupProblem(tr("settings.json の \(error)（設定ウィンドウ > 音声 で直す）"), page: .voice)
         }
     }
 
@@ -63,7 +63,8 @@ extension CommandContext {
     func resolveChatAgent(settings: Settings) throws -> ChatAgent {
         guard let text = settings.chatAgent else { return .apple }
         guard let agent = ChatAgent.parse(text) else {
-            throw StartupProblem("settings.json の chatAgent「\(text)」は、使えません（\(ChatAgent.allCases.map(\.rawValue).joined(separator: "・"))）。設定ウィンドウ > 会話 で直す", page: .chat)
+            let names = ChatAgent.allCases.map(\.rawValue).joined(separator: "・")   // l10n-skip
+            throw StartupProblem(tr("settings.json の chatAgent「\(text)」は、使えません（\(names)）。設定ウィンドウ > 会話 で直す"), page: .chat)
         }
         return agent
     }

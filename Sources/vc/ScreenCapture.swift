@@ -15,11 +15,11 @@ import VCSkill
 
     nonisolated static var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
 
-    nonisolated static let permissionHint = "システム設定 > プライバシーとセキュリティ > 画面収録 で、voice-control（端末から動かしているなら、その端末アプリ）を許可してください（許可したら、アプリを開き直してください）"
+    nonisolated static var permissionHint: String { tr("システム設定 > プライバシーとセキュリティ > 画面収録 で、voice-control（端末から動かしているなら、その端末アプリ）を許可してください（許可したら、アプリを開き直してください）") }
 
     /// 範囲を選んで撮り、`destination`（PNG）へ書く。
     static func capture(to destination: URL) async -> Outcome {
-        guard isAllowed else { return .failed("画面収録の許可がありません。\(permissionHint)") }
+        guard isAllowed else { return .failed(tr("画面収録の許可がありません。\(permissionHint)")) }
         switch await ScreenSelector.select() {
         case .cancelled: return .cancelled
         case let .failed(reason): return .failed(reason)
@@ -31,7 +31,7 @@ import VCSkill
                 return .captured(width: capture.image.width, height: capture.image.height)
             } catch {
                 try? FileManager.default.removeItem(at: destination)   // try?: 書きかけは、残さない（後片付け）
-                return .failed("撮った画像を保存できません（\(error)）")
+                return .failed(tr("撮った画像を保存できません（\(error)）"))
             }
         }
     }
@@ -43,7 +43,7 @@ import VCSkill
         if case .captured = outcome {
             do { try ScreenshotStore.replace(with: file) } catch {
                 try? FileManager.default.removeItem(at: file)   // try?: 後片付け
-                return .failed("スクリーンショットを置けません（\(error.localizedDescription)）")
+                return .failed(tr("スクリーンショットを置けません（\(error.localizedDescription)）"))
             }
         }
         return outcome

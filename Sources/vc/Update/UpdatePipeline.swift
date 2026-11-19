@@ -25,15 +25,15 @@ enum UpdatePipeline {
 
         var description: String {
             switch self {
-            case let .network(why): return "通信できませんでした（\(why)）"
-            case let .badResponse(code): return "GitHub が、エラーを返しました（\(code)）"
+            case let .network(why): return tr("通信できませんでした（\(why)）")
+            case let .badResponse(code): return tr("GitHub が、エラーを返しました（\(code)）")
             case let .release(problem): return problem.description
-            case .checksumMissing: return "SHA-256 の照合用の値を、読めませんでした"
-            case .checksumMismatch: return "ダウンロードしたファイルの SHA-256 が、一致しません。入れません"
-            case let .mount(why): return "ディスクイメージを開けませんでした（\(why)）"
-            case let .content(why): return "配布物の中身が、想定と違います（\(why)）"
-            case let .signature(why): return "署名の検査に通りませんでした（\(why)）"
-            case let .notSameApp(why): return "いまのアプリと、同じアプリではありません（\(why)）。入れません"
+            case .checksumMissing: return tr("SHA-256 の照合用の値を、読めませんでした")
+            case .checksumMismatch: return tr("ダウンロードしたファイルの SHA-256 が、一致しません。入れません")
+            case let .mount(why): return tr("ディスクイメージを開けませんでした（\(why)）")
+            case let .content(why): return tr("配布物の中身が、想定と違います（\(why)）")
+            case let .signature(why): return tr("署名の検査に通りませんでした（\(why)）")
+            case let .notSameApp(why): return tr("いまのアプリと、同じアプリではありません（\(why)）。入れません")
             }
         }
     }
@@ -46,7 +46,7 @@ enum UpdatePipeline {
         request.setValue("voice-control/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         let (data, response): (Data, URLResponse)
         do { (data, response) = try await session.data(for: request) } catch { throw Failure.network(error.localizedDescription) }
-        guard let http = response as? HTTPURLResponse else { throw Failure.network("応答がありません") }
+        guard let http = response as? HTTPURLResponse else { throw Failure.network(tr("応答がありません")) }
         guard http.statusCode == 200 else { throw Failure.badResponse(http.statusCode) }
         guard data.count <= 2_000_000 else { throw Failure.release(.notRelease) }
         switch ReleaseFeed.parse(data) {
@@ -76,24 +76,24 @@ enum UpdatePipeline {
         defer { _ = ProcessRunner.run(executable: "hdiutil", arguments: ["detach", "-force", mountPoint.path], mergeStderr: true, timeout: 60) }
 
         let source = mountPoint.appendingPathComponent("VoiceControl.app")
-        guard FileManager.default.fileExists(atPath: source.path) else { throw Failure.content("VoiceControl.app がありません") }
+        guard FileManager.default.fileExists(atPath: source.path) else { throw Failure.content(tr("VoiceControl.app がありません")) }
         try? FileManager.default.removeItem(atPath: stagedPath)
         let copy = await run("ditto", [source.path, stagedPath], timeout: 120)
-        guard copy.exitCode == 0 else { throw Failure.content("写せませんでした：\(copy.text)") }
+        guard copy.exitCode == 0 else { throw Failure.content(tr("写せませんでした：\(copy.text)")) }
         do { try await verify(stagedPath, release: release, current: current) } catch { try? FileManager.default.removeItem(atPath: stagedPath); throw error }
         _ = ProcessRunner.run(executable: "xattr", arguments: ["-cr", stagedPath], mergeStderr: true, timeout: 30)   // 隔離などの印を、残さない
     }
 
     /// 置いた新しい版が、いまのアプリと同じアプリで、想定の版で、署名が整っているか。
     static func verify(_ appPath: String, release: ReleaseInfo, current: Identity) async throws {
-        guard let info = NSDictionary(contentsOfFile: appPath + "/Contents/Info.plist") else { throw Failure.content("Info.plist を読めません") }
-        guard FileManager.default.isExecutableFile(atPath: appPath + "/Contents/MacOS/vc") else { throw Failure.content("実行ファイルがありません") }
-        guard info["CFBundleIdentifier"] as? String == current.bundleID else { throw Failure.notSameApp("bundle ID が違います") }
-        guard let shown = info["CFBundleShortVersionString"] as? String, AppVersion(shown) == release.version else { throw Failure.content("版が、タグ（\(release.tag)）と違います") }
+        guard let info = NSDictionary(contentsOfFile: appPath + "/Contents/Info.plist") else { throw Failure.content(tr("Info.plist を読めません")) }
+        guard FileManager.default.isExecutableFile(atPath: appPath + "/Contents/MacOS/vc") else { throw Failure.content(tr("実行ファイルがありません")) }
+        guard info["CFBundleIdentifier"] as? String == current.bundleID else { throw Failure.notSameApp(tr("bundle ID が違います")) }
+        guard let shown = info["CFBundleShortVersionString"] as? String, AppVersion(shown) == release.version else { throw Failure.content(tr("版が、タグ（\(release.tag)）と違います")) }
         let check = await run("codesign", ["--verify", "--deep", "--strict", appPath], timeout: 60)
         guard check.exitCode == 0 else { throw Failure.signature(check.text.trimmingCharacters(in: .whitespacesAndNewlines)) }
-        guard let requirement = await requirement(of: appPath) else { throw Failure.signature("指定要件を読めません") }
-        guard requirement == current.requirement else { throw Failure.notSameApp("署名の指定要件が違います") }
+        guard let requirement = await requirement(of: appPath) else { throw Failure.signature(tr("指定要件を読めません")) }
+        guard requirement == current.requirement else { throw Failure.notSameApp(tr("署名の指定要件が違います")) }
     }
 
     /// 署名の識別（いま動いているアプリのもの。`.app` でなければ、nil）。

@@ -12,23 +12,23 @@ struct SkillsPage: View {
 
     var body: some View {
         let loaded = model.loadedSkills()
-        Card("スキル", footer: "有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。") {
+        Card(tr("スキル"), footer: tr("有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。")) {
             if loaded.skills.isEmpty {
-                Row("スキルが、まだありません", detail: "下の「スキルをインストール」から入れるか、フォルダに置いてください") { EmptyView() }
+                Row(tr("スキルが、まだありません"), detail: tr("下の「スキルをインストール」から入れるか、フォルダに置いてください")) { EmptyView() }
             }
             ForEach(Array(loaded.skills.enumerated()), id: \.element.name) { index, skill in
                 if index > 0 { RowDivider() }
-                Row(skill.name, detail: skill.description) {
+                Row(skill.name, detail: skill.scope == .builtin ? tr(L10nKey(stringLiteral: skill.description)) : skill.description) {   // 組み込みのスキルの説明だけ、翻訳する（利用者のスキルの説明は、そのまま）
                     BrandSwitch(isOn: Binding(get: { model.settings.isEnabled(skill.name) }, set: { model.setSkill(skill.name, enabled: $0) }), tint: [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)])
                 }
             }
             ForEach(loaded.problems, id: \.location) { problem in
                 RowDivider()
-                Label("読めないスキル: \(problem.location)：\(problem.reason)", systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(14)
+                Label(tr("読めないスキル: \(problem.location)：\(problem.reason)"), systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(14)
             }
         }
         CatalogCard(catalog: model.skillCatalog)
-        Button { NSWorkspace.shared.open(VoiceControlHome.root.appendingPathComponent("skills")) } label: { Label("スキルのフォルダを開く", systemImage: "folder") }.controlSize(.small)
+        Button { NSWorkspace.shared.open(VoiceControlHome.root.appendingPathComponent("skills")) } label: { Label(tr("スキルのフォルダを開く"), systemImage: "folder") }.controlSize(.small)
     }
 }
 
@@ -37,21 +37,21 @@ struct CatalogCard: View {
     @ObservedObject var catalog: SkillCatalog
 
     var body: some View {
-        Card("スキルをインストール", footer: "GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。許可するコマンドと、外へ送るかは、各行に出ています。") {
+        Card(tr("スキルをインストール"), footer: tr("GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。許可するコマンドと、外へ送るかは、各行に出ています。")) {
             switch catalog.state {
             case .idle:
-                Row("インストールできるスキル", detail: "一覧を、GitHub から取ります") {
-                    Button("一覧を取得") { catalog.loadCatalog() }.controlSize(.small)
+                Row(tr("インストールできるスキル"), detail: tr("一覧を、GitHub から取ります")) {
+                    Button(tr("一覧を取得")) { catalog.loadCatalog() }.controlSize(.small)
                 }
             case .loading:
-                Row("取得しています…", detail: nil) { ProgressView().controlSize(.small) }
+                Row(tr("取得しています…"), detail: nil) { ProgressView().controlSize(.small) }
             case let .failed(reason):
-                Row("取得できませんでした", detail: reason) {
-                    Button("もう一度") { catalog.loadCatalog() }.controlSize(.small)
+                Row(tr("取得できませんでした"), detail: reason) {
+                    Button(tr("もう一度")) { catalog.loadCatalog() }.controlSize(.small)
                 }
             case let .loaded(listing):
                 if listing.skills.isEmpty {
-                    Row("スキルが、ありません", detail: "リポジトリ（\(listing.source.ref)）に、読めるスキルがありません") { EmptyView() }
+                    Row(tr("スキルが、ありません"), detail: tr("リポジトリ（\(listing.source.ref)）に、読めるスキルがありません")) { EmptyView() }
                 }
                 ForEach(Array(listing.skills.enumerated()), id: \.element.name) { index, skill in
                     if index > 0 { RowDivider() }
@@ -59,8 +59,8 @@ struct CatalogCard: View {
                 }
                 if listing.skills.contains(where: { !catalog.isInstalled(skill: $0.name) }) {
                     RowDivider()
-                    Row("まだ入れていないスキルを、すべて", detail: nil) {
-                        Button("すべて入れる") { catalog.installMissing() }.controlSize(.small).disabled(!catalog.installingIsEmpty)
+                    Row(tr("まだ入れていないスキルを、すべて"), detail: nil) {
+                        Button(tr("すべて入れる")) { catalog.installMissing() }.controlSize(.small).disabled(!catalog.installingIsEmpty)
                     }
                 }
             }
@@ -69,16 +69,17 @@ struct CatalogCard: View {
 
     private func skillRow(_ skill: Skill) -> some View {
         let installed = catalog.isInstalled(skill: skill.name)
-        let detail = skill.description + "\n許可するコマンド：" + SkillCatalog.commands(of: skill) + (skill.confirm ? "（実行の前に、確認）" : "")
+        let commands = SkillCatalog.commands(of: skill)
+        let detail = skill.description + "\n" + (skill.confirm ? tr("許可するコマンド：\(commands)（実行の前に、確認）") : tr("許可するコマンド：\(commands)"))
         return VStack(alignment: .leading, spacing: 0) {
             Row(skill.name, detail: detail) {
                 HStack(spacing: 8) {
-                    if skill.external != nil { SettingsPill(text: "外へ送る", color: Brand.warn) }
+                    if skill.external != nil { SettingsPill(text: tr("外へ送る"), color: Brand.warn) }
                     if catalog.installing.contains(skill.name) {
                         ProgressView().controlSize(.small)
                     } else {
-                        if installed { SettingsPill(text: "入れ済み", color: Brand.ok) }
-                        Button(installed ? "更新" : "入れる") { catalog.install(skill) }.controlSize(.small)
+                        if installed { SettingsPill(text: tr("入れ済み"), color: Brand.ok) }
+                        Button(installed ? tr("更新") : tr("入れる")) { catalog.install(skill) }.controlSize(.small)
                     }
                 }
             }

@@ -1,3 +1,4 @@
+import VCCore
 import Foundation
 
 /// 言語モデルが実行を頼むコマンドの、検査。**シェルは使わない**（パイプ・リダイレクト・`$()` は、ただの文字として、引数に渡る）。
@@ -36,8 +37,8 @@ public enum CommandPolicy {
             }
             current.append(ch); inToken = true
         }
-        if quote != nil { return .failure(Violation(reason: "引用符が閉じていない")) }
-        if escaped { return .failure(Violation(reason: "末尾が \\ で終わっている")) }
+        if quote != nil { return .failure(Violation(reason: tr("引用符が閉じていない"))) }
+        if escaped { return .failure(Violation(reason: tr("末尾が \\ で終わっている"))) }
         if inToken { tokens.append(current) }
         return .success(tokens)
     }
@@ -51,13 +52,13 @@ public enum CommandPolicy {
         var text = entry.trimmingCharacters(in: .whitespaces)
         if let open = text.firstIndex(of: "("), text.hasSuffix(")") {
             let tool = String(text[..<open])
-            guard tool == "Bash" else { return .failure(Violation(reason: "ツール名は Bash だけ（\(tool.isEmpty ? "なし" : tool)）")) }
+            guard tool == "Bash" else { return .failure(Violation(reason: tr("ツール名は Bash だけ（\(tool.isEmpty ? tr("なし") : tool)）"))) }
             text = String(text[text.index(after: open)..<text.index(before: text.endIndex)]).trimmingCharacters(in: .whitespaces)
         }
         if text.hasSuffix(":*") { text = String(text.dropLast(2)) }
-        guard case .success(var tokens) = tokenize(text) else { return .failure(Violation(reason: "解釈できない（引用符・\\ の閉じ忘れ）")) }
+        guard case .success(var tokens) = tokenize(text) else { return .failure(Violation(reason: tr("解釈できない（引用符・\\ の閉じ忘れ）"))) }
         while tokens.last == "*" { tokens.removeLast() }
-        guard !tokens.isEmpty else { return .failure(Violation(reason: "空")) }
+        guard !tokens.isEmpty else { return .failure(Violation(reason: tr("空"))) }
         return .success(tokens)
     }
 
@@ -90,10 +91,10 @@ public enum CommandPolicy {
         case .success(let t): tokens = t
         }
         let first = tokens[0]
-        if first.contains("*") { return "コマンド名に * は使えない（どのコマンドにも一致してしまう）" }
-        if first.contains("/") { return "コマンド名にパスは使えない（PATH の名前だけ）" }
-        if first.range(of: "^[A-Za-z0-9._+-]+$", options: .regularExpression) == nil { return "コマンド名に使えない文字がある" }
-        if forbidden.contains(first) { return "\(first) は、許可できない（シェル・別のコマンドを起動する・権限を上げる）" }
+        if first.contains("*") { return tr("コマンド名に * は使えない（どのコマンドにも一致してしまう）") }
+        if first.contains("/") { return tr("コマンド名にパスは使えない（PATH の名前だけ）") }
+        if first.range(of: "^[A-Za-z0-9._+-]+$", options: .regularExpression) == nil { return tr("コマンド名に使えない文字がある") }
+        if forbidden.contains(first) { return tr("\(first) は、許可できない（シェル・別のコマンドを起動する・権限を上げる）") }
         return nil
     }
 

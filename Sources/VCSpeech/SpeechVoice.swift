@@ -18,8 +18,8 @@ public enum SpeechVoice {
 
         /// 面白い声（読み上げに向かない）。
         var isNovelty: Bool { identifier.hasPrefix("com.apple.eloquence.") || identifier.hasPrefix("com.apple.speech.synthesis.voice.") }
-        var qualityName: String { quality >= 3 ? "高品質" : (quality == 2 ? "拡張" : "標準") }
-        public var title: String { "\(name)（\(qualityName)）" }
+        var qualityName: String { quality >= 3 ? tr("高品質") : (quality == 2 ? tr("拡張") : tr("標準")) }
+        public var title: String { tr("\(name)（\(qualityName)）") }
     }
 
     /// 品質がいちばん高い声（同じ品質なら、面白くない声を先に。それでも同じなら、識別子の順）。日本語の声がなければ nil。

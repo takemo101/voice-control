@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// つなぎ言葉（フィラー：「えーと」「um」など）の除去（音声入力・音声入力で、入力する文字から）。
 /// 辞書（利用者が足し引きできる語の一覧）を、文字列の一致で消すだけ（言語モデルは使わない）。VoiceInk と同じ考え方。
@@ -29,12 +30,12 @@ public enum FillerWords {
 
         public var description: String {
             switch self {
-            case .empty: return "語が空です"
-            case .tooShort: return "1 文字の語は、足せません（ふつうの語の一部を、消してしまうため）"
-            case .tooLong: return "語が長すぎます（\(maxLength) 文字まで）"
-            case .notAWord: return "文字（かな・漢字・英数字）を含む語にしてください"
-            case .tooMany: return "語が多すぎます（\(maxCount) 語まで）"
-            case .endsWithParticle: return "語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）"
+            case .empty: return tr("語が空です")
+            case .tooShort: return tr("1 文字の語は、足せません（ふつうの語の一部を、消してしまうため）")
+            case .tooLong: return tr("語が長すぎます（\(maxLength) 文字まで）")
+            case .notAWord: return tr("文字（かな・漢字・英数字）を含む語にしてください")
+            case .tooMany: return tr("語が多すぎます（\(maxCount) 語まで）")
+            case .endsWithParticle: return tr("語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）")
             }
         }
     }

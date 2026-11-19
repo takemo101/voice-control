@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 会話のエージェントに開ける**道具の段階**（設定 `chatTools`）。外のエージェントのときだけ。
 /// - `none`：道具なし（既定）。会話だけ。
@@ -10,17 +11,17 @@ public enum ChatToolLevel: String, CaseIterable, Sendable {
 
     /// 「すべて」を開けるときの、確認のダイアログの本文（設定ウィンドウ）。
     public static func allToolsDialogBody(agent: ChatAgent, acp: Bool) -> String {
-        if agent == .apple { return "書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。" }
-        if agent.talksACP(enabled: acp) { return "書き込みとコマンドの実行ができるようになります。毎回、確認します。" }
-        return "書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。"
+        if agent == .apple { return tr("書き込みとコマンドの実行ができるようになります。上書きと安全でないコマンドは、毎回、確認します。") }
+        if agent.talksACP(enabled: acp) { return tr("書き込みとコマンドの実行ができるようになります。毎回、確認します。") }
+        return tr("書き込みとコマンドの実行が、確認なしでできるようになります。聞き間違いや、ページの命令で、意図しない操作が起きえます。")
     }
 
     public var title: String {
         switch self {
-        case .none: return "なし（会話だけ）"
-        case .web: return "Web 検索まで"
-        case .read: return "＋ ファイルを読む"
-        case .all: return "すべて（書き込み・コマンドの実行も）"
+        case .none: return tr("なし（会話だけ）")
+        case .web: return tr("Web 検索まで")
+        case .read: return tr("＋ ファイルを読む")
+        case .all: return tr("すべて（書き込み・コマンドの実行も）")
         }
     }
 

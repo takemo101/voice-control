@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// コマンド `vc`：`/usr/local/bin/vc` から、このアプリの実行ファイルへの、シンボリックリンク。コピーでなく、アプリへのリンクなので、アプリを更新しても、最新の実行ファイルを指し続ける。
 /// メニューから、入れる・外す。**CLI で使えるのは、スキルが使うコマンド（`vc show`・`vc image` など）**。声の入力・設定は、アプリの中（メニュー・設定）。
@@ -58,11 +59,11 @@ struct CommandLineTool {
     /// リンクを張る（`state` が `.stale` なら、付け替える）。ディレクトリに書けなければ、管理者のパスワードを求める。成功か、取り消しなら `nil`。失敗なら、利用者に見せるメッセージ。
     /// このアプリではない、別のもの（`.other`）があるときは、上書きしない。
     func install() -> String? {
-        guard let target else { return "vc を「アプリケーション」フォルダへ移してから、実行してください" }
+        guard let target else { return tr("vc を「アプリケーション」フォルダへ移してから、実行してください") }
         let replacing: Bool
         switch state {
         case .installed: return nil
-        case let .other(path): return "\(linkPath) には、別のもの（\(path)）があります。上書きしません"
+        case let .other(path): return tr("\(linkPath) には、別のもの（\(path)）があります。上書きしません")
         case .stale: replacing = true
         case .unavailable, .notInstalled: replacing = false
         }
@@ -106,6 +107,6 @@ struct CommandLineTool {
         NSAppleScript(source: "do shell script \"\(escaped)\" with administrator privileges")?.executeAndReturnError(&error)
         guard let error else { return nil }
         if error[NSAppleScript.errorNumber] as? Int == -128 { return nil }   // パスワードの入力を取り消した
-        return error[NSAppleScript.errorMessage] as? String ?? "コマンドを入れられませんでした"
+        return error[NSAppleScript.errorMessage] as? String ?? tr("コマンドを入れられませんでした")
     }
 }

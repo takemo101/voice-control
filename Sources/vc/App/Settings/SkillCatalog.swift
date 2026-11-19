@@ -47,7 +47,7 @@ enum CatalogState {
     static func commands(of skill: Skill) -> String {
         let directory = skill.file.deletingLastPathComponent().resolvingSymlinksInPath().path
         let raw = skill.allowedCommands.map { $0.replacingOccurrences(of: skill.file.deletingLastPathComponent().path, with: "${SKILL_DIR}").replacingOccurrences(of: directory, with: "${SKILL_DIR}") }
-        return raw.isEmpty ? "（なし）" : raw.joined(separator: "、")
+        return raw.isEmpty ? tr("（なし）") : raw.joined(separator: tr("、"))
     }
 
     func isInstalled(skill name: String) -> Bool {
@@ -77,7 +77,7 @@ enum CatalogState {
                 let report = try await RemoteInstall.install(names: names, explicitRef: listing.source.ref, defaultRef: installRef, overwrite: overwrite)
                 for outcome in report.outcomes {
                     switch outcome.result {
-                    case let .success(installed): results[outcome.name] = (true, installed.overwritten ? "置き換えました" : "入れました")
+                    case let .success(installed): results[outcome.name] = (true, installed.overwritten ? tr("置き換えました") : tr("入れました"))
                     case let .failure(failure): results[outcome.name] = (false, Self.describe(failure))
                     }
                 }
@@ -91,20 +91,20 @@ enum CatalogState {
 
     private static func describe(_ failure: SkillInstaller.Failure) -> String {
         switch failure {
-        case .notFound: return "リポジトリに、読めるスキルがありません"
-        case let .unreadable(_, why): return "SKILL.md が読めません（\(why)）"
-        case .alreadyInstalled: return "すでに入っています"
-        case let .containsSymlink(_, path): return "シンボリックリンク（\(path)）を含むので、置きません"
-        case let .copyFailed(_, why): return "置けません（\(why)）"
+        case .notFound: return tr("リポジトリに、読めるスキルがありません")
+        case let .unreadable(_, why): return tr("SKILL.md が読めません（\(why)）")
+        case .alreadyInstalled: return tr("すでに入っています")
+        case let .containsSymlink(_, path): return tr("シンボリックリンク（\(path)）を含むので、置きません")
+        case let .copyFailed(_, why): return tr("置けません（\(why)）")
         }
     }
 
     private static func describe(_ error: Error) -> String {
-        guard let failure = error as? RemoteSkills.Failure else { return "取得できません：\(error.localizedDescription)" }
+        guard let failure = error as? RemoteSkills.Failure else { return tr("取得できません：\(error.localizedDescription)") }
         switch failure {
-        case let .network(reason): return "GitHub から取得できません（\(reason)）。ネットワークを確かめてください"
-        case let .refNotFound(missing): return "版 \(missing) が、リポジトリにありません"
-        default: return "取得できません：\(failure)"
+        case let .network(reason): return tr("GitHub から取得できません（\(reason)）。ネットワークを確かめてください")
+        case let .refNotFound(missing): return tr("版 \(missing) が、リポジトリにありません")
+        default: return tr("取得できません：\(failure)")
         }
     }
 }

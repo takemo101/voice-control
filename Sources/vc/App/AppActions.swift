@@ -8,7 +8,7 @@ import VCCore
     /// アプリを開き直す（設定を変えたあと）。アプリの中の実行ファイルでなければ（ビルドしたまま）、手で開き直すよう案内する。
     static func relaunch() {
         guard let executable = AppLaunch.executablePath, let bundle = AppLaunch.bundlePath(forExecutable: executable) else {
-            AppAlerts.show(title: "開き直せません", message: "アプリ（VoiceControl.app）として動いていません。手で、終了してから、開き直してください。", style: .informational)
+            AppAlerts.show(title: tr("開き直せません"), message: tr("アプリ（VoiceControl.app）として動いていません。手で、終了してから、開き直してください。"), style: .informational)
             return
         }
         // 終了したあとに、開く（開いたままだと、同じアプリの起動が、いまのアプリに吸収される）。このプロセスが終わっても、子は、続く
@@ -17,7 +17,7 @@ import VCCore
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", script]
         do { try process.run() } catch {
-            AppAlerts.show(title: "開き直せません", message: error.localizedDescription, style: .warning)
+            AppAlerts.show(title: tr("開き直せません"), message: error.localizedDescription, style: .warning)
             return
         }
         NSApp.terminate(nil)
@@ -45,7 +45,7 @@ import VCCore
     static func resetConversation() {
         Task {
             await ChatMode.shared.end()
-            HUD.shared.show(HUDContent(phase: .info, title: "会話をリセットしました", hint: "次の会話は、新しく始まります"), hideAfter: 2.5)
+            HUD.shared.show(HUDContent(phase: .info, title: "会話をリセットしました", hint: "次の会話は、新しく始まります"), hideAfter: 2.5)   // l10n-skip
         }
     }
 
@@ -63,9 +63,9 @@ import VCCore
     /// アクセシビリティの許可を、リセットして、設定を開く（更新のあとで、許可が「オンなのに効かない」ときの、付け直し）。失敗なら、利用者に見せる理由。
     /// このアプリの bundle ID の許可だけを消す（`tccutil reset`）。ほかのアプリの許可は、触らない。
     static func resetAccessibility() -> String? {
-        guard let id = Bundle.main.bundleIdentifier else { return "アプリとして動いていません" }
+        guard let id = Bundle.main.bundleIdentifier else { return tr("アプリとして動いていません") }
         let result = ProcessRunner.run(executable: "tccutil", arguments: ["reset", "Accessibility", id], mergeStderr: true, timeout: 10)
-        guard result.exitCode == 0 else { return result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "tccutil が失敗しました（\(result.exitCode)）" : result.text }
+        guard result.exitCode == 0 else { return result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? tr("tccutil が失敗しました（\(result.exitCode)）") : result.text }
         openPrivacy("Privacy_Accessibility")
         return nil
     }

@@ -40,4 +40,15 @@ import TestSupport
             #expect(try !unsure.isYes(reply), "\(reply)")
         }
     }
+
+    /// 音声認識の言語が英語のとき：英語の「はい」も、通る。決まった言い方だけでできた返事に限る（別の文が混ざれば、通らない）。
+    @Test func plainEnglishAffirmativesAreApprovedButMixedReplaysAreNot() {
+        for text in ["Yes", "yes.", "Yeah, go ahead", "Sure, please do", "OK", "Do it", "Yes please", "Go ahead!"] {
+            #expect(Confirmation.isAffirmative(text), "\(text)")
+        }
+        for text in ["Yes, actually wait", "No", "Go away", "Do you think so", "It", "Maybe", "Yes but not now"] {
+            #expect(!Confirmation.isAffirmative(text), "\(text)")
+        }
+    }
 }
+

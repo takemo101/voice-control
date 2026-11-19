@@ -23,16 +23,16 @@ struct GeneralPage: View {
     private func steps() -> [Step] {
         let mic = MicRecorder.permission
         var list: [Step] = [
-            Step(title: "マイクの許可", detail: mic == .granted ? "許可されています" : "声を聞くために必要です。アプリを起動すると、確認が出ます", done: mic == .granted,
-                 action: mic == .granted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Microphone") })),
-            Step(title: "アクセシビリティの許可", detail: ModifierHold.isTrusted ? "許可されています" : "キー（修飾キーの長押し・Esc）の検出と、前面のアプリへの入力に必要です", done: ModifierHold.isTrusted,
-                 action: ModifierHold.isTrusted ? nil : ("許可する", { AppActions.openPrivacy("Privacy_Accessibility") }),
-                 secondary: ModifierHold.isTrusted ? nil : ("オンなのに効かない", { resetAccessibility() })),
-            Step(title: "Tiny-Jev のモデル", detail: model.isInstalled(TinyJevModel.spec) ? "取得済みです" : "スキルを選ぶモデル（約 1.2 GB）。取得が必要です", done: model.isInstalled(TinyJevModel.spec),
-                 action: model.isInstalled(TinyJevModel.spec) ? nil : ("取得する", { model.page = .models })),
+            Step(title: tr("マイクの許可"), detail: mic == .granted ? tr("許可されています") : tr("声を聞くために必要です。アプリを起動すると、確認が出ます"), done: mic == .granted,
+                 action: mic == .granted ? nil : (tr("許可する"), { AppActions.openPrivacy("Privacy_Microphone") })),
+            Step(title: tr("アクセシビリティの許可"), detail: ModifierHold.isTrusted ? tr("許可されています") : tr("キー（修飾キーの長押し・Esc）の検出と、前面のアプリへの入力に必要です"), done: ModifierHold.isTrusted,
+                 action: ModifierHold.isTrusted ? nil : (tr("許可する"), { AppActions.openPrivacy("Privacy_Accessibility") }),
+                 secondary: ModifierHold.isTrusted ? nil : (tr("オンなのに効かない"), { resetAccessibility() })),
+            Step(title: tr("Tiny-Jev のモデル"), detail: model.isInstalled(TinyJevModel.spec) ? tr("取得済みです") : tr("スキルを選ぶモデル（約 1.2 GB）。取得が必要です"), done: model.isInstalled(TinyJevModel.spec),
+                 action: model.isInstalled(TinyJevModel.spec) ? nil : (tr("取得する"), { model.page = .models })),
         ]
         if model.settings.engine == nil, case let .unavailable(reason) = AppleIntelligence.current() {
-            list.append(Step(title: "Apple Intelligence", detail: reason.summary + "。" + reason.remedy, done: false, action: ("システム設定を開く", { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) })))
+            list.append(Step(title: "Apple Intelligence", detail: reason.summary + "。" + reason.remedy, done: false, action: (tr("システム設定を開く"), { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) })))
         }
         return list
     }
@@ -41,11 +41,11 @@ struct GeneralPage: View {
         let _ = model.revision
         let steps = steps()
         let pending = steps.filter { !$0.done }.count
-        Card("準備状況", footer: "許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、右上の「もう一度、確かめる」。") {
-            Row(pending == 0 ? "準備ができています" : "あと \(pending) 件で、使えます", detail: pending == 0 ? "声の入力を使えます" : "下の項目を、上から順に、片づけてください") {
+        Card(tr("準備状況"), footer: tr("許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、右上の「もう一度、確かめる」。")) {
+            Row(pending == 0 ? tr("準備ができています") : tr("あと \(pending) 件で、使えます"), detail: pending == 0 ? tr("声の入力を使えます") : tr("下の項目を、上から順に、片づけてください")) {
                 HStack(spacing: 10) {
-                    SettingsPill(text: pending == 0 ? "OK" : "要設定", color: pending == 0 ? Brand.ok : Brand.warn)
-                    Button("もう一度、確かめる") { model.reload() }.controlSize(.small)
+                    SettingsPill(text: pending == 0 ? "OK" : tr("要設定"), color: pending == 0 ? Brand.ok : Brand.warn)
+                    Button(tr("もう一度、確かめる")) { model.reload() }.controlSize(.small)
                 }
             }
             ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
@@ -53,16 +53,16 @@ struct GeneralPage: View {
                 Row(step.title, detail: step.detail) {
                     HStack(spacing: 10) {
                         Image(systemName: step.done ? "checkmark.circle.fill" : "exclamationmark.circle.fill").font(.system(size: 16)).foregroundStyle(step.done ? Brand.ok : Brand.warn)
-                        if let secondary = step.secondary { Button(secondary.label) { secondary.run() }.controlSize(.small).help("更新のあとなどで、設定は「オン」なのに、効かないとき：このアプリの許可を、リセットして、付け直します") }
+                        if let secondary = step.secondary { Button(secondary.label) { secondary.run() }.controlSize(.small).help(tr("更新のあとなどで、設定は「オン」なのに、効かないとき：このアプリの許可を、リセットして、付け直します")) }
                         if let action = step.action { Button(action.label) { action.run() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small) }
                     }
                 }
             }
         }
-        Card("起動", footer: "オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。") {
+        Card(tr("起動"), footer: tr("オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。")) {
             LoginRow(model: model)
         }
-        Card("Language / 言語", footer: tr("設定ウィンドウとダイアログの言葉です。音声認識の言語は、設定 > 音声 で決めます。")) {
+        Card("Language / 言語", footer: tr("設定ウィンドウとダイアログの言葉です。音声認識の言語は、設定 > 音声 で決めます。")) {   // l10n-skip
             Row(tr("表示言語"), detail: tr("設定ウィンドウとダイアログ")) {
                 Picker("", selection: Binding(get: { model.uiLanguage }, set: { model.setUILanguage($0) })) {
                     ForEach(AppLanguage.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -70,39 +70,39 @@ struct GeneralPage: View {
                 .labelsHidden().frame(width: 150)
             }
         }
-        Card("表示", footer: "会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。") {
-            Row("文字の大きさ", detail: "10 〜 24") {
+        Card(tr("表示"), footer: tr("会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。")) {
+            Row(tr("文字の大きさ"), detail: "10 〜 24") {
                 HStack(spacing: 10) {
                     if (model.settings.fontSize ?? UIScale.standard) != UIScale.standard {
-                        Button("標準に戻す") { model.setFontSize(UIScale.standard) }.controlSize(.small)
+                        Button(tr("標準に戻す")) { model.setFontSize(UIScale.standard) }.controlSize(.small)
                     }
                     FontSizeStepper(value: model.settings.fontSize ?? UIScale.standard) { model.setFontSize($0) }
                 }
             }
         }
-        Card("アップデート", footer: "確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。") {
-            SwitchRow(model: model, title: "新しい版を、自動で確認する", detail: "見つけたら、上のパネルとメニューで、知らせます", value: model.settings.updateCheck ?? true) { $0.updateCheck = $1 }
+        Card(tr("アップデート"), footer: tr("確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。")) {
+            SwitchRow(model: model, title: tr("新しい版を、自動で確認する"), detail: tr("見つけたら、上のパネルとメニューで、知らせます"), value: model.settings.updateCheck ?? true) { $0.updateCheck = $1 }
             RowDivider()
             UpdateRow()
         }
-        Card("ターミナル") {
+        Card(tr("ターミナル")) {
             CommandLineRow(model: model)
         }
-        Card("情報") {
-            Row("診断", detail: "必要なものが、そろっているかを、くわしく確かめます") { Button("開く") { AppActions.showDoctor() }.controlSize(.small) }
+        Card(tr("情報")) {
+            Row(tr("診断"), detail: tr("必要なものが、そろっているかを、くわしく確かめます")) { Button(tr("開く")) { AppActions.showDoctor() }.controlSize(.small) }
             RowDivider()
-            Row("画面収録の許可", detail: "画面撮影・画面を見るスキルを使うときだけ必要です") {
+            Row(tr("画面収録の許可"), detail: tr("画面撮影・画面を見るスキルを使うときだけ必要です")) {
                 HStack(spacing: 10) {
-                    SettingsPill(text: ScreenCapture.isAllowed ? "許可済み" : "許可なし", color: ScreenCapture.isAllowed ? Brand.ok : Color.secondary)
-                    Button("開く") { AppActions.openPrivacy("Privacy_ScreenCapture") }.controlSize(.small)
+                    SettingsPill(text: ScreenCapture.isAllowed ? tr("許可済み") : tr("許可なし"), color: ScreenCapture.isAllowed ? Brand.ok : Color.secondary)
+                    Button(tr("開く")) { AppActions.openPrivacy("Privacy_ScreenCapture") }.controlSize(.small)
                 }
             }
             RowDivider()
-            Row("設定ファイル", detail: "~/.voice-control/settings.json") { Button("開く") { AppActions.openSettingsFile() }.controlSize(.small) }
+            Row(tr("設定ファイル"), detail: "~/.voice-control/settings.json") { Button(tr("開く")) { AppActions.openSettingsFile() }.controlSize(.small) }
             RowDivider()
-            Row("データのフォルダ", detail: "スキル・設定・モデル") { Button("開く") { AppActions.openDataFolder() }.controlSize(.small) }
+            Row(tr("データのフォルダ"), detail: tr("スキル・設定・モデル")) { Button(tr("開く")) { AppActions.openDataFolder() }.controlSize(.small) }
             RowDivider()
-            Row("バージョン", detail: "voice-control") { Text(AppInfo.version).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary) }
+            Row(tr("バージョン"), detail: "voice-control") { Text(AppInfo.version).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary) }
         }
     }
 }
@@ -110,9 +110,9 @@ struct GeneralPage: View {
 extension GeneralPage {
     /// 許可を、リセットして、付け直す（確認のあとで）。
     @MainActor fileprivate func resetAccessibility() {
-        let message = "設定で「オン」なのに効かないときの、付け直しです。このアプリの許可だけを消して、システム設定を開きます。開いたら、voice-control を、もう一度、オンにして、「もう一度、確かめる」を押してください。"
-        guard AppAlerts.confirm(title: "アクセシビリティの許可を、リセットしますか？", message: message, confirm: "リセットして、設定を開く") else { return }
-        if let problem = AppActions.resetAccessibility() { AppAlerts.show(title: "リセットできません", message: problem, style: .warning) }
+        let message = tr("設定で「オン」なのに効かないときの、付け直しです。このアプリの許可だけを消して、システム設定を開きます。開いたら、voice-control を、もう一度、オンにして、「もう一度、確かめる」を押してください。")
+        guard AppAlerts.confirm(title: tr("アクセシビリティの許可を、リセットしますか？"), message: message, confirm: tr("リセットして、設定を開く")) else { return }
+        if let problem = AppActions.resetAccessibility() { AppAlerts.show(title: tr("リセットできません"), message: problem, style: .warning) }
     }
 }
 
@@ -122,17 +122,17 @@ struct UpdateRow: View {
 
     var body: some View {
         let phase = update.phase
-        Row("バージョン \(update.currentVersion)", detail: detail(phase)) {
+        Row(tr("バージョン \(update.currentVersion)"), detail: detail(phase)) {
             HStack(spacing: 8) {
                 switch phase {
                 case .checking: ProgressView().controlSize(.small)
                 case let .preparing(fraction):
                     if let fraction { ProgressView(value: fraction).frame(width: 90) } else { ProgressView().controlSize(.small) }
                 case let .available(release):
-                    Button("変更点") { NSWorkspace.shared.open(release.pageURL) }.controlSize(.small)
-                    Button("\(release.version.description) に更新…") { update.confirmAndInstall() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                    Button(tr("変更点")) { NSWorkspace.shared.open(release.pageURL) }.controlSize(.small)
+                    Button(tr("\(release.version.description) に更新…")) { update.confirmAndInstall() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
                 default:
-                    Button("更新を確認") { Task { await update.check(manual: true) } }.controlSize(.small)
+                    Button(tr("更新を確認")) { Task { await update.check(manual: true) } }.controlSize(.small)
                 }
             }
         }
@@ -140,11 +140,11 @@ struct UpdateRow: View {
 
     private func detail(_ phase: UpdateModel.Phase) -> String {
         switch phase {
-        case .idle: return update.lastChecked.map { "最後の確認：\($0.formatted(date: .omitted, time: .shortened))" } ?? "まだ、確認していません"
-        case .checking: return "確認しています…"
-        case .upToDate: return "最新の版です"
-        case let .available(release): return "新しい版（\(release.version)）があります"
-        case let .preparing(fraction): return fraction.map { "取得しています…（\(Int($0 * 100))%）" } ?? "検証しています…"
+        case .idle: return update.lastChecked.map { tr("最後の確認：\($0.formatted(date: .omitted, time: .shortened))") } ?? tr("まだ、確認していません")
+        case .checking: return tr("確認しています…")
+        case .upToDate: return tr("最新の版です")
+        case let .available(release): return tr("新しい版（\(release.version)）があります")
+        case let .preparing(fraction): return fraction.map { tr("取得しています…（\(Int($0 * 100))%）") } ?? tr("検証しています…")
         case let .failed(why): return why
         }
     }
@@ -157,9 +157,9 @@ struct FontSizeStepper: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            stepButton("minus", help: "小さく", enabled: value > UIScale.range.lowerBound) { set(value - 1) }
+            stepButton("minus", help: tr("小さく"), enabled: value > UIScale.range.lowerBound) { set(value - 1) }
             Text("\(value)").font(.system(size: 14, weight: .medium).monospacedDigit()).frame(minWidth: 40)
-            stepButton("plus", help: "大きく", enabled: value < UIScale.range.upperBound) { set(value + 1) }
+            stepButton("plus", help: tr("大きく"), enabled: value < UIScale.range.upperBound) { set(value + 1) }
         }
         .padding(.horizontal, 4).padding(.vertical, 3)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
@@ -181,9 +181,9 @@ struct LoginRow: View {
         let state = AppActions.loginItemState
         let message = model.loginMessage
         VStack(alignment: .leading, spacing: 6) {
-            Row("ログイン時に起動", detail: state == .unavailable ? "このアプリの場所では、登録できません。「アプリケーション」フォルダへ移してください" : nil) {
+            Row(tr("ログイン時に起動"), detail: state == .unavailable ? tr("このアプリの場所では、登録できません。「アプリケーション」フォルダへ移してください") : nil) {
                 HStack(spacing: 10) {
-                    if state == .needsApproval { SettingsPill(text: "承認が必要", color: Brand.warn) }
+                    if state == .needsApproval { SettingsPill(text: tr("承認が必要"), color: Brand.warn) }
                     BrandSwitch(isOn: Binding(get: { AppActions.loginItemEnabled }, set: { on in
                         model.setLoginItem(on)
                     }))
@@ -193,9 +193,9 @@ struct LoginRow: View {
             if state == .needsApproval {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill").foregroundStyle(Brand.warn)
-                    Text("システム設定の「ログイン項目」で、voice-control を許可してください。").font(.system(size: 11))
+                    Text(tr("システム設定の「ログイン項目」で、voice-control を許可してください。")).font(.system(size: 11))
                     Spacer()
-                    Button("ログイン項目を開く") { AppActions.openLoginItemsSettings() }.controlSize(.small)
+                    Button(tr("ログイン項目を開く")) { AppActions.openLoginItemsSettings() }.controlSize(.small)
                 }
                 .padding(.horizontal, 14).padding(.bottom, 10)
             }
@@ -212,15 +212,15 @@ struct CommandLineRow: View {
     var body: some View {
         let tool = CommandLineTool()
         let installed = tool.state == .installed
-        Row("ターミナルのコマンド「vc」", detail: "スキルが使うコマンド（vc show・vc skills など）を、ターミナルから使えます。/usr/local/bin にリンクを置きます（管理者のパスワードを求められることがあります）") {
+        Row(tr("ターミナルのコマンド「vc」"), detail: tr("スキルが使うコマンド（vc show・vc skills など）を、ターミナルから使えます。/usr/local/bin にリンクを置きます（管理者のパスワードを求められることがあります）")) {
             switch tool.state {
-            case .unavailable: Text("アプリを「アプリケーション」へ移すと入れられます").font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.trailing).frame(width: 150)
-            case let .other(path): Text("\(path) に、別のものがあります").font(.system(size: 11)).foregroundStyle(Brand.warn).multilineTextAlignment(.trailing).frame(width: 150)
+            case .unavailable: Text(tr("アプリを「アプリケーション」へ移すと入れられます")).font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.trailing).frame(width: 150)
+            case let .other(path): Text(tr("\(path) に、別のものがあります")).font(.system(size: 11)).foregroundStyle(Brand.warn).multilineTextAlignment(.trailing).frame(width: 150)
             case .installed, .notInstalled, .stale:
                 HStack(spacing: 8) {
-                    if installed { SettingsPill(text: "インストール済み", color: Brand.ok) }
-                    Button(installed ? "外す" : (tool.state == .notInstalled ? "インストール" : "付け替える")) {
-                        if let problem = AppActions.toggleCommandLine() { AppAlerts.show(title: "コマンドを変えられません", message: problem, style: .warning) }
+                    if installed { SettingsPill(text: tr("インストール済み"), color: Brand.ok) }
+                    Button(installed ? tr("外す") : (tool.state == .notInstalled ? tr("インストール") : tr("付け替える"))) {
+                        if let problem = AppActions.toggleCommandLine() { AppAlerts.show(title: tr("コマンドを変えられません"), message: problem, style: .warning) }
                         model.reload()
                     }.controlSize(.small)
                 }

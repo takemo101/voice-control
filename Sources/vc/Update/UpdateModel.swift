@@ -66,7 +66,7 @@ import VCCore
 
     /// 新しい版が見つかったことを、上のパネルで、1 度だけ知らせる（押さなくても消える。更新は、メニューから）。
     private func announce(_ release: ReleaseInfo) {
-        HUD.shared.show(HUDContent(phase: .info, title: "新しいバージョン \(release.version) があります", hint: "メニューバーの「更新」から、入れられます", chip: "更新"), hideAfter: 6)
+        HUD.shared.show(HUDContent(phase: .info, title: "新しいバージョン \(release.version) があります", hint: "メニューバーの「更新」から、入れられます", chip: "更新"), hideAfter: 6)   // l10n-skip
     }
 
     // MARK: 更新
@@ -80,17 +80,20 @@ import VCCore
     func confirmAndInstall() {
         guard let release = available, !isBusy else { return }
         if let block = installBlock {
-            AppAlerts.show(title: "ここでは、更新できません", message: "\(block)\n\n新しい版（\(release.version)）は、リリースのページから、取得できます。", style: .warning)
+            AppAlerts.show(title: tr("ここでは、更新できません"), message: "\(block)\n\n" + tr("新しい版（\(release.version)）は、リリースのページから、取得できます。"), style: .warning)
             return
         }
         NSApplication.shared.activate()
         let alert = NSAlert()
-        alert.messageText = "\(release.version) に更新しますか？"
-        alert.informativeText = "いまは \(currentVersion) です。更新すると、アプリは、いったん終わって、新しい版で開き直します。\n\n更新のあとで、アクセシビリティなどの許可が、無効になることがあります（このアプリは、Apple の開発者の署名を、まだ使っていません）。そのときは、設定 > 一般 の「準備状況」から、付け直してください。"
+        alert.messageText = tr("\(release.version) に更新しますか？")
+        alert.informativeText = [
+            tr("いまは \(currentVersion) です。更新すると、アプリは、いったん終わって、新しい版で開き直します。"),
+            tr("更新のあとで、アクセシビリティなどの許可が、無効になることがあります（このアプリは、Apple の開発者の署名を、まだ使っていません）。そのときは、設定 > 一般 の「準備状況」から、付け直してください。"),
+        ].joined(separator: "\n\n")
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "更新して、開き直す")
-        alert.addButton(withTitle: "変更点を見る")
-        alert.addButton(withTitle: "あとで")
+        alert.addButton(withTitle: tr("更新して、開き直す"))
+        alert.addButton(withTitle: tr("変更点を見る"))
+        alert.addButton(withTitle: tr("あとで"))
         switch alert.runModal() {
         case .alertFirstButtonReturn: install(release)
         case .alertSecondButtonReturn: NSWorkspace.shared.open(release.pageURL)
@@ -103,7 +106,7 @@ import VCCore
         phase = .preparing(fraction: nil)
         Task {
             guard let current = await UpdatePipeline.identity(ofAppAt: appPath) else {
-                phase = .failed("いまのアプリの署名を、読めませんでした。入れ替えません")
+                phase = .failed(tr("いまのアプリの署名を、読めませんでした。入れ替えません"))
                 return
             }
             let staged = InstallPlan.stagedPath(for: appPath)

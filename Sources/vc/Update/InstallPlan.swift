@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 更新を入れてよい場所か（**純粋**：書ける場所かの判定は、渡す）。ビルドしたままのアプリ・ディスクイメージの中・隔離（translocation）された起動を、置き換えない。
 enum InstallPlan {
@@ -10,10 +11,10 @@ enum InstallPlan {
 
         var description: String {
             switch self {
-            case .notAnApp: return "アプリとして動いていません（ビルドしたままの `vc` です）"
-            case .translocated: return "隔離された場所から動いています。アプリを「アプリケーション」へ移して、開き直してください"
-            case let .unusualLocation(path): return "「アプリケーション」フォルダのアプリではありません（\(path)）。更新は、「アプリケーション」へ入れたアプリにだけ、行います"
-            case let .notWritable(directory): return "\(directory) に書けません。手動で、新しい版に入れ替えてください"
+            case .notAnApp: return tr("アプリとして動いていません（ビルドしたままの `vc` です）")
+            case .translocated: return tr("隔離された場所から動いています。アプリを「アプリケーション」へ移して、開き直してください")
+            case let .unusualLocation(path): return tr("「アプリケーション」フォルダのアプリではありません（\(path)）。更新は、「アプリケーション」へ入れたアプリにだけ、行います")
+            case let .notWritable(directory): return tr("\(directory) に書けません。手動で、新しい版に入れ替えてください")
             }
         }
     }
@@ -73,8 +74,8 @@ enum UpdateSwap {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         process.standardInput = FileHandle.nullDevice
-        do { try process.run() } catch { return "入れ替えを始められません（\(error.localizedDescription)）" }
+        do { try process.run() } catch { return tr("入れ替えを始められません（\(error.localizedDescription)）") }
         process.waitUntilExit()
-        return process.terminationStatus == 0 ? nil : "入れ替えを始められません（終了コード \(process.terminationStatus)）"
+        return process.terminationStatus == 0 ? nil : tr("入れ替えを始められません（終了コード \(process.terminationStatus)）")
     }
 }

@@ -75,6 +75,10 @@ jobs:
       - name: Build the native library (transcribe.cpp)
         run: ./scripts/build-native.sh
 
+      - name: Check translations
+        # 英語の表の抜け・重複・置き換えの数（設定ウィンドウとダイアログ）。Python は、ランナーに入っている
+        run: python3 scripts/check-l10n.py --uncovered
+
       - name: Unit tests
         # 止まったとき、40 分待たずに、失敗にする（通常は 2 分ほど）
         timeout-minutes: 15

@@ -11,11 +11,11 @@ enum KeyKind: CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .listen: return "声で頼む"
-        case .dictate: return "音声入力"
-        case .chat: return "会話"
-        case .shot: return "画面撮影"
-        case .sendKey: return "入力のあとに送るキー"
+        case .listen: return tr("声で頼む")
+        case .dictate: return tr("音声入力")
+        case .chat: return tr("会話")
+        case .shot: return tr("画面撮影")
+        case .sendKey: return tr("入力のあとに送るキー")
         }
     }
 
@@ -25,11 +25,11 @@ enum KeyKind: CaseIterable, Hashable {
 
     var help: String {
         switch self {
-        case .listen: return "押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）"
-        case .dictate: return "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）"
-        case .chat: return "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）"
-        case .shot: return "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）"
-        case .sendKey: return "文字を入れたあとに押すキー（既定：Enter）。送信が ⌘Enter などのアプリに合わせられます"
+        case .listen: return tr("押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）")
+        case .dictate: return tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）")
+        case .chat: return tr("押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）")
+        case .shot: return tr("押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）")
+        case .sendKey: return tr("文字を入れたあとに押すキー（既定：Enter）。送信が ⌘Enter などのアプリに合わせられます")
         }
     }
 
@@ -85,12 +85,12 @@ enum SettingsRules {
         case apple, ollama, openai
         var title: String {
             switch self {
-            case .apple: return "Apple（この Mac の中。既定）"
-            case .ollama: return "Ollama（この Mac のサーバー）"
-            case .openai: return "OpenAI 互換（この Mac のサーバー）"
+            case .apple: return tr("Apple（この Mac の中。既定）")
+            case .ollama: return tr("Ollama（この Mac のサーバー）")
+            case .openai: return tr("OpenAI 互換（この Mac のサーバー）")
             }
         }
-        var placeholder: String { self == .ollama ? "qwen3.5:4b" : "モデル名@ポート" }
+        var placeholder: String { self == .ollama ? "qwen3.5:4b" : tr("モデル名@ポート") }
     }
 
     /// 設定の文字列を、種類と、そのあとの部分に分ける（`ollama:qwen3.5:4b` → ollama・`qwen3.5:4b`）。
@@ -108,7 +108,7 @@ enum SettingsRules {
 
     /// エンジンの書き方の問題（なければ `nil`）。クラウドのモデルは、拒否される（`Engine.parse`）。
     static func engineProblem(kind: EngineKind, rest: String) -> String? {
-        if kind != .apple, rest.trimmingCharacters(in: .whitespaces).isEmpty { return "モデルの名前を入れてください" }
+        if kind != .apple, rest.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }
         do { _ = try Engine.parse(engineText(kind: kind, rest: rest)); return nil } catch { return "\(error)" }
     }
 }

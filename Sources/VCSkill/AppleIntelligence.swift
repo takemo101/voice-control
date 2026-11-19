@@ -1,4 +1,5 @@
 import FoundationModels
+import VCCore
 
 /// Apple の言語モデル（FoundationModels。スキルの実行に使う）が、いま使えるか。使えないとき、理由と、直す手順を返す。
 /// Tiny-Jev のモデルが無いときに 設定ウィンドウ > モデル での取得を案内するのと同じ形：使えないまま実行して、実行の途中で失敗させない。
@@ -21,10 +22,10 @@ public enum AppleIntelligence {
         /// 何が使えないか（1 文）。
         public var summary: String {
             switch self {
-            case .deviceNotEligible: return "この Mac（または環境）は、Apple Intelligence に対応していません"
-            case .notEnabled: return "Apple Intelligence が、オフです"
-            case .modelNotReady: return "Apple の言語モデルが、まだ使えません（ダウンロード中など）"
-            case .unknown: return "Apple の言語モデルが、使えません"
+            case .deviceNotEligible: return tr("この Mac（または環境）は、Apple Intelligence に対応していません")
+            case .notEnabled: return tr("Apple Intelligence が、オフです")
+            case .modelNotReady: return tr("Apple の言語モデルが、まだ使えません（ダウンロード中など）")
+            case .unknown: return tr("Apple の言語モデルが、使えません")
             }
         }
 
@@ -32,13 +33,13 @@ public enum AppleIntelligence {
         public var remedy: String {
             switch self {
             case .deviceNotEligible:
-                return "Apple Intelligence は、対応する Mac・macOS・言語と地域でだけ使えます（仮想マシンなどでは、使えないことがあります）。スキルの実行には、これが要ります"
+                return tr("Apple Intelligence は、対応する Mac・macOS・言語と地域でだけ使えます（仮想マシンなどでは、使えないことがあります）。スキルの実行には、これが要ります")
             case .notEnabled:
-                return "システム設定 > Apple Intelligence と Siri で、Apple Intelligence をオンにしてください（オンにすると、言語モデルのダウンロードが始まります）"
+                return tr("システム設定 > Apple Intelligence と Siri で、Apple Intelligence をオンにしてください（オンにすると、言語モデルのダウンロードが始まります）")
             case .modelNotReady:
-                return "システム設定 > Apple Intelligence と Siri で、ダウンロードが終わるのを待って、もう一度実行してください"
+                return tr("システム設定 > Apple Intelligence と Siri で、ダウンロードが終わるのを待って、もう一度実行してください")
             case .unknown:
-                return "システム設定 > Apple Intelligence と Siri を確かめてください（対応する言語・地域の設定も）"
+                return tr("システム設定 > Apple Intelligence と Siri を確かめてください（対応する言語・地域の設定も）")
             }
         }
     }

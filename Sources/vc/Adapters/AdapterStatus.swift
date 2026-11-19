@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 import VCSkill
 
 /// アダプターの、いまの状態（**ファイルと `PATH` を見るだけ**：画面・コマンドが、同じ見方をする）。
@@ -18,9 +19,9 @@ enum AdapterStatus: Equatable {
     /// 画面・コマンドに出す 1 行。
     func summary(for adapter: ACPAdapter) -> String {
         switch self {
-        case let .own(path): return "自分で入れたものを使っています（\(path)）"
-        case let .managed(version, current): return current ? "導入済み（\(version)）" : "導入済み（\(version)）。固定した版は \(adapter.version) です"
-        case let .notInstalled(hasNode): return hasNode ? "未導入。入れるまでは、従来の方式で話します" : "未導入（Node.js が見つかりません）。従来の方式で話します"
+        case let .own(path): return tr("自分で入れたものを使っています（\(path)）")
+        case let .managed(version, current): return current ? tr("導入済み（\(version)）") : tr("導入済み（\(version)）。固定した版は \(adapter.version) です")
+        case let .notInstalled(hasNode): return hasNode ? tr("未導入。入れるまでは、従来の方式で話します") : tr("未導入（Node.js が見つかりません）。従来の方式で話します")
         }
     }
 

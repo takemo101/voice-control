@@ -25,9 +25,9 @@ import VCCore
 
     /// 結果を、文字で（コピー用。発話・画面の内容は含まない：項目名・状態・直し方だけ）。
     func text() -> String {
-        var lines = ["voice-control \(AppInfo.version)・macOS \(DoctorCommand.osVersion)"]
+        var lines = [tr("voice-control \(AppInfo.version)・macOS \(DoctorCommand.osVersion)")]
         for check in checks {
-            let mark = check.state == .ok ? "OK" : (check.state == .warn ? "注意" : "NG")
+            let mark = check.state == .ok ? "OK" : (check.state == .warn ? tr("注意") : "NG")
             lines.append("[\(mark)] \(check.name)：\(check.detail)")
             if let fix = check.fix { lines.append("      → \(fix)") }
         }
@@ -57,7 +57,7 @@ import VCCore
     static func makeWindow(model: DiagnosticsModel) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 640), styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.contentView = NSHostingView(rootView: DiagnosticsView(model: model))
-        window.title = "診断"
+        window.title = tr("診断")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
@@ -72,10 +72,10 @@ struct DiagnosticsView: View {
     @ObservedObject var model: DiagnosticsModel
 
     private var tone: (symbol: String, colors: [Color], title: String, subtitle: String) {
-        if model.running && model.checks.isEmpty { return ("ellipsis", [Color(white: 0.6), Color(white: 0.4)], "確かめています…", "少し、お待ちください") }
-        if model.failures > 0 { return ("xmark", [Brand.rec1, Color(red: 0.8, green: 0.2, blue: 0.2)], "使えないものがあります", "\(model.failures) 件。下の手順で、直してください") }
-        if model.warnings > 0 { return ("exclamationmark", [Brand.warn, Brand.rec2], "ほぼ、使えます", "\(model.warnings) 件は、任意の機能の設定です") }
-        return ("checkmark", [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)], "すべて使えます", "必要なものは、そろっています")
+        if model.running && model.checks.isEmpty { return ("ellipsis", [Color(white: 0.6), Color(white: 0.4)], tr("確かめています…"), tr("少し、お待ちください")) }
+        if model.failures > 0 { return ("xmark", [Brand.rec1, Color(red: 0.8, green: 0.2, blue: 0.2)], tr("使えないものがあります"), tr("\(model.failures) 件。下の手順で、直してください")) }
+        if model.warnings > 0 { return ("exclamationmark", [Brand.warn, Brand.rec2], tr("ほぼ、使えます"), tr("\(model.warnings) 件は、任意の機能の設定です")) }
+        return ("checkmark", [Brand.ok, Color(red: 0.15, green: 0.65, blue: 0.45)], tr("すべて使えます"), tr("必要なものは、そろっています"))
     }
 
     var body: some View {
@@ -103,10 +103,10 @@ struct DiagnosticsView: View {
             }
             Divider()
             HStack {
-                Text("voice-control \(AppInfo.version)・macOS \(DoctorCommand.osVersion)").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(tr("voice-control \(AppInfo.version)・macOS \(DoctorCommand.osVersion)")).font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
-                Button { model.copy() } label: { Label(model.copied ? "コピーしました" : "結果をコピー", systemImage: model.copied ? "checkmark" : "doc.on.doc") }.controlSize(.small)
-                Button { model.run() } label: { Label("もう一度、確かめる", systemImage: "arrow.clockwise") }.controlSize(.small).disabled(model.running)
+                Button { model.copy() } label: { Label(model.copied ? tr("コピーしました") : tr("結果をコピー"), systemImage: model.copied ? "checkmark" : "doc.on.doc") }.controlSize(.small)
+                Button { model.run() } label: { Label(tr("もう一度、確かめる"), systemImage: "arrow.clockwise") }.controlSize(.small).disabled(model.running)
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
         }
