@@ -420,6 +420,7 @@ final class EventTags: @unchecked Sendable {
         #expect(!h.log.labels.contains("interrupted"))
         h.loop.inject("text-a2", tag: "")               // 順番が来た
         #expect(await started.take() == "text-a2")      // 同じ流れの処理に、戻った
+        #expect(h.log.eventsOffMain.isEmpty)            // 先の認識の出来事も、メインで届く（メインの外から呼んで、アプリが落ちた）
     }
 
     @Test func escCancelsADeferredRecognitionThatIsStillRunning() async {

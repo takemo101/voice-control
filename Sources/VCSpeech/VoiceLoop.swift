@@ -357,6 +357,7 @@ public final class VoiceLoop {
 }
 
 /// 順番を待たせた発話を、**その場で、先に認識する**（実行中の処理の裏で。認識は、1 つずつ、順に）。文字になったら、`deliver` へ渡す。Esc で、まだの認識は、やめる。
+/// **出来事（`emit`）と `deliver` は、メインアクターで呼ぶ**（受け口が、画面・会話のウィンドウを触る：メインの外から呼んで、アプリが落ちた〔利用者の報告：2026-11-20〕）。
 /// `@unchecked Sendable` の理由：可変な状態（`tokens`・`tail`・`deliver`）は、すべて `lock` で守る。
 final class DeferredRecognizer: @unchecked Sendable {
     private let transcriber: Transcribing
@@ -391,11 +392,14 @@ final class DeferredRecognizer: @unchecked Sendable {
                 do {
                     let heard = try await transcriber.transcribeWithConfidence(file: file)
                     guard !token.isCancelled else { return }
-                    emit(.recognized(heard.text), tag)
-                    deliver?(heard.text, tag)
+                    // 画面・会話のウィンドウは、メインアクターの外から、触れない（出来事の受け口は、メインアクターで呼ばれる前提）
+                    await MainActor.run {
+                        emit(.recognized(heard.text), tag)
+                        deliver?(heard.text, tag)
+                    }
                 } catch {
                     guard !token.isCancelled else { return }
-                    emit(.recognitionFailed(error), tag)
+                    await MainActor.run { emit(.recognitionFailed(error), tag) }
                 }
             }
             tail = task
