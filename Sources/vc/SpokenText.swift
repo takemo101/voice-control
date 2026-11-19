@@ -1,3 +1,4 @@
+import VCCore
 import Foundation
 
 /// 会話の答え（Markdown）を、**声で読む文**にする。記号（`#`・`**`・箇条書きの `-`・表の罫線）・コードブロック・URL は、読まない（読んでも、聞き取れない）。
@@ -15,7 +16,7 @@ enum SpokenText {
             guard let line = spoken(trimmed) else { continue }
             lines.append(line)
         }
-        if skippedCode, !lines.isEmpty { lines.append("コードは、画面に出しています。") }
+        if skippedCode, !lines.isEmpty { lines.append(tr("コードは、画面に出しています。")) }
         // 行を、塊にまとめる（長い行は、句点で割る）
         var chunks: [String] = []
         var current = ""

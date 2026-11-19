@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// スキル 1 つ：`~/.voice-control/skills/<name>/SKILL.md`（グローバル）か `<プロジェクトのルート>/.voice-control/skills/<name>/SKILL.md`（プロジェクト）。
 /// ```
@@ -37,7 +38,7 @@ public struct Skill: Sendable, Equatable {
     public var sendsScreenshot: Bool { imageSource == .screenshot && external != nil }
 
     /// 外へ送ることの、断り書き（「撮った画面の画像と質問を、OpenAI（codex） へ送ります」）。送らなければ nil。確認の文・一覧・インストールの結果で使う。
-    public var externalNotice: String? { external.map { "\(sendsScreenshot ? "撮った画面の画像と質問" : "発話")を、\($0) へ送ります" } }
+    public var externalNotice: String? { external.map { sendsScreenshot ? tr("撮った画面の画像と質問を、\($0) へ送ります") : tr("発話を、\($0) へ送ります") } }
     /// 複数ステップの依頼で、**前のステップの結果**（返事）を、受け取ってよいか（フロントマター `accepts-previous`。既定は false）。
     /// 結果は、信頼しないデータ（`PreviousResult`）。外の内容を含みうるので、受け取る（宣言する）スキルは、そのデータで、危ない動作をしないものだけ。
     public var acceptsPrevious: Bool = false

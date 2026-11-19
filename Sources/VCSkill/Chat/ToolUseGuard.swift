@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// Apple のモデルの会話で、**道具を呼ばなかった答え**（作り話）を、返さないための判断（純粋：モデルなしで、テストできる）。
 /// 小さなモデルは、道具を呼ばずに、「読み取りました。内容は…」と作り話をしたり、「作成します」と予告だけで終えたりする。検索・ファイルの依頼で、道具が呼ばれなければ、1 回促し、それでも呼ばなければ、答えを出さずに、失敗として知らせる。
@@ -37,7 +38,7 @@ struct ToolUseGuard {
         case .afterNudge:
             return afterCalls(needed: needed, calls: calls, acted: acted)
         case .afterActNudge:
-            return acted ? .done : .fail("ファイルの書き込み・コマンドの実行は、できませんでした（モデルが、道具を呼びませんでした）。もう一度、具体的に頼んでください（例：「done.txt に『確認済み』と書いて作って」）")
+            return acted ? .done : .fail(tr("ファイルの書き込み・コマンドの実行は、できませんでした（モデルが、道具を呼びませんでした）。もう一度、具体的に頼んでください（例：「done.txt に『確認済み』と書いて作って」）"))
         }
     }
 
@@ -47,7 +48,7 @@ struct ToolUseGuard {
             if level.usesFolder, !Self.wantsToChange(user), let name = Self.mentionedFile(in: user, folder: folder), let text = try? FolderReader(root: folder).read(name) {
                 return .readFile(name: name, text: text)
             }
-            return .fail("道具（検索・ファイル）を使えませんでした。言い方を変えて、もう一度お願いします（例：「note.txt を読んで」「〇〇のニュースを検索して」）")
+            return .fail(tr("道具（検索・ファイル）を使えませんでした。言い方を変えて、もう一度お願いします（例：「note.txt を読んで」「〇〇のニュースを検索して」）"))
         }
         if level == .all, needed, Self.wantsToChange(user), !acted { return .nudge(Self.nudgeToAct, then: .afterActNudge) }
         return .done
@@ -57,7 +58,7 @@ struct ToolUseGuard {
 
     /// 答えから、指示の中の「【添付：…】」の形を、まねして付いた印を除く。
     static func cleaned(_ reply: String) -> String {
-        reply.replacingOccurrences(of: "【添付：[^】]*】", with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+        reply.replacingOccurrences(of: "【添付：[^】]*】", with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)   // l10n-skip：照合に使う語・名前（画面に出ない）
     }
 
     static let nudgeToAct = "You have not done it yet. Call write_file (path and the full content) or run_command now, then report the tool result. Do not just say you will."
@@ -66,27 +67,27 @@ struct ToolUseGuard {
     static func needsTool(_ request: String, level: ChatToolLevel, allowsWeb: Bool = true) -> Bool {
         guard level != .none else { return false }
         if level.usesFolder {
-            if ["ファイル", "フォルダ", "ディレクトリ", "作業フォルダ"].contains(where: request.contains) { return true }
+            if ["ファイル", "フォルダ", "ディレクトリ", "作業フォルダ"].contains(where: request.contains) { return true }   // l10n-skip：照合に使う語・名前（画面に出ない）
             if FileNames.contains(in: request) { return true }
         }
-        if level == .all, ["コマンド", "ターミナル", "実行して", "を実行"].contains(where: request.contains) { return true }
+        if level == .all, ["コマンド", "ターミナル", "実行して", "を実行"].contains(where: request.contains) { return true }   // l10n-skip：照合に使う語・名前（画面に出ない）
         guard allowsWeb else { return false }
-        return ["調べて", "調べ", "検索", "ニュース", "最新", "最近の", "http://", "https://", "天気", "株価"].contains(where: request.contains)
+        return ["調べて", "調べ", "検索", "ニュース", "最新", "最近の", "http://", "https://", "天気", "株価"].contains(where: request.contains)   // l10n-skip：照合に使う語・名前（画面に出ない）
     }
 
     /// 道具を呼ばずに、これからやると予告しただけの返事か（短く、「みます」「します」などで終わる）。
     static func looksLikeAPromise(_ reply: String) -> Bool {
         let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text.count <= 240 else { return false }
-        let markers = ["みます", "します", "いたします", "確認します", "読み取ります", "調べます", "検索します", "取得します", "お待ち", "I will", "Let me", "I'll"]
+        let markers = ["みます", "します", "いたします", "確認します", "読み取ります", "調べます", "検索します", "取得します", "お待ち", "I will", "Let me", "I'll"]   // l10n-skip：照合に使う語・名前（画面に出ない）
         return markers.contains { text.contains($0) }
     }
 
     /// ファイルを書く・消す・作る依頼か（ファイルを読んで答える代わりの処理を、使わない）。
     static func wantsToChange(_ request: String) -> Bool {
         // 「何が書いてある？」「書かれている」は、読む依頼
-        let request = request.replacingOccurrences(of: "書いてある", with: "").replacingOccurrences(of: "書かれて", with: "")
-        return ["書い", "作って", "作成", "保存", "追記", "削除", "消し", "置き換え", "上書き", "変更", "直して", "リネーム", "移動", "コピー", "実行"].contains(where: request.contains)
+        let request = request.replacingOccurrences(of: "書いてある", with: "").replacingOccurrences(of: "書かれて", with: "")   // l10n-skip：照合に使う語・名前（画面に出ない）
+        return ["書い", "作って", "作成", "保存", "追記", "削除", "消し", "置き換え", "上書き", "変更", "直して", "リネーム", "移動", "コピー", "実行"].contains(where: request.contains)   // l10n-skip：照合に使う語・名前（画面に出ない）
     }
 
     /// 発話に出てきた、作業フォルダにあるファイルの名前（拡張子つき）。なければ nil。

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VCCore
 
 /// 画像のパネルの中身（SwiftUI）。`vc show` のウィンドウと同じ Liquid Glass のカード。窓・状態・操作は、`ImageWindow`。
 
@@ -67,10 +68,10 @@ struct ImageCardView: View {
             Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Spacer(minLength: 8)
-            HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied == .image, action: copyImage)
-            HeaderIconButton(symbol: "text.viewfinder", help: state.paneOpen ? "文字起こしを隠す" : "文字起こし（画像の中の文字を読み取る）", active: state.paneOpen, action: transcribe)
+            HeaderIconButton(symbol: "photo.on.rectangle", help: tr("画像をコピー（⌘C）"), accent: true, flashed: state.copied == .image, action: copyImage)
+            HeaderIconButton(symbol: "text.viewfinder", help: state.paneOpen ? tr("文字起こしを隠す") : tr("文字起こし（画像の中の文字を読み取る）"), active: state.paneOpen, action: transcribe)
             moreMenu
-            HeaderIconButton(symbol: "xmark", help: "閉じる（Esc）", cancel: true, action: close)
+            HeaderIconButton(symbol: "xmark", help: tr("閉じる（Esc）"), cancel: true, action: close)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
         .background(DragArea())
@@ -79,14 +80,14 @@ struct ImageCardView: View {
     /// 「…」：たまにしか使わない操作（パスのコピー・Finder で表示。まだなら、`~/Pictures/voice-control` に保存する）。
     private var moreMenu: some View {
         Menu {
-            Button(action: copyPath) { Label("パスをコピー", systemImage: "link") }
-            Button(action: reveal) { Label("Finder で表示", systemImage: "folder") }
+            Button(action: copyPath) { Label(tr("パスをコピー"), systemImage: "link") }
+            Button(action: reveal) { Label(tr("Finder で表示"), systemImage: "folder") }
         } label: {
             HeaderCircle(symbol: "ellipsis", flashed: state.copied == .path)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("パスのコピー・Finder で表示（まだなら、~/Pictures/voice-control に保存）")
-        .accessibilityLabel("そのほかの操作")
+        .help(tr("パスのコピー・Finder で表示（まだなら、~/Pictures/voice-control に保存）"))
+        .accessibilityLabel(tr("そのほかの操作"))
     }
 
     // MARK: 画像（透明な所は、市松模様。ドラッグして、ほかのアプリへ）
@@ -98,7 +99,7 @@ struct ImageCardView: View {
             if stageHover.on {
                 HStack(spacing: 6) {
                     Image(systemName: "hand.draw").vcFont(11, weight: .semibold)
-                    Text("ドラッグして、ほかのアプリへ").vcFont(11.5, weight: .semibold)
+                    Text(tr("ドラッグして、ほかのアプリへ")).vcFont(11.5, weight: .semibold)
                 }
                 .foregroundStyle(.white).padding(.horizontal, 11).padding(.vertical, 6)
                 .background(Capsule().fill(.black.opacity(0.62)))
@@ -123,7 +124,7 @@ struct ImageCardView: View {
             } else if let path = state.savedPath ?? savedPath {
                 Chip(text: (path as NSString).abbreviatingWithTildeInPath, dot: Tone.green, truncates: true)
             } else {
-                Chip(text: "未保存（「…」から保存）", dot: Tone.amber, truncates: true)
+                Chip(text: tr("未保存（「…」から保存）"), dot: Tone.amber, truncates: true)
             }
             Spacer(minLength: 0)
         }
@@ -148,14 +149,14 @@ struct ImageCardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "text.viewfinder").vcFont(12, weight: .semibold).foregroundStyle(DocumentPalette.accent)
-                Text("文字起こし").vcFont(13, weight: .semibold).foregroundStyle(.white)
+                Text(tr("文字起こし")).vcFont(13, weight: .semibold).foregroundStyle(.white)
                 if case let .text(text) = state.transcript {
-                    Text(verbatim: "\(text.count) 文字").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
+                    Text(verbatim: tr("\(text.count) 文字")).vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                         .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
                 }
                 Spacer(minLength: 8)
                 if case .text = state.transcript {
-                    PillButton(title: "テキストをコピー", symbol: "doc.on.doc", flashed: state.copied == .text, action: copyText)
+                    PillButton(title: tr("テキストをコピー"), symbol: "doc.on.doc", flashed: state.copied == .text, action: copyText)
                 }
             }
             ZStack {
@@ -165,10 +166,10 @@ struct ImageCardView: View {
                 case .idle, .reading:
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("読み取っています…（最初の 1 回は、準備で、30 秒ほどかかります）").vcFont(12).foregroundStyle(.white.opacity(0.62))
+                        Text(tr("読み取っています…（最初の 1 回は、準備で、30 秒ほどかかります）")).vcFont(12).foregroundStyle(.white.opacity(0.62))
                     }
                 case .empty:
-                    Text("文字が見つかりませんでした").vcFont(12.5).foregroundStyle(.white.opacity(0.62))
+                    Text(tr("文字が見つかりませんでした")).vcFont(12.5).foregroundStyle(.white.opacity(0.62))
                 case let .failed(message):
                     Text(message).vcFont(12.5).foregroundStyle(.red.opacity(0.9)).padding(12)
                 case let .text(text):
@@ -260,7 +261,7 @@ private struct DraggableImage: NSViewRepresentable {
     final class DragImageView: NSView, NSDraggingSource {
         let image: NSImage
         init(image: NSImage) { self.image = image; super.init(frame: .zero) }
-        required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }
+        required init?(coder: NSCoder) { fatalError("init(coder:) は使わない") }   // l10n-skip（開発者向け）
 
         override func draw(_ dirtyRect: NSRect) {
             image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)

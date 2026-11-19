@@ -22,6 +22,8 @@ import Foundation
 /// - `chatAcp`：ACP に対応した会話のエージェント（`agy`・`opencode`）を、**常駐の接続（ACP）**で使うか。なければ、使う（設定ウィンドウ > 会話）。使えなければ、自動で、従来の方式（質問ごとに CLI を起動）に戻る。
 /// - `chatSandbox`：ACP で話す会話のエージェント（`agy`・`opencode`）を、**OS の制限（macOS の Seatbelt）つき**で起動するか（書き込みを、作業フォルダ〔「すべて」のとき〕とエージェント自身の置き場だけに限る。鍵の置き場は、読めない）。なければ、使う（設定ウィンドウ > 会話）。
 /// - `chatFolder`：道具を開けたとき（`read`・`all`）の、作業フォルダ。なければ、`~/.voice-control/chat`。
+/// - `uiLanguage`：**表示言語**（`ja`・`en`。設定ウィンドウとダイアログ）。なければ、日本語。
+/// - `sttLanguage`：**音声認識の言語**（`ja`・`en`）。録音の認識・録音中の文字・読み上げの声に効く。なければ、日本語。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -40,6 +42,8 @@ public struct Settings: Codable, Sendable, Equatable {
     public var chatAcp: Bool?
     public var chatSandbox: Bool?
     public var stt: String?
+    public var uiLanguage: String?
+    public var sttLanguage: String?
     public var shotHotkey: String?
     public var handsFree: Bool?
     public var recheck: Bool?
@@ -74,6 +78,8 @@ public struct Settings: Codable, Sendable, Equatable {
         chatAcp = try c.decodeIfPresent(Bool.self, forKey: .chatAcp)
         chatSandbox = try c.decodeIfPresent(Bool.self, forKey: .chatSandbox)
         stt = try c.decodeIfPresent(String.self, forKey: .stt)
+        uiLanguage = try c.decodeIfPresent(String.self, forKey: .uiLanguage)
+        sttLanguage = try c.decodeIfPresent(String.self, forKey: .sttLanguage)
         shotHotkey = try c.decodeIfPresent(String.self, forKey: .shotHotkey)
         handsFree = try c.decodeIfPresent(Bool.self, forKey: .handsFree)
         recheck = try c.decodeIfPresent(Bool.self, forKey: .recheck)
@@ -139,3 +145,20 @@ public struct Settings: Codable, Sendable, Equatable {
         if trusted { trustedProjects.append(path); trustedProjects.sort() }
     }
 }
+
+extension Settings {
+    /// 表示言語（設定 `uiLanguage`。なければ、書き間違いも、日本語：画面は、読めることを優先する）。
+    public var displayLanguage: AppLanguage { AppLanguage.parse(uiLanguage) ?? .ja }
+    /// 音声認識の言語（設定 `sttLanguage`）。書き間違いは、nil（呼ぶ側が、理由を示す）。なければ、日本語。
+    public var recognitionLanguage: Result<AppLanguage, UnknownLanguage> {
+        guard let sttLanguage else { return .success(.ja) }
+        return AppLanguage.parse(sttLanguage).map { .success($0) } ?? .failure(UnknownLanguage(text: sttLanguage))
+    }
+    /// 画面・指示に使う、音声認識の言語（書き間違いは、日本語。書き間違いを知らせるのは、起動の検査：`CommandContext.resolveSttLanguage`）。
+    public var recognitionLanguageOrDefault: AppLanguage { (try? recognitionLanguage.get()) ?? .ja }
+    public struct UnknownLanguage: Error, Equatable, CustomStringConvertible {
+        public let text: String
+        public var description: String { "sttLanguage「\(text)」は、使えません（ja・en）" }
+    }
+}
+

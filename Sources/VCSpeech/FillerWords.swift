@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// つなぎ言葉（フィラー：「えーと」「um」など）の除去（音声入力・音声入力で、入力する文字から）。
 /// 辞書（利用者が足し引きできる語の一覧）を、文字列の一致で消すだけ（言語モデルは使わない）。VoiceInk と同じ考え方。
@@ -13,8 +14,8 @@ import Foundation
 public enum FillerWords {
     /// 既定の辞書。日本語は、つなぎ言葉だと、まず間違いない形だけ（「あの」「その」「まあ」は、ふつうの語でもあるので、入れない）。
     public static let defaults: [String] = [
-        "えーっと", "ええっと", "えーと", "えっと", "ええと",
-        "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー",
+        "えーっと", "ええっと", "えーと", "えっと", "ええと",   // l10n-skip：照合に使う語・名前（画面に出ない）
+        "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー",   // l10n-skip：照合に使う語・名前（画面に出ない）
         "uh", "um", "uhm", "umm", "uhh", "hmm", "erm",
     ]
 
@@ -29,12 +30,12 @@ public enum FillerWords {
 
         public var description: String {
             switch self {
-            case .empty: return "語が空です"
-            case .tooShort: return "1 文字の語は、足せません（ふつうの語の一部を、消してしまうため）"
-            case .tooLong: return "語が長すぎます（\(maxLength) 文字まで）"
-            case .notAWord: return "文字（かな・漢字・英数字）を含む語にしてください"
-            case .tooMany: return "語が多すぎます（\(maxCount) 語まで）"
-            case .endsWithParticle: return "語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）"
+            case .empty: return tr("語が空です")
+            case .tooShort: return tr("1 文字の語は、足せません（ふつうの語の一部を、消してしまうため）")
+            case .tooLong: return tr("語が長すぎます（\(maxLength) 文字まで）")
+            case .notAWord: return tr("文字（かな・漢字・英数字）を含む語にしてください")
+            case .tooMany: return tr("語が多すぎます（\(maxCount) 語まで）")
+            case .endsWithParticle: return tr("語の最後が、助詞（を・は・も・が・に）のようです。語だけを渡してください（例：「なんかを」ではなく「なんか」）")
             }
         }
     }
@@ -52,7 +53,7 @@ public enum FillerWords {
         if collapsed.count > maxLength { return .failure(.tooLong) }
         if !collapsed.contains(where: { $0.isLetter || $0.isNumber }) { return .failure(.notAWord) }
         // 声から取り出した語に、助詞が付いてくることがある（「なんかを」）：誤って辞書に入らないよう、断る
-        if collapsed.count >= 3, let last = collapsed.last, !last.isASCII, "をはもがに".contains(last) { return .failure(.endsWithParticle) }
+        if collapsed.count >= 3, let last = collapsed.last, !last.isASCII, "をはもがに".contains(last) { return .failure(.endsWithParticle) }   // l10n-skip：照合に使う語・名前（画面に出ない）
         return .success(collapsed)
     }
 
@@ -84,7 +85,7 @@ public enum FillerWords {
 
     private static let commas: Set<Character> = ["、", "，", ",", "…"]
     private static let sentenceEnds: Set<Character> = ["。", "．", ".", "！", "？", "!", "?"]
-    private static let boundaries: Set<Character> = ["、", "。", "，", "．", ",", ".", "!", "?", "！", "？", "…", "・", "「", "」", "『", "』", "（", "）", "(", ")", "“", "”", "\"", ":", ";", "：", "；"]
+    private static let boundaries: Set<Character> = ["、", "。", "，", "．", ",", ".", "!", "?", "！", "？", "…", "・", "「", "」", "『", "』", "（", "）", "(", ")", "“", "”", "\"", ":", ";", "：", "；"]   // l10n-skip：照合に使う語・名前（画面に出ない）
 
     private static func isWordish(_ c: Character) -> Bool { c.isLetter || c.isNumber || c == "-" || c == "'" || c == "’" }
     private static func isAsciiWord(_ c: Character) -> Bool { c.isASCII && (c.isLetter || c.isNumber) }

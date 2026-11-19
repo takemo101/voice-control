@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import VCCore
 import ImageIO
 import Vision
 
@@ -21,7 +22,7 @@ public enum ScreenText {
 
     /// 画像のデータ（PNG など）から読み取る（画像のパネルが使う：ファイルを、経由しない）。
     public static func recognize(data: Data) throws -> String {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw Failure(message: "画像を読めません") }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw Failure(message: tr("画像を読めません")) }
         return try recognize(image: image)
     }
 
@@ -36,7 +37,7 @@ public enum ScreenText {
 
     static func recognize(image: CGImage) throws -> String {
         let request = makeRequest()
-        do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([request]) } catch { throw Failure(message: "文字を読み取れませんでした（\(error.localizedDescription)）") }
+        do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([request]) } catch { throw Failure(message: tr("文字を読み取れませんでした（\(error.localizedDescription)）")) }
         return text(from: (request.results ?? []).compactMap { observation in
             observation.topCandidates(1).first.map { Line(text: $0.string, top: observation.boundingBox.maxY, left: observation.boundingBox.minX, height: observation.boundingBox.height) }
         })

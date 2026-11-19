@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// あいまい検索（**純粋**）：入力の文字が、**順に**（間が空いていてもよい）含まれる項目を残し、よく合う順に並べる。
 /// - 空白で区切った語は、**すべて**含まれること（`son 5` → 「Sonnet 5.5」）。大文字・小文字・全角半角・濃点の違いは、区別しない。
@@ -123,7 +124,7 @@ enum ModelListLogic {
             if byKey[key] == nil { order.append(key) }
             byKey[key, default: []].append(item)
         }
-        return order.map { Section(title: $0, items: byKey[$0] ?? []) } + (others.isEmpty ? [] : [Section(title: "そのほか", items: others)])
+        return order.map { Section(title: $0, items: byKey[$0] ?? []) } + (others.isEmpty ? [] : [Section(title: tr("そのほか"), items: others)])
     }
 
     /// キー（↑↓）で、強調する行を動かす：端で止まる（回らない）。まだ決まっていなければ、↓ は先頭・↑ は末尾。一覧が空なら nil。

@@ -34,7 +34,7 @@ public struct FileCandidate: Sendable, Equatable {
     /// 選択（Tiny-Jev）に渡す、短い 1 行：「名前 — フォルダ（種類・日付）」。フォルダは、末尾の 2 つ。
     public func line(now: Date = Date(), calendar: Calendar = .current) -> String {
         let parent = ((path as NSString).deletingLastPathComponent as NSString).pathComponents.suffix(2).filter { $0 != "/" }.joined(separator: "/")
-        var parts = [ext.isEmpty ? "種類なし" : ext]
+        var parts = [ext.isEmpty ? "種類なし" : ext]   // l10n-skip：モデル・照合に渡す文（画面に出ない）
         if let modified {
             let sameYear = calendar.component(.year, from: modified) == calendar.component(.year, from: now)
             let f = DateFormatter(); f.calendar = calendar; f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = sameYear ? "MM/dd" : "yyyy/MM/dd"
@@ -52,9 +52,9 @@ public enum FileSearch {
         case invalid(String)
         public var description: String {
             switch self {
-            case .unknown(let a): return "知らないオプション: \(a)（--name・--in・--ext・--since・--limit・--oldest）"
-            case .missingValue(let a): return "\(a) に、値がありません"
-            case .needsCondition: return "--name・--ext・--since のどれかが要ります"
+            case .unknown(let a): return tr("知らないオプション: \(a)（--name・--in・--ext・--since・--limit・--oldest）")
+            case .missingValue(let a): return tr("\(a) に、値がありません")
+            case .needsCondition: return tr("--name・--ext・--since のどれかが要ります")
             case .invalid(let why): return why
             }
         }
@@ -89,15 +89,15 @@ public enum FileSearch {
             case "--in":
                 let path = (try value(flag) as NSString).expandingTildeInPath
                 var isDirectory: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else { throw ArgumentError.invalid("フォルダがありません: \(path)") }
+                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else { throw ArgumentError.invalid(tr("フォルダがありません: \(path)")) }
                 query.directory = URL(fileURLWithPath: path)
             case "--ext": query.ext = try value(flag).trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
             case "--since":
                 let text = try value(flag)
-                guard let seconds = parseSince(text) else { throw ArgumentError.invalid("--since は、7d・2w・1m・12h の形です: \(text)") }
+                guard let seconds = parseSince(text) else { throw ArgumentError.invalid(tr("--since は、7d・2w・1m・12h の形です: \(text)")) }
                 query.since = seconds
             case "--limit":
-                guard let n = Int(try value(flag)), (1...200).contains(n) else { throw ArgumentError.invalid("--limit は、1〜200 の数です") }
+                guard let n = Int(try value(flag)), (1...200).contains(n) else { throw ArgumentError.invalid(tr("--limit は、1〜200 の数です")) }
                 query.limit = n
             case "--oldest": query.oldestFirst = true
             default: throw ArgumentError.unknown(flag)

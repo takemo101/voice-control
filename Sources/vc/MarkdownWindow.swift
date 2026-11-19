@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import VCCore
 import SwiftUI
 
 /// Markdown を整形して見せる、一時的なウィンドウ（`vc show --wait`。`vc show` と `result: markdown-window` は、これを別のプロセスで開く：`DocumentWindow`）。
@@ -143,11 +144,11 @@ private struct DocumentView: View {
             }
             Text(title).vcFont(15, weight: .semibold).foregroundStyle(.white).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
-            Text("⌘C でコピー").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
+            Text(tr("⌘C でコピー")).vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Button(action: close) {
                 Image(systemName: "xmark.circle.fill").vcFont(20).foregroundStyle(.white.opacity(0.45))
-            }.buttonStyle(.plain).accessibilityLabel("閉じる")
+            }.buttonStyle(.plain).accessibilityLabel(tr("閉じる"))
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
         .background(DragArea())
@@ -155,10 +156,10 @@ private struct DocumentView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            PillButton(title: "Markdown をコピー", symbol: "doc.on.doc", flashed: state.copied == .markdown, action: copyMarkdown)
-            PillButton(title: "テキストをコピー", symbol: "text.alignleft", flashed: state.copied == .text, action: copyText)
+            PillButton(title: tr("Markdown をコピー"), symbol: "doc.on.doc", flashed: state.copied == .markdown, action: copyMarkdown)
+            PillButton(title: tr("テキストをコピー"), symbol: "text.alignleft", flashed: state.copied == .text, action: copyText)
             Spacer(minLength: 8)
-            PillButton(title: "閉じる  esc", symbol: "xmark", flashed: false, cancel: true, action: close)
+            PillButton(title: tr("閉じる  esc"), symbol: "xmark", flashed: false, cancel: true, action: close)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(DragArea())
@@ -183,7 +184,7 @@ struct PillButton: View {
     let symbol: String
     let flashed: Bool
     /// 押したあと、少しの間、出す文字。
-    var doneTitle = "コピーしました"
+    var doneTitle = tr("コピーしました")
     var cancel = false
     let action: () -> Void
     @StateObject private var hover = HoverState()

@@ -1,0 +1,4 @@
+/* Purpose strings shown in macOS permission prompts (when the Mac's language is English). */
+"NSMicrophoneUsageDescription" = "Uses the microphone to record your voice while you hold the key. Audio never leaves this Mac.";
+"NSSpeechRecognitionUsageDescription" = "Uses speech recognition to turn your recording into text (runs on this Mac).";
+"NSAppleEventsUsageDescription" = "Controls other apps (opening apps, operating Spotify, etc.) to carry out what you ask by voice.";

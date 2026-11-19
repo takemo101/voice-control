@@ -11,7 +11,7 @@ enum ConfirmImagePanel {
     /// 見せる（対象のスキルだけ。画像がなければ、何もしない：スクリプトが、撮り直しを案内する）。
     static func show(for skill: Skill) {
         guard skill.sendsScreenshot, case let .success(url) = ScreenshotStore.current(), let data = try? Data(contentsOf: url) else { return }   // try?: 読めなければ、パネルを出さないだけ（確認の文は、出る）
-        if let why = ImagePanel.present(png: data, title: "送る画像（確認してください）") { eprint("パネルを出せません: \(why)"); return }
+        if let why = ImagePanel.present(png: data, title: tr("送る画像（確認してください）")) { eprint(tr("パネルを出せません: \(why)")); return }
         lock.lock(); shown = true; lock.unlock()
     }
 

@@ -153,10 +153,10 @@ public struct SkillRunner: Sendable {
             // `vc see` の答えがあれば、それが文書（返事は、言語モデルが、短く言い換えたもの）
             if !dryRun, !reply.lowercased().hasPrefix("failed"), let produced = executor.producedDocument {
                 reporter.report(.document(produced))
-                reply = "done: 結果をウィンドウに表示しました"
+                reply = "done: " + tr("結果をウィンドウに表示しました")
             } else if skill.result == .markdownWindow, !dryRun, !reply.lowercased().hasPrefix("failed") {
                 reporter.report(.document(reply))
-                reply = "done: 結果をウィンドウに表示しました"
+                reply = "done: " + tr("結果をウィンドウに表示しました")
             }
             reporter.report(.reply(reply, commandCount: executor.executedCommands.count, elapsed: Date().timeIntervalSince(t1)))
             return .completed

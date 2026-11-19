@@ -10,12 +10,12 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .keys: return "キー"
-        case .voice: return "音声"
-        case .chat: return "会話"
-        case .models: return "モデル"
-        case .skills: return "スキル"
-        case .general: return "一般"
+        case .keys: return tr("キー")
+        case .voice: return tr("音声")
+        case .chat: return tr("会話")
+        case .models: return L10n.shared.language == .en ? "Models" : "モデル"   // l10n-skip：行の「モデル」（Model）と、訳が違う
+        case .skills: return tr("スキル")
+        case .general: return tr("一般")
         }
     }
     var symbol: String {
@@ -118,6 +118,12 @@ enum DownloadState: Equatable {
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
     }
 
+    /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
+    var uiLanguage: AppLanguage { settings.displayLanguage }
+    var sttLanguage: AppLanguage { settings.recognitionLanguageOrDefault }
+    func setUILanguage(_ language: AppLanguage) { update(restart: false) { $0.uiLanguage = language == .ja ? nil : language.rawValue } }
+    func setSTTLanguage(_ language: AppLanguage) { update { $0.sttLanguage = language == .ja ? nil : language.rawValue } }
+
     /// 設定を変えて、保存する。書けなければ、理由を出して、変えない。`restart`：声の入力の起動のときに読む設定か。
     func update(restart: Bool = true, _ change: (inout Settings) -> Void) {
         var next = settings
@@ -126,6 +132,7 @@ enum DownloadState: Equatable {
         do {
             try next.save()
             settings = next
+            AppLocalization.apply(next)   // 言語（表示言語・答えの言語）
             problem = nil
             if restart {
                 pendingApply = AppRuntime.shared.scheduleReload()
@@ -228,12 +235,12 @@ enum DownloadState: Equatable {
     // MARK: 音声認識・モデル
 
     var sttChoices: [(id: String, title: String)] {
-        [("apple", "Apple の SpeechTranscriber（既定）")] + SpeechModelCatalog.all.map { ($0.id, "\($0.name)" + (isInstalled($0.spec) ? "" : "（未取得）")) }
+        [("apple", tr("Apple の SpeechTranscriber（既定）"))] + SpeechModelCatalog.all.map { ($0.id, "\($0.name)" + (isInstalled($0.spec) ? "" : tr("（未取得）"))) }
     }
 
     func setSTT(_ id: String) {
         if id != "apple", let model = SpeechModelCatalog.all.first(where: { $0.id == id }), !isInstalled(model.spec) {
-            downloads[id] = .failed("先に、取得してください")
+            downloads[id] = .failed(tr("先に、取得してください"))
             return
         }
         update { $0.stt = id == "apple" ? nil : id }
@@ -260,7 +267,7 @@ enum DownloadState: Equatable {
     }
 
     func deleteSpeechModel(id: String, spec: ModelSpec) {
-        do { try FileManager.default.removeItem(at: ModelStore.defaultDirectory(for: spec)) } catch { downloads[id] = .failed("消せませんでした: \(error.localizedDescription)") }
+        do { try FileManager.default.removeItem(at: ModelStore.defaultDirectory(for: spec)) } catch { downloads[id] = .failed(tr("消せませんでした: \(error.localizedDescription)")) }
         if settings.stt == id { update { $0.stt = nil } }
         revision += 1
     }
@@ -279,20 +286,20 @@ enum DownloadState: Equatable {
     func installAdapter(_ adapter: ACPAdapter) {
         if case .working = adapterWork[adapter.agent.rawValue] { return }
         guard let source = AdapterSource.directory(for: adapter) else {
-            adapterWork[adapter.agent.rawValue] = .failed("同梱の固定ファイル（adapters/\(adapter.directoryName)）が、見つかりません（ビルドしたままのアプリ？）")
+            adapterWork[adapter.agent.rawValue] = .failed(tr("同梱の固定ファイル（adapters/\(adapter.directoryName)）が、見つかりません（ビルドしたままのアプリ？）"))
             return
         }
-        let message = """
-        \(adapter.package) \(adapter.version)（\(adapter.license)）を、npm から、入れます。約 \(adapter.approximateSizeMB) MB。
-
-        入れる先：\(ACPAdapterStore.directory(for: adapter).path)
-        ・版は固定です（アプリに同梱の lock どおり。すべての部品を SHA-512 で照合し、取得先は npm の公式のレジストリだけ）。
-        ・インストール時のスクリプトは、動かしません。あなたの \(adapter.agent.rawValue) の本体を使います（二重に取り込みません）。
-        ・これは、第三者のプログラムを、この Mac で動かすことになります（会話のたびに、起動します）。消すときは、ここから「消す」か、そのフォルダを消します。
-        ・Node.js（npm）を使います。
-        """
-        guard AppAlerts.confirm(title: "\(adapter.agent.rawValue) の ACP アダプターを、入れますか？", message: message, confirm: "入れる") else { return }
-        adapterWork[adapter.agent.rawValue] = .working("入れています…（数十秒かかることがあります）")
+        let message = [
+            tr("\(adapter.package) \(adapter.version)（\(adapter.license)）を、npm から、入れます。約 \(adapter.approximateSizeMB) MB。"),
+            "",
+            tr("入れる先：\(ACPAdapterStore.directory(for: adapter).path)"),
+            tr("・版は固定です（アプリに同梱の lock どおり。すべての部品を SHA-512 で照合し、取得先は npm の公式のレジストリだけ）。"),
+            tr("・インストール時のスクリプトは、動かしません。あなたの \(adapter.agent.rawValue) の本体を使います（二重に取り込みません）。"),
+            tr("・これは、第三者のプログラムを、この Mac で動かすことになります（会話のたびに、起動します）。消すときは、ここから「消す」か、そのフォルダを消します。"),
+            tr("・Node.js（npm）を使います。"),
+        ].joined(separator: "\n")
+        guard AppAlerts.confirm(title: tr("\(adapter.agent.rawValue) の ACP アダプターを、入れますか？"), message: message, confirm: tr("入れる")) else { return }
+        adapterWork[adapter.agent.rawValue] = .working(tr("入れています…（数十秒かかることがあります）"))
         Task { [weak self] in
             do {
                 try await ACPAdapterInstaller.install(adapter, source: source)
@@ -355,14 +362,12 @@ enum DownloadState: Equatable {
     /// 自動モードを、オン・オフにする。**オンにするときは、確認のダイアログ**（何が、確認なしになり、何が、確認のままか）。
     func setChatAuto(_ on: Bool) {
         if on {
-            let message = """
-            作業フォルダの中の書き込みと、安全なコマンドは、確認なしで実行します。
-
-            消す・外へ送る・システムを動かす操作は、これまでどおり、確認します。
-
-            コードの中の操作は、見抜けないことがあります。
-            """
-            guard AppAlerts.confirm(title: "自動モードを、オンにしますか？", message: message, confirm: "オンにする", style: .warning) else { objectWillChange.send(); return }
+            let message = [
+                tr("作業フォルダの中の書き込みと、安全なコマンドは、確認なしで実行します。"),
+                tr("消す・外へ送る・システムを動かす操作は、これまでどおり、確認します。"),
+                tr("コードの中の操作は、見抜けないことがあります。"),
+            ].joined(separator: "\n\n")
+            guard AppAlerts.confirm(title: tr("自動モードを、オンにしますか？"), message: message, confirm: tr("オンにする"), style: .warning) else { objectWillChange.send(); return }
         }
         update { $0.chatAuto = on ? true : nil }
     }
@@ -376,8 +381,8 @@ enum DownloadState: Equatable {
     func setChatTools(_ level: ChatToolLevel) {
         if level == .all {
             let chosen = ChatAgent.parse(settings.chatAgent ?? "apple") ?? .apple
-            let message = ChatToolLevel.allToolsDialogBody(agent: chosen, acp: settings.chatAcp ?? true) + "\n\n作業フォルダ：\(chatFolderPath)"
-            guard AppAlerts.confirm(title: "すべての道具を、開けますか？", message: message, confirm: "開ける", style: .warning) else { objectWillChange.send(); return }
+            let message = ChatToolLevel.allToolsDialogBody(agent: chosen, acp: settings.chatAcp ?? true) + "\n\n" + tr("作業フォルダ：\(chatFolderPath)")
+            guard AppAlerts.confirm(title: tr("すべての道具を、開けますか？"), message: message, confirm: tr("開ける"), style: .warning) else { objectWillChange.send(); return }
         }
         update { $0.chatTools = level == .none ? nil : level.rawValue }
     }
@@ -387,8 +392,8 @@ enum DownloadState: Equatable {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.prompt = "このフォルダにする"
-        panel.message = "会話のエージェントが、読む・書く、作業フォルダを選んでください（大切なファイルのあるフォルダは、避けてください）"
+        panel.prompt = tr("このフォルダにする")
+        panel.message = tr("会話のエージェントが、読む・書く、作業フォルダを選んでください（大切なファイルのあるフォルダは、避けてください）")
         panel.directoryURL = URL(fileURLWithPath: chatFolderPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         update { $0.chatFolder = url.path }

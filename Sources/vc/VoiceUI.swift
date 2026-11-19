@@ -16,7 +16,7 @@ enum VoiceUI {
     static func muter(_ arguments: inout Arguments, _ context: CommandContext, command: String) -> OutputMuter {
         let flag: Bool?
         switch (arguments.flag("--mute"), arguments.flag("--no-mute")) {
-        case (true, true): usageError(command, "--mute と --no-mute は、一緒に使えません")
+        case (true, true): usageError(command, tr("--mute と --no-mute は、一緒に使えません"))
         case (true, false): flag = true
         case (false, true): flag = false
         case (false, false): flag = nil
@@ -31,19 +31,19 @@ enum VoiceUI {
         case .recordingStarted:
             SaySpeaker.shared.stop()   // 読み上げの最中にトリガーを押したら、止める（マイクが、読み上げの声を拾わないように）
             LiveCaption.shared.begin()   // 録音中の文字（途中経過）
-            var content = HUDContent(phase: .recording, title: "録音中", hint: dictation ? "離すと、文字にして入力します（Esc で取りやめ）" : (chat ? "離すと、会話として質問します（Esc で取りやめ）" : "離すと、認識して実行します（Esc で取りやめ）"), chip: chip)
+            var content = HUDContent(phase: .recording, title: tr("録音中"), hint: dictation ? tr("離すと、文字にして入力します（Esc で取りやめ）") : (chat ? tr("離すと、会話として質問します（Esc で取りやめ）") : tr("離すと、認識して実行します（Esc で取りやめ）")), chip: chip)
             content.captionSlot = LiveCaption.shared.enabled   // 録音中の文字の欄（録音中の文字の表示）
             HUD.shared.show(content)
         case .recordingDiscarded:
             LiveCaption.shared.end()
             muter.restore()
-            print("  " + Style.yellow("録音を取りやめました（Esc）"))
-            HUD.shared.show(HUDContent(phase: .info, title: "録音を取りやめました", chip: chip), hideAfter: 1.5)
+            print("  " + Style.yellow(tr("録音を取りやめました（Esc）")))
+            HUD.shared.show(HUDContent(phase: .info, title: tr("録音を取りやめました"), chip: chip), hideAfter: 1.5)
         case .recognizing:
             LiveCaption.shared.end()
             muter.restore()   // 認識の合図（Tink）を、聞こえるように、先に戻す
             NSSound(named: "Tink")?.play()
-            HUD.shared.show(HUDContent(phase: .working, title: "認識中…", hint: "Esc で取りやめ", chip: chip))
+            HUD.shared.show(HUDContent(phase: .working, title: tr("認識中…"), hint: tr("Esc で取りやめ"), chip: chip))
         case .recordingEmpty:
             LiveCaption.shared.end()
             muter.restore()
@@ -51,21 +51,21 @@ enum VoiceUI {
         case let .recordingFailed(error):
             LiveCaption.shared.end()
             muter.restore()
-            print("録音に失敗: \(error)")
-            HUD.shared.show(HUDContent(phase: .failure, title: "録音に失敗しました", reply: "\(error)"), hideAfter: 4)
+            print(tr("録音に失敗: \(error)"))
+            HUD.shared.show(HUDContent(phase: .failure, title: tr("録音に失敗しました"), reply: "\(error)"), hideAfter: 4)
         case let .recognized(text):
-            if !dictation { kv("聞こえた", text) }   // 入力モードは、入力した文字を、端末に出さない（画面の上のパネルだけ）
+            if !dictation { kv(tr("聞こえた"), text) }   // 入力モードは、入力した文字を、端末に出さない（画面の上のパネルだけ）
         case .recognitionCancelled:
             showCancelled(chip: chip)
         case let .recognitionFailed(error):
             showFailure(error, chip: chip)
         case .cancelling:
             SaySpeaker.shared.stop()
-            HUD.shared.show(HUDContent(phase: .info, title: "取りやめています…", chip: chip))
+            HUD.shared.show(HUDContent(phase: .info, title: tr("取りやめています…"), chip: chip))
         case .interrupted:
             // 画面の上は、新しい発話の「認識中」のまま（上書きしない）。読み上げだけ止める
             SaySpeaker.shared.stop()
-            print("  " + Style.dim("前の処理を中断して、新しい依頼を受けました"))
+            print("  " + Style.dim(tr("前の処理を中断して、新しい依頼を受けました")))
         }
     }
 
@@ -80,13 +80,13 @@ enum VoiceUI {
 
     /// 取りやめた（文字にする段階も、実行の段階も、同じ表示）。
     static func showCancelled(chip: String) {
-        print("  " + Style.yellow("取りやめました（Esc）"))
-        HUD.shared.show(HUDContent(phase: .info, title: "取りやめました", chip: chip), hideAfter: 2)
+        print("  " + Style.yellow(tr("取りやめました（Esc）")))
+        HUD.shared.show(HUDContent(phase: .info, title: tr("取りやめました"), chip: chip), hideAfter: 2)
     }
 
     static func showFailure(_ error: Error, chip: String) {
-        print(Style.red("失敗:") + " \(error)")
-        HUD.shared.show(HUDContent(phase: .failure, title: "失敗", chip: chip, reply: "\(error)"), hideAfter: 6)
+        print(Style.red(tr("失敗:")) + " \(error)")
+        HUD.shared.show(HUDContent(phase: .failure, title: tr("失敗"), chip: chip, reply: "\(error)"), hideAfter: 6)
     }
 
     /// Ctrl+C（SIGINT）・SIGTERM・SIGHUP で終わるとき、消した出力を戻してから終わる（消したままにしない）。

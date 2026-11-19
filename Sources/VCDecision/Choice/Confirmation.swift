@@ -23,14 +23,19 @@ public struct Confirmation: Sendable {
     static let affirmatives: Set<String> = [
         "はい", "ハイ", "ええ", "うん", "お願いします", "お願い", "おねがいします", "実行して", "実行してください", "やって", "やってください", "やってくれ",
         "いいよ", "いいですよ", "どうぞ", "ok", "オーケー", "オッケー", "了解", "了解です", "承知", "進めて", "進めてください", "続けて", "続けてください",
+        // 英語（音声認識の言語が英語のとき）。複数の語の言い方も、1 つの言い方として扱う
+        "yes", "yeah", "yep", "yup", "sure", "okay", "please", "proceed", "continue", "confirm", "confirmed", "go ahead", "do it", "please do", "run it", "sounds good", "that works", "yes please", "yes go ahead",
     ]
 
     /// 返事が、決まった言い方だけでできているか。「はい、お願いします」のように、読点・空白で区切った、どの部分も、決まった言い方であること
     /// （「はい、やっぱりやめて」は、後ろが決まった言い方でないので、はいにしない）。
     static func isAffirmative(_ utterance: String) -> Bool {
         let folded = utterance.precomposedStringWithCompatibilityMapping.lowercased()
-        let separators = CharacterSet(charactersIn: "、，,。．.！!？?〜~…").union(.whitespacesAndNewlines)
-        let parts = folded.components(separatedBy: separators).filter { !$0.isEmpty }
-        return !parts.isEmpty && parts.allSatisfy { affirmatives.contains($0) }
+        // 句読点で区切った 1 つ 1 つが、決まった言い方か（「go ahead」のような、空白を含む言い方も）。空白で区切った語の、どれも決まった言い方でもよい（「はい お願いします」）
+        let punctuation = CharacterSet(charactersIn: "、，,。．.！!？?〜~…")
+        let segments = folded.components(separatedBy: punctuation).map { $0.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ") }.filter { !$0.isEmpty }
+        return !segments.isEmpty && segments.allSatisfy { segment in
+            affirmatives.contains(segment) || segment.split(separator: " ").allSatisfy { affirmatives.contains(String($0)) }
+        }
     }
 }

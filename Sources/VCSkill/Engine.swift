@@ -1,3 +1,4 @@
+import VCCore
 import Foundation
 
 /// スキルを実行するモデル。既定は、Apple のオンデバイスの言語モデル。ほかは、この Mac のローカルのサーバー（`127.0.0.1`）のモデルに替えられる。
@@ -16,10 +17,10 @@ public enum Engine: Sendable, Equatable {
         case invalidPort(String)
         public var description: String {
             switch self {
-            case .unknown(let s): return "エンジン「\(s)」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）"
-            case .invalidModel(let m): return "モデル名「\(m)」が使えません（英数字・. _ : / - だけ）"
-            case .cloudModel(let m): return "「\(m)」は、クラウドのモデルです。音声・画面の内容を、外へ出さないので、使えません"
-            case .invalidPort(let p): return "ポート「\(p)」が使えません（1〜65535 の数。通信先は、この Mac の 127.0.0.1 だけ）"
+            case .unknown(let s): return tr("エンジン「\(s)」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）")
+            case .invalidModel(let m): return tr("モデル名「\(m)」が使えません（英数字・. _ : / - だけ）")
+            case .cloudModel(let m): return tr("「\(m)」は、クラウドのモデルです。音声・画面の内容を、外へ出さないので、使えません")
+            case .invalidPort(let p): return tr("ポート「\(p)」が使えません（1〜65535 の数。通信先は、この Mac の 127.0.0.1 だけ）")
             }
         }
     }

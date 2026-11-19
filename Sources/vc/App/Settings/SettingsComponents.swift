@@ -33,12 +33,12 @@ extension SettingsPage {
 
     var subtitle: String {
         switch self {
-        case .keys: return "押している間だけ話す、キーを決めます"
-        case .voice: return "録音・読み上げ・つなぎ言葉"
-        case .chat: return "エージェント・道具・画像・記録"
-        case .models: return "スキルを動かすモデル・音声認識"
-        case .skills: return "声で頼めることの、有効・無効・インストール"
-        case .general: return "準備状況・起動・コマンド・診断"
+        case .keys: return tr("押している間だけ話す、キーを決めます")
+        case .voice: return tr("録音・読み上げ・つなぎ言葉")
+        case .chat: return tr("エージェント・道具・画像・記録")
+        case .models: return tr("スキルを動かすモデル・音声認識")
+        case .skills: return tr("声で頼めることの、有効・無効・インストール")
+        case .general: return tr("準備状況・起動・コマンド・診断")
         }
     }
 }
@@ -167,7 +167,7 @@ struct BrandSwitch: View {
             .frame(width: 40, height: 24)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(isOn.wrappedValue ? "オン" : "オフ"))
+        .accessibilityLabel(Text(isOn.wrappedValue ? tr("オン") : tr("オフ")))
     }
 }
 

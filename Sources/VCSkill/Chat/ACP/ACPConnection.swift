@@ -14,9 +14,9 @@ enum ACPError: Error, Equatable, CustomStringConvertible {
     var description: String {
         switch self {
         case let .unavailable(why): return why
-        case let .remote(code, message): return "\(message)（\(code)）"
-        case .closed: return "エージェントとの接続が、閉じました"
-        case .timedOut: return "エージェントが、時間内に応えませんでした"
+        case let .remote(code, message): return tr("\(message)（\(code)）")
+        case .closed: return tr("エージェントとの接続が、閉じました")
+        case .timedOut: return tr("エージェントが、時間内に応えませんでした")
         }
     }
 }
@@ -93,7 +93,7 @@ final class ACPConnection: @unchecked Sendable {
             self?.receive(data)
         }
         process.terminationHandler = { [weak self] _ in self?.finish() }
-        do { try process.run() } catch { throw ACPError.unavailable("起動できません（\(error.localizedDescription)）") }
+        do { try process.run() } catch { throw ACPError.unavailable(tr("起動できません（\(error.localizedDescription)）")) }
         lock.lock(); self.process = process; self.input = stdin.fileHandleForWriting; lock.unlock()
         Self.live.add(process)
     }
@@ -174,7 +174,7 @@ final class ACPConnection: @unchecked Sendable {
             }
         } else if let id = idValue?.int {
             if let error = message["error"] {
-                resolve(id: id, .failure(.remote(code: error["code"]?.int ?? 0, message: error["message"]?.string ?? "エラー")))
+                resolve(id: id, .failure(.remote(code: error["code"]?.int ?? 0, message: error["message"]?.string ?? tr("エラー"))))
             } else {
                 resolve(id: id, .success(message["result"] ?? .null))
             }

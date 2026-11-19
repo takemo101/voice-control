@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// `vc doctor` の 1 項目：使える環境か。`fail` は、スキルの実行に**必須**なものが使えない。`warn` は、任意の機能（ホットキー・声の入力など）に
 /// 要るものが、まだ使えない。直す手順（`fix`）は、`ok` 以外のときだけ付く。
@@ -40,11 +41,11 @@ struct DoctorReport {
         }
         out.append("")
         if hasFailure {
-            out.append(Style.red("✗") + " スキルの実行に必要なものが、\(failures.count) 件、使えません。上の手順で直してから、もう一度 vc doctor")
+            out.append(Style.red("✗") + " " + tr("スキルの実行に必要なものが、\(failures.count) 件、使えません。上の手順で直してから、もう一度 vc doctor"))
         } else if warnings.isEmpty {
-            out.append(Style.green("✓") + " すべて使えます")
+            out.append(Style.green("✓") + " " + tr("すべて使えます"))
         } else {
-            out.append(Style.green("✓") + " スキルの実行（vc run）は使えます。" + Style.yellow("! \(warnings.count) 件") + "は、任意の機能（ホットキー・声の入力など）に要るものです")
+            out.append(Style.green("✓") + " " + tr("スキルの実行（vc run）は使えます。") + Style.yellow(tr("! \(warnings.count) 件")) + tr("は、任意の機能（ホットキー・声の入力など）に要るものです"))
         }
         return out
     }

@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 import VCSkill
 
 /// 声の流れでの、スキルの実行の出来事（`RunEvent`）を、画面の上の表示（`HUDSession`）と、端末（声の流れの組み立ての `TerminalReporter`）へ出す。
@@ -44,7 +45,7 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         return step.map { "（\($0.index)/\($0.total)）" } ?? ""
     }
 
-    private var workingTitle: String { (dryRun ? "確認のみ（--dry-run）" : "実行中") + progress }
+    private var workingTitle: String { (dryRun ? tr("確認のみ（--dry-run）") : tr("実行中")) + progress }
 
     private func update(hideAfter: TimeInterval? = nil, _ change: (inout HUDContent) -> Void = { _ in }) {
         lock.lock(); let current = session; lock.unlock()
@@ -68,18 +69,18 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
         case let .declined(reason, fallbackAvailable, _):
             terminal.report(event)
             if fallbackAvailable {
-                present(HUDContent(phase: .info, title: "操作の依頼ではありませんでした", hint: reason, chip: chip, heard: utterance), 3)
+                present(HUDContent(phase: .info, title: tr("操作の依頼ではありませんでした"), hint: reason, chip: chip, heard: utterance), 3)
             } else {
                 // 当てはまるスキルがなく、既定スキルも使えない：実行しない
-                present(HUDContent(phase: .info, title: "どのスキルでもありません", hint: "実行しません（既定スキルが無効：vc skills enable default）", chip: chip, heard: utterance), 3)
+                present(HUDContent(phase: .info, title: tr("どのスキルでもありません"), hint: tr("実行しません（既定スキルが無効：vc skills enable default）"), chip: chip, heard: utterance), 3)
             }
         case let .confirmRequired(skill, reason):
-            speak("\(skill.name)を実行しますか")
+            speak(tr("\(skill.name)を実行しますか"))
             terminal.report(event)
-            update { $0.phase = .confirm; $0.title = "実行しますか？"; $0.choices = true; $0.hint = reason + "。" + ConfirmGuide.howToAnswer }
+            update { $0.phase = .confirm; $0.title = tr("実行しますか？"); $0.choices = true; $0.hint = tr("\(reason)。\(ConfirmGuide.howToAnswer)") }
         case .confirmationDeclined:
             terminal.report(event)
-            update(hideAfter: 2.5) { $0.phase = .info; $0.title = "やめました"; $0.hint = nil; $0.choices = false }
+            update(hideAfter: 2.5) { $0.phase = .info; $0.title = tr("やめました"); $0.hint = nil; $0.choices = false }
         case .confirmed:
             terminal.report(event)
             update { [title = workingTitle] in $0.phase = .working; $0.title = title; $0.hint = nil; $0.choices = false }
@@ -100,9 +101,9 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             update { $0.steps.append(.init(command: command, status: .denied, output: reason)) }
         case let .document(markdown):
             // ウィンドウに表示する結果（HUD には、出さない。端末にも、本文は出さない）
-            if let why = presenters.document(markdown) { eprint("ウィンドウを出せません: \(why)") }
+            if let why = presenters.document(markdown) { eprint(tr("ウィンドウを出せません: \(why)")) }
         case let .image(url):
-            if let why = presenters.image(url) { eprint("パネルを出せません: \(why)") }
+            if let why = presenters.image(url) { eprint(tr("パネルを出せません: \(why)")) }
         case let .reply(reply, _, _):
             terminal.report(event)
             lock.lock(); let current = step; lock.unlock()
@@ -111,18 +112,18 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
                 if dryRun {
                     // 実行していないので、成功（緑）にしない。言語モデルの返事は、実行したかのように書くことがある。
                     $0.phase = .info
-                    $0.title = "実行していません（--dry-run）"
-                    $0.reply = "コマンドは実行していません。\n" + reply
+                    $0.title = tr("実行していません（--dry-run）")
+                    $0.reply = tr("コマンドは実行していません。\n") + reply
                 } else {
                     $0.phase = .success
-                    $0.title = "完了" + progress
+                    $0.title = tr("完了") + progress
                     $0.reply = reply
                 }
             }
             if speakResults, !dryRun, !intermediate, let line = SpokenReply.success(reply) { speak(line) }
         case let .failed(message):
             terminal.report(event)
-            update(hideAfter: 7) { $0.phase = .failure; $0.title = "失敗"; $0.choices = false; $0.reply = message }
+            update(hideAfter: 7) { $0.phase = .failure; $0.title = tr("失敗"); $0.choices = false; $0.reply = message }
             if speakResults { speak(SpokenReply.failure(message)) }
         case let .planned(steps):
             terminal.report(.planned(steps: steps))
@@ -133,12 +134,12 @@ final class HUDReporter: RunReporter, @unchecked Sendable {
             terminal.report(event)
         case let .planStopped(completed, total):
             terminal.report(event)
-            update(hideAfter: 7) { $0.hint = "ステップ \(completed + 1)/\(total) で止まりました（済み：\(completed)）" }
+            update(hideAfter: 7) { $0.hint = tr("ステップ \(completed + 1)/\(total) で止まりました（済み：\(completed)）") }
         case .cancelled:
             // 新しい発話に、取って代わられた：「取りやめました」を出さない（新しい発話の表示を、上書きしない）
             if isSuperseded() { return }
             terminal.report(event)
-            update(hideAfter: 2) { $0.phase = .info; $0.title = "取りやめました"; $0.hint = nil; $0.reply = nil; $0.choices = false }
+            update(hideAfter: 2) { $0.phase = .info; $0.title = tr("取りやめました"); $0.hint = nil; $0.reply = nil; $0.choices = false }
         }
     }
 }

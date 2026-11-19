@@ -19,7 +19,7 @@ public enum DefaultSkill {
 
     public static let skill = Skill(
         name: name,
-        description: "どのスキルにも当てはまらない依頼を、agent-desktop と基本のコマンドで実行する（組み込み）",
+        description: "どのスキルにも当てはまらない依頼を、agent-desktop と基本のコマンドで実行する（組み込み）",   // l10n-skip：モデル・照合に渡す文（画面に出ない）
         allowedCommands: allowedCommands,
         confirm: false,
         body: body,
@@ -69,11 +69,11 @@ public struct SkillResolver: Sendable {
     }
 
     /// スキルが `confirm: true` のときの、確認の理由（Tiny-Jev で選んだときも、`--skill` で指定したときも、同じ文）。
-    public static let confirmRequiredReason = "このスキルは、実行の前に確認が要ります"
+    public static var confirmRequiredReason: String { tr("このスキルは、実行の前に確認が要ります") }
 
     /// 確認の理由：外へ送るスキルは、**何を、どこへ送るか**を言う（確認で、何に「はい」と言うのかが、分かるように）。
     public static func confirmReason(for skill: Skill) -> String {
-        skill.externalNotice.map { "\($0)。実行の前に確認します" } ?? confirmRequiredReason
+        skill.externalNotice.map { tr("\($0)。実行の前に確認します") } ?? confirmRequiredReason
     }
 
     private let scorer: OptionScorer
@@ -103,21 +103,21 @@ public struct SkillResolver: Sendable {
         }
         let routed = try SkillRouter(scorer: scorer, skills: usable).route(request)
         if let skill = routed.skill, routed.probability >= gate.floor {
-            let reason = skill.confirm ? Self.confirmReason(for: skill) : (routed.probability < gate.execute ? "確信度が高くないので、確認します" : nil)
+            let reason = skill.confirm ? Self.confirmReason(for: skill) : (routed.probability < gate.execute ? tr("確信度が高くないので、確認します") : nil)
             return .resolved(Resolution(skill: skill, kind: .matched, probability: routed.probability, risk: nil, confirmReason: reason))
         }
         guard let fallback = skills.first(where: { $0.name == DefaultSkill.name }) else {
-            return .declined(reason: "どのスキルにも当てはまらない", fallbackAvailable: false)
+            return .declined(reason: tr("どのスキルにも当てはまらない"), fallbackAvailable: false)
         }
         let actionable = try Self.actionableProbability(scorer: scorer, request: request)
         guard actionable >= DefaultSkill.actionableThreshold else {
-            return .declined(reason: String(format: "操作の依頼ではない（会話・独り言）：操作の依頼である確率 %.0f%%", actionable * 100), fallbackAvailable: true)
+            return .declined(reason: tr("操作の依頼ではない（会話・独り言）：操作の依頼である確率 \(String(format: "%.0f%%", actionable * 100))"), fallbackAvailable: true)
         }
         let risk = try scorer.score(
-            state: "依頼: \(request)",
-            question: "この依頼は、削除・送信・購入・終了・退出など、取り消しにくい、または外へ影響する操作か",
+            state: "依頼: \(request)",   // l10n-skip：モデル・照合に渡す文（画面に出ない）
+            question: "この依頼は、削除・送信・購入・終了・退出など、取り消しにくい、または外へ影響する操作か",   // l10n-skip：モデル・照合に渡す文（画面に出ない）
             options: ["no", "yes"])[1]
-        let reason = fallback.confirm ? Self.confirmReason(for: fallback) : (risk >= gate.destructive ? "取り消しにくい操作かもしれないので、確認します" : nil)
+        let reason = fallback.confirm ? Self.confirmReason(for: fallback) : (risk >= gate.destructive ? tr("取り消しにくい操作かもしれないので、確認します") : nil)
         return .resolved(Resolution(skill: fallback, kind: .fallback, probability: actionable, risk: risk, confirmReason: reason))
     }
 }
@@ -127,8 +127,8 @@ extension SkillResolver {
     /// 言い方は、自作の 40 文（`corpus/gate.tsv`）で比べて選んだ：「はい／いいえ」の形は、操作の依頼を見逃した（再現 5/20）。2 つの説明から選ぶ形が、よかった。
     public static func actionableProbability(scorer: OptionScorer, request: String) throws -> Double {
         try scorer.score(
-            state: "発話: \(request)",
-            question: "この発話は、どちらか",
-            options: ["会話・独り言・質問・あいづち", "パソコンやアプリを操作する命令"])[1]
+            state: "発話: \(request)",   // l10n-skip：モデル・照合に渡す文（画面に出ない）
+            question: "この発話は、どちらか",   // l10n-skip：モデル・照合に渡す文（画面に出ない）
+            options: ["会話・独り言・質問・あいづち", "パソコンやアプリを操作する命令"])[1]   // l10n-skip：モデル・照合に渡す文（画面に出ない）
     }
 }

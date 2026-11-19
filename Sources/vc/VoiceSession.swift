@@ -52,7 +52,7 @@ import VCSpeech
         let triggers = VoiceTriggers.make(keys, handsFreeEnabled: handsFreeOn)
         let handsFree = triggers.handsFree
         // スクリーンショットのショートカットは、このループの間、保持する（外れると、キーを受けなくなる）
-        let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn))
+        let screenTriggers = try ScreenFlow.install(shot: shotSpec, followUp: { ScreenFlow.followUpHint(listen: spec, handsFree: handsFreeOn) })
         ChatMode.shared.scorer = jev   // 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）
         let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
         // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
@@ -65,7 +65,7 @@ import VCSpeech
                 // 声の質問が来たら、この質問は、中断する（処理も止める）
                 let cancel: () -> Void = { token.supersede(); box.task?.cancel() }
                 box.task = Task { @MainActor in
-                    await ChatVoice.handle(text, token: token, context: context, chip: "入力", speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel)
+                    await ChatVoice.handle(text, token: token, context: context, chip: tr("入力"), speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel)
                 }
             }
         }
@@ -73,6 +73,8 @@ import VCSpeech
         let paste = ClipboardPaste()
         let session = RecordingSession()
         session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
+        LiveCaption.shared.use(language: context.sttLanguage)
+        SaySpeaker.shared.use(language: context.sttLanguage)   // 読み上げの声は、認識する言語の声
         LiveCaption.shared.enable(context.currentSettings().liveCaption ?? true)   // 録音中の文字（録音中の文字の表示）
         session.setBufferHandler { LiveCaption.shared.feed($0) }
         let loop = VoiceLoop(
@@ -92,26 +94,27 @@ import VCSpeech
             })
         loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
-            HUD.shared.show(HUDContent(phase: .recording, title: "録音中", hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
+            HUD.shared.show(HUDContent(phase: .recording, title: tr("録音中"), hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))
         }
         let onReady: () -> Void = {
-            print(Style.bold("\(holdInstruction(spec))ている間だけ聞きます") + Style.dim("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）"))
-            kv("音声認識", speech.choice.title, width: 8)
-            kv("実行", context.engineText ?? "apple", width: 8)
-            kv("ほかの音", muter === OutputMuter.disabled ? "録音中も流したまま" : "録音中は消す", width: 8)
-            if let chatSpec { kv("会話", "\(holdInstruction(chatSpec))ている間だけ（スキルを選ばず、会話として質問。古いやり取りは、要約して続ける）" + (chatAgent.isExternal ? "。エージェント：\(chatAgent.rawValue)（発話が、この Mac の外へ送られる）" : ""), width: 8) }
-            if let dictateSpec { kv("音声入力", "\(holdInstruction(dictateSpec))ている間だけ（前面のアプリへ入力）", width: 8) }
-            if let shotSpec { kv("画面撮影", "\(shotSpec.description) を押して範囲を選び、そのあと声で頼む") }
-            kv("スキル", context.options.dryRun ? Style.yellow("実行しない（--dry-run）") : Style.green("実行する"), width: 8)
+            let w = colWidth(ja: 8, en: 12)
+            print(Style.bold(holdWhile(spec, .listen)) + Style.dim(tr("（Ctrl+C で終了。録音中・実行中に Esc で取りやめ）")))
+            kv(tr("音声認識"), speech.choice.title, width: w)
+            kv(tr("実行"), context.engineText ?? "apple", width: w)
+            kv(tr("ほかの音"), muter === OutputMuter.disabled ? tr("録音中も流したまま") : tr("録音中は消す"), width: w)
+            if let chatSpec { kv(tr("会話"), holdWhile(chatSpec, .chat) + (chatAgent.isExternal ? tr("。エージェント：\(chatAgent.rawValue)（発話が、この Mac の外へ送られる）") : ""), width: w) }
+            if let dictateSpec { kv(tr("音声入力"), holdWhile(dictateSpec, .dictate), width: w) }
+            if let shotSpec { kv(tr("画面撮影"), tr("\(shotSpec.description) を押して範囲を選び、そのあと声で頼む"), width: w) }
+            kv(tr("スキル"), context.options.dryRun ? Style.yellow(tr("実行しない（--dry-run）")) : Style.green(tr("実行する")), width: w)
             fflush(stdout)
             // 準備ができたことを、画面の上に出す（モデルの読み込みの間は、押しても反応しない）。許可がなければ、その旨を出す。
             if spec.isHold && !ModifierHold.isTrusted {
-                HUD.shared.show(HUDContent(phase: .failure, title: "アクセシビリティの許可がありません", hint: "システム設定 > プライバシーとセキュリティ > アクセシビリティで、このアプリを許可して、開き直してください。許可なしなら、設定ウィンドウ > キー で、ctrl+opt+space のような組み合わせにします", chip: chip), hideAfter: 15)
+                HUD.shared.show(HUDContent(phase: .failure, title: tr("アクセシビリティの許可がありません"), hint: tr("システム設定 > プライバシーとセキュリティ > アクセシビリティで、このアプリを許可して、開き直してください。許可なしなら、設定ウィンドウ > キー で、ctrl+opt+space のような組み合わせにします"), chip: chip), hideAfter: 15)
             } else {
-                HUD.shared.show(HUDContent(phase: .info, title: "準備できました", hint: "\(holdInstruction(spec))ている間だけ聞きます", chip: chip), hideAfter: 3.5)
+                HUD.shared.show(HUDContent(phase: .info, title: tr("準備できました"), hint: holdWhile(spec, .listen), chip: chip), hideAfter: 3.5)
             }
         }
-        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], screenTriggers: screenTriggers, hint: "\(holdInstruction(spec))ている間だけ聞きます", onReady: onReady)
+        return VoiceSession(loop: loop, retained: [triggers, screenTriggers], screenTriggers: screenTriggers, hint: holdWhile(spec, .listen), onReady: onReady)
     }
 }
 

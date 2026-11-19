@@ -140,7 +140,7 @@ struct ImageEditing {
     /// `shot-年月日-時分秒.<形式>`（同じ秒に重なったら、連番）。
     private func save(_ image: CGImage, format: ImageOps.Format) throws -> URL {
         let url = try ShotOutput.nextURL(in: outputDirectory, ext: format.rawValue, now: now)
-        do { try ImageOps.write(image, to: url, format: format) } catch { throw ToolFailure(exitCode: 1, message: "保存できません（\(error)）") }
+        do { try ImageOps.write(image, to: url, format: format) } catch { throw ToolFailure(exitCode: 1, message: tr("保存できません（\(error)）")) }
         return url
     }
 

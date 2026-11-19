@@ -1,7 +1,17 @@
+import VCCore
+
 /// ヘルプでの分類（`vc --help` の見出し。並びも、これ）。
-enum CommandGroup: String, CaseIterable {
-    case skills = "スキルが使うコマンド・診断"
-    case evaluation = "評価・検証（開発用）"
+enum CommandGroup: CaseIterable {
+    case skills
+    case evaluation
+
+    /// 見出し（表示のたびに、表示言語で）。
+    var title: String {
+        switch self {
+        case .skills: return tr("スキルが使うコマンド・診断")
+        case .evaluation: return tr("評価・検証（開発用）")
+        }
+    }
 }
 
 /// コマンドの説明（`vc --help`・`vc <コマンド> --help`）。

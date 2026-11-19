@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// OpenAI 互換の API（`/v1/chat/completions`。道具の呼び出しつき）のアダプター。LM Studio・llama.cpp のサーバー・vLLM・Jan など。**通信先は、この Mac の `127.0.0.1:<ポート>` だけ**。
 struct OpenAICompatibleChat: ChatModel {
@@ -7,12 +8,12 @@ struct OpenAICompatibleChat: ChatModel {
 
     init(model: String, port: Int) {
         self.model = model
-        server = LocalServer(name: "OpenAI 互換サーバー", port: port)
+        server = LocalServer(name: tr("OpenAI 互換サーバー"), port: port)
     }
 
     func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
         let (data, status) = try await server.send(path: "/v1/chat/completions", body: Self.request(model: model, messages: messages, tools: tools))
-        if status == 404 { throw ChatError.modelNotFound(model: model, hint: "サーバーに、このモデルを読み込んでください") }
+        if status == 404 { throw ChatError.modelNotFound(model: model, hint: tr("サーバーに、このモデルを読み込んでください")) }
         guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
         return try Self.reply(from: data)
     }
@@ -20,7 +21,7 @@ struct OpenAICompatibleChat: ChatModel {
     func check() async throws {
         let (data, status) = try await server.send(path: "/v1/models", body: nil)
         guard status == 200, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let models = root["data"] as? [[String: Any]] else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }   // try?: 読めなければ、失敗として返す
-        guard models.compactMap({ $0["id"] as? String }).contains(model) else { throw ChatError.modelNotFound(model: model, hint: "サーバーに、このモデルを読み込んでください") }
+        guard models.compactMap({ $0["id"] as? String }).contains(model) else { throw ChatError.modelNotFound(model: model, hint: tr("サーバーに、このモデルを読み込んでください")) }
     }
 
     // MARK: 通信の形（OpenAI 互換）
@@ -47,7 +48,7 @@ struct OpenAICompatibleChat: ChatModel {
 
     static func reply(from data: Data) throws -> ChatMessage {
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],   // try?: 読めなければ、下の失敗として返す
-              let message = (root["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any] else { throw ChatError.badResponse("choices[0].message がない") }
+              let message = (root["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any] else { throw ChatError.badResponse(tr("choices[0].message がない")) }
         let calls = (message["tool_calls"] as? [[String: Any]] ?? []).compactMap { call -> ChatMessage.ToolCall? in
             guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { return nil }
             // 引数は、JSON の文字列（まれに、辞書で来るサーバーもある）

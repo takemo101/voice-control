@@ -8,15 +8,15 @@ import VCSpeech
 @MainActor enum ScreenFlow {
     /// 撮ったあとの案内（どのキーで、頼むか）。
     static func followUpHint(listen spec: HotKeySpec, handsFree: Bool) -> String {
-        "\(holdInstruction(spec))て、「この画像の文字を書き出して」などと話す。文字だけなら、パネルの「文字起こし」（\(ScreenshotStore.timeToLiveMinutes) 分以内）" + (handsFree ? "。ダブルタップなら、話し終わるまで聞きます" : "")
+        holdWhile(spec, .screenshot) + (handsFree ? tr("。ダブルタップなら、話し終わるまで聞きます") : "")
     }
 
     /// スクリーンショットのショートカットを、登録する（`shot` がなければ、何も登録しない）。返したトリガーは、聞いている間、保持する。前の実行の画像は、消す（使わない）。
-    static func install(shot: HotKeySpec?, followUp: String) throws -> [any PushToTalkTrigger] {
+    static func install(shot: HotKeySpec?, followUp: @escaping @MainActor () -> String) throws -> [any PushToTalkTrigger] {
         ScreenshotStore.clear()
         guard let shot else { return [] }
         let key = try makeTrigger(shot)
-        key.onPress = { Task { @MainActor in captureForVoice(next: followUp, chip: shot.displayName) } }
+        key.onPress = { Task { @MainActor in captureForVoice(next: followUp(), chip: shot.displayName) } }
         return [key]
     }
 
@@ -35,10 +35,10 @@ import VCSpeech
                 case .captured:
                     // 撮ったあと：パネルに画像を出し、**声のトリガーを押して頼む**ことを促す（録音は、自動では始めない）
                     showPreview()
-                    HUD.shared.show(HUDContent(phase: .success, title: "撮りました。続けて、声で頼んでください", hint: next, chip: chip), hideAfter: 9)
+                    HUD.shared.show(HUDContent(phase: .success, title: tr("撮りました。続けて、声で頼んでください"), hint: next, chip: chip), hideAfter: 9)
                 case .cancelled: break
                 case let .failed(reason):
-                    HUD.shared.show(HUDContent(phase: .failure, title: "撮れませんでした", chip: chip, reply: reason), hideAfter: 8)
+                    HUD.shared.show(HUDContent(phase: .failure, title: tr("撮れませんでした"), chip: chip, reply: reason), hideAfter: 8)
                 }
             }
         }
@@ -48,6 +48,6 @@ import VCSpeech
     static func showPreview() {
         guard let data = try? Data(contentsOf: ScreenshotStore.currentFile) else { return }   // try?: 読めなければ、パネルを出さないだけ（声の流れは、続く）
         let expiresAt = (try? FileManager.default.attributesOfItem(atPath: ScreenshotStore.currentFile.path)[.modificationDate] as? Date).flatMap { $0 }.map { $0.addingTimeInterval(ScreenshotStore.timeToLive) }   // try?: 取れなければ、残り時間を出さないだけ
-        if let why = ImagePanel.present(png: data, title: "スクリーンショット", expiresAt: expiresAt) { eprint("パネルを出せません: \(why)") }
+        if let why = ImagePanel.present(png: data, title: tr("スクリーンショット"), expiresAt: expiresAt) { eprint(tr("パネルを出せません: \(why)")) }
     }
 }

@@ -11,15 +11,15 @@ struct KeysPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Callout(symbol: "hand.tap.fill", text: "キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。")
-        Card("押している間だけ話す", footer: "修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。") {
+        Callout(symbol: "hand.tap.fill", text: tr("キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。"))
+        Card(tr("押している間だけ話す"), footer: tr("修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。")) {
             ForEach(Array(KeyKind.triggers.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)
             }
         }
-        Card("操作") {
-            SwitchRow(model: model, title: "手放し（ダブルタップ）", detail: "キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）", value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
+        Card(tr("操作")) {
+            SwitchRow(model: model, title: tr("手放し（ダブルタップ）"), detail: tr("キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）"), value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
         }
     }
 }
@@ -35,13 +35,13 @@ struct KeyRow: View {
         let label: String = {
             if kind.isTrigger, case let .success(spec) = HotKeySpec.parse(effective) { return KeyRow.label(of: spec) }
             if !kind.isTrigger, case let .success(stroke) = KeyStroke.parse(effective) { return "\(stroke.displayName)  \(stroke.description)" }
-            return effective.isEmpty ? "未設定" : "?"
+            return effective.isEmpty ? tr("未設定") : "?"
         }()
         VStack(alignment: .leading, spacing: 6) {
             Row(kind.title, detail: kind.help) {
                 HStack(spacing: 8) {
                     Button { isRecording ? model.stopRecording() : model.startRecording(kind) } label: {
-                        Text(isRecording ? "キーを押してください…" : label)
+                        Text(isRecording ? tr("キーを押してください…") : label)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(isRecording ? Brand.rec1 : (effective.isEmpty ? Color.secondary : Color.primary))
                             .padding(.horizontal, 12).frame(minWidth: 86, minHeight: 28)
@@ -50,18 +50,18 @@ struct KeyRow: View {
                             .shadow(color: .black.opacity(isRecording ? 0 : 0.16), radius: 0, y: 2)
                     }
                     .buttonStyle(.plain)
-                    .help("押して、使いたいキーを押す（Esc で取りやめ）")
+                    .help(tr("押して、使いたいキーを押す（Esc で取りやめ）"))
                     Menu {
                         ForEach(kind.presets, id: \.self) { preset in
                             Button(KeyRow.title(of: preset, trigger: kind.isTrigger)) { model.setDraft(kind, preset); model.commitKey(kind) }
                         }
-                        if kind.isOptional { Divider(); Button(kind.isTrigger ? "使わない" : "既定（Enter）に戻す") { model.setDraft(kind, ""); model.commitKey(kind) } }
+                        if kind.isOptional { Divider(); Button(kind.isTrigger ? tr("使わない") : tr("既定（Enter）に戻す")) { model.setDraft(kind, ""); model.commitKey(kind) } }
                     } label: { Image(systemName: "ellipsis.circle") }
-                    .menuStyle(.borderlessButton).fixedSize().help("候補から選ぶ")
+                    .menuStyle(.borderlessButton).fixedSize().help(tr("候補から選ぶ"))
                 }
             }
             if isRecording {
-                Label(model.recordingHint ?? (kind.isTrigger ? "修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。" : "送りたいキーを押してください（⌘Enter のように、修飾キーと一緒でも）。Esc で取りやめ。"), systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
+                Label(model.recordingHint ?? (kind.isTrigger ? tr("修飾キーだけなら、押して、離します。組み合わせなら、続けて押します。") : tr("送りたいキーを押してください（⌘Enter のように、修飾キーと一緒でも）。Esc で取りやめ。")), systemImage: model.recordingHint == nil ? "keyboard" : "exclamationmark.circle.fill")
                     .font(.system(size: 11)).foregroundStyle(model.recordingHint == nil ? Color.secondary : Brand.rec1)
                     .padding(.horizontal, 14).padding(.bottom, 8)
             } else if let problem = model.keyProblems[kind] {

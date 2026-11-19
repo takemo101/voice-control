@@ -24,7 +24,7 @@ public enum SpeechModelCatalog {
     public static let all: [SpeechModel] = [
         SpeechModel(
             id: "whisper-large-v3-turbo", name: "Whisper large-v3-turbo",
-            summary: "雑音が軽いとき・英字の語に強い傾向（自作の合成音声での測定）。認識に 0.5 秒ほどかかる。MIT ライセンス。",
+            summary: "雑音が軽いとき・英字の語に強い傾向（自作の合成音声での測定）。認識に 0.5 秒ほどかかる。MIT ライセンス。",   // l10n-skip（静的な表の値：言語を切り替えても変わらない。設定ウィンドウには出ない）
             spec: ModelSpec(
                 name: "whisper-large-v3-turbo",
                 baseURL: URL(string: "https://huggingface.co/handy-computer/whisper-large-v3-turbo-gguf/resolve/d222c9f621c1128299248f2ded4d8a1820519780")!,
@@ -49,14 +49,14 @@ public enum SpeechChoice: Sendable, Equatable {
 
     public var title: String {
         switch self {
-        case .apple: return "Apple（SpeechTranscriber）"
+        case .apple: return tr("Apple（SpeechTranscriber）")
         case let .local(model): return model.name
         }
     }
 
     public struct Unknown: Error, CustomStringConvertible, Equatable {
         public let id: String
-        public var description: String { "知らない音声認識: \(id)（apple・\(SpeechModelCatalog.all.map(\.id).joined(separator: "・"))）" }
+        public var description: String { tr("知らない音声認識: \(id)（apple・\(SpeechModelCatalog.all.map(\.id).joined(separator: "・"))）") }
     }
 
     /// 名前から選択を作る。知らない名前は、`Unknown`（黙って Apple にしない）。

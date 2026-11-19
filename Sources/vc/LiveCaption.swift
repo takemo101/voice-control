@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import VCCore
 import VCSpeech
 
 /// 録音中の文字（途中経過）を、画面の上のパネルに出す（録音中の文字の表示。実験。F54）。録音の始まりで、リアルタイムの認識（`LiveCaptioner`）を始め、認識の段階・取りやめで、終える。
@@ -10,19 +11,23 @@ final class LiveCaption: @unchecked Sendable {
     private let lock = NSLock()
     private var captioner: LiveCaptioner?
     private var isEnabled = true
+    private var language = AppLanguage.ja
 
     /// 使うか（設定 `liveCaption`。聞き始める前に、決める）。
     func enable(_ on: Bool) { lock.withLock { isEnabled = on } }
+
+    /// 認識する言語（設定 `sttLanguage`。聞き始める前に、決める）。
+    func use(language: AppLanguage) { lock.withLock { self.language = language } }
 
     /// いま使っているか（録音のカプセルに、文字の欄を出すか）。
     var enabled: Bool { lock.withLock { isEnabled } }
 
     /// 録音の始まり：認識を始める（前のものが残っていれば、終える）。
     func begin() {
-        let (enabled, old): (Bool, LiveCaptioner?) = lock.withLock { (isEnabled, captioner) }
+        let (enabled, old, language): (Bool, LiveCaptioner?, AppLanguage) = lock.withLock { (self.isEnabled, self.captioner, self.language) }
         old?.finish()
         guard enabled else { lock.withLock { captioner = nil }; return }
-        let next = LiveCaptioner { caption in HUD.shared.pushLiveText(LiveCaptionText(confirmed: caption.confirmed, tentative: caption.tentative)) }
+        let next = LiveCaptioner(locale: Locale(identifier: language.bcp47)) { caption in HUD.shared.pushLiveText(LiveCaptionText(confirmed: caption.confirmed, tentative: caption.tentative)) }
         lock.withLock { captioner = next }
         next.start()
     }

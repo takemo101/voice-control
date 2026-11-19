@@ -1,0 +1,4 @@
+/* macOS の許可のダイアログに出る、使用目的の説明（Mac の言語が日本語のとき）。Info.plist の既定と同じ文。 */
+"NSMicrophoneUsageDescription" = "声の入力（キーを押している間の録音）に、マイクを使います。音声は、この Mac の外へ出しません。";
+"NSSpeechRecognitionUsageDescription" = "録音した声を文字にするために、音声認識を使います（この Mac の中で動きます）。";
+"NSAppleEventsUsageDescription" = "声で頼まれた操作（アプリを開く・Spotify を操作するなど）のために、ほかのアプリを動かします。";

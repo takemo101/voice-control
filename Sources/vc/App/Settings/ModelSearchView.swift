@@ -1,4 +1,5 @@
 import SwiftUI
+import VCCore
 import VCSkill
 
 /// 検索の状態（ポップオーバーの開閉・入力・強調している行）。SwiftUI の `@State` は、この環境では使えないので、参照型。
@@ -54,7 +55,7 @@ struct ModelSearchList: View {
     private func searchField(navigable: [String], proxy: ScrollViewProxy) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("モデルを探す（例：son 5・haiku・gpt high）", text: $search.query)
+            TextField(tr("モデルを探す（例：son 5・haiku・gpt high）"), text: $search.query)
                 .textFieldStyle(.plain).font(.system(size: 13))
                 .focused($focused)
                 .onSubmit {
@@ -64,7 +65,7 @@ struct ModelSearchList: View {
                 .onKeyPress(.downArrow) { move(1, navigable, proxy); return .handled }
                 .onKeyPress(.upArrow) { move(-1, navigable, proxy); return .handled }
             if !search.query.isEmpty {
-                Button { search.query = ""; focused = true } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain).help("検索を消す")
+                Button { search.query = ""; focused = true } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain).help(tr("検索を消す"))
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
@@ -82,38 +83,38 @@ struct ModelSearchList: View {
     private func content(listing: ACPModelListing?, sections: [ModelListLogic.Section], matchCount: Int) -> some View {
         switch state {
         case .none, .loading:
-            HStack(spacing: 10) { ProgressView().controlSize(.small); Text("\(agentName) に、選べるモデルを聞いています…").font(.system(size: 12)).foregroundStyle(.secondary) }
+            HStack(spacing: 10) { ProgressView().controlSize(.small); Text(tr("\(agentName) に、選べるモデルを聞いています…")).font(.system(size: 12)).foregroundStyle(.secondary) }
                 .frame(maxWidth: .infinity, minHeight: 120)
         case let .failed(why):
             VStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(.orange)
-                Text("一覧を取れませんでした").font(.system(size: 13, weight: .semibold))
+                Text(tr("一覧を取れませんでした")).font(.system(size: 13, weight: .semibold))
                 Text(why).font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                Button("もう一度") { reload() }.controlSize(.small)
+                Button(tr("もう一度")) { reload() }.controlSize(.small)
             }
             .padding(18).frame(maxWidth: .infinity)
         case .loaded:
             if matchCount == 0 {
                 VStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").font(.system(size: 22)).foregroundStyle(.tertiary)
-                    Text("「\(search.query)」に合うモデルは、ありません").font(.system(size: 12.5, weight: .medium))
-                    Text("短い語・一部の文字で、探してみてください（順に含まれていれば合います）").font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button("検索を消す") { search.query = ""; focused = true }.controlSize(.small)
+                    Text(tr("「\(search.query)」に合うモデルは、ありません")).font(.system(size: 12.5, weight: .medium))
+                    Text(tr("短い語・一部の文字で、探してみてください（順に含まれていれば合います）")).font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button(tr("検索を消す")) { search.query = ""; focused = true }.controlSize(.small)
                 }
                 .padding(20).frame(maxWidth: .infinity, minHeight: 140)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                         if search.query.isEmpty {
-                            row(id: Self.defaultRow, title: "エージェントの設定（既定）", subtitle: listing?.current.map { "いまの設定：\($0)" }, badge: nil)
+                            row(id: Self.defaultRow, title: tr("エージェントの設定（既定）"), subtitle: listing?.current.map { tr("いまの設定：\($0)") }, badge: nil)
                         }
                         ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                             if let title = section.title {
                                 Section {
-                                    ForEach(section.items) { item in row(id: item.id, title: item.name, subtitle: item.id == item.name ? item.detail : item.id, badge: item.id == listing?.current ? "既定" : nil, detail: item.detail) }
+                                    ForEach(section.items) { item in row(id: item.id, title: item.name, subtitle: item.id == item.name ? item.detail : item.id, badge: item.id == listing?.current ? tr("既定") : nil, detail: item.detail) }
                                 } header: { header(title, count: section.items.count) }
                             } else {
-                                ForEach(section.items) { item in row(id: item.id, title: item.name, subtitle: item.id == item.name ? item.detail : item.id, badge: item.id == listing?.current ? "既定" : nil, detail: item.detail) }
+                                ForEach(section.items) { item in row(id: item.id, title: item.name, subtitle: item.id == item.name ? item.detail : item.id, badge: item.id == listing?.current ? tr("既定") : nil, detail: item.detail) }
                             }
                         }
                     }
@@ -143,7 +144,7 @@ struct ModelSearchList: View {
                 VStack(alignment: .leading, spacing: 1.5) {
                     highlighted(title, base: .system(size: 12.5, weight: .medium), color: .primary)
                     if let subtitle, !subtitle.isEmpty {
-                        highlighted(subtitle, base: .system(size: 10.5, design: id == title || subtitle.hasPrefix("いまの設定") ? .default : .monospaced), color: .secondary)
+                        highlighted(subtitle, base: .system(size: 10.5, design: id == title || subtitle.hasPrefix(tr("いまの設定")) ? .default : .monospaced), color: .secondary)
                     }
                 }
                 Spacer(minLength: 6)
@@ -177,9 +178,9 @@ struct ModelSearchList: View {
 
     private func footer(total: Int, shown: Int) -> some View {
         HStack(spacing: 10) {
-            Text(search.query.isEmpty ? "\(total) 件" : "\(shown) 件／全 \(total) 件").font(.system(size: 10.5, weight: .medium)).foregroundStyle(.secondary)
+            Text(search.query.isEmpty ? tr("\(total) 件") : tr("\(shown) 件／全 \(total) 件")).font(.system(size: 10.5, weight: .medium)).foregroundStyle(.secondary)
             Spacer()
-            keyHint("↑↓", "移動"); keyHint("⏎", "決定"); keyHint("esc", "閉じる")
+            keyHint("↑↓", tr("移動")); keyHint("⏎", tr("決定")); keyHint("esc", tr("閉じる"))
         }
         .padding(.horizontal, 14).padding(.vertical, 7)
     }

@@ -110,13 +110,13 @@ final class CommandSession: @unchecked Sendable {
             // `vc see` の答えは、ウィンドウに出すので、言語モデルには、短い知らせだけ返す（長い文を、写させない）
             if let answer = result.document {
                 lock.lock(); document = answer; lock.unlock()
-                return "exit 0\nThe answer (\(answer.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"
+                return "exit 0\nThe answer (\(answer.count) characters) is shown to the user in a window. Do not repeat it. Reply now: done: 結果をウィンドウに表示しました"   // l10n-skip：モデル・照合に渡す文（画面に出ない）
             }
             return "exit \(result.exitCode)\n\(result.text)"
         }
         let result = CommandRunner.run(argv: argv.map(aliases.expand), timeout: skill.commandTimeout, cancel: cancel)
         let compact = OutputCompactor.compact(argv: argv, output: result.output, aliases: aliases)
-        display.onResult(result.exitCode, result.timedOut ? "（\(Int(skill.commandTimeout)) 秒の上限で止めました。スキルの timeout で変えられます）\n\(compact)" : compact)
+        display.onResult(result.exitCode, result.timedOut ? tr("（\(Int(skill.commandTimeout)) 秒の上限で止めました。スキルの timeout で変えられます）") + "\n" + compact : compact)
         memory.setLines(from: result.output)   // 直前のコマンドの出力の行を、`vc pick` が選べる
         return "exit \(result.exitCode)\(result.timedOut ? " (timed out after \(Int(skill.commandTimeout)) s)" : "")\n\(compact)"
     }
@@ -124,8 +124,8 @@ final class CommandSession: @unchecked Sendable {
     /// モデルへの指示（どのモデルでも共通）。
     var instructions: String {
         let finish = skill.result.repliesWithDocument
-            ? "When finished, reply with the finished Markdown note ONLY: its whole text, nothing before or after it (it is saved as a file and opened for the user). If you cannot, reply: failed: <reason in Japanese>."
-            : "When finished, reply with: done: <one short sentence in Japanese>. If you cannot, reply: failed: <reason in Japanese>."
+            ? L10n.shared.inAnswerLanguage("When finished, reply with the finished Markdown note ONLY: its whole text, nothing before or after it (it is saved as a file and opened for the user). If you cannot, reply: failed: <reason in Japanese>.")
+            : L10n.shared.inAnswerLanguage("When finished, reply with: done: <one short sentence in Japanese>. If you cannot, reply: failed: <reason in Japanese>.")
         return """
         You carry out the user's request by running shell commands ONLY through the tool `run_command`. Never answer with commands in text.
         Allowed commands (the command line must start with one of these): \(skill.allowedCommands.joined(separator: " | ")).
@@ -135,7 +135,7 @@ final class CommandSession: @unchecked Sendable {
         \(finish)
 
         SKILL (\(skill.name)):
-        \(SkillPlaceholder.expand(skill.body, request: currentRequest, screenshotPath: screenshotPath()))
+        \(SkillPlaceholder.expand(skill.scope == .builtin ? L10n.shared.inAnswerLanguage(skill.body) : skill.body, request: currentRequest, screenshotPath: screenshotPath()))   // 組み込みの指示だけ、答えの言語に合わせる（利用者のスキルの本文は、そのまま）
         """
     }
 
@@ -145,9 +145,9 @@ final class CommandSession: @unchecked Sendable {
     func openAsNoteIfRequested(_ reply: String) -> String {
         guard skill.result == .markdownNote, !dryRun, !reply.lowercased().hasPrefix("failed") else { return reply }
         let url: URL
-        do { url = try ResultNote.write(reply) } catch { return "failed: メモを保存できません（\(error.localizedDescription)）" }
+        do { url = try ResultNote.write(reply) } catch { return "failed: " + tr("メモを保存できません（\(error.localizedDescription)）") }
         let opened = CommandRunner.run(argv: ["open", url.path], timeout: 10, cancel: cancel)
-        guard opened.exitCode == 0 else { return "failed: メモを開けません（\(url.path)）" }
-        return "done: メモを開きました（\(url.path)）"
+        guard opened.exitCode == 0 else { return "failed: " + tr("メモを開けません（\(url.path)）") }
+        return "done: " + tr("メモを開きました（\(url.path)）")
     }
 }

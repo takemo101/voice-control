@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VCCore
 
 /// Markdown を、整形した `NSAttributedString`（と、コピー用の文字）にする（`vc show`・`result: markdown-window` のウィンドウ）。
 /// Foundation の Markdown 解析（`AttributedString(markdown:)`）の結果を、見やすく整える：見出しの階層・読みやすい行間・箇条書きと番号・タスクリスト・引用（左の線）・コードブロック（面）・表（罫線）・区切り線。外部のライブラリは使わない。
@@ -46,7 +47,7 @@ enum MarkdownRenderer {
             if let id = piece.block.identity, let diagram = diagrams[id] {
                 if drawnDiagrams.insert(id).inserted {
                     picture = Self.attachment(diagram.image, block: piece.block, context: context, continuation: continuation, centered: true,
-                                              marks: [.mermaidSource: diagram.source, .toolTip: "クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）"])
+                                              marks: [.mermaidSource: diagram.source, .toolTip: tr("クリックで拡大（拡大の窓では、ピンチ・ダブルクリックで拡大縮小、Esc で閉じる）")])
                 }
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
                 if let picture { out.append(picture) }
@@ -54,7 +55,7 @@ enum MarkdownRenderer {
             }
             if let imageURL = piece.imageURL, let file = MarkdownImage.file(for: imageURL, base: imageBase), let image = MarkdownImage.image(at: file) {
                 lastAttributes = Self.attributes(for: piece.block, inline: nil, link: nil, text: "", context: context, marker: false, continuation: continuation)
-                out.append(Self.attachment(image, block: piece.block, context: context, continuation: continuation, centered: false, marks: [.zoomImage: image, .toolTip: "クリックで拡大"]))
+                out.append(Self.attachment(image, block: piece.block, context: context, continuation: continuation, centered: false, marks: [.zoomImage: image, .toolTip: tr("クリックで拡大")]))
                 continue
             }
             let text = Self.cleaned(piece)
@@ -234,7 +235,7 @@ enum MarkdownRenderer {
             }
             if let image = run.imageURL {
                 // 画像は出せない：代わりの文字（なければ「画像」）を、画像の印つきの、リンクにする
-                text = "🖼 " + (text.isEmpty ? "画像" : text)
+                text = "🖼 " + (text.isEmpty ? tr("画像") : text)
                 link = image
             }
             pieces.append(Piece(block: block, text: text, inline: inline, link: link, imageURL: run.imageURL))

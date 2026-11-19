@@ -115,6 +115,12 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 コミットの粒度：利用者に見える一つの変更（実装・必要なテスト・文書）を、まとめて 1 commit。無関係な変更を混ぜない。メッセージは、何を・なぜ変えたかを、1 行目に短く。
 
+## 画面の文字を足す・直す（日本語と英語）
+
+設定ウィンドウとダイアログの文字は、`tr("日本語の文")` で書く。**足したら、`Sources/vc/L10n/English*.swift` に、英語の訳を、1 行（`"日本語の文": "English",`）足す**（鍵は、`tr` の文と、同じ形。補間は `%@`）。`just l10n`（= `python3 scripts/check-l10n.py --uncovered`）が、抜け・重複・置き換えの数の違い・包まれていない日本語の文字列を、見つける（CI も、同じ）。英語の画面は、`settings.json` に `"uiLanguage": "en"` を書いた `VC_HOME` で、`vc settings-preview <フォルダ>`。ダイアログ（`NSAlert`）は、画面の外では描けない：アプリで開いて確かめる。日本語のままにする文字列には、行の終わりに `// l10n-skip`。
+
+**英語の用語**（表の訳を、そろえる）：声で頼む＝Voice command（動詞句は ask by voice）・音声入力＝Dictation・声の入力＝voice input・会話＝Chat・スキル＝skill・トリガー＝trigger key（文中）・手放し＝Hands-free (double-tap)・確認／確かめる（利用者に）＝confirm・実行するモデル＝Model that runs skills（選ぶほう＝Model that picks skills）・取得＝Download（一覧は Load。Web ページは Fetch）・開き直す＝relaunch・外のエージェント＝external agent・ACP を話す＝support ACP・Finder で表示＝Show in Finder・変更点＝What's new・字幕＝live captions。件数は、"1 files" にならない書き方（`item(s)`・`Models: %@`）。引用は、画面では “ ”、端末の出力では " "。
+
 ## 製品ページ（`site/`）
 
 利用者向けの説明ページ（インストール方法・使い方・注意点）。素の HTML・CSS・JavaScript（ビルドなし・外部の通信なし・解析なし）で、**GitHub Pages** に公開する（`https://takemo101.github.io/voice-control/`）。

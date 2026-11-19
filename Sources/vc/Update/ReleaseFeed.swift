@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 更新の候補（GitHub Releases の最新版）：版・変更点のページ・dmg と SHA-256 の場所。
 struct ReleaseInfo: Equatable {
@@ -28,11 +29,11 @@ enum ReleaseFeed {
 
         var description: String {
             switch self {
-            case .notRelease: return "更新の情報を読めませんでした"
-            case .draftOrPrerelease: return "最新の公開版が、見つかりません"
-            case let .badTag(tag): return "版を読めません（\(tag)）"
-            case let .missingAsset(name): return "配布物が、見つかりません（\(name)）"
-            case let .foreignURL(url): return "取得先が、このリポジトリの Release ではありません（\(url)）"
+            case .notRelease: return tr("更新の情報を読めませんでした")
+            case .draftOrPrerelease: return tr("最新の公開版が、見つかりません")
+            case let .badTag(tag): return tr("版を読めません（\(tag)）")
+            case let .missingAsset(name): return tr("配布物が、見つかりません（\(name)）")
+            case let .foreignURL(url): return tr("取得先が、このリポジトリの Release ではありません（\(url)）")
             }
         }
     }

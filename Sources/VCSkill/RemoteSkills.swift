@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// GitHub の公開リポジトリから、スキル（`.voice-control/skills/<name>`）を取得する（`vc skills install`）。
 /// 一覧は、Git のツリー 1 回（`git/trees/<ref>?recursive=1`）で取り、ファイルは `raw.githubusercontent.com` から取る（API の回数制限を、ほぼ使わない）。
@@ -45,7 +46,7 @@ public enum RemoteSkills {
             if let wanted, !wanted.contains(name) { continue }
             if let link = files.first(where: { $0.mode == "120000" }) { throw Failure.containsSymlink(name: name, path: link.rest) }
             let targets = wanted == nil ? files.filter { $0.rest == "SKILL.md" } : files.filter { $0.type == "blob" && $0.mode != "160000" }
-            guard targets.count <= maxFiles, targets.allSatisfy({ $0.size <= maxFileBytes }) else { throw Failure.unexpected("スキル「\(name)」が大きすぎる（\(maxFiles) ファイル・1 ファイル \(maxFileBytes / 1000) KB まで）") }
+            guard targets.count <= maxFiles, targets.allSatisfy({ $0.size <= maxFileBytes }) else { throw Failure.unexpected(tr("スキル「\(name)」が大きすぎる（\(maxFiles) ファイル・1 ファイル \(maxFileBytes / 1000) KB まで）")) }
             for file in targets {
                 let url = try rawURL(repository: repository, ref: ref, path: file.path)
                 let (data, status) = try await get(url, fetch: fetch)
@@ -63,12 +64,12 @@ public enum RemoteSkills {
 
     static func tree(ref: String, repository: String, fetch: Fetch) async throws -> [Entry] {
         guard let encodedRef = ref.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))),
-              let url = URL(string: "https://api.github.com/repos/\(repository)/git/trees/\(encodedRef)?recursive=1") else { throw Failure.unexpected("版の名前が使えない：\(ref)") }
+              let url = URL(string: "https://api.github.com/repos/\(repository)/git/trees/\(encodedRef)?recursive=1") else { throw Failure.unexpected(tr("版の名前が使えない：\(ref)")) }
         let (data, status) = try await get(url, fetch: fetch)
         if status == 404 { throw Failure.refNotFound(ref) }
         guard status == 200 else { throw Failure.network("GitHub：HTTP \(status)") }
-        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let tree = root["tree"] as? [[String: Any]] else { throw Failure.unexpected("GitHub の応答を読めない") }   // try?: 読めなければ、下の失敗として返す
-        if root["truncated"] as? Bool == true { throw Failure.unexpected("リポジトリが大きすぎて、一覧を取れない") }
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let tree = root["tree"] as? [[String: Any]] else { throw Failure.unexpected(tr("GitHub の応答を読めない")) }   // try?: 読めなければ、下の失敗として返す
+        if root["truncated"] as? Bool == true { throw Failure.unexpected(tr("リポジトリが大きすぎて、一覧を取れない")) }
         return tree.compactMap { item in
             guard let path = item["path"] as? String, path.hasPrefix(skillsPath) else { return nil }
             let parts = path.dropFirst(skillsPath.count).split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
@@ -81,7 +82,7 @@ public enum RemoteSkills {
         let allowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
         let encodedRef = ref.addingPercentEncoding(withAllowedCharacters: allowed) ?? ref
         let encodedPath = path.split(separator: "/").map { $0.addingPercentEncoding(withAllowedCharacters: allowed) ?? String($0) }.joined(separator: "/")
-        guard let url = URL(string: "https://raw.githubusercontent.com/\(repository)/\(encodedRef)/\(encodedPath)") else { throw Failure.unexpected("ファイルの場所が使えない：\(path)") }
+        guard let url = URL(string: "https://raw.githubusercontent.com/\(repository)/\(encodedRef)/\(encodedPath)") else { throw Failure.unexpected(tr("ファイルの場所が使えない：\(path)")) }
         return url
     }
 

@@ -54,6 +54,13 @@ flowchart TB
 - **`Command`**：`static let info`（名前・グループ・使い方・説明・オプション・例）と、`run(_:_:)`。`Commands.all`（`Command.swift`）が一覧で、`vc --help`・`vc <コマンド> --help` は、各コマンドの `info` から作る（並びも、この一覧の並び。`help` は、コマンドではなく、`Help` が、コマンドを探す前に処理する）。`Commands/` に、コマンドを 1 つ 1 ファイルで置く（一覧は `Commands.all`。件数は、書かない）。`main.swift` は、起動の流れだけ。
 - **`CommandContext`**：1 回の起動で共有するものを、1 つにまとめる。`CommonOptions`・ゲート（`--floor` を反映）、モデルの場所（`resolveModelDir`）・Tiny-Jev の読み込み（`loadJev`）・設定の読み取り（`currentSettings`。壊れていれば警告を 1 回だけ）・スキルの読み込み（`loadSkills`：読んだスキルと設定。有効なスキル・読めなかった理由の表示）・トリガーの解決（`resolveHotKey`）。`main.swift` が作って、コマンドへ渡す。終了（`fail`＝終了コード 1・`usageError`＝2）は、状態を持たない関数のまま、`Output.swift` に置く。**設定の書き間違い（`engine`・`stt`・会話のエージェント・4 つのキー）の検査は、`CommandChoices.swift`**：`resolveEngine`・`resolveSpeechChoice`・`resolveChatAgent`・`resolveKeys` が、`StartupProblem`（理由と、直せる設定のページ）を投げる。端末の `vc` は、使うときに検査して `fail` で終わる。**メニューバーのアプリは、`resolvingChoices` で、設定を 1 回だけ読んで検査した文脈（`ResolvedChoices`）を使い、書き間違いは、ダイアログとメニューに出す（アプリは、終わらない）**。
 
+### 言語（表示言語・音声認識の言語）
+
+- **`VCCore` の `L10n`・`tr`・`AppLanguage`**：`tr("日本語の文")`（補間は `%@`。`%1$@` で語順を替えられる）は、日本語のときは、そのまま。英語のときは、表の英語（表にない文は、日本語のまま：欠けても読める）。**呼び出すたびに引く**：`static let` に入れた `tr` は、最初の言語に固まるので、使わない（表示の文は、計算プロパティか関数に）。
+- **対象は、画面の言葉すべて**（設定ウィンドウ・ダイアログ・メニュー・HUD・スクリーンショット・画像のパネル・会話・Markdown のウィンドウ・読み上げる文・端末の `vc`）。**対象外**：開発用のコマンド・`Fixture`・スキルの名前と説明・エージェントとモデルの答え・モデルへの指示（日本語の言葉の一致の規則を含む。`// l10n-skip`）。**モデルへの指示の「答えの言語」は、`L10n.shared.inAnswerLanguage`**（指示の `Japanese` を、認識する言語の名前にする。`ChatConversation`・`CommandSession`・`VisionModel`・`AppleChatTools`。利用者のスキルの本文は、触らない）。英語の表は `Sources/vc/L10n/English*.swift`（`EnglishTables.all` が束ねる。`AppLocalization.bootstrap` が、起動の最初〔アプリ：`applicationDidFinishLaunching`・端末：`main`〕に、表を入れる。**言語の決め方は、`AppLocalization.apply` の 1 か所**（表示言語・答えの言語。設定を変えたときも、`SettingsModel.update` が、これを呼ぶ）。実行時に決まる文（組み込みのスキルの説明など）は、`tr(verbatim:)`（表の行に `// l10n-dynamic`）。鍵（日本語の文）が、同じ文で別の訳が要る所は、`tr` を使わず、言語で分ける（例：サイドバーの「モデル」→ Models）。
+- **音声認識の言語**（設定 `sttLanguage`）は、`ResolvedChoices.sttLanguage`（書き間違いは `StartupProblem`）→ `SpeechEngine.make(_, language:)`（Apple は `Locale`、ダウンロードしたモデルは言語の符号）・`LiveCaption`・`SaySpeaker`（その言語の声）。`AppRuntime` は、言語が変わったら、認識を開き直す。
+- **確認**：`scripts/check-l10n.py`（`just l10n`・CI）が、`tr` の鍵が表にあるか・置き換えの数・表の重複（Swift の辞書は、重複で、実行時に落ちる）・包まれていない日本語の文字列を調べる。`EnglishTablesTests` が、表の整合を確かめる。**`--uncovered` の範囲は、`Sources/vc` の全部と、`tr(` を使っているほかのターゲットのファイル**（足すときに、スクリプトへ書かなくてよい）。**同じ日本語の鍵に、別の訳が要る所**（例：サイドバーの「モデル」＝ Models・行の「モデル」＝ Model）は、鍵を分けるか、言語で分ける。
+
 ### スキルの実行の流れ（`SkillRunner`）
 
 「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・声の入力（メニューバーのアプリ）（Enter で録音する通常モード。端末）・声の流れ（声の入力（メニューバーのアプリ）。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。

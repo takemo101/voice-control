@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 外のエージェントの CLI が、実行中に出す出来事（JSON の行）から、**いま何をしているか**を読み取る（`claude`・`codex`・`grok`）。
 /// 「実行: ls」「検索: …」「読む: README.md」のような、短い文にして、画面に出す（道具を開けたとき、**何が実行されたかを、利用者が見られる**ようにするため）。
@@ -55,7 +56,7 @@ public struct AgentStream: Sendable {
                 return .activity(describe(tool: name, input: block["input"] as? [String: Any] ?? [:]))
             }
         case "result":
-            if (o["is_error"] as? Bool) == true { return [.failure((o["result"] as? String) ?? "失敗しました")] }
+            if (o["is_error"] as? Bool) == true { return [.failure((o["result"] as? String) ?? tr("失敗しました"))] }
             return (o["result"] as? String).map { [.final($0)] } ?? []
         default: return []
         }
@@ -71,7 +72,7 @@ public struct AgentStream: Sendable {
             for prefix in ["/bin/zsh -lc ", "/bin/bash -lc ", "zsh -lc ", "bash -lc "] where command.hasPrefix(prefix) { command = String(command.dropFirst(prefix.count)); break }
             return [.activity(.run(clip(unquote(command))))]
         case "web_search": return [.activity(.search(clip((item["query"] as? String) ?? "")))]
-        case "file_change": return [.activity(.write("（ファイルを変更）"))]
+        case "file_change": return [.activity(.write(tr("（ファイルを変更）")))]
         default: return []
         }
     }
@@ -82,7 +83,7 @@ public struct AgentStream: Sendable {
         switch o["type"] as? String {
         case "text": return (o["data"] as? String).map { [.text($0)] } ?? []
         case "tool_call":
-            let name = (o["toolName"] as? String) ?? (o["title"] as? String) ?? "道具"
+            let name = (o["toolName"] as? String) ?? (o["title"] as? String) ?? tr("道具")
             return [.activity(describe(tool: name, input: o["rawInput"] as? [String: Any] ?? [:]))]
         default: return []
         }
@@ -100,7 +101,7 @@ public struct AgentStream: Sendable {
             return [.activity(describe(tool: name, input: Dictionary(uniqueKeysWithValues: parameters.map { ($0.key.lowercased(), $0.value) })))]
         case "result":
             guard let result = o["result"] as? [String: Any] else { return [] }
-            if (result["status"] as? String) != "SUCCESS" { return [.failure((result["status"] as? String) ?? "失敗しました")] }
+            if (result["status"] as? String) != "SUCCESS" { return [.failure((result["status"] as? String) ?? tr("失敗しました"))] }
             return (result["response"] as? String).map { [.final($0)] } ?? []
         default: return []
         }
@@ -132,7 +133,7 @@ public struct AgentStream: Sendable {
     static func isPlanModeBoilerplate(_ text: String) -> Bool {
         let flat = text.replacingOccurrences(of: "\n", with: "")
         guard flat.count <= 120 else { return false }
-        return flat.contains("プランモード") || (flat.contains("計画") && (flat.contains("実装はしません") || flat.contains("変更や実装")))
+        return flat.contains("プランモード") || (flat.contains("計画") && (flat.contains("実装はしません") || flat.contains("変更や実装")))   // l10n-skip: matches the agent's Japanese plan-mode boilerplate
     }
 
     // MARK: pi（`--mode json`）

@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import SwiftUI
+import VCCore
 
 /// 範囲を選んで撮る画面（ショートカット・`vc shot`）。**撮り始める前の静止画**（`ScreenGrab`）を、ディスプレイごとの全面のパネルに暗くして見せ、そこから選ぶ。
 /// 操作：
@@ -97,7 +98,7 @@ import SwiftUI
             panel.contentView = view
             panels.append(panel)
         }
-        guard !panels.isEmpty else { finish(.failed("画面が見つかりません")); return }
+        guard !panels.isEmpty else { finish(.failed(tr("画面が見つかりません"))); return }
         installMonitors()
         NSApp.activate(ignoringOtherApps: true)
         let mouse = NSEvent.mouseLocation
@@ -211,7 +212,7 @@ import SwiftUI
     private func capture(_ rect: CGRect, in view: SelectorView) {
         guard !finishing, rect.width >= ScreenGeometry.minimumSelection, rect.height >= ScreenGeometry.minimumSelection else { return }
         let crop = ScreenGeometry.cropRect(selection: rect, viewSize: view.bounds.size, imageSize: CGSize(width: view.image.width, height: view.image.height))
-        guard let cropped = view.image.cropping(to: crop) else { finish(.failed("画像を切り抜けません")); return }
+        guard let cropped = view.image.cropping(to: crop) else { finish(.failed(tr("画像を切り抜けません"))); return }
         let region = LastRegion(displayID: view.displayID, rect: rect)
         Self.lastRegion = region
         finishing = true

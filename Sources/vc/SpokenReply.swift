@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 結果の返事を、声で読む文にする（`vc speak on`）。**短い返事（「完了：〇〇」「失敗：〇〇」）だけ**を読む：長い文章（ウィンドウに出す結果）は、読まない。
 enum SpokenReply {
@@ -19,7 +20,7 @@ enum SpokenReply {
         var reason = message.trimmingCharacters(in: .whitespacesAndNewlines)
         if reason.lowercased().hasPrefix("failed:") { reason = String(reason.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines) }
         let first = reason.split(whereSeparator: { "。\n".contains($0) }).first.map(String.init) ?? ""
-        guard !first.isEmpty, first.count <= maxLength else { return "失敗しました" }
-        return "失敗しました。\(first)"
+        guard !first.isEmpty, first.count <= maxLength else { return tr("失敗しました") }
+        return tr("失敗しました。\(first)")
     }
 }

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SwiftUI
+import VCCore
 
 /// 拡大の窓：図（Mermaid）・Markdown の画像を、**縮めずに**出す。見た目は、Markdown のウィンドウと同じ、**Liquid Glass のカード**。**見出し**（題名・大きさ・コピー・閉じる。会話・スクリーンショットの窓と同じ並び）と、**画像の上に浮かぶ操作盤**（倍率・「＋」「−」・元に戻す）だけ：下の行は、ない。
 /// - **拡大縮小**：ピンチ・ダブルクリック（クリックした所へ）・⌘（または ⌥）＋スクロール（カーソルの所を、動かさずに）・「＋」「−」ボタン（`+` `-` キー）。倍率は、見出しの下の行に、いつも出る。
@@ -28,7 +29,7 @@ import SwiftUI
     /// 図を、拡大の窓で見せる（描けなければ、何もしない）。
     static func show(source: String) {
         guard let image = MermaidImage.zoomImage(for: source) else { return }
-        show(image: image, title: "図", symbol: "point.3.connected.trianglepath.dotted")
+        show(image: image, title: tr("図"), symbol: "point.3.connected.trianglepath.dotted")
     }
 
     /// 画像を、拡大の窓で見せる。
@@ -370,8 +371,8 @@ private struct ZoomView: View {
             Text(verbatim: "\(Int(size.width)) × \(Int(size.height))").vcFont(11, weight: .semibold, design: .rounded).foregroundStyle(.white.opacity(0.7))
                 .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.white.opacity(0.1)))
             Spacer(minLength: 8)
-            HeaderIconButton(symbol: "photo.on.rectangle", help: "画像をコピー（⌘C）", accent: true, flashed: state.copied, action: copy)
-            HeaderIconButton(symbol: "xmark", help: "閉じる（Esc）", action: close)
+            HeaderIconButton(symbol: "photo.on.rectangle", help: tr("画像をコピー（⌘C）"), accent: true, flashed: state.copied, action: copy)
+            HeaderIconButton(symbol: "xmark", help: tr("閉じる（Esc）"), action: close)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
         .background(DragArea())
@@ -388,7 +389,7 @@ private struct ZoomToolbar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ToolbarIcon(symbol: "minus", help: "縮小（−）", enabled: state.canZoomOut, action: zoomOut)
+            ToolbarIcon(symbol: "minus", help: tr("縮小（−）"), enabled: state.canZoomOut, action: zoomOut)
             Button(action: actual) {
                 Text(ZoomMath.percent(state.magnification))
                     .vcFont(12.5, weight: .semibold, monospacedDigit: true)
@@ -396,10 +397,10 @@ private struct ZoomToolbar: View {
                     .frame(minWidth: 52, minHeight: 28)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain).disabled(state.isActual).help("100%（等倍。1）").accessibilityLabel("等倍")
-            ToolbarIcon(symbol: "plus", help: "拡大（＋）", enabled: state.canZoomIn, action: zoomIn)
+            .buttonStyle(.plain).disabled(state.isActual).help(tr("100%（等倍。1）")).accessibilityLabel(tr("等倍"))
+            ToolbarIcon(symbol: "plus", help: tr("拡大（＋）"), enabled: state.canZoomIn, action: zoomIn)
             Rectangle().fill(.white.opacity(0.18)).frame(width: 0.7, height: 16).padding(.horizontal, 4)
-            ToolbarIcon(symbol: "arrow.counterclockwise", help: "元に戻す：全体が見える大きさ・中央（0）", enabled: !state.isFitted, action: reset)
+            ToolbarIcon(symbol: "arrow.counterclockwise", help: tr("元に戻す：全体が見える大きさ・中央（0）"), enabled: !state.isFitted, action: reset)
         }
         .padding(4)
         .background(Capsule().fill(.black.opacity(0.42)))

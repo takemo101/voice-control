@@ -1,3 +1,4 @@
+import VCCore
 import Foundation
 
 /// 言語モデルが実行を頼むコマンドの、検査。**シェルは使わない**（パイプ・リダイレクト・`$()` は、ただの文字として、引数に渡る）。
@@ -36,8 +37,8 @@ public enum CommandPolicy {
             }
             current.append(ch); inToken = true
         }
-        if quote != nil { return .failure(Violation(reason: "引用符が閉じていない")) }
-        if escaped { return .failure(Violation(reason: "末尾が \\ で終わっている")) }
+        if quote != nil { return .failure(Violation(reason: tr("引用符が閉じていない"))) }
+        if escaped { return .failure(Violation(reason: tr("末尾が \\ で終わっている"))) }
         if inToken { tokens.append(current) }
         return .success(tokens)
     }
@@ -51,13 +52,13 @@ public enum CommandPolicy {
         var text = entry.trimmingCharacters(in: .whitespaces)
         if let open = text.firstIndex(of: "("), text.hasSuffix(")") {
             let tool = String(text[..<open])
-            guard tool == "Bash" else { return .failure(Violation(reason: "ツール名は Bash だけ（\(tool.isEmpty ? "なし" : tool)）")) }
+            guard tool == "Bash" else { return .failure(Violation(reason: tr("ツール名は Bash だけ（\(tool.isEmpty ? tr("なし") : tool)）"))) }
             text = String(text[text.index(after: open)..<text.index(before: text.endIndex)]).trimmingCharacters(in: .whitespaces)
         }
         if text.hasSuffix(":*") { text = String(text.dropLast(2)) }
-        guard case .success(var tokens) = tokenize(text) else { return .failure(Violation(reason: "解釈できない（引用符・\\ の閉じ忘れ）")) }
+        guard case .success(var tokens) = tokenize(text) else { return .failure(Violation(reason: tr("解釈できない（引用符・\\ の閉じ忘れ）"))) }
         while tokens.last == "*" { tokens.removeLast() }
-        guard !tokens.isEmpty else { return .failure(Violation(reason: "空")) }
+        guard !tokens.isEmpty else { return .failure(Violation(reason: tr("空"))) }
         return .success(tokens)
     }
 
@@ -90,10 +91,10 @@ public enum CommandPolicy {
         case .success(let t): tokens = t
         }
         let first = tokens[0]
-        if first.contains("*") { return "コマンド名に * は使えない（どのコマンドにも一致してしまう）" }
-        if first.contains("/") { return "コマンド名にパスは使えない（PATH の名前だけ）" }
-        if first.range(of: "^[A-Za-z0-9._+-]+$", options: .regularExpression) == nil { return "コマンド名に使えない文字がある" }
-        if forbidden.contains(first) { return "\(first) は、許可できない（シェル・別のコマンドを起動する・権限を上げる）" }
+        if first.contains("*") { return tr("コマンド名に * は使えない（どのコマンドにも一致してしまう）") }
+        if first.contains("/") { return tr("コマンド名にパスは使えない（PATH の名前だけ）") }
+        if first.range(of: "^[A-Za-z0-9._+-]+$", options: .regularExpression) == nil { return tr("コマンド名に使えない文字がある") }
+        if forbidden.contains(first) { return tr("\(first) は、許可できない（シェル・別のコマンドを起動する・権限を上げる）") }
         return nil
     }
 
@@ -120,16 +121,16 @@ public enum CommandPolicy {
 
     /// 実行してよいか。許可なら `nil`、拒否なら理由。
     public static func check(argv: [String], allowed: [String]) -> Violation? {
-        guard let first = argv.first else { return Violation(reason: "コマンドが空") }
-        if first.contains("/") { return Violation(reason: "パスでの指定は不可（\(first)）。コマンド名だけ") }
-        if forbidden.contains(first) { return Violation(reason: "\(first) は、許可できない") }
-        if argv.contains(where: { $0.contains("\0") }) { return Violation(reason: "引数に、使えない文字がある") }
+        guard let first = argv.first else { return Violation(reason: tr("コマンドが空")) }
+        if first.contains("/") { return Violation(reason: tr("パスでの指定は不可（\(first)）。コマンド名だけ")) }
+        if forbidden.contains(first) { return Violation(reason: tr("\(first) は、許可できない")) }
+        if argv.contains(where: { $0.contains("\0") }) { return Violation(reason: tr("引数に、使えない文字がある")) }
         // agent-desktop の、危険なキー（アプリの終了など）の保護を、外す指定は不可。
-        if first == "agent-desktop", argv.contains("--force") { return Violation(reason: "agent-desktop --force は不可") }
+        if first == "agent-desktop", argv.contains("--force") { return Violation(reason: tr("agent-desktop --force は不可")) }
         let permitted = allowed.contains { entry in
             guard case .success(let prefix) = normalize(entry) else { return false }
             return matches(prefix: prefix, argv: argv)
         }
-        return permitted ? nil : Violation(reason: "このスキルでは許可されていない（許可：\(allowed.joined(separator: "、"))）")
+        return permitted ? nil : Violation(reason: tr("このスキルでは許可されていない（許可：\(allowed.joined(separator: tr("、")))）"))
     }
 }

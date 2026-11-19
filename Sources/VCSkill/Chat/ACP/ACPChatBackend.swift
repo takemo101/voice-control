@@ -44,7 +44,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
     public init(agent: ChatAgent, tools: ChatToolLevel = .none, folder: URL? = nil, sandbox: Bool = false, model: String? = nil, auto: Bool = false, fallback: ExternalChatBackend? = nil,
                 launch: @escaping @Sendable (ChatAgent, ChatToolLevel) -> [String] = ACPChatBackend.liveLaunch,
                 now: @escaping @Sendable () -> Date = { Date() }, idleLimit: TimeInterval = 360, retryAfter: TimeInterval = 600, promptTimeout: TimeInterval = 110) {
-        guard let profile = ACPAgentProfile.of(agent) else { preconditionFailure("ACP に対応したエージェントだけ") }
+        guard let profile = ACPAgentProfile.of(agent) else { preconditionFailure("ACP に対応したエージェントだけ") }   // l10n-skip：照合に使う語・名前（画面に出ない）
         self.profile = profile
         self.agent = agent
         self.tools = agent.effective(tools)
@@ -119,10 +119,10 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
                     "protocolVersion": .number(1), "clientCapabilities": .object([:]),
                     "clientInfo": .object(["name": .string("voice-control"), "title": .string("voice-control")])]), timeout: 15)
                 lock.withLock { supportsClose = initialized["agentCapabilities"]?["sessionCapabilities"]?["close"] != nil }
-            } catch { fresh.close(); throw ACPError.unavailable("初期化に失敗しました（\(error)）") }
+            } catch { fresh.close(); throw ACPError.unavailable(tr("初期化に失敗しました（\(error)）")) }
             link = fresh
         }
-        guard let connection = link else { throw ACPError.unavailable("接続できません") }
+        guard let connection = link else { throw ACPError.unavailable(tr("接続できません")) }
         // 古いセッションは、閉じる（エージェントが、メモリ・作業を、解放できる。使える場合だけ）
         if let old = existing.1, lock.withLock({ supportsClose }) {
             _ = try? await connection.request("session/close", .object(["sessionId": .string(old)]), timeout: 5)
@@ -130,12 +130,12 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         let created: JSONValue
         do {
             created = try await connection.request("session/new", .object(["cwd": .string(workingDirectory().path), "mcpServers": .array([])]), timeout: 25)
-        } catch { connection.close(); throw ACPError.unavailable("セッションを作れません（\(error)）") }
-        guard let id = created["sessionId"]?.string else { connection.close(); throw ACPError.unavailable("セッションの番号が返りません") }
+        } catch { connection.close(); throw ACPError.unavailable(tr("セッションを作れません（\(error)）")) }
+        guard let id = created["sessionId"]?.string else { connection.close(); throw ACPError.unavailable(tr("セッションの番号が返りません")) }
         let modeApplied = await configure(connection: connection, sessionID: id, created: created)
         if profile.requiresMode && !modeApplied {
             connection.close()
-            throw ACPError.unavailable("モード（\(profile.wantedModes(level: tools).joined(separator: "・"))）を決められません")   // 確認なしで操作するモードのまま、使わない
+            throw ACPError.unavailable(tr("モード（\(profile.wantedModes(level: tools).joined(separator: tr("・")))）を決められません"))   // 確認なしで操作するモードのまま、使わない
         }
         lock.withLock { self.connection = connection; self.sessionID = id; self.knownTurns = -1 }
         return (connection, id, true)
@@ -219,15 +219,15 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             teardown()   // 接続が、閉じた・相手が、エラー：次は、新しく起動する
             throw ConversationError.failed("\(agent.rawValue)：\(error)")
         }
-        if timedOut.value { throw ConversationError.failed("\(agent.rawValue) の答えが、時間内に返りませんでした（進みがないまま、約 \(Int(timeout)) 秒）") }
+        if timedOut.value { throw ConversationError.failed(tr("\(agent.rawValue) の答えが、時間内に返りませんでした（進みがないまま、約 \(Int(timeout)) 秒）")) }
         // 取りやめ：利用者の Esc。**断った操作があるときの `cancelled` は、利用者の取りやめではない**（opencode は、許可を断ると、その質問を `cancelled` で終える）：答えとして、続ける
         if Task.isCancelled || (response["stopReason"]?.string == "cancelled" && turn.refusals == 0) { throw CancellationError() }
-        if response["stopReason"]?.string == "refusal" { throw ConversationError.failed("\(agent.rawValue) が、答えを断りました") }
+        if response["stopReason"]?.string == "refusal" { throw ConversationError.failed(tr("\(agent.rawValue) が、答えを断りました")) }
         let answer = turn.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // 断った操作があって、答えが空：エージェントは、何も言わずに終わることがある（実測）。失敗ではなく、断ったことを、答えにする
-        if answer.isEmpty, turn.blockedCommands > 0 { return "取り返しのつかない操作（大量の削除・権限の昇格など）なので、コマンドは、実行しませんでした。" }
-        if answer.isEmpty, turn.refusals > 0 { return "確認で断った（か、段階で許されていない）ので、操作は、実行しませんでした。" }
-        if answer.isEmpty { throw ConversationError.failed("\(agent.rawValue) の答えが、空でした") }
+        if answer.isEmpty, turn.blockedCommands > 0 { return tr("取り返しのつかない操作（大量の削除・権限の昇格など）なので、コマンドは、実行しませんでした。") }
+        if answer.isEmpty, turn.refusals > 0 { return tr("確認で断った（か、段階で許されていない）ので、操作は、実行しませんでした。") }
+        if answer.isEmpty { throw ConversationError.failed(tr("\(agent.rawValue) の答えが、空でした")) }
         return answer
     }
 

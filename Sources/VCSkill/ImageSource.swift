@@ -13,7 +13,7 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable, Hashable {
     case screenshot, clipboard, any
 
     /// 依頼に、これらの言葉があれば、コピーした画像を見る（「コピーした画像を…」）。**なければ、撮ったスクリーンショットが先**（なければ、コピーした画像）。
-    static let clipboardWords = ["コピー", "クリップボード"]
+    static let clipboardWords = ["コピー", "クリップボード"]   // l10n-skip：モデル・照合に渡す文（画面に出ない）
 
     /// 実際に見る取り先（`any` を、依頼の文と、いまあるものから決める。`screenshot`・`clipboard` は、そのまま）。**言語モデルが、決めない**：画面の上のパネルに出す画像と、`vc see` が見る画像が、必ず同じになる。
     /// 「コピー」と言ったのに、コピーした画像がないときは、スクリーンショットで代わりにしない（案内が出る）。
@@ -47,11 +47,11 @@ public enum ImageSource: String, Sendable, Equatable, CaseIterable, Hashable {
         public var description: String {
             switch self {
             case let .screenshot(missing): return "\(missing)"
-            case .clipboardEmpty: return "クリップボードに画像がありません。画像をコピーしてから、頼んでください"
-            case let .clipboardNotAnImage(formats): return "クリップボードにあるのは、画像ではありません（形式：\(formats.prefix(6).map { String($0.prefix(60)) }.joined(separator: "・"))）。画像をコピーしてから、頼んでください"
-            case .clipboardUnreadable: return "クリップボードの画像を読めません"
-            case .noImage: return "スクリーンショットも、コピーした画像も、ありません。画面を撮る（ショートカット）か、画像をコピーしてから、頼んでください"
-            case .clipboardTooLarge: return "クリップボードの画像が大きすぎます（\(ImageSource.maxClipboardMegabytes) MB まで）"
+            case .clipboardEmpty: return tr("クリップボードに画像がありません。画像をコピーしてから、頼んでください")
+            case let .clipboardNotAnImage(formats): return tr("クリップボードにあるのは、画像ではありません（形式：\(formats.prefix(6).map { String($0.prefix(60)) }.joined(separator: "・"))）。画像をコピーしてから、頼んでください")
+            case .clipboardUnreadable: return tr("クリップボードの画像を読めません")
+            case .noImage: return tr("スクリーンショットも、コピーした画像も、ありません。画面を撮る（ショートカット）か、画像をコピーしてから、頼んでください")
+            case .clipboardTooLarge: return tr("クリップボードの画像が大きすぎます（\(ImageSource.maxClipboardMegabytes) MB まで）")
             }
         }
     }

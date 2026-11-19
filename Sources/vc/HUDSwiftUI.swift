@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VCCore
 
 // 画面の上のパネル（`HUD`）の中身（SwiftUI）。Liquid Glass のカード・状態の色のにじみ・動く部品（波形・脈打つ輪・考え中のドット・光が流れる題・ばねで弾むバッジ）。
 // 窓の管理（位置・フェード・Space・キー・クリックを通すか）は、`HUD`（AppKit）。ここは、描くだけ。
@@ -195,7 +196,7 @@ private struct CaptionPlate: View {
                     captionText(live, caretOn: caretOn)
                 }
             } else {
-                Text(hint ?? "話してください…").vcFont(12.5).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity, alignment: .leading)
+                Text(hint ?? tr("話してください…")).vcFont(12.5).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -369,8 +370,8 @@ private struct FullCard: View {
 
     private var choices: some View {
         HStack(spacing: 10) {
-            ChoiceButton(title: "実行する", tint: Palette.ok, prominent: true, focused: model.focusedChoice == 0) { answer(true) }
-            ChoiceButton(title: "やめる", tint: .white, prominent: false, focused: model.focusedChoice == 1) { answer(false) }
+            ChoiceButton(title: tr("実行する"), tint: Palette.ok, prominent: true, focused: model.focusedChoice == 0) { answer(true) }
+            ChoiceButton(title: tr("やめる"), tint: .white, prominent: false, focused: model.focusedChoice == 1) { answer(false) }
         }
         .padding(.top, 2)
     }
@@ -399,7 +400,7 @@ private struct ImageRow: View {
                 .shadow(color: .black.opacity(0.38), radius: 8, y: 4)
             VStack(alignment: .leading, spacing: 6) {
                 Pill(text: "\(Int(image.pixelSize.width)) × \(Int(image.pixelSize.height))")
-                if image.sendsOut { Pill(text: "外へ送る画像", tint: Palette.warn) } else { Pill(text: "この Mac の中だけ", tint: Palette.ok) }
+                if image.sendsOut { Pill(text: tr("外へ送る画像"), tint: Palette.warn) } else { Pill(text: tr("この Mac の中だけ"), tint: Palette.ok) }
             }
             Spacer(minLength: 0)
         }

@@ -69,15 +69,21 @@ struct CommandContext {
         do { return try resolveSpeechChoice(settings: currentSettings()) } catch { fail("\(error)") }
     }
 
+    /// 音声認識の言語（設定 `sttLanguage`。なければ日本語）。書き方が違えば、理由を示して終わる。
+    var sttLanguage: AppLanguage {
+        if let choices { return choices.sttLanguage }
+        do { return try resolveSttLanguage(settings: currentSettings()) } catch { fail("\(error)") }
+    }
+
     /// 使う音声認識を開く（ダウンロードしたモデルは、ここで読み込む）。開けなければ、理由を示して終わる。
     func makeSpeechEngine() -> SpeechEngine {
-        do { return try SpeechEngine.make(speechChoice) } catch { fail("\(error)") }
+        do { return try SpeechEngine.make(speechChoice, language: sttLanguage) } catch { fail("\(error)") }
     }
 
     /// モデルの場所：--model、環境変数 VC_MODEL_DIR、~/.voice-control/models/tiny-jev-0.6b（設定ウィンドウ > モデル で取得した置き場所）、./models/tiny-jev-0.6b（開発用）の順に、最初に tokenizer.json があるもの。
     /// 使うときまで解決しない（`vc skills` などは、モデルがなくても動く）。
     func resolveModelDir() -> URL {
-        guard let found = findModelDirectory() else { fail("モデルが見つかりません（探した場所: \(modelCandidates.joined(separator: ", "))）。設定ウィンドウ > モデル で取得") }
+        guard let found = findModelDirectory() else { fail(tr("モデルが見つかりません（探した場所: \(modelCandidates.joined(separator: ", "))）。設定ウィンドウ > モデル で取得")) }
         return found
     }
 
@@ -92,7 +98,7 @@ struct CommandContext {
     }
 
     func loadJev() -> TinyJev {
-        do { return try tryLoadJev() } catch { fail("モデルを読めません: \(error)（設定ウィンドウ > モデル で取得）") }
+        do { return try tryLoadJev() } catch { fail(tr("モデルを読めません: \(error)（設定ウィンドウ > モデル で取得）")) }
     }
 
     /// `loadJev` の、`fail` しない版（アプリは、起動できない理由を、ダイアログとメニューに出す）。
@@ -100,7 +106,7 @@ struct CommandContext {
         guard let directory = findModelDirectory() else { throw ModelMissing(searched: modelCandidates) }
         let t0 = Date()
         let jev = try TinyJev(directory: directory, length: options.length)
-        _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // グラフのコンパイルを、計測の外へ出す
+        _ = try jev.choose(state: "テスト", question: "テスト", options: ["a", "b"])  // l10n-skip: グラフのコンパイルを、計測の外へ出す
         eprint(Style.dim(String(format: "model loaded %.1fs (length %d)", Date().timeIntervalSince(t0), options.length)))
         ImageSourceJudge.shared.install(jev)   // 画像の取り先（スクリーンショットか、コピーした画像か）の選び方
         return jev
@@ -108,7 +114,7 @@ struct CommandContext {
 
     struct ModelMissing: Error, CustomStringConvertible {
         let searched: [String]
-        var description: String { "モデルが見つかりません（探した場所: \(searched.joined(separator: ", "))）" }
+        var description: String { tr("モデルが見つかりません（探した場所: \(searched.joined(separator: ", "))）") }
     }
 
     /// Tiny-Jev を、使うときまで読み込まない形で渡す（`vc pick`・`vc find` を使うスキルが、選ぶのに使う）。`loaded` があれば、それを使う（読み込み済みを、読み直さない）。

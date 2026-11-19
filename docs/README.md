@@ -35,11 +35,13 @@ voice-control の補助文書の入口。製品要件・受け入れ条件・対
 
 ```text
 README.md              概要・使い方
+README.en.md           English summary（要点だけの英語版）
 SPEC.md                製品要件・受け入れ条件（実装の状態つき）・対象外・未決事項
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 Resources/
   AppIcon.icns         アプリのアイコン（scripts/make-icon.sh の生成物）
+  ja.lproj/・en.lproj/  許可のダイアログの説明（`InfoPlist.strings`。Mac の言語に合わせる）
   Info.plist           アプリの Info.plist（bundle ID・使用目的の説明・LSUIElement。版は、build-app.sh が入れる）
 Package.swift          SwiftPM（macOS 26。外部の Swift パッケージは、Mermaid の BeautifulMermaid と elk-swift だけ）
 justfile               開発用コマンド（build・test・app・dmg・install・uninstall・reset-permissions・eval・fixture・vc）
@@ -55,7 +57,7 @@ Sources/
   VCSpeech/            文字起こし・録音・トリガー（HotKeySpec：ホットキーの書き方・Settings+HotKey：設定の解釈）・Esc（EscapeKey）・声の流れの調整（VoiceLoop：トリガー・録音・Esc・認識の待ち行列・発話ごとの Task。差し替え口は Transcribing・Recording・EscapeSource。状態は VoiceActivity・VoiceInputQueue）
 Tests/                 単体テスト（Swift Testing）。ターゲットごと（`Tests/<ターゲット>Tests/`。1 ファイル 1 領域でファイル名はスイート名）：VCCoreTests・VCDecisionTests・VCSpeechTests・VCSkillTests・vcTests（`vc` の引数の読み方・コマンドの一覧・スキルの実行の表示）。Tests/TestSupport/ は、複数のターゲットが使う偽物（`OptionScorer` の偽物など）の、テスト専用のターゲット（テストターゲットだけが依存し、本番のターゲットは依存しない）
 adapters/              ACP アダプターの版を固定したもの（claude/・codex/ の package.json と package-lock.json。アプリに同梱し、利用者が選んだときだけ入れる）
-corpus/                評価用の文（command-safety*.tsv：自動モードのコマンドの無害判定〔`vc eval-judge command` と command-auto〕・gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`。chat-image*.tsv：会話で撮ったスクリーンショットを使うかの判定〔`vc eval-judge image`〕・chat-web*.tsv：最新の情報が要る質問かの判定〔`vc eval-judge web`〕・image-source*.tsv：スクリーンショットとコピーした画像の選び分け〔`vc eval-judge source`〕）
+corpus/                評価用の文（gate-en.tsv：gate.tsv の英語の訳〔音声認識の言語が英語のときの測定〕・command-safety*.tsv：自動モードのコマンドの無害判定〔`vc eval-judge command` と command-auto〕・gate.tsv：「操作の依頼か」の判定。`vc eval-gate`・`just eval`。chat-image*.tsv：会話で撮ったスクリーンショットを使うかの判定〔`vc eval-judge image`〕・chat-web*.tsv：最新の情報が要る質問かの判定〔`vc eval-judge web`〕・image-source*.tsv：スクリーンショットとコピーした画像の選び分け〔`vc eval-judge source`〕）
 skills/
   voice-control-skill-author/  スキルを作るスキル（エージェント向け）
 .voice-control/
@@ -73,6 +75,7 @@ scripts/
   test.sh              単体テスト（Swift Testing のマクロプラグインのパスを渡す）
   build-native.sh      音声認識の実行環境 transcribe.cpp を、固定した commit から、静的ライブラリにビルドする
   eval-skills.py       スキルの選択・実行の測定（corpus/skills.tsv）
+  check-l10n.py        英語の翻訳の抜け・重複・包まれていない日本語の文字列を調べる（`just l10n`。CI も実行）
   update-adapters.sh   ACP アダプター（claude・codex）の版を上げる（adapters/<名前>/ の package.json・package-lock.json を作り直す）
   site/                製品ページ・README の画像と動画の作り方：render.sh（設定のウィンドウを、画面の外で描く。許可不要）・capture.sh と encode.sh（画面収録の許可が要る。パネル・Markdown のウィンドウ・会話のウィンドウ）・stage.swift（撮影用の背景）
 site/                  製品ページ（GitHub Pages。素の HTML・CSS・JavaScript。assets/ に、画像・動画）

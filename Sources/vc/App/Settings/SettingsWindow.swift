@@ -23,7 +23,7 @@ import VCSpeech
     static func makeWindow(model: SettingsModel) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: settingsWidth, height: settingsHeight), styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
         window.contentView = NSHostingView(rootView: SettingsView(model: model))
-        window.title = "voice-control の設定"
+        window.title = tr("voice-control の設定")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
@@ -57,14 +57,14 @@ struct SettingsView: View {
                 case .applying:
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("設定を反映しています…").font(.system(size: 12, weight: .medium))
+                        Text(tr("設定を反映しています…")).font(.system(size: 12, weight: .medium))
                         Spacer()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 9).background(Brand.rec2.opacity(0.14))
                 case .applied:
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.ok)
-                        Text("反映しました").font(.system(size: 12, weight: .medium))
+                        Text(tr("反映しました")).font(.system(size: 12, weight: .medium))
                         Spacer()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 9).background(Brand.ok.opacity(0.14))
@@ -72,10 +72,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.rec1)
-                            Text("設定を反映できませんでした").font(.system(size: 12, weight: .semibold))
+                            Text(tr("設定を反映できませんでした")).font(.system(size: 12, weight: .semibold))
                             Spacer()
-                            Button("もう一度") { model.retryApply() }.controlSize(.small)
-                            Button("再起動") { AppActions.relaunch() }.controlSize(.small)
+                            Button(tr("もう一度")) { model.retryApply() }.controlSize(.small)
+                            Button(tr("再起動")) { AppActions.relaunch() }.controlSize(.small)
                         }
                         Text(reason).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(3)
                     }
@@ -113,7 +113,7 @@ private struct Sidebar: View {
                 if let icon = NSApp.applicationIconImage { Image(nsImage: icon).resizable().frame(width: 38, height: 38) }
                 VStack(alignment: .leading, spacing: 1) {
                     Text("voice-control").font(.system(size: 14, weight: .semibold))
-                    Text("バージョン \(AppInfo.version)").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(tr("バージョン \(AppInfo.version)")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 16).padding(.top, 38).padding(.bottom, 18)
@@ -134,7 +134,7 @@ private struct Sidebar: View {
             }
             .padding(.horizontal, 10)
             Spacer()
-            Text("音声・画面は、\nこの Mac の外へ出しません").font(.system(size: 10)).foregroundStyle(.tertiary).padding(16)
+            Text(tr("音声・画面は、\nこの Mac の外へ出しません")).font(.system(size: 10)).foregroundStyle(.tertiary).padding(16)
         }
         .frame(maxHeight: .infinity)
         .background(VisualEffect(material: .sidebar))

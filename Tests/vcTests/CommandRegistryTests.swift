@@ -20,7 +20,7 @@ import Testing
     @Test func overviewListsEveryCommandUnderItsGroup() {
         let lines = plain(Help.overview()).split(separator: "\n").map(String.init)
         for group in CommandGroup.allCases {
-            guard let start = lines.firstIndex(of: group.rawValue) else { Issue.record("見出しがない: \(group.rawValue)"); continue }
+            guard let start = lines.firstIndex(of: group.title) else { Issue.record("見出しがない: \(group.title)"); continue }
             let end = lines[(start + 1)...].firstIndex { !$0.hasPrefix("  ") && !$0.isEmpty } ?? lines.endIndex
             let section = lines[(start + 1)..<end].joined(separator: "\n")
             for info in Help.commands where info.group == group {
