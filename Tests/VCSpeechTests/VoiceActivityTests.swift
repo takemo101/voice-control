@@ -90,17 +90,22 @@ import VCCore
         if case .audio(let got) = await queue.next() { #expect(got == url) } else { Issue.record("次の発話が、横取りされた") }
     }
 
-    @Test func aNewUtteranceOfTheSameKindIsDeferredInsteadOfCancellingTheRunningWork() {
+    @Test func aNewUtteranceOfTheSameKindWaitsInsteadOfCancellingTheRunningWork() {
         let activity = VoiceActivity()
         let token = CancelToken()
-        #expect(!activity.defersNewUtterance(keepsRunning: { _ in true }))             // 何も動いていなければ、待たせない
+        #expect(activity.disposition(keepsRunning: { _ in true }) == .interrupt)       // 何も動いていなければ、待たせない
         activity.beginWork(token, tag: "chat")
-        #expect(activity.defersNewUtterance(keepsRunning: { $0 == "chat" }))           // 会話に、会話が続く：先に認識して、待たせる
-        #expect(!activity.defersNewUtterance(keepsRunning: { $0 == "listen" }))        // 別の流れ：従来どおり
+        #expect(activity.disposition(keepsRunning: { $0 == "chat" }) == .queueBehind)  // 会話に、会話が続く。まだ認識中：列で、順番を待つ（順番が、入れ替わらない）
+        activity.beginHandling()
+        #expect(activity.disposition(keepsRunning: { $0 == "chat" }) == .recognizeNow) // 発話の処理に入った：先に認識して、並べる
+        #expect(activity.disposition(keepsRunning: { $0 == "listen" }) == .interrupt)  // 別の流れ：従来どおり
         activity.beginAwaitingReply()
-        #expect(!activity.defersNewUtterance(keepsRunning: { _ in true }))             // 確認の返事を待っている間は、来た発話は、返事
+        #expect(activity.disposition(keepsRunning: { _ in true }) == .interrupt)       // 確認の返事を待っている間は、来た発話は、返事（取りやめない）
         activity.endAwaitingReply()
         #expect(!token.isCancelled && !token.isSuperseded)
+        activity.endWork()
+        activity.beginWork(CancelToken(), tag: "chat")
+        #expect(activity.disposition(keepsRunning: { _ in true }) == .queueBehind)     // 次の処理は、また、認識から（印は、持ち越さない）
     }
 
     @Test func forcedInterruptWorksEvenWhileWaitingForAConfirmationReply() {

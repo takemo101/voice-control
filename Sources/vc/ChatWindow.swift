@@ -30,17 +30,16 @@ import VCSkill
     /// いま考えている声の質問を、取りやめる（声の流れが持つ：`VoiceSession`）。「今すぐ送る」で、使う。
     var interruptVoiceTurn: (@MainActor () -> Void)?
 
-    /// 順番待ちの声の質問（先に認識したもの）を、声の流れの処理へ戻す（声の流れが持つ：`VoiceSession`）。
-    var injectSpoken: (@MainActor (String) -> Void)?
-    /// 戻した発話（その発話の `waitForTurn` は、待たずに通す）。
+    /// 順番待ちの声の質問を、声の流れの処理へ戻す（声の流れが持つ：`VoiceSession`）。
+    /// 戻せなければ false（声の流れが、止まっている）。
+    var injectSpoken: (@MainActor (String) -> Bool)?
+    /// 戻した発話（その発話の `claimTurn` は、待たずに通す）。
     private var injectedText: String?
     /// 質問を始めようとしている（始める処理が、`begin` を呼ぶまでの間）。この間に来た質問も、順番待ちに入る。
     private var starting = false
     private var reservation = 0
     /// 停止（ボタン）で、止めている最中。順番待ちは、送らずに、捨てる。
     private var stopRequested = false
-    /// 順番を待っている声の質問（声の流れの処理が、待っている）。
-    private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
     /// 声の状態（録音・認識）を、知らせる（下の案内に出す）。
     func setVoiceState(_ voice: ChatVoiceState) { state.voice = voice }
@@ -48,8 +47,15 @@ import VCSkill
     /// 会話のキーの名前（案内に出す）。
     func setKeyHint(_ hint: String?) { state.keyHint = hint }
     var hasPending: Bool { state.entries.hasPending }
-    /// 順番待ちの文（古い順）。
+    /// 順番待ち（古い順）。
+    var queued: [QueuedMessage] { state.queue.items }
     var queuedTexts: [String] { state.queue.items.map(\.text) }
+    /// 会話の記録（ウィンドウの中身）。
+    var transcript: [ChatEntry] { state.entries }
+    /// 入力欄の文字。
+    var draftText: String { state.draft }
+    /// 始める予約が、質問の開始（`begin`）なしに、残り続けないための、待ち時間（これを過ぎたら、外して、次へ進む）。テストで、短くする。
+    var reservationTimeout: Duration = .seconds(15)
     /// 考えている最中か（質問を始めようとしている間も含む）。
     var isBusy: Bool { state.entries.hasPending || starting }
 
@@ -119,9 +125,12 @@ import VCSkill
 
     /// 記録を、すべて消す（会話の終了・リセット）。添えた画像も、外す。
     func clear() {
+        cancelCurrent()   // 考えている質問が、裏で動き続けないように（新しい会話に、前の答えが、混ざらない）
         state.entries = []
         dropQueue(reason: nil)
         starting = false
+        injectedText = nil
+        stopRequested = false
         detachImage()
     }
 
@@ -139,13 +148,14 @@ import VCSkill
         }
     }
 
-    /// 始める予約をする（`begin` が呼ばれるまで、ほかの質問を割り込ませない）。**予約が、残り続けない**ように、一定時間（15 秒）で、質問が始まっていなければ、外す（始める処理が、途中で消えたとき：設定の反映での作り直しなど）。
+    /// 始める予約をする（`begin` が呼ばれるまで、ほかの質問を割り込ませない）。**予約が、残り続けない**ように、一定時間（`reservationTimeout`。15 秒）で、質問が始まっていなければ、外す（始める処理が、途中で消えたとき：設定の反映での作り直しなど）。
     private func reserveStart() {
         starting = true
         reservation += 1
         let mine = reservation
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(15))   // try?: 取りやめられても、予約の見張りが、なくなるだけ
+            guard let timeout = self?.reservationTimeout else { return }
+            try? await Task.sleep(for: timeout)   // try?: 取りやめられても、予約の見張りが、なくなるだけ
             guard let self, self.starting, self.reservation == mine, !self.state.entries.hasPending else { return }
             self.starting = false
             self.injectedText = nil
@@ -160,29 +170,26 @@ import VCSkill
         dispatchNext()
     }
 
-    /// 声の質問の、順番を待つ。すぐ始められれば true。考えている間は、順番待ちに入れて、順番が来るまで待つ（来たら true。取り下げ・取りやめ・停止なら false）。
-    func waitForTurn(_ text: String) async -> Bool {
-        if let injected = injectedText, injected == text { injectedText = nil; return true }   // 順番が来て、声の流れへ戻した発話（予約は、済み）
+    /// 声の質問（声の流れが、文字にした）：すぐ始められれば true（始める予約を、持つ）。考えている間は、順番待ちに入れて false（**待たずに、すぐ戻る**：声の流れを、塞がない。順番が来たら、声の流れへ戻す）。順番が来て戻した発話は、予約が済んでいるので、true。
+    func claimTurn(_ text: String) -> Bool {
+        if let injected = injectedText, injected == text { injectedText = nil; return true }
         if !isBusy && state.queue.isEmpty { reserveStart(); return true }
-        let item = state.queue.enqueue(text, source: .voice)
+        state.queue.enqueue(text, source: .voice)
         state.scrollToken += 1
-        return await withTaskCancellationHandler {
-            await withCheckedContinuation { waiters[item.id] = $0 }
-        } onCancel: {
-            Task { @MainActor in ChatWindow.shared.cancelWaiter(item.id) }
-        }
+        return false
+    }
+
+    /// 戻した発話が、質問にならずに終わる（「会話を終わりにして」など）：予約を外す。戻した発話でなければ、何もしない。
+    func dropInjection(_ text: String) {
+        guard injectedText == text else { return }
+        injectedText = nil
+        releaseStart()
     }
 
     /// 質問を始められなかった（取りやめ）：始める予約を、外す。
     func releaseStart() {
         starting = false
         dispatchNext()
-    }
-
-    private func cancelWaiter(_ id: UUID) {
-        guard let waiter = waiters.removeValue(forKey: id) else { return }
-        state.queue.remove(id)
-        waiter.resume(returning: false)
     }
 
     /// 次の順番を、始める（考えていないときだけ）。
@@ -192,14 +199,14 @@ import VCSkill
         switch batch.source {
         case .typed: startTyped?(batch.text)
         case .voice:
-            if let waiter = waiters.removeValue(forKey: batch.ids[0]) {
-                waiter.resume(returning: true)
-            } else if let injectSpoken {   // 先に認識した発話：声の流れの処理（確認の返事・読み上げ）へ戻す
-                injectedText = batch.text
-                injectSpoken(batch.text)
+            injectedText = batch.text
+            if let injectSpoken, injectSpoken(batch.text) {   // 声の質問：声の流れの処理（確認の返事・読み上げ）へ戻す
+                // 戻した：その処理が、`claimTurn` で、受け取る
             } else {
-                starting = false   // 戻す先がない：始められない（記録に、残す）
+                injectedText = nil
+                starting = false   // 戻す先がない：始められない（記録に、残して、次の順番へ進む）
                 state.entries.addStopped(question: batch.text, reason: tr("送られませんでした（声の流れが止まっています）"))
+                dispatchNext()
             }
         }
     }
@@ -214,28 +221,24 @@ import VCSkill
     private func dropQueue(reason: String?) {
         for item in state.queue.removeAll() {
             if let reason { state.entries.addStopped(question: item.text, reason: reason) }
-            waiters.removeValue(forKey: item.id)?.resume(returning: false)
         }
     }
 
     /// 順番待ちの 1 件を、取り下げる（文字なら、入力欄が空のとき、戻す）。
-    private func removeQueued(_ id: UUID) {
+    func removeQueued(_ id: UUID) {
         guard let item = state.queue.remove(id) else { return }
-        if item.source == .voice { waiters.removeValue(forKey: id)?.resume(returning: false) } else if state.draft.isEmpty { state.draft = item.text }
+        if state.draft.isEmpty { state.draft = item.text }   // 声の質問も、文字にして、入力欄へ戻す（直して、送り直せる）
     }
 
-    /// テスト用：順番待ちの `index` 番目を、「今すぐ送る」。
-    func sendNowForTesting(_ index: Int) { if state.queue.items.indices.contains(index) { sendNow(state.queue.items[index].id) } }
-
     /// 「今すぐ送る」：いまの質問を止めて、この 1 件を先に始める（残りは、そのあと）。
-    private func sendNow(_ id: UUID) {
+    func sendNow(_ id: UUID) {
         guard state.queue.items.contains(where: { $0.id == id }) else { return }
         state.queue.moveToFront(id)
         if isBusy { cancelCurrent() } else { dispatchNext() }
     }
 
     /// 停止：いまの質問を止める。順番待ちは、送らない。
-    private func stopCurrent() {
+    func stopCurrent() {
         guard state.entries.hasPending else { return }
         stopRequested = true
         cancelCurrent()

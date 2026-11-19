@@ -106,7 +106,7 @@ import VCSpeech
                 ChatWindow.shared.enqueueSpoken(text)
             }
         }
-        ChatWindow.shared.injectSpoken = { text in loop.inject(text, tag: VoiceMode.chat) }
+        ChatWindow.shared.injectSpoken = { text in loop.inject(text, tag: VoiceMode.chat) }   // 止まっていれば、false（ウィンドウが、記録に残す）
         loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
             HUD.shared.show(HUDContent(phase: .recording, title: tr("録音中"), hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))

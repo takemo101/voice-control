@@ -447,5 +447,12 @@ final class EventTags: @unchecked Sendable {
         try? await Task.sleep(nanoseconds: 200_000_000)   // 認識の後始末が、済むまで
         #expect(!h.log.labels.contains("recognized:text-a2") && delivered.next() == 1)   // 渡っていない（`next()` の初回の値が 1＝まだ、呼ばれていない）
     }
+
+    @Test func anUtteranceCannotBeInjectedIntoAStoppedLoop() {
+        let h = Harness { _, _, _, _ in }
+        #expect(h.loop.inject("ok", tag: ""))
+        h.loop.stop()
+        #expect(!h.loop.inject("late", tag: ""))     // 止まった流れへは、戻せない（呼び出し側が、記録に残す）
+    }
 }
 

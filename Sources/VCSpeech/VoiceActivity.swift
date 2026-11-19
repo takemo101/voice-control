@@ -70,6 +70,8 @@ final class VoiceActivity: @unchecked Sendable {
     private var running = false
     /// 実行中の処理の印（どの流れの発話か）。新しい発話が、実行中の処理を、取りやめるかの判断に使う。
     private var runningTag: String?
+    /// 実行中の処理が、認識を終えて、**発話の処理（`handler`）に入っている**か。
+    private var handling = false
     private var awaitingReply = 0
     private var token: CancelToken?
     private var task: Task<Void, Never>?
@@ -130,10 +132,15 @@ final class VoiceActivity: @unchecked Sendable {
         return true
     }
 
-    /// 新しい発話を、実行中の処理を**取りやめずに**、先に認識して、順番を待たせるか（`keepsRunning`：実行中の処理の印を見て決める。会話の質問に、続けて話したとき）。確認の返事を待っている間は、false（来た発話は、返事）。
-    func defersNewUtterance(keepsRunning: (String?) -> Bool) -> Bool {
+    /// 実行中の処理があるときの、新しい発話の扱い（`keepsRunning`：実行中の処理の印を見て、**取りやめずに待たせる**か。会話の質問に、続けて話したとき）。
+    /// - `interrupt`：従来どおり、取って代わる（実行中でない・別の流れ）。確認の返事を待っている間も、ここ（来た発話は、返事：取りやめは、しない）。
+    /// - `recognizeNow`：実行中の処理は、続ける。この発話は、**その場で先に認識**して、順番待ちに並べる（実行中の処理が、発話の処理に入っているとき）。
+    /// - `queueBehind`：実行中の処理は、続ける。この発話は、列で、順番を待つ（実行中の処理が、まだ認識中のとき：**順番が、入れ替わらないように**、先に認識して並べない）。
+    enum NewUtteranceDisposition: Equatable, Sendable { case interrupt, recognizeNow, queueBehind }
+    func disposition(keepsRunning: (String?) -> Bool) -> NewUtteranceDisposition {
         lock.lock(); defer { lock.unlock() }
-        return running && awaitingReply == 0 && keepsRunning(runningTag)
+        guard running, awaitingReply == 0, keepsRunning(runningTag) else { return .interrupt }
+        return handling ? .recognizeNow : .queueBehind
     }
 
     /// 実行中の処理を、いますぐ、取りやめる（会話の「今すぐ送る」：確認の返事を待っていても、やめる）。取りやめたら true。
@@ -147,9 +154,12 @@ final class VoiceActivity: @unchecked Sendable {
         return true
     }
 
-    func beginWork(_ token: CancelToken, tag: String? = nil) { commit { self.token = token; runningTag = tag; running = true } }
+    func beginWork(_ token: CancelToken, tag: String? = nil) { commit { self.token = token; runningTag = tag; handling = false; running = true } }
+
+    /// 認識を終えて、発話の処理に入った（`defersNewUtterance` の判断に使う）。
+    func beginHandling() { lock.lock(); handling = true; lock.unlock() }
     func setTask(_ task: Task<Void, Never>) { lock.lock(); self.task = task; lock.unlock() }
-    func endWork() { commit { running = false; runningTag = nil; token = nil; task = nil } }
+    func endWork() { commit { running = false; runningTag = nil; handling = false; token = nil; task = nil } }
 
     /// Esc：録音中なら、録音を捨てる。そうでなく、処理中なら、取りやめる。
     func escape() -> Target {

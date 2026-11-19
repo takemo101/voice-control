@@ -193,7 +193,13 @@ public final class VoiceLoop {
     public var isBusy: Bool { activity.isActive }
 
     /// 認識済みの発話を、この流れの処理に、戻す（順番待ちが、順番になった：会話）。ほかの処理が、動いていなければ、すぐ始まる。
-    public func inject(_ text: String, tag: String) { queue.push(.text(text, tag: tag)) }
+    /// この流れが止まっていれば、戻せない（false：呼び出し側が、別の扱いにする）。
+    @MainActor @discardableResult
+    public func inject(_ text: String, tag: String) -> Bool {
+        guard !stopped else { return false }
+        queue.push(.text(text, tag: tag))
+        return true
+    }
 
     /// 実行中の処理を、いますぐ、取りやめる（会話の「今すぐ送る」）。
     public func interruptRunning() { _ = activity.interruptRunning() }
@@ -206,6 +212,7 @@ public final class VoiceLoop {
         trigger.invalidate()
         escape.onEscape = nil
         escape.setActive(false)
+        deferredRecognizer.cancelAll()   // 先に認識していた、待たせた発話は、やめる（止まった流れに、届けない）
         queue.push(.cancel)   // 待っている `consume` を起こして、終わらせる
     }
 
@@ -245,7 +252,8 @@ public final class VoiceLoop {
             }
             do {
                 if let file = try recorder.stop() {
-                    if let keep = keepsRunning, activity.defersNewUtterance(keepsRunning: { keep(tag, $0) }) {
+                    let disposition = keepsRunning.map { keep in activity.disposition(keepsRunning: { keep(tag, $0) }) } ?? .interrupt
+                    if disposition == .recognizeNow {
                         // 会話の質問に、続けて話した：実行中の処理は、取りやめない。この発話は、**その場で、先に認識**して、順番待ちに入れる（順番が来たら、`inject` で戻る）
                         activity.stopRecording(queuedAudio: false)
                         deferredRecognizer.submit(file, tag: tag)
@@ -253,8 +261,8 @@ public final class VoiceLoop {
                         activity.stopRecording(queuedAudio: true)
                         tags.push(tag)
                         queue.push(.audio(file))
-                        // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）
-                        if activity.interruptForNewUtterance() { emit(.interrupted, tag) }
+                        // 実行中（認識中を含む）の処理は、取りやめる：新しい依頼を、先に進める（確認の返事を待っているときは、取りやめない）。`queueBehind`：取りやめず、列で順番を待つ
+                        if disposition == .interrupt, activity.interruptForNewUtterance() { emit(.interrupted, tag) }
                     }
                 } else {
                     activity.stopRecording(queuedAudio: false)
@@ -293,6 +301,7 @@ public final class VoiceLoop {
                 activity.beginWork(token, tag: tag)
                 let work = Task {
                     let next: NextUtterance = { [self] in try await nextUtterance(token, tag) }
+                    self.activity.beginHandling()
                     await self.handler(text, token, next, tag)
                 }
                 activity.setTask(work)
@@ -322,6 +331,7 @@ public final class VoiceLoop {
                 if token.isCancelled || token.isSuperseded { return }
                 if !proceed { return }
             }
+            activity.beginHandling()   // ここから、続けて話した発話は、その場で先に認識する（認識中は、列で待つ）
             await handler(heard.text, token, next, tag)
         } catch {
             if token.isSuperseded { return }   // 新しい発話に、取って代わられた：何も出さない（新しい発話の表示を、上書きしない）
