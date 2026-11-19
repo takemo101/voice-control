@@ -58,16 +58,15 @@ import VCSpeech
         ChatMode.shared.scorer = jev   // 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）
         let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
         // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
-        ChatWindow.shared.submit = { text in
+        ChatWindow.shared.startTyped = { text in
             Task { @MainActor in
-                guard !ChatWindow.shared.hasPending else { return }
                 let token = CancelToken()
                 let box = TypedTask()
                 let waitForever: NextUtterance = { try await Task.sleep(for: .seconds(86_400)); return nil }
                 // 声の質問が来たら、この質問は、中断する（処理も止める）
                 let cancel: () -> Void = { token.supersede(); box.task?.cancel() }
                 box.task = Task { @MainActor in
-                    await ChatVoice.handle(text, token: token, context: context, chip: tr("入力"), speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel)
+                    await ChatVoice.handle(text, token: token, context: context, chip: tr("入力"), speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel, fromQueue: true)
                 }
             }
         }
@@ -96,6 +95,9 @@ import VCSpeech
                 if case .recordingDiscarded = event { MainActor.assumeIsolated { handsFree.observe(event) } }   // Esc：手放しの状態を解く
                 VoiceUI.show(event, chip: chips[tag] ?? chip, muter: muter, dictation: tag == VoiceMode.dictate, chat: tag == VoiceMode.chat)
             })
+        // 会話の質問が、考えている間に、続けて話したとき：取りやめずに、順番を待たせる（Zed・Codync と同じ。ほかの流れの発話は、従来どおり、取って代わる）
+        loop.keepsRunning = { newTag, runningTag in newTag == VoiceMode.chat && runningTag == VoiceMode.chat }
+        ChatWindow.shared.interruptVoiceTurn = { loop.interruptRunning() }
         loop.uncertainty = VoiceHandlers.uncertainty(context, jev: jev, chips: chips, fallbackChip: chip)
         handsFree.onHandsFree = { tag in
             HUD.shared.show(HUDContent(phase: .recording, title: tr("録音中"), hint: HandsFreeGroup.hint, chip: chips[tag] ?? chip))

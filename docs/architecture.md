@@ -68,6 +68,13 @@ flowchart TB
 - **操作のショートカット**（直前の貼り直し・送るキーの切り替え）は、`DictationActions.install` が、`ScreenFlow` と同じ `makeTrigger` で登録する。キーの重なりは、`KeyConflicts`（`actions:`）が、起動時と設定ウィンドウで、同じ規則で調べる。メニューバーの項目も、同じ `DictationActions` を呼ぶ。
 - **言語の「自動」**：`SpeechLanguage.auto`。ダウンロードしたモデル（`LocalTranscriber`）は `language` を渡さず、音声から判定。Apple（`FileTranscriber`・`LiveCaption`）は `resolved`（この Mac の言語）。読み上げ（`SaySpeaker`）は、読む文字から日本語・英語を決める。
 
+### 会話の順番待ち（`ChatWindow`・`ChatQueue`）
+
+- **所有者は `ChatWindow`**（メインアクター）：`ChatQueue`（純粋な値。文字は、続けて待っていたらまとめる・声は 1 件ずつ・今すぐ送る＝その 1 件を先頭へ）と、考えている印（`hasPending`＋始める予約 `starting`）。質問を始める処理（`ChatVoice.handle`）が `begin` を呼ぶまでの間も、予約で、ほかの質問を割り込ませない。
+- **文字**：入力欄 → `submitTyped`。考えていなければ `startTyped`（`VoiceSession` が組む）で始め、考えていれば、順番待ちに入れる。答え・失敗・取って代わられたとき（`turnEnded`）に、次を始める。**利用者の取りやめ（Esc・停止）**は、順番待ちを捨てて、「送られませんでした」として記録に残す。
+- **声**：`ChatVoice.handle` が、始める前に `waitForTurn` で順番を待つ（取り下げ・取りやめ・停止なら false）。声の流れ（`VoiceLoop`）は、1 つずつ処理するので、**会話の発話に会話の発話が続いたときだけ**、実行中の処理を取りやめず、待たせる（`keepsRunning`。待たせた数は、Esc で捨てる）。ほかの流れの発話は、従来どおり、取って代わる（F36）。
+- **今すぐ送る**：文字の質問は、記録の手続き（`cancel`）で、声の質問は、`VoiceLoop.interruptRunning` で止める。止まったあと、先頭（その 1 件）が始まる。
+
 ### スキルの実行の流れ（`SkillRunner`）
 
 「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・声の入力（メニューバーのアプリ）（Enter で録音する通常モード。端末）・声の流れ（声の入力（メニューバーのアプリ）。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。
