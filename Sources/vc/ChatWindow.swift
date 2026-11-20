@@ -38,6 +38,8 @@ import VCSkill
     /// 質問を始めようとしている（始める処理が、`begin` を呼ぶまでの間）。この間に来た質問も、順番待ちに入る。
     private var starting = false
     private var reservation = 0
+    private var partialBuffer: [UUID: String] = [:]
+    private var partialFlushScheduled = false
     /// 停止（ボタン）で、止めている最中。順番待ちは、送らずに、捨てる。
     private var stopRequested = false
 
@@ -93,6 +95,29 @@ import VCSkill
     /// 実行中の様子（外のエージェントの、いまの操作など）。
     func setStatus(_ id: UUID, _ text: String) { state.entries.setStatus(id, text) }
 
+    /// 答えの続きの文字が、届いた：考えている間に、少しずつ、見せる。**描き直しは、少しまとめて**（0.12 秒）：届くたびに、会話全体を描き直さない。
+    func appendPartial(_ id: UUID, _ text: String) {
+        partialBuffer[id, default: ""] += text
+        guard !partialFlushScheduled else { return }
+        partialFlushScheduled = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))   // try?: 取りやめられても、描き直しが、なくなるだけ
+            self?.flushPartial()
+        }
+    }
+
+    private func flushPartial() {
+        partialFlushScheduled = false
+        for (id, text) in partialBuffer { state.entries.appendPartial(id, text) }
+        partialBuffer = [:]
+    }
+
+    /// 利用者が、いま、話している（録音中・文字にしている）。この間は、答えを、読み上げない（マイクが、声を拾う）。
+    var isUserSpeaking: Bool { state.voice != .idle }
+
+    /// この往復の答えを、読んでいる最中にする（読み上げの「止める」ボタンを、この答えに出す）。
+    func markSpeaking(_ id: UUID) { state.speakingEntry = id }
+
     /// 質問に使う画像が分かった（言葉で頼んだ画像など）：その質問に、画像を付ける（添えてある画像は、`begin` で付いている）。
     func attachImage(_ id: UUID, file: URL) {
         guard let thumbnail = HUDImage.load(file, sendsOut: false)?.thumbnail else { return }
@@ -104,6 +129,7 @@ import VCSkill
 
     /// 答えが来た。`startedNew`：しばらく話さなかったので、前の会話は、終わった（古い記録を消す）。
     func finish(_ id: UUID, answer: String, activities: [ChatActivity], notes: [String], startedNew: Bool, imageRoute: ChatMode.ImageRoute? = nil) {
+        partialBuffer[id] = nil
         state.entries.finish(id, answer: answer, rendered: Self.render(answer), activities: activities, notes: notes, route: imageRoute, startedNew: startedNew)
         state.scrollToken += 1
         turnEnded(dropsQueue: false)
@@ -113,12 +139,14 @@ import VCSkill
     /// `dropsQueue`：利用者の取りやめ（Esc・停止）：順番待ちも、送らずに捨てる。新しい質問に取って代わられたときは、false。
     func stop(_ id: UUID, reason: String, dropsQueue: Bool = false) {
         let requested = stopRequested
+        partialBuffer[id] = nil
         state.entries.stop(id, reason: requested ? tr("取りやめました（停止）") : reason)
         turnEnded(dropsQueue: dropsQueue || requested)
     }
 
     /// 答えを作れなかった：質問を、理由つきで残す。
     func fail(_ id: UUID, message: String) {
+        partialBuffer[id] = nil
         state.entries.fail(id, message: message)
         turnEnded(dropsQueue: false)
     }
@@ -240,8 +268,17 @@ import VCSkill
     /// 停止：いまの質問を止める。順番待ちは、送らない。
     func stopCurrent() {
         guard state.entries.hasPending else { return }
+        SaySpeaker.shared.stop()   // 読み上げの最中なら、それも止める
         stopRequested = true
         cancelCurrent()
+    }
+
+    /// **声の「止めて」**：考えている質問を止め、順番待ちを捨てる（停止ボタン・Esc と同じ）。止めるものが、あったか。
+    @discardableResult
+    func stopAll() -> Bool {
+        let hadWork = isBusy || !state.queue.isEmpty
+        if state.entries.hasPending { stopCurrent() } else { dropQueue(reason: tr("送られませんでした（停止）")) }
+        return hadWork
     }
 
     /// いま考えている質問を、取りやめる（文字の質問は、自分の取りやめ。声の質問は、声の流れの取りやめ）。
@@ -388,6 +425,7 @@ import VCSkill
         state.keyHint = "右 ⌥（ropt）"   // l10n-skip: preview sample
         state.submit = { _ in }
         if pendingOnly {   // 考えている最中：順番待ちも、見本で出す
+            state.entries[state.entries.count - 1].partial = "明日の東京は、晴れ時々くもりの予報です。\n最高気温は 24 度、降水確率は午前 10%・午後 30% です。夕方から、風が"   // l10n-skip: preview sample（答えが、少しずつ届いている途中）
             state.queue.enqueue("もう少し詳しく教えて", source: .typed)   // l10n-skip: preview sample
             state.queue.enqueue("それと、明後日の天気も", source: .voice)   // l10n-skip: preview sample
         }

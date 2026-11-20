@@ -27,6 +27,8 @@ struct ChatEntry: Identifiable {
     let asked = Date()
     var outcome = Outcome.pending
     var status: String? = tr("考えています…")
+    /// 答えが、少しずつ届いている間の、ここまでの文字（答えが決まったら、空に戻す。表示だけ：記録の答えは、`answer`）。
+    var partial = ""
     var answer: String?
     var activities: [ChatActivity] = []
     var notes: [String] = []
@@ -61,6 +63,9 @@ extension Array where Element == ChatEntry {
 
     mutating func setStatus(_ id: UUID, _ text: String) { updatePending(id) { $0.status = text } }
 
+    /// 答えの続きの文字が、届いた（まだ待っている往復だけ）。
+    mutating func appendPartial(_ id: UUID, _ text: String) { updatePending(id) { $0.partial += text } }
+
     /// 画像の扱いが決まった（確認待ち・送った・断った・この Mac の中で処理した）。答えを待たずに、出す。
     mutating func setRoute(_ id: UUID, _ route: ChatMode.ImageRoute) { updatePending(id) { $0.image?.route = route } }
 
@@ -70,7 +75,7 @@ extension Array where Element == ChatEntry {
     /// 答えが来た。`startedNew`：しばらく話さなかったので、前の会話は、終わった（この往復だけを残す）。
     mutating func finish(_ id: UUID, answer: String, rendered: NSAttributedString?, activities: [ChatActivity], notes: [String], route: ChatMode.ImageRoute?, startedNew: Bool) {
         updatePending(id) {
-            $0.outcome = .answered; $0.status = nil
+            $0.outcome = .answered; $0.status = nil; $0.partial = ""
             $0.answer = answer; $0.rendered = rendered
             $0.activities = activities; $0.notes = notes
             $0.image?.route = route
@@ -93,7 +98,7 @@ extension Array where Element == ChatEntry {
     /// 答えを作れなかった（理由つきで、残す）。
     mutating func fail(_ id: UUID, message: String) {
         updatePending(id) {
-            $0.outcome = .failed(message); $0.status = nil
+            $0.outcome = .failed(message); $0.status = nil; $0.partial = ""
             if let route = $0.image?.route { $0.image?.route = route } else { $0.image?.route = .notUsed(tr("答えが出ませんでした")) }
         }
     }
@@ -101,5 +106,6 @@ extension Array where Element == ChatEntry {
     private mutating func stopEntry(at index: Int, reason: String) {
         self[index].outcome = .stopped(reason)
         self[index].status = nil
+        self[index].partial = ""
     }
 }

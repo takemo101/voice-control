@@ -38,7 +38,7 @@ let package = Package(
         .executableTarget(name: "Fixture", path: "Sources/Fixture"),
         // テストだけが使う偽物（`OptionScorer` など）。公開 API だけで作る。テストターゲットだけが依存し、本番のターゲット・成果物（`vc`）には入らない。
         .target(name: "TestSupport", dependencies: ["VCDecision"], path: "Tests/TestSupport"),
-        .testTarget(name: "VCCoreTests", dependencies: ["VCCore"], path: "Tests/VCCoreTests"),
+        .testTarget(name: "VCCoreTests", dependencies: ["VCCore", "TestSupport"], path: "Tests/VCCoreTests"),
         .testTarget(name: "VCDecisionTests", dependencies: ["VCCore", "VCDecision", "TestSupport"], path: "Tests/VCDecisionTests"),
         .testTarget(name: "VCSpeechTests", dependencies: ["VCCore", "VCSpeech"], path: "Tests/VCSpeechTests"),
         .testTarget(name: "VCSkillTests", dependencies: ["VCCore", "VCDecision", "VCSkill", "TestSupport"], path: "Tests/VCSkillTests"),

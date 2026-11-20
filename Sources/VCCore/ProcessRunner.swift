@@ -72,7 +72,7 @@ public enum ProcessRunner {
         do { try p.run() } catch {
             return ProcessResult(exitCode: launchFailureExitCode, output: Data(), timedOut: false, cancelled: false, launchError: error)
         }
-        cancel?.onCancel { if p.isRunning { p.terminate() } }
+        cancel?.onCancel { if p.isRunning { ProcessTree.terminate(p) } }   // 子孫ごと止める
 
         // 出力は、終了を待つ前に、別のスレッドで読み切る（パイプが詰まって、コマンドが止まるのを防ぐ）。
         // GCD の共有のスレッドではなく、専用のスレッドにする：呼び出し側が、同じ共有のスレッドを塞いでいる（同時に多くのコマンドを待つ）と、
@@ -96,7 +96,7 @@ public enum ProcessRunner {
         if let timeout {
             if group.wait(timeout: .now() + timeout) == .timedOut {
                 timedOut = true
-                p.terminate()
+                ProcessTree.terminate(p)   // 子孫ごと止める
                 _ = group.wait(timeout: .now() + drainGrace)
             }
         } else {

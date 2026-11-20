@@ -75,6 +75,12 @@ flowchart TB
 - **声**（**声の流れを、塞がない**：発話の処理は、順番待ちに入れて、すぐ戻る）：(1) 声の処理が始まるとき、`ChatVoice.handle` が `ChatWindow.claimTurn` を呼ぶ。考えていなければ、始める予約を持って進む。考えていれば、順番待ちに入れて、戻る。(2) **会話の発話に会話の発話が続いた**（声の流れが、1 つずつ処理していて、いまの処理が会話）：`VoiceActivity.disposition` が、いまの処理の段階で、扱いを決める。発話の処理に入っている（`recognizeNow`）：実行中の処理を取りやめず（`keepsRunning`）、続けた発話を、その場で**先に認識**して（`DeferredRecognizer`。メインアクターで、出来事を出す・1 つずつ）、`onDeferred` → `ChatWindow.enqueueSpoken` で順番待ちに並べる。**まだ認識中**（`queueBehind`）：先に認識すると、順番が入れ替わり、塞がるので、列で、順番を待つ。(3) 順番が来たら、`injectSpoken` → `VoiceLoop.inject`（認識済みの文字を、列へ戻す。止まっていれば false）で、同じ流れの処理（確認の返事・読み上げ）に戻る。戻した発話は、`injectedText` で、自分の `claimTurn` を、待たずに通る。質問にならずに終わる発話（「会話を終わりにして」）は、`dropInjection` で、予約を外す。(4) **始める予約は、`begin` なしに、残り続けない**（`reservationTimeout`＝15 秒で外れて、次へ進む）。Esc は、まだの先の認識をやめ（`cancelAll`）、考えている質問を止めて、順番待ちを捨てる。ほかの流れの発話は、従来どおり、取って代わる（F36）。
 - **今すぐ送る**：文字の質問は、記録の手続き（`cancel`）で、声の質問は、`VoiceLoop.interruptRunning` で止める。止まったあと、先頭（その 1 件）が始まる。
 
+### 会話の停止・少しずつ届く答え・子プロセス
+
+- **ストップワード**：`ChatStopCommand`（`VCSkill`。純粋）が、発話の**全体**を、`LanguageProfile.chatStopPhrases`（登録した全言語の合わせ）と照合する。会話のキーの発話だけ：声の流れの処理（`ChatVoice.handle`）と、先に認識した発話（`onDeferred`）の、**どちらも**、順番待ちに入れる前に、見る（`ChatVoice.stopByVoice` → `ChatWindow.stopAll`）。
+- **少しずつ届く答え**：ACP の `agent_message_chunk` → `ChatCallOptions.onText`（届いた順の、続きの文字）→ `OrderedMainForwarder`（別スレッドから、順番を保って、メインへ）→ `AnswerStream`：カードへ（`ChatWindow.appendPartial`。0.12 秒ごとにまとめて描く）・読み上げが on なら `SpokenStream`（文の区切りで、読む塊にする。純粋）→ `SaySpeaker`。最終的な答えは、`respond` の戻り値（正）。少しずつ届かなければ、従来どおり、決まってから全文。
+- **子プロセス**：`ProcessTree`（`VCCore`）：子孫の一覧を先に集め、SIGTERM → 猶予のあと、SIGKILL（起動時刻が、同じものだけ）。`ProcessRunner` の取りやめ・時間切れ、`ACPConnection` の `close`・終了時が、使う。
+
 ### スキルの実行の流れ（`SkillRunner`）
 
 「スキルを選ぶ → 確認 → 実行 → 結果」は、`VCSkill` の `SkillRunner` が 1 か所で持つ。`vc run`（端末）・声の入力（メニューバーのアプリ）（Enter で録音する通常モード。端末）・声の流れ（声の入力（メニューバーのアプリ）。画面の上の表示と声の確認）は、同じ `SkillRunner` を呼び、**きっかけと、表示・確認の取り方だけ**が違う。

@@ -13,6 +13,7 @@ import Testing
             #expect(profile.whisperCode == language.rawValue, "\(language)：Whisper の符号は、言語の符号")
             #expect(profile.bcp47.lowercased().hasPrefix(language.rawValue + "-"), "\(language)：Locale は、言語の符号で始まる")
             #expect(!profile.nlCode.isEmpty && !profile.affirmatives.isEmpty && !profile.fillers.isEmpty, "\(language)：はい・つなぎ言葉は、1 つはある")
+            #expect(!profile.chatStopPhrases.isEmpty, "\(language)：ストップワードは、1 つはある")
             #expect(profile.affirmatives.allSatisfy { $0 == $0.lowercased() && !$0.isEmpty }, "\(language)：「はい」の言い方は、小文字")
             #expect(AppLanguage.parse(language.rawValue.uppercased()) == language)             // 設定の書き方（大文字小文字は、問わない）
         }

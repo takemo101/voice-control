@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import VCCore
+import VCSkill
 @testable import VCSpeech
 @testable import vc
 
@@ -48,7 +49,8 @@ extension SharedChatWindow {
         func transcribe(file url: URL) async throws -> String {
             lock.lock(); let gate = holds[url.lastPathComponent]; started.append(url.lastPathComponent); lock.unlock()
             while let gate, !gate.isOpen { try await Task.sleep(for: .milliseconds(5)) }
-            return "text-" + url.lastPathComponent
+            let name = url.lastPathComponent
+            return name.hasPrefix("say-") ? String(name.dropFirst(4)) : "text-" + name   // `say-<文>`：その文が、そのまま、認識される
         }
     }
 
@@ -79,7 +81,13 @@ extension SharedChatWindow {
             loop = VoiceLoop(trigger: trigger, escape: escape, recorder: recorder, transcriber: transcriber,
                              handler: { [unowned self] text, token, _, _ in await handle(text, token: token, fromQueue: false) }, onEvent: { _, _ in })
             loop.keepsRunning = { _, _ in true }   // 偽の流れは、会話だけ
-            loop.onDeferred = { text, _ in Task { @MainActor in if !text.isEmpty { ChatWindow.shared.enqueueSpoken(text) } } }
+            loop.onDeferred = { text, _ in
+                Task { @MainActor in
+                    guard !text.isEmpty else { return }
+                    if ChatStopCommand.matches(text) { ChatWindow.shared.stopAll(); return }   // `VoiceSession` と同じ
+                    ChatWindow.shared.enqueueSpoken(text)
+                }
+            }
             let loop = self.loop!
             window.injectSpoken = { loop.inject($0, tag: "") }
             window.interruptVoiceTurn = { loop.interruptRunning() }
@@ -108,6 +116,7 @@ extension SharedChatWindow {
 
         /// `ChatVoice.handle` と同じ手順の、偽の処理。
         func handle(_ text: String, token: CancelToken, fromQueue: Bool) async {
+            if !fromQueue, ChatStopCommand.matches(text) { window.stopAll(); journal.add("stop:" + text); return }   // `ChatVoice.handle` と同じ
             if !fromQueue, !window.claimTurn(text) { journal.add("queued:" + text); return }
             if token.isCancelled || token.isSuperseded { window.releaseStart(); return }
             let id = window.begin(question: text, agent: "test", warning: nil, tools: nil, cancel: fromQueue ? { token.supersede() } : nil)
@@ -245,6 +254,48 @@ extension SharedChatWindow {
         try? await Task.sleep(for: .milliseconds(150))
         #expect(rig.journal.starts() == ["start:text-a1"])
         #expect(rig.window.transcript.contains { $0.question == "text-a2" && $0.outcome == .stopped("送られませんでした（停止）") })
+    }
+
+    @Test func aSpokenStopWordStopsThinkingAndDropsTheQueueWithoutBeingQueuedItself() async {
+        let rig = Rig(); defer { rig.tearDown() }
+        rig.speak("a1")
+        #expect(await eventually { rig.journal.starts().count == 1 })
+        rig.speak("a2")
+        #expect(await eventually { rig.window.queuedTexts == ["text-a2"] })
+        rig.speak("say-止めて")                                                          // 考えている間に、「止めて」
+        #expect(await eventually { rig.journal.list().contains { $0.hasPrefix("superseded:") || $0.hasPrefix("cancelled:") } })
+        #expect(await eventually { rig.window.queuedTexts.isEmpty && !rig.window.isBusy })
+        #expect(rig.window.transcript.contains { $0.question == "text-a2" && $0.outcome == .stopped("送られませんでした（停止）") })
+        #expect(rig.window.transcript.contains { $0.question == "止めて" } == false)      // 「止めて」は、質問として、残らない
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(rig.journal.starts() == ["start:text-a1"])                              // 止めたあとに、何も動き出さない
+    }
+
+    @Test func aSpokenStopWordAlsoStopsATypedQuestionAndItsQueue() async {
+        let rig = Rig(); defer { rig.tearDown() }
+        rig.window.submitTyped("t1")
+        #expect(await eventually { rig.journal.starts() == ["start:t1"] })
+        rig.window.submitTyped("t2")
+        rig.speak("say-stop")                                                           // 声の流れは、塞がっていない：すぐ、受けて、止める
+        #expect(await eventually { rig.journal.list().contains("stop:stop") })
+        #expect(await eventually { rig.window.queuedTexts.isEmpty && !rig.window.isBusy })
+        #expect(rig.journal.starts() == ["start:t1"])
+    }
+
+    @Test func aLongSentenceWithAStopWordInsideIsQueuedAsAnOrdinaryQuestion() async {
+        let rig = Rig(); defer { rig.tearDown() }
+        rig.speak("a1")
+        #expect(await eventually { rig.journal.starts().count == 1 })
+        rig.speak("say-音楽を止めて")
+        #expect(await eventually { rig.window.queuedTexts == ["音楽を止めて"] })          // 止めない：普通の質問として、順番待ち
+        #expect(rig.journal.list().contains { $0.hasPrefix("cancelled") || $0.hasPrefix("superseded") } == false)
+    }
+
+    @Test func aStopWordWithNothingToStopChangesNothing() async {
+        let rig = Rig(); defer { rig.tearDown() }
+        rig.speak("say-ストップ")
+        #expect(await eventually { rig.journal.list().contains("stop:ストップ") })
+        #expect(!rig.window.isBusy && rig.window.queuedTexts.isEmpty && rig.window.transcript.isEmpty)
     }
 }
 }

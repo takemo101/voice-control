@@ -24,6 +24,8 @@ public struct LanguageProfile: Sendable {
     public let chatEndPhrases: [String]
     /// 「忘れて」のように、**短い発話の全体のときだけ**、会話を終わりにする言い方（空白・句読点を除いた文と、まったく同じか）。
     public let chatForgetPhrases: [String]
+    /// 会話の**ストップワード**：考えている・順番待ちの質問を止める言い方。**発話の全体が、これと同じときだけ**（「音楽を止めて」「ストップウォッチを…」は、止めない：普通の質問・依頼）。空白・句読点を除いて、小文字で比べる。
+    public let chatStopPhrases: [String]
 }
 
 extension AppLanguage {
@@ -35,14 +37,16 @@ extension AppLanguage {
                 affirmatives: ["はい", "ハイ", "ええ", "うん", "お願いします", "お願い", "おねがいします", "実行して", "実行してください", "やって", "やってください", "やってくれ", "いいよ", "いいですよ", "どうぞ", "ok", "オーケー", "オッケー", "了解", "了解です", "承知", "進めて", "進めてください", "続けて", "続けてください"],
                 fillers: ["えーっと", "ええっと", "えーと", "えっと", "ええと", "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー"],
                 chatEndPhrases: ["会話を終わ", "会話を終了", "会話をやめ", "会話をリセット", "会話をはじめから", "新しい会話", "会話リセット", "会話終了"],
-                chatForgetPhrases: ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"])
+                chatForgetPhrases: ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"],
+                chatStopPhrases: ["止めて", "止めてください", "とめて", "止まって", "とまって", "やめて", "やめてください", "ストップ", "ストップして", "ストップしてください", "中止", "中止して", "キャンセル", "キャンセルして", "待って", "まって", "ちょっと待って"])
         case .en:
             return LanguageProfile(
                 displayName: "English", bcp47: "en-US", whisperCode: "en", englishName: "English", nlCode: "en", usesWideGlyphs: false,
                 affirmatives: ["yes", "yeah", "yep", "yup", "sure", "okay", "please", "proceed", "continue", "confirm", "confirmed", "go ahead", "do it", "please do", "run it", "sounds good", "that works", "yes please", "yes go ahead"],
                 fillers: ["uh", "um", "uhm", "umm", "uhh", "hmm", "erm"],
                 chatEndPhrases: [],
-                chatForgetPhrases: [])
+                chatForgetPhrases: [],
+                chatStopPhrases: ["stop", "stop it", "stop that", "stop please", "please stop", "cancel", "cancel that", "wait", "hold on", "never mind", "nevermind"])
         }
     }
 
@@ -51,4 +55,5 @@ extension AppLanguage {
     public static var allFillers: [String] { allCases.flatMap { $0.profile.fillers } }
     public static var allChatEndPhrases: [String] { allCases.flatMap { $0.profile.chatEndPhrases } }
     public static var allChatForgetPhrases: [String] { allCases.flatMap { $0.profile.chatForgetPhrases } }
+    public static var allChatStopPhrases: [String] { allCases.flatMap { $0.profile.chatStopPhrases } }
 }

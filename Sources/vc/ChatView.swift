@@ -472,7 +472,7 @@ private struct EntryView: View {
             VStack(alignment: .leading, spacing: 10) {
                 switch entry.outcome {
                 case .pending:
-                    Pending(status: entry.status ?? tr("考えています…"))
+                    Pending(status: entry.status ?? tr("考えています…"), partial: entry.partial)
                 case .answered:
                     if let rendered = entry.rendered { RichText(attributed: rendered).frame(maxWidth: .infinity, alignment: .leading) }
                     if !entry.activities.isEmpty { activities.padding(.top, 4) }
@@ -558,8 +558,22 @@ private struct SmallAction: View {
 /// 考えている間：波打つ点と、いまの操作。
 private struct Pending: View {
     let status: String
+    /// 答えが、少しずつ届いている間の、ここまでの文字（長いときは、終わりのほうだけ）。
+    var partial = ""
+
+    private var shownPartial: String { partial.count > 1200 ? "…" + String(partial.suffix(1200)) : partial }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !partial.isEmpty {
+                Text(shownPartial).vcFont(13.5).foregroundStyle(.white.opacity(0.82)).fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            indicator
+        }
+    }
+
+    private var indicator: some View {
         HStack(spacing: 10) {
             TimelineView(.animation) { context in
                 let t = context.date.timeIntervalSinceReferenceDate

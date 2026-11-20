@@ -103,6 +103,7 @@ import VCSpeech
             Task { @MainActor in
                 HUD.shared.hide()   // 「認識中…」を、外す（会話は、ウィンドウに出ている）
                 guard !text.isEmpty else { return }
+                if ChatStopCommand.matches(text) { ChatVoice.stopByVoice(chip: chips[VoiceMode.chat] ?? chip); return }   // 「止めて」は、順番待ちに入れず、止める
                 ChatWindow.shared.enqueueSpoken(text)
             }
         }
