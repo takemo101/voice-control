@@ -45,8 +45,10 @@ checks() {
     for key in NSMicrophoneUsageDescription NSSpeechRecognitionUsageDescription NSAppleEventsUsageDescription; do
         plutil -extract "${key}" raw "${plist}" >/dev/null 2>&1 || fail "Info.plist に ${key} が無い"
     done
-    for lang in ja en; do
-        grep -q "NSMicrophoneUsageDescription" "${app}/Contents/Resources/${lang}.lproj/InfoPlist.strings" || fail "${lang}.lproj/InfoPlist.strings に使用目的の説明が無い"
+    # 許可の説明は、入っているすべての言語（`*.lproj`）に、ある。日本語・英語は、必ず入っている
+    for lang in ja en; do [ -d "${app}/Contents/Resources/${lang}.lproj" ] || fail "${lang}.lproj が無い"; done
+    for dir in "${app}"/Contents/Resources/*.lproj; do
+        grep -q "NSMicrophoneUsageDescription" "${dir}/InfoPlist.strings" || fail "$(basename "${dir}")/InfoPlist.strings に使用目的の説明が無い"
     done
     [ "$(plutil -extract LSUIElement raw "${plist}")" = "true" ] || fail "LSUIElement が true でない（Dock に出てしまう）"
     ok "Info.plist（使用目的の説明・LSUIElement）"

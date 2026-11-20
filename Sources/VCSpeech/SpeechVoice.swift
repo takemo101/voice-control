@@ -43,16 +43,13 @@ public enum SpeechVoice {
         return best(voices, language: language)
     }
 
-    /// 文字の言語（日本語か英語。**自動**のとき、読む文字に、声を合わせる）。決められなければ `fallback`。
+    /// 文字の言語（登録した言語のどれか。**自動**のとき、読む文字に、声を合わせる）。決められなければ `fallback`。
     public static func language(of text: String, fallback: AppLanguage) -> AppLanguage {
         let recognizer = NLLanguageRecognizer()
-        recognizer.languageConstraints = [.japanese, .english]
+        recognizer.languageConstraints = AppLanguage.allCases.map { NLLanguage(rawValue: $0.profile.nlCode) }
         recognizer.processString(text)
-        switch recognizer.dominantLanguage {
-        case .japanese: return .ja
-        case .english: return .en
-        default: return fallback
-        }
+        guard let dominant = recognizer.dominantLanguage else { return fallback }
+        return AppLanguage.allCases.first { NLLanguage(rawValue: $0.profile.nlCode) == dominant } ?? fallback
     }
 
     /// この Mac に入っている、その言語の声。

@@ -162,7 +162,7 @@ private struct HistoryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language == .en ? "en_US" : "ja_JP")))).font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))).font(.system(size: 11)).foregroundStyle(.secondary)
                 Text(entry.text).font(.system(size: 13)).lineLimit(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)

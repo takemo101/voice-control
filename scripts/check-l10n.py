@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""表示言語（英語）の翻訳の抜けを調べる。
+"""表示言語の翻訳（言語ごとの表）を調べる・足す。
 
-使い方：scripts/check-l10n.py [--uncovered]
-  既定：コードの `tr("…")` の鍵（補間は %@）が、英語の表（Sources/vc/L10n/English*.swift）にあるか。
-        表の値の %@ の数が、鍵と合うか。表の鍵の重複（Swift の辞書は、重複で実行時に落ちる）。使われない鍵（警告）。
-  --uncovered：設定ウィンドウ・ダイアログのファイルで、`tr(` に包まれていない日本語の文字列を探す（`// l10n-skip` を付けた行は除く）。
-終了コード：問題（抜け・不一致・重複・`--uncovered` で見つけた包まれていない文字列）があれば 1。警告（使われない鍵）だけなら 0。
+使い方：scripts/check-l10n.py [--uncovered] [--status] [--missing <言語>] [--new-language <言語> <型名>]
+  既定：コードの `tr("…")` の鍵（補間は %@）が、**英語の表**（Sources/vc/L10n/en/）にあるか（英語は、すべての言語の引き先：抜けは、問題）。
+        どの言語の表も：値の %@ の数が、鍵と合うか・鍵の重複（Swift の辞書は、重複で、実行時に落ちる）。使われない鍵（警告）。
+        **英語以外の言語の、未訳（表にない・値が空）は、問題にしない**（その言語の表にない文は、英語で出る）。件数だけ、出す。
+  --uncovered：設定ウィンドウ・ダイアログのファイルで、`tr(` に包まれていない日本語の文字列を探す（`// l10n-skip` を付けた行は、除く）。
+  --status：言語ごとの、訳の数と割合。
+  --missing <言語>：その言語の、未訳の鍵を、英語つきで、一覧にする（翻訳する人向け）。
+  --new-language <言語> <型名>：新しい言語の表の、ひな形を作る（Sources/vc/L10n/<言語>/<型名>Tables.swift。値は、空：未訳）。足し方は docs/development.md の「言語を足す」。
+終了コード：問題があれば 1。警告・未訳だけなら 0。
 """
 import re, sys, glob, os
 
@@ -91,11 +95,19 @@ LINE = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,?\s*(//
 
 
 
-def table():
+L10N_DIR = os.path.join(ROOT, 'Sources/vc/L10n')
+
+
+def languages():
+    """表のフォルダ（Sources/vc/L10n/<言語>/）の言語。英語を先頭に。"""
+    found = sorted(d for d in os.listdir(L10N_DIR) if os.path.isdir(os.path.join(L10N_DIR, d)))
+    return (['en'] if 'en' in found else []) + [d for d in found if d != 'en']
+
+
+def table(language):
+    """その言語の表：(鍵 → 値, 重複, 動的な鍵)。値が空の項目は、未訳。"""
     entries, dups, dynamic = {}, [], set()
-    for path in sorted(glob.glob(os.path.join(ROOT, 'Sources/vc/L10n/English*.swift'))):
-        if path.endswith('EnglishTables.swift'):
-            continue
+    for path in sorted(glob.glob(os.path.join(L10N_DIR, language, '*.swift'))):
         seen = set()
         for n, line in enumerate(open(path, encoding='utf-8').read().split('\n'), 1):
             m = LINE.match(line)
@@ -113,6 +125,17 @@ def table():
             if m.group(3) and 'l10n-dynamic' in m.group(3):
                 dynamic.add(k)
     return entries, dups, dynamic
+
+
+def placeholders_ok(key, value):
+    slots = key.count('%@')
+    numbered = {int(x) for x in re.findall(r'%(\d+)\$@', value)}
+    plain = value.count('%@')
+    return (plain == slots and not numbered) or (plain == 0 and numbered == set(range(1, slots + 1)))
+
+
+def translated(entries):
+    return {k: v for k, v in entries.items() if v}
 
 
 def blank_tr_literals(text):
@@ -165,31 +188,90 @@ def uncovered():
     return found
 
 
+def swift_string(text):
+    return '"' + text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+
+
+def new_language(code, type_name):
+    """新しい言語の表のひな形。英語の表の鍵を、すべて、空の値で並べる（英語を、コメントに添える）。"""
+    directory = os.path.join(L10N_DIR, code)
+    if os.path.exists(directory):
+        print(f'すでにあります：{os.path.relpath(directory, ROOT)}'); return 1
+    english, _, _ = table('en')
+    keys = list(english)
+    chunk = 120
+    parts = [keys[i:i + chunk] for i in range(0, len(keys), chunk)]
+    os.makedirs(directory)
+    lines = [
+        'import Foundation', '',
+        f'/// {type_name} の翻訳の表（日本語の文 → {type_name}）。**値が空の項目は、未訳**（その文は、英語で出る）。コメントの `en:` は、英語の訳（訳す人の手がかり）。',
+        '/// 足し方：`docs/development.md` の「言語を足す」。抜けの確認：`scripts/check-l10n.py --status`・`--missing ' + code + '`。',
+        f'enum {type_name}Tables {{',
+        '    static let all: [String: String] = [' + ', '.join(f'part{i + 1}' for i in range(len(parts))) + '].reduce(into: [:]) { $0.merge($1) { _, new in new } }', '',
+    ]
+    for i, part in enumerate(parts):
+        lines.append(f'    private static let part{i + 1}: [String: String] = [')
+        for k in part:
+            lines.append(f'        {swift_string(k)}: "",   // en: {english[k].splitlines()[0] if english[k] else ""}')
+        lines += ['    ]', '']
+    lines.append('}')
+    open(os.path.join(directory, f'{type_name}Tables.swift'), 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
+    print(f'作りました：Sources/vc/L10n/{code}/{type_name}Tables.swift（{len(keys)} 件）')
+    print('次：AppLanguage に case を足す → LanguageProfile.swift に項目を書く → L10nTables.swift に表を登録する（コンパイルが、足りないところを教える）。docs/development.md の「言語を足す」を、見る。')
+    return 0
+
+
 def main():
+    if '--new-language' in sys.argv:
+        i = sys.argv.index('--new-language')
+        if len(sys.argv) < i + 3:
+            print('使い方：--new-language <言語の符号（例 fr）> <型名（例 French）>'); sys.exit(2)
+        sys.exit(new_language(sys.argv[i + 1], sys.argv[i + 2]))
     used = used_keys()
-    entries, dups, dynamic = table()
+    langs = languages()
+    tables = {code: table(code) for code in langs}
     problems = 0
+    english, _, english_dynamic = tables['en']
+    # 英語：抜けは、問題（すべての言語の、引き先）
     for k, places in sorted(used.items()):
-        if k not in entries:
+        if not english.get(k):
             problems += 1
             print(f'抜け：{places[0][0]}:{places[0][1]}  「{k[:70]}」')
-        else:
-            slots = k.count('%@')
-            value = entries[k]
-            numbered = {int(x) for x in re.findall(r'%(\d+)\$@', value)}
-            plain = value.count('%@')
-            if not (plain == slots and not numbered) and not (plain == 0 and numbered == set(range(1, slots + 1))):
+    # どの言語も：置き換えの数・重複
+    for code in langs:
+        entries, dups, _ = tables[code]
+        for k, v in entries.items():
+            if v and not placeholders_ok(k, v):
                 problems += 1
-                print(f'置き換えの数が違う：「{k[:60]}」 → 「{value[:60]}」')
-    for path, n, k in dups:
-        problems += 1
-        print(f'重複：{path}:{n}  「{k[:60]}」')
-    unused = [k for k in entries if k not in used and k not in dynamic]
+                print(f'置き換えの数が違う（{code}）：「{k[:60]}」 → 「{v[:60]}」')
+        for path, n, k in dups:
+            problems += 1
+            print(f'重複：{path}:{n}  「{k[:60]}」')
+    # 使われない鍵（警告）：英語の表で見る
+    unused = [k for k in english if k not in used and k not in english_dynamic]
     for k in unused[:20]:
         print(f'警告：使われない鍵「{k[:60]}」')
     if len(unused) > 20:
         print(f'警告：使われない鍵が、ほかに {len(unused) - 20} 件')
-    print(f'tr の鍵 {len(used)} 件・表 {len(entries)} 件・問題 {problems} 件')
+    if '--status' in sys.argv:
+        print('言語ごとの訳（コードの鍵に対する、訳の数）：')
+        for code in langs:
+            done = sum(1 for k in used if translated(tables[code][0]).get(k))
+            print(f'  {code}: {done}/{len(used)}（{100 * done // max(len(used), 1)}%）')
+    elif len(langs) > 1:
+        for code in langs[1:]:
+            missing = sum(1 for k in used if not translated(tables[code][0]).get(k))
+            print(f'未訳（{code}）：{missing} 件（英語で出る）')
+    if '--missing' in sys.argv:
+        i = sys.argv.index('--missing')
+        code = sys.argv[i + 1] if len(sys.argv) > i + 1 else ''
+        if code not in tables:
+            print(f'表がありません：{code}（あるのは {", ".join(langs)}）'); sys.exit(2)
+        for k in used:
+            if not translated(tables[code][0]).get(k):
+                print(f'{k}\n    en: {english.get(k, "")}')
+    entries_total = sum(len(tables[c][0]) for c in langs)
+    print(f'tr の鍵 {len(used)} 件・表 {entries_total} 件（{", ".join(f"{c} {len(tables[c][0])}" for c in langs)}）・問題 {problems} 件')
     if '--uncovered' in sys.argv:
         found = uncovered()
         for path, n, s in found:

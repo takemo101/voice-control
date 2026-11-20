@@ -13,11 +13,7 @@ import VCCore
 /// 辞書に、ふつうの語の一部にもなる語（「あの」など）を足すと、その語も消える（文頭・句読点の直後だけ）。
 public enum FillerWords {
     /// 既定の辞書。日本語は、つなぎ言葉だと、まず間違いない形だけ（「あの」「その」「まあ」は、ふつうの語でもあるので、入れない）。
-    public static let defaults: [String] = [
-        "えーっと", "ええっと", "えーと", "えっと", "ええと",   // l10n-skip：照合に使う語・名前（画面に出ない）
-        "あのー", "あのう", "そのー", "うーんと", "うーん", "んー", "えー",   // l10n-skip：照合に使う語・名前（画面に出ない）
-        "uh", "um", "uhm", "umm", "uhh", "hmm", "erm",
-    ]
+    public static let defaults: [String] = AppLanguage.allFillers   // 登録した言語の、つなぎ言葉（`LanguageProfile.fillers`）
 
     /// 辞書の語として、使えない理由。
     public enum Invalid: Error, Equatable, CustomStringConvertible {

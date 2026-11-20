@@ -14,7 +14,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .voice: return tr("音声")
         case .dictation: return tr("音声入力")
         case .chat: return tr("会話")
-        case .models: return L10n.shared.language == .en ? "Models" : "モデル"   // l10n-skip：行の「モデル」（Model）と、訳が違う
+        case .models: return L10n.shared.language == .ja ? "モデル" : tr(verbatim: "Models")   // l10n-skip：行の「モデル」（Model）と、訳が違う。日本語以外は、英語の文を鍵にして引く（表の「Models」）
         case .skills: return tr("スキル")
         case .general: return tr("一般")
         }

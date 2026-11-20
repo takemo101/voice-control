@@ -205,5 +205,6 @@ extension EnglishTables {
         "文字を入れてから、これを押します": "Pressed after the text is typed",
         "送りたいキーを押してください（⌘Enter のように、修飾キーとの組み合わせも使えます）。Esc で取りやめ": "Press the key to send (combinations such as ⌘Enter work too). Esc to cancel",
         "送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます": "Cycles through the keys (don't send → key 1 → 2 …). Key combinations only; also in the menu bar",
+        "Models": "Models",   // l10n-dynamic
     ]
 }

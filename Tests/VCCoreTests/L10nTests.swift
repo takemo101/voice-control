@@ -6,7 +6,7 @@ import Testing
 @Suite struct L10nTests {
     private func english() -> L10n {
         let l10n = L10n()
-        l10n.install(english: ["保存しました": "Saved", "%@ 件を読み込みました": "Loaded %@ items", "%@ を %@ に移しました": "Moved to %2$@ from %1$@"])
+        l10n.install(["保存しました": "Saved", "%@ 件を読み込みました": "Loaded %@ items", "%@ を %@ に移しました": "Moved to %2$@ from %1$@"], for: .en)
         return l10n
     }
     private func translate(_ l10n: L10n, _ text: L10nKey) -> String { l10n.translate(text.key, args: text.args) }
@@ -36,7 +36,7 @@ import Testing
         #expect((try? settings.recognitionLanguage.get()) == .ja)
         settings.uiLanguage = "EN"; settings.sttLanguage = "en"
         #expect(settings.displayLanguage == .en && (try? settings.recognitionLanguage.get()) == .en)
-        settings.uiLanguage = "fr"; settings.sttLanguage = "fr"
+        settings.uiLanguage = "zz"; settings.sttLanguage = "zz"
         #expect(settings.displayLanguage == .ja)                          // 画面は、書き間違いでも、読める
         #expect((try? settings.recognitionLanguage.get()) == nil)         // 認識は、黙って日本語にしない
     }
@@ -79,4 +79,15 @@ import Testing
         l10n.useAnswerLanguage(.auto)
         #expect(l10n.inAnswerLanguage("Answer in Japanese, briefly.") == "Answer in the user's language, briefly.")
     }
+
+    @Test func aLanguageFallsBackToEnglishThenToTheJapaneseKeyAndAnEmptyValueMeansUntranslated() {
+        let tables: [AppLanguage: [String: String]] = [.en: ["a": "English A", "b": "English B"], .ja: ["a": "", "c": "その言語の C"]]
+        // 日本語以外の言語の引き方（日本語は、鍵のまま：`translate` が先に返す）。その言語の表 → 英語の表 → 鍵
+        #expect(L10n.lookup("c", in: .ja, tables: tables) == "その言語の C")      // その言語の表
+        #expect(L10n.lookup("a", in: .ja, tables: tables) == "English A")          // 値が空：未訳 → 英語
+        #expect(L10n.lookup("b", in: .ja, tables: tables) == "English B")          // 表にない → 英語
+        #expect(L10n.lookup("zzz", in: .ja, tables: tables) == "zzz")              // どちらにもない → 鍵のまま
+        #expect(L10n.lookup("b", in: .en, tables: [:]) == "b")                     // 表がまったくない言語でも、落ちない
+    }
 }
+
