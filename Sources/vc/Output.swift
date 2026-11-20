@@ -53,7 +53,8 @@ func seconds(elapsed: TimeInterval) -> String { tr("\(String(format: "%.1f", ela
 func listJoin(_ items: [String]) -> String { items.joined(separator: tr("、")) }
 
 /// ラベル列の幅：日本語（全角は 2 桁）と、英語（長い）で変える。
-func colWidth(ja: Int, en: Int) -> Int { L10n.shared.language == .en ? en : ja }
+/// 端末の表の列の幅：全角の文字の言語は `ja`、それ以外は `en`（`LanguageProfile.usesWideGlyphs`）。
+func colWidth(ja: Int, en: Int) -> Int { L10n.shared.language.profile.usesWideGlyphs ? ja : en }
 
 /// 標準エラーへ（エラー・進行の通知）。
 func eprint(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }

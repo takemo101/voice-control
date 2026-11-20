@@ -1,4 +1,5 @@
 import Foundation
+import VCCore
 
 /// 確認への、声の返事。**はい と確信できたときだけ true**。
 /// 1. 決まった言い方（「はい」「お願いします」「実行して」…。`affirmatives`）だけでできた返事は、はい。
@@ -19,13 +20,8 @@ public struct Confirmation: Sendable {
         return pick.index == 0 && pick.probability >= Self.yesThreshold
     }
 
-    /// 実行してよい、という決まった言い方。「いいです」「大丈夫です」は、「結構です（断り）」の意味にもなるので、含めない。
-    static let affirmatives: Set<String> = [
-        "はい", "ハイ", "ええ", "うん", "お願いします", "お願い", "おねがいします", "実行して", "実行してください", "やって", "やってください", "やってくれ",
-        "いいよ", "いいですよ", "どうぞ", "ok", "オーケー", "オッケー", "了解", "了解です", "承知", "進めて", "進めてください", "続けて", "続けてください",
-        // 英語（音声認識の言語が英語のとき）。複数の語の言い方も、1 つの言い方として扱う
-        "yes", "yeah", "yep", "yup", "sure", "okay", "please", "proceed", "continue", "confirm", "confirmed", "go ahead", "do it", "please do", "run it", "sounds good", "that works", "yes please", "yes go ahead",
-    ]
+    /// 実行してよい、という決まった言い方（登録した**すべての言語**の言い方を、合わせる：`LanguageProfile.affirmatives`。「いいです」「大丈夫です」は、「結構です（断り）」の意味にもなるので、含めない）。
+    static let affirmatives: Set<String> = Set(AppLanguage.allAffirmatives)
 
     /// 返事が、決まった言い方だけでできているか。「はい、お願いします」のように、読点・空白で区切った、どの部分も、決まった言い方であること
     /// （「はい、やっぱりやめて」は、後ろが決まった言い方でないので、はいにしない）。

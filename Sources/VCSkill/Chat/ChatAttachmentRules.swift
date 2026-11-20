@@ -1,13 +1,13 @@
 import Foundation
+import VCCore
 
 /// 「会話を終わる」の言い方（言語モデルを通さず、文字で見分ける）。
 public enum ChatEndCommand {
     public static func matches(_ utterance: String) -> Bool {
         let text = utterance.filter { !" 　、。！？!?.,".contains($0) }
         // 「会話を終わる」の言い方は、どこにあってもよい。「忘れて」は、短い発話の全体のときだけ（「忘れていた予定を…」を、終わりにしない）
-        let phrases = ["会話を終わ", "会話を終了", "会話をやめ", "会話をリセット", "会話をはじめから", "新しい会話", "会話リセット", "会話終了"]
-        if phrases.contains(where: text.contains) { return true }
-        return ["忘れて", "全部忘れて", "すべて忘れて", "ぜんぶ忘れて"].contains(text)
+        if AppLanguage.allChatEndPhrases.contains(where: text.contains) { return true }
+        return AppLanguage.allChatForgetPhrases.contains(text)   // 言い方は、言語ごと：`LanguageProfile`
     }
 }
 

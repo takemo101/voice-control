@@ -176,7 +176,7 @@ extension Settings {
     public var recognitionLanguageOrDefault: SpeechLanguage { (try? recognitionLanguage.get()) ?? .ja }
     public struct UnknownLanguage: Error, Equatable, CustomStringConvertible {
         public let text: String
-        public var description: String { "sttLanguage「\(text)」は、使えません（ja・en・auto）" }
+        public var description: String { "sttLanguage「\(text)」は、使えません（\(AppLanguage.codes)・auto）" }
     }
 }
 

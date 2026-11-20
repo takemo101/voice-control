@@ -23,8 +23,8 @@ plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 # アプリのアイコン（scripts/make-icon.sh で生成してコミットしたもの）
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-# 許可のダイアログの説明は、Mac の言語に合わせる（ja・en の InfoPlist.strings。Info.plist の文は、どちらでもないときの既定）
-for lang in ja en; do mkdir -p "$APP/Contents/Resources/$lang.lproj"; cp "Resources/$lang.lproj/InfoPlist.strings" "$APP/Contents/Resources/$lang.lproj/"; done
+# 許可のダイアログの説明は、Mac の言語に合わせる（`Resources/<言語>.lproj/InfoPlist.strings` のすべて。Info.plist の文は、どれでもないときの既定）。言語を足すときは、フォルダを足すだけ（docs/development.md の「言語を足す」）
+for dir in Resources/*.lproj; do lang="$(basename "$dir" .lproj)"; mkdir -p "$APP/Contents/Resources/$lang.lproj"; cp "$dir/InfoPlist.strings" "$APP/Contents/Resources/$lang.lproj/"; done
 cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 # スキルを作る・直すためのスキル（エージェントの skill フォルダへ、コピーして使う）
 cp -R skills/voice-control-skill-author "$APP/Contents/Resources/skills/"
