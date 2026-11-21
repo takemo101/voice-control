@@ -11,7 +11,7 @@ struct SettingsPreviewCommand: Command {
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
         ],
-        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--height <数>", "ウィンドウの高さ（下まで見たいとき）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--chat-late", "ウィンドウを作る前に会話してから開いた状態を描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
+        options: [("--page <名前>", "このページだけ（なければ、すべて）"), ("--height <数>", "ウィンドウの高さ（下まで見たいとき）"), ("--icon <ファイル>", "サイドバーに出すアプリのアイコン（.icns）"), ("--diagnostics", "診断ウィンドウも描く"), ("--recording", "キーの記録中（声で頼むキー）の見た目で、キーのページを描く"), ("--chat", "会話のウィンドウ（見本の会話）だけを描く"), ("--chat-late", "ウィンドウを作る前に会話してから開いた状態を描く"), ("--chat-up", "会話の記録を、いちばん上へ戻した状態（「最新へ」のボタンが出る）を描く"), ("--chat-draft", "入力欄に、複数行の文を入れた状態を描く"), ("--catalog", "スキルのページで、インストールできるスキルの一覧（GitHub から取る）を出して描く")],
         examples: ["VC_HOME=/tmp/demo-home vc settings-preview /tmp/settings-shots"])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -49,6 +49,7 @@ struct SettingsPreviewCommand: Command {
             return
         }
         let late = arguments.flag("--chat-late")
+        let scrolledUp = arguments.flag("--chat-up")
         if arguments.flag("--chat") || late {
             let window = late ? ChatWindow.shared.previewLateWindow() : ChatWindow.shared.previewWindow()
             guard let hosting = window.contentView else { fail("描けません（会話）") }
@@ -56,11 +57,27 @@ struct SettingsPreviewCommand: Command {
             hosting.layoutSubtreeIfNeeded()
             guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { fail("描けません（会話）") }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            if scrolledUp {   // 記録を、いちばん上へ戻した状態（「最新へ」のボタンが出る）を描く：本物のスクロールの位置の検出を、通す
+                func scrollView(in view: NSView) -> NSScrollView? { (view as? NSScrollView) ?? view.subviews.lazy.compactMap { scrollView(in: $0) }.first }
+                if let scroll = scrollView(in: hosting), let document = scroll.documentView {
+                    document.scroll(NSPoint(x: 0, y: 0))
+                    scroll.reflectScrolledClipView(scroll.contentView)
+                    Self.spin(seconds: 0.5)
+                    hosting.layoutSubtreeIfNeeded()
+                }
+                guard let rep3 = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { fail("描けません（会話）") }
+                hosting.cacheDisplay(in: hosting.bounds, to: rep3)
+                let up = URL(fileURLWithPath: directory).appendingPathComponent("chat-up.png")
+                try rep3.representation(using: .png, properties: [:])?.write(to: up)
+                print(up.path)
+                return
+            }
             let file = URL(fileURLWithPath: directory).appendingPathComponent("chat.png")
             try rep.representation(using: .png, properties: [:])?.write(to: file)
             print(file.path)
             // 考えている間（待ちの質問）と、読み上げていないとき
             let pending = ChatWindow.shared.previewWindow(pendingOnly: true)
+            if arguments.flag("--chat-draft") { ChatWindow.shared.previewState(draft: "来週の会議の議事録を、次の形で、まとめてください。\n・決まったこと\n・宿題（担当と期限）\n・次回の議題") }   // 複数行の入力（見本の文）
             if let view = pending.contentView {
                 Self.spin(seconds: 0.4)
                 view.layoutSubtreeIfNeeded()

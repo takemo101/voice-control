@@ -3,6 +3,18 @@ import Testing
 @testable import vc
 
 /// 会話の順番待ち：文字は、続けて待っていたら、まとめて 1 回。声は、1 件ずつ。「今すぐ送る」は、その 1 件を先頭へ。**文は、テスト用の作り物**。
+/// 会話の記録のスクロール：最新（いちばん下）から離れているかの判断（「最新へ」のボタンを出すか）。
+@Suite struct ChatScrollTests {
+    @Test func theButtonAppearsOnlyWhenScrolledWellAwayFromTheBottom() {
+        #expect(!ChatScroll.isAwayFromBottom(contentHeight: 2000, visibleMaxY: 2000))     // いちばん下
+        #expect(!ChatScroll.isAwayFromBottom(contentHeight: 2000, visibleMaxY: 1900))     // 少し上（読んでいて、ずれただけ）
+        #expect(ChatScroll.isAwayFromBottom(contentHeight: 2000, visibleMaxY: 1700))      // 上へ戻った
+        #expect(!ChatScroll.isAwayFromBottom(contentHeight: 400, visibleMaxY: 600))       // 記録が、ウィンドウより短い：スクロールの余地がない
+        #expect(!ChatScroll.isAwayFromBottom(contentHeight: 2000, visibleMaxY: 2150))     // 行き過ぎ（バウンス）も、離れていない
+        #expect(ChatScroll.isAwayFromBottom(contentHeight: 1000, visibleMaxY: 880.5, threshold: 100))   // 境目：100 を、超えたら
+    }
+}
+
 @Suite struct ChatQueueTests {
     @Test func typedMessagesThatWaitTogetherAreSentAsOneQuestion() {
         var queue = ChatQueue()
