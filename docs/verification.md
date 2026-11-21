@@ -1868,6 +1868,13 @@ SPEC §6 の「一部確認・未確認」の債務（58 件中 35 件。2026-11
 - **確認した**：既存のすべてのテスト（言語の登録・表・フォールバックのテストを足した）。**実際に、3 つ目の言語を足して試した**（`/tmp` の作業用のコピー。コミットしていない）：`AppLanguage` に `fr` を足すと、`LanguageProfile` の `switch`、次に `L10nTables` の `switch` が、コンパイルで落ちて、足す場所を教えた／`--new-language fr French` が、1,297 件のひな形を作った／6 件だけ訳して、設定ウィンドウを、`uiLanguage: fr` で描くと、訳した項目はフランス語（Général・Touches・Voix）、残りは英語で出て、言語の選択肢に「Français」が出た／全テストが通った（**ただし、既存のテストが、`fr` を「書き間違いの例」に使っていて、落ちた：「zz」に直した**）。
 - **限界・未確認**：足せるのは、画面・音声認識・読み上げの言語まで。**声で頼む機能の精度（Tiny-Jev の選択肢・「操作の依頼か」の判定）は、日本語・英語しか測っていない**。右から左へ書く言語・複数形の規則は、扱わない（表は、文と文の 1 対 1）。実際の第 3 言語の訳は、ない（足したのは、試すための仮のもの）。
 
+## GitButler の作業ツリー（`gitbutler/workspace`）の実態（2026-11-21。利用者の質問：いまも、workspace は要るのか）
+
+- **きっかけ**：PR のマージ後の `but pull` で、`gitbutler/workspace` が、`main` より 19 commit 古いまま（PR #134 の時点）になっていた。`but pull` は「Up to date」と言うだけで、動かさなかった。
+- **実測**（GitButler CLI 0.23.2。一時ブランチを作って、戻した）：適用中のブランチが 0 個なら HEAD は `main`／1 個なら HEAD はそのブランチで、`gitbutler/workspace` は更新されない／**2 個以上を並行して適用すると、HEAD が `gitbutler/workspace` になり**、新しい merge commit ができる／全部消すと、HEAD は `main` に戻り、**`gitbutler/workspace` の ref は、GitButler が消した**。`but setup` のヘルプは「setup は、もう要らない」と言う。Web の要約（GitButler 0.23.0 で `setup` を廃止。2 個目の並行ブランチで workspace に切り替わる）とも、一致した（要約は、一次の資料では、確認していない）。
+- **間違い**：先に、古い ref を、`git branch -f` で `main` に動かした（`but` に、動かす手段がなかったため）。のちの実測で、**GitButler が自分で消す ref だった**ので、手で動かす必要は、なかった（元の ref の値は `be5dd25`。ref は、すでに、ない）。
+- **直した**：`AGENTS.md`・`docs/development.md` の「作業ツリーは `gitbutler/workspace`」「`but setup`」「`gitbutler/workspace` を `main` へ同期する」を、実態に合わせた。
+
 ## 未実施・未確認
 
 - 実アプリでのスキルの実行、複数のスキルの取り違え、複数手のスキル。
