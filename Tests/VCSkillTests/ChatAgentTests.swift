@@ -190,17 +190,17 @@ import VCCore
         #expect(ChatAgent.grok.talksACP(enabled: true, tools: .web) && ChatAgent.grok.talksACP(enabled: true, tools: .read) && ChatAgent.grok.talksACP(enabled: true, tools: .all))
         #expect(!ChatAgent.grok.talksACP(enabled: true, tools: .none) && !ChatAgent.grok.talksACP(enabled: false, tools: .all))
         #expect(ChatAgent.agy.talksACP(enabled: true, tools: .none) && ChatAgent.opencode.talksACP(enabled: true, tools: .none))   // 許可の要求で止められるものは、「なし」でも ACP
-        #expect(!ChatAgent.pi.speaksACP)
+        #expect(ChatAgent.pi.talksACP(enabled: true, tools: .none) && ChatAgent.pi.talksACP(enabled: true, tools: .all))   // pi は、RPC を ACP に訳して、話す（段階は、起動の引数で、道具そのものを無くす）
     }
 
     @Test func theAllToolsWarningSaysWhetherEachActionIsConfirmedByAgent() {
-        // ACP で話す（`talksACP`）エージェントだけ、操作の前に、聞いてくる。ACP を切る・ACP を話せないものは、確認なし
-        #expect(ChatAgent.codex.talksACP(enabled: true, tools: .all) && !ChatAgent.codex.talksACP(enabled: false, tools: .all) && !ChatAgent.pi.talksACP(enabled: true, tools: .all))
+        // 常駐の接続（`talksACP`：ACP、pi は RPC を訳したもの）で話すエージェントだけ、操作の前に、聞いてくる。接続を切ると、確認なし
+        #expect(ChatAgent.codex.talksACP(enabled: true, tools: .all) && !ChatAgent.codex.talksACP(enabled: false, tools: .all) && ChatAgent.pi.talksACP(enabled: true, tools: .all))
         let acp = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: true)
         let direct = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: false)
         let apple = ChatToolLevel.allToolsDialogBody(agent: .apple, acp: true)
         #expect(acp != direct && acp != apple && direct != apple)   // 3 つの場合で、別の説明
-        #expect(direct == ChatToolLevel.allToolsDialogBody(agent: .pi, acp: true))   // ACP を話せないエージェントは、ACP を切ったときと同じ
+        #expect(acp == ChatToolLevel.allToolsDialogBody(agent: .pi, acp: true) && direct == ChatToolLevel.allToolsDialogBody(agent: .pi, acp: false))   // pi も、常駐の接続のときは、毎回、確認する（拡張が、聞く）
     }
 }
 

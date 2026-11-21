@@ -36,6 +36,8 @@ final class ACPConnection: @unchecked Sendable {
     private let argv: [String]
     private let directory: URL
     private let environment: [String: String]
+    /// 相手の言葉を、ACP に訳す（ACP を話さない相手：`PiRPCDialect`）。なければ、そのまま。
+    private let dialect: ACPWireDialect?
     private let lock = NSLock()
     private var process: Process?
     private var input: FileHandle?
@@ -65,8 +67,8 @@ final class ACPConnection: @unchecked Sendable {
         }
     }
 
-    init(argv: [String], directory: URL, environment: [String: String] = [:]) {
-        self.argv = argv; self.directory = directory; self.environment = environment
+    init(argv: [String], directory: URL, environment: [String: String] = [:], dialect: ACPWireDialect? = nil) {
+        self.argv = argv; self.directory = directory; self.environment = environment; self.dialect = dialect
     }
 
     deinit { close() }
@@ -157,7 +159,10 @@ final class ACPConnection: @unchecked Sendable {
         lock.unlock()
         for line in lines where !line.isEmpty {
             guard let message = JSONValue.parse(line) else { continue }   // JSON でない行（ログなど）は、読み飛ばす
-            dispatch(message)
+            guard let dialect else { dispatch(message); continue }
+            let translated = dialect.incoming(message)
+            for line in translated.lines { writeRaw(line) }
+            for message in translated.messages { dispatch(message) }
         }
     }
 
@@ -202,7 +207,14 @@ final class ACPConnection: @unchecked Sendable {
     }
 
     private func write(_ object: [String: JSONValue]) {
-        guard var data = JSONValue.object(object).serialized() else { return }
+        guard let dialect else { writeRaw(.object(object)); return }
+        let translated = dialect.outgoing(.object(object))
+        for line in translated.lines { writeRaw(line) }
+        for message in translated.messages { dispatch(message) }   // 相手に聞かずに、すぐ返せるもの（要求は、すでに、待ちに入っている）
+    }
+
+    private func writeRaw(_ value: JSONValue) {
+        guard var data = value.serialized() else { return }
         data.append(0x0A)
         lock.lock(); let input = self.input; let isClosed = closed; lock.unlock()
         guard !isClosed else { return }

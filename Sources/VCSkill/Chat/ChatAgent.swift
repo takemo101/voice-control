@@ -49,7 +49,7 @@ public enum ChatAgent: String, CaseIterable, Sendable {
         return talksACP(enabled: acp, tools: tools) ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model, auto: auto) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
     }
 
-    /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）・`grok`（`grok agent stdio`）は、CLI 自身が。`claude`・`codex` は、利用者が入れたアダプター（`ACPAdapter`）を通して。`pi` は、ACP を話さない（従来の方式）。
+    /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）・`grok`（`grok agent stdio`）は、CLI 自身が。`claude`・`codex` は、利用者が入れたアダプター（`ACPAdapter`）を通して。`pi` は、ACP を話さず、**自分の RPC モード**を、こちらが ACP に訳して（`PiRPCDialect`）。
     /// **段階の強制は、こちらの許可の返事で行う**（`ACPPermission`）：`opencode` は、何もしなければ、書き込みも、確認なしで行うので、起動のとき、全部を「聞く」設定にして、渡す（`ACPAgentProfile.launchEnvironment`）。
     public var speaksACP: Bool { ACPAgentProfile.of(self) != nil }
 

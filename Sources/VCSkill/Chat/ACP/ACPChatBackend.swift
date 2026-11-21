@@ -113,7 +113,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
             link?.close()
             var argv = launch(agent, tools)
             if sandbox, ACPSandbox.applies(to: agent) { argv = ACPSandbox.wrap(argv, agent: agent, level: tools, folder: folder) }   // OS の制限つきで起動（書き込みは、作業フォルダ・エージェントの置き場だけ）
-            let fresh = ACPConnection(argv: argv, directory: workingDirectory(), environment: profile.launchEnvironment())
+            let fresh = ACPConnection(argv: argv, directory: workingDirectory(), environment: profile.launchEnvironment(), dialect: profile.makeDialect())
             try fresh.start()
             do {
                 // こちらが持つ機能は、宣言しない（ファイル・端末は、エージェントが、自分で行う：許可の確認だけ、こちらが受ける）

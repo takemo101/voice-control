@@ -86,7 +86,7 @@ public enum ACPModelCatalog {
         defer { try? FileManager.default.removeItem(at: scratch) }
         var argv = profile.launch(level: .none)
         if sandbox, ACPSandbox.applies(to: agent) { argv = ACPSandbox.wrap(argv, agent: agent, level: .none, folder: scratch) }
-        let connection = ACPConnection(argv: argv, directory: scratch, environment: profile.launchEnvironment())
+        let connection = ACPConnection(argv: argv, directory: scratch, environment: profile.launchEnvironment(), dialect: profile.makeDialect())
         do { try connection.start() } catch { throw ACPModelError(description: "\(error)（アダプター・CLI が入っているか、確かめてください）") }
         defer { connection.close() }
         do {
