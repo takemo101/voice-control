@@ -390,7 +390,8 @@ import VCSkill
     }
 
     /// 見た目の確認用（`vc chat-preview`）：本物のウィンドウに、見本の状態（添えた画像・読み上げの札）を、決める。
-    func previewState(attachedImage: Bool? = nil, speaking: Bool? = nil, header: (agent: String, warning: String?, tools: String?)? = nil) {
+    func previewState(attachedImage: Bool? = nil, speaking: Bool? = nil, header: (agent: String, warning: String?, tools: String?)? = nil, draft: String? = nil) {
+        if let draft { state.draft = draft }
         if let attachedImage { state.image = attachedImage ? AttachedImage(thumbnail: Self.sampleThumbnail(), takenAt: Date().addingTimeInterval(-20)) : nil }
         if let speaking { state.speaking = speaking; state.speakingEntry = speaking ? state.entries.last?.id : nil }
         if let header { state.agent = header.agent; state.warning = header.warning; state.tools = header.tools }
@@ -537,6 +538,8 @@ enum ChatVoiceState: Equatable {
     @Published var tools: String?
     /// 増えると、いちばん新しい往復の頭へ、スクロールする。
     @Published var scrollToken = 0
+    /// 記録を、上へ戻って読んでいる（最新から離れている）：「最新へ」のボタンを出す。`ChatScroll` で判断する。
+    @Published var awayFromBottom = false
     /// 会話に添えてある画像（撮ってから 180 秒だけ、使える）。
     @Published var image: AttachedImage?
     /// 範囲を選んでいる間。

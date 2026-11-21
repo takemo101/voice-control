@@ -90,10 +90,27 @@ struct ChatView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .animation(.easeInOut(duration: 0.22), value: state.queue.items.map(\.id))
+                    Color.clear.frame(height: 1).id(ChatScroll.bottomAnchor)   // 「最新へ」の戻り先（いちばん下）
                 }
                 .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 22)
             }
             .scrollIndicators(.never)
+            // 上へ戻って読んでいる間（最新から離れている）：「最新へ」のボタンを出す
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                ChatScroll.isAwayFromBottom(contentHeight: geometry.contentSize.height, visibleMaxY: geometry.visibleRect.maxY)
+            } action: { _, away in
+                if state.awayFromBottom != away { state.awayFromBottom = away }
+            }
+            .overlay(alignment: .bottom) {
+                if state.awayFromBottom {
+                    JumpToLatestButton {
+                        withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(ChatScroll.bottomAnchor, anchor: .bottom) }
+                    }
+                    .padding(.bottom, 12)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: state.awayFromBottom)
             // 上下の端は、すっと消える（スクロールの途中で、文字が、線で切れない）：OS 標準の端の効果。以前の `.mask(グラデーション)` は、スクロールの領域全体を、毎フレーム、画面の外に描き直すので、ガラスの上で、引っ掛かった
             .scrollEdgeEffectStyle(.soft, for: .vertical)
             // いちばん新しい往復の頭へ（答えが長くても、質問から読める）
@@ -123,6 +140,31 @@ struct ChatView: View {
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help(state.copied ? tr("コピーしました") : tr("会話全体のコピー・新しい会話"))
         .accessibilityLabel(tr("そのほかの操作"))
+    }
+}
+
+/// 上へ戻って読んでいるときに出る、「最新へ」のボタン（押すと、いちばん下の、最新の会話へ戻る）。
+private struct JumpToLatestButton: View {
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down").vcFont(11, weight: .bold)
+                Text(tr("最新へ")).vcFont(12, weight: .semibold)
+            }
+            .foregroundStyle(.white.opacity(0.95))
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(Capsule().fill(.black.opacity(0.78)))
+            .background(Capsule().fill(ChatPalette.accent.opacity(hover.on ? 0.34 : 0.22)))
+            .overlay(Capsule().strokeBorder(ChatPalette.accent.opacity(0.55), lineWidth: 0.8))
+            .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).onHover { hover.on = $0 }
+        .help(tr("いちばん新しい会話へ戻る"))
+        .accessibilityLabel(tr("最新の会話へ戻る"))
     }
 }
 
@@ -198,21 +240,27 @@ private struct ComposerBar: View {
     @ObservedObject var state: ChatWindowState
     let attach: () -> Void
 
+    @Environment(\.fontScale) private var scale
     private var busy: Bool { state.entries.hasPending }
     private var draftIsEmpty: Bool { state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             guide
-            HStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
                 if state.submit != nil {
-                    TextField(busy ? tr("続けて質問すると、順番待ちに入ります（Enter）") : tr("メッセージを入力（Enter で送信）"), text: $state.draft)
-                        .textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(Capsule().fill(.white.opacity(0.09)))
-                        .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
-                        .onSubmit(send)
+                    // 複数行：⇧Return で改行・Return で送信（1 行から、最大 6 行まで、高くなる）
+                    ZStack(alignment: .topLeading) {
+                        if state.draft.isEmpty {
+                            Text(busy ? tr("続けて質問すると、順番待ちに入ります（Return）") : tr("メッセージを入力（Return で送信・⇧Return で改行）"))
+                                .vcFont(13).foregroundStyle(.white.opacity(0.42)).lineLimit(1).allowsHitTesting(false)
+                        }
+                        ComposerField(text: $state.draft, fontSize: 13 * scale, onSend: send)
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 19, style: .continuous).fill(.white.opacity(0.09)))
+                    .overlay(RoundedRectangle(cornerRadius: 19, style: .continuous).strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
                     if busy && draftIsEmpty {
                         // 考えている間で、入力欄が空：送信ボタンが、停止になる（待っている質問も、送らない）
                         Button { state.stopTurn?() } label: {
