@@ -74,17 +74,19 @@ struct ACPAgentProfile {
                                    sessionMeta: .object(["yoloMode": .bool(false)]), canDisableWebSearch: false)
         case .pi:
             // 本体の RPC モード（`pi --mode rpc`）を、こちらが ACP に訳す（`PiRPCDialect`）。**第三者のアダプター（`pi-acp`）は使わない**。pi には、許可の要求の仕組みがないので、
-            // 段階は、**起動の引数で、道具そのものを、無くす**（なし・Web＝道具なし／読む＝read・grep・find・ls）。「すべて」は、こちらが書く拡張（`PiGateExtension`）が、`write`・`edit`・`bash` の前に、確認を求める。
-            // `--no-extensions`（利用者が入れた拡張を、止める。明示した `-e` は、効く）・`--no-mcp`・`--no-approve`（フォルダの `.pi` の読み込みを、しない）。
-            return ACPAgentProfile(agent: .pi, executable: "pi", arguments: ["--mode", "rpc", "--no-session", "--no-extensions", "--no-skills", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
+            // **こちらが書く拡張（`PiGateExtension`）が、読む組み込み以外の、すべての道具の前に、確認を求める**（利用者の拡張・MCP が足した道具も）：ACP のエージェントと同じく、利用者の拡張・MCP・スキル・文脈ファイルは、そのまま使う。判断は、`ACPPermission`（段階で、断る・確認）。
+            // 段階は、さらに、起動の引数で、組み込みの道具そのものを無くす（なし・Web＝道具なし／読む＝read・grep・find・ls）。`--no-approve`：フォルダの `.pi`（拡張・設定）は、読まない（信頼していない実行コードを、動かさない）。
+            return ACPAgentProfile(agent: .pi, executable: "pi", arguments: ["--mode", "rpc", "--no-session", "--no-themes", "--no-approve"],
                                    restrictedArguments: [], environment: [:], stateDirectories: [".pi"], statePrefixes: [], stateFiles: [],
                                    choosesModel: false, askingModes: [], readingModes: [], requiresMode: false,
                                    sessionMeta: nil, canDisableWebSearch: true, wire: .piRPC,
                                    levelArguments: { level in
+                                       // 確認の拡張は、いつも読む。置けなければ、確認できない：利用者の拡張・MCP を止めて、組み込みの読む道具だけにする
+                                       guard let gate = PiGateExtension.install() else { return ["--no-extensions", "--no-mcp", "--tools", "read,grep,find,ls"] }
                                        switch level {
-                                       case .none, .web: return ["--no-tools"]
-                                       case .read: return ["--tools", "read,grep,find,ls"]
-                                       case .all: return PiGateExtension.install().map { ["-e", $0] } ?? ["--tools", "read,grep,find,ls"]   // 拡張を置けなければ、確認なしで書かせない：読むだけに下げる
+                                       case .none, .web: return ["-e", gate, "--no-tools"]
+                                       case .read: return ["-e", gate, "--tools", "read,grep,find,ls"]
+                                       case .all: return ["-e", gate]
                                        }
                                    })
         default:
