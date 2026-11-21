@@ -101,12 +101,12 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 
 ## Git・GitHub・GitButler
 
-リポジトリは GitHub の公開リポジトリ（`takemo101/voice-control`）。基本のブランチは **`main`**。**GitButler で進める**：`main` を target（`origin/main`）にし、作業ツリーは `gitbutler/workspace` ブランチ（`but setup`）。
+リポジトリは GitHub の公開リポジトリ（`takemo101/voice-control`）。基本のブランチは **`main`**。**GitButler で進める**：`main` を target（`origin/main`）にする。**作業ツリー（HEAD）は、適用中のブランチの数で変わる**（GitButler 0.23 以降。`but setup` は不要）：0 個なら `main`・1 個ならそのブランチ・**2 個以上を並行して適用したときだけ**、GitButler が管理する `gitbutler/workspace`（複数のブランチをまとめた merge commit）に切り替わる。全部消す・統合すると、通常のブランチに戻り、`gitbutler/workspace` の ref は、GitButler が消す。この `gitbutler/workspace` は、**手で動かさない**（古く見えても、使われていない：`but pull` は、適用中のブランチがなければ「Up to date」と言うだけで、動かさない）。
 
 - **Git の書込みは `but`**。raw Git の `add`・`commit`・`checkout`・`merge`・`rebase`・`push` で書き込まない（読取りは可）。変更は、専用の branch に `but commit -b <branch> -m <message> <ids…>`。`main` へ直接 commit しない。
 - 変更の確認：`but diff`（未コミットの差分と ID）、`but status`（branch・commit の概観）。ID は、直前の出力からそのまま写す。
-- 同期：`but pull`（target の更新を、workspace に取り込む）。先に確認したいときは `but pull --check`。
-- **PR を merge したら、毎回、すぐに同期する**：`but pull` → `but status`（base が merge 後の `main`、統合された branch が消えている）。`but pull --check` で、先に衝突の有無を見てもよい。衝突した commit は、`but resolve` で、古いものから直す。同期が済むまで、次の作業・PR を始めない。
+- 同期：`but pull`（target の更新を、適用中のブランチに取り込む）。先に確認したいときは `but pull --check`。
+- **PR を merge したら、毎回、すぐに同期する**：`but pull` → `but status`（base が merge 後の `main`、統合された branch が消えている。HEAD は `main`、または適用中のブランチ）。`but pull --check` で、先に衝突の有無を見てもよい。衝突した commit は、`but resolve` で、古いものから直す。同期が済むまで、次の作業・PR を始めない。
 - **積んだ PR（スタック）**：下の PR を base にした PR は、`gh pr merge` が「stack の一部なので、非同期の merge API で」と断る。`gh api -X PUT repos/<owner>/<repo>/pulls/<上の PR>/merge-async -f merge_method=merge -f sha=<CI を通した head>`（下の PR も、まとめて入る）。結果は、返った uuid を `GET …/merge-async/<uuid>` で見る。
 - PR：`but pr new <branch> -F <message-file>`（push を含む）。PR を依頼されたときだけ作る。PR の target・head・差分を確かめてから、`main` へ normal merge する。admin・force・保護の迂回・`but land` による PR 回避をしない。
 - push・公開・リリース・認証は、利用者の依頼があるときだけ。**秘密・個人の情報（トークン・API キー・実際の発話・画面の内容・個人のパス）をコミットしない**（コミットの前に確かめる）。

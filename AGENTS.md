@@ -43,12 +43,12 @@
 
 ## GitButler と PR
 
-**GitButler で進める**：基本のブランチは `main`、target は `origin/main`、作業ツリーは `gitbutler/workspace`。手順は [開発手順](docs/development.md#gitgithubgitbutler) に従う。
+**GitButler で進める**：基本のブランチは `main`、target は `origin/main`。作業ツリー（HEAD）は、**適用中のブランチが 0 個なら `main`・1 個ならそのブランチ・2 個以上を並行して適用したときだけ、GitButler が管理する `gitbutler/workspace`**（GitButler 0.23 以降。`but setup` は不要。2026-11-21 に実測）。手順は [開発手順](docs/development.md#gitgithubgitbutler) に従う。
 
 - Git の書込みは `but`（raw Git の `add`・`commit`・`checkout`・`merge`・`rebase`・`push` は使わない。読取りは可）。変更は専用 branch に `but commit -b <branch> -m <message> <ids…>`。`main` へ直接 commit しない。同期は `but pull`。
 - PR は、依頼があるときだけ（`but pr new`）。admin・force・保護の迂回・`but land` による PR 回避をしない。
-- **PR を `main` に merge したら、毎回、すぐに `but pull` で `gitbutler/workspace` を `main`（`origin/main`）へ同期する**。そのあと `but status` で、base が merge 後の `main` になったこと・統合された branch がローカルから消えたことを確かめる。未コミットの変更は、そのまま残る。同期が済むまで、次の作業・PR を始めない。
-- 利用者の依頼があるとき以外、`but setup`・`but teardown`・target の変更をしない。
+- **PR を `main` に merge したら、毎回、すぐに `but pull` で target（`origin/main`）を取り込む**。そのあと `but status` で、base が merge 後の `main` になったこと・統合された branch がローカルから消えたことを確かめる。未コミットの変更は、そのまま残る。同期が済むまで、次の作業・PR を始めない。`gitbutler/workspace` は GitButler が作る・消す ref なので、**手で動かさない**（`git branch -f` など）。適用中のブランチがなければ、ref がなくてよい。
+- 利用者の依頼があるとき以外、`but teardown`・target の変更をしない（`but setup` は、0.23 以降、不要）。
 
 ## 設計と実装
 
