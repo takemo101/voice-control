@@ -19,7 +19,7 @@ struct AdapterCommand: Command {
         guard let action = words.first, ["status", "install", "remove"].contains(action) else { usageError("adapter", tr("status・install・remove のどれかを指定してください")) }
         let adapters: [ACPAdapter]
         if let name = words.dropFirst().first {
-            guard let agent = ChatAgent.parse(name), let adapter = ACPAdapter.of(agent) else { usageError("adapter", tr("「\(name)」には、アダプターは要りません（claude・codex だけ。agy・opencode・grok は、本体が ACP を話します）")) }
+            guard let agent = ChatAgent.parse(name), let adapter = ACPAdapter.of(agent) else { usageError("adapter", tr("「\(name)」には、アダプターは要りません（claude・codex だけ。agy・opencode・grok は、本体が ACP を話し、pi は、自身の RPC モードを使います）")) }
             adapters = [adapter]
         } else {
             guard action == "status" else { usageError("adapter", tr("\(action) には、エージェント（claude・codex）を指定してください")) }

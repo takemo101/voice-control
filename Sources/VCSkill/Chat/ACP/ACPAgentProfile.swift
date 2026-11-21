@@ -31,6 +31,15 @@ struct ACPAgentProfile {
     var sessionMeta: JSONValue?
     /// 「なし（会話だけ）」の段階で、Web 検索を、**止められるか**。許可の要求で止めるエージェントは、止められる。`grok` は、Web 検索を、許可の要求なしで行う（実測）ので、「なし」は、従来の CLI（`--disable-web-search`）で話す。
     var canDisableWebSearch = true
+    /// 相手と話す言葉。ACP を話すものは、そのまま。`piRPC`：pi の RPC モード（行ごとの JSON）を、`PiRPCDialect` で、ACP に訳す。
+    var wire: Wire = .acp
+    /// 段階ごとに、足す引数（pi：道具の許可リスト `--tools`・確認の拡張 `-e`）。なければ、`restrictedArguments` だけ。
+    var levelArguments: (@Sendable (ChatToolLevel) -> [String])?
+
+    enum Wire { case acp, piRPC }
+
+    /// 接続に付ける、訳し役（ACP を話すものは、なし）。
+    func makeDialect() -> ACPWireDialect? { wire == .piRPC ? PiRPCDialect() : nil }
 
     /// ACP で話せるエージェントの、違い。話せなければ nil。
     static func of(_ agent: ChatAgent) -> ACPAgentProfile? {
@@ -63,6 +72,21 @@ struct ACPAgentProfile {
                                    stateDirectories: [".grok"], statePrefixes: [], stateFiles: [],
                                    choosesModel: false, askingModes: [], readingModes: [], requiresMode: false,
                                    sessionMeta: .object(["yoloMode": .bool(false)]), canDisableWebSearch: false)
+        case .pi:
+            // 本体の RPC モード（`pi --mode rpc`）を、こちらが ACP に訳す（`PiRPCDialect`）。**第三者のアダプター（`pi-acp`）は使わない**。pi には、許可の要求の仕組みがないので、
+            // 段階は、**起動の引数で、道具そのものを、無くす**（なし・Web＝道具なし／読む＝read・grep・find・ls）。「すべて」は、こちらが書く拡張（`PiGateExtension`）が、`write`・`edit`・`bash` の前に、確認を求める。
+            // `--no-extensions`（利用者が入れた拡張を、止める。明示した `-e` は、効く）・`--no-mcp`・`--no-approve`（フォルダの `.pi` の読み込みを、しない）。
+            return ACPAgentProfile(agent: .pi, executable: "pi", arguments: ["--mode", "rpc", "--no-session", "--no-extensions", "--no-skills", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
+                                   restrictedArguments: [], environment: [:], stateDirectories: [".pi"], statePrefixes: [], stateFiles: [],
+                                   choosesModel: false, askingModes: [], readingModes: [], requiresMode: false,
+                                   sessionMeta: nil, canDisableWebSearch: true, wire: .piRPC,
+                                   levelArguments: { level in
+                                       switch level {
+                                       case .none, .web: return ["--no-tools"]
+                                       case .read: return ["--tools", "read,grep,find,ls"]
+                                       case .all: return PiGateExtension.install().map { ["-e", $0] } ?? ["--tools", "read,grep,find,ls"]   // 拡張を置けなければ、確認なしで書かせない：読むだけに下げる
+                                       }
+                                   })
         default:
             return nil
         }
@@ -71,7 +95,7 @@ struct ACPAgentProfile {
     /// 起動の引数（実行ファイル名から）。
     func launch(level: ChatToolLevel) -> [String] {
         // アダプターは、見つかった場所の、絶対のパスで起動する（利用者が入れたもの → アプリが入れたもの）。見つからなければ、名前のまま（起動に失敗して、従来の方式へ戻る）
-        [AgentLocator.acpExecutablePath(for: agent) ?? executable] + arguments + (level == .all ? [] : restrictedArguments)
+        [AgentLocator.acpExecutablePath(for: agent) ?? executable] + arguments + (level == .all ? [] : restrictedArguments) + (levelArguments?(level) ?? [])
     }
 
     /// 起動に渡す環境変数：探す場所（`PATH`）・エージェントごとの設定・**利用者の CLI 本体の場所**（アダプターが、本体を、二重に取り込まない）。
