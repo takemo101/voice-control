@@ -51,7 +51,10 @@ public enum ProcessTree {
     public static func terminate(_ process: Process, grace: TimeInterval = 1.0) {
         let members = signalTerm(process)
         guard !members.isEmpty else { return }
-        DispatchQueue.global().asyncAfter(deadline: .now() + grace) { killIfStillThere(members) }
+        // 専用のスレッドで待つ：共有の待ち行列（`DispatchQueue.global()`）は、ほかの処理が、スレッドを使い切ると、猶予のあとの SIGKILL が、遅れる（CI で、全部のテストを 1 つのプロセスで並行に走らせたとき、孫を止め損ねた：4 回中 3 回）
+        let reaper = Thread { Thread.sleep(forTimeInterval: grace); killIfStillThere(members) }
+        reaper.stackSize = 64 * 1024
+        reaper.start()
     }
 
     /// 同じことを、**待って**行う（アプリの終了時：裏の処理が、動く前に、終わってしまうため）。

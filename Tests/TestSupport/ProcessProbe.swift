@@ -11,6 +11,11 @@ public enum ProcessProbe {
         return !state.isEmpty && !state.hasPrefix("Z")
     }
 
+    /// 失敗したとき、状態を、メッセージに出す（CI で、止め損ねた原因を、つかむため）。
+    public static func describe(_ pid: pid_t) -> String {
+        ProcessRunner.run(executable: "ps", arguments: ["-o", "pid=,ppid=,stat=,comm=", "-p", "\(pid)"], mergeStderr: true, timeout: 5).text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     public static func waitUntilDead(_ pid: pid_t, seconds: Double = 5) -> Bool {
         let limit = Date().addingTimeInterval(seconds)
         while Date() < limit { if !isAlive(pid) { return true }; Thread.sleep(forTimeInterval: 0.05) }
