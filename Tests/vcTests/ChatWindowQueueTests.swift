@@ -9,7 +9,7 @@ import Testing
 
 extension SharedChatWindow {
 @Suite @MainActor struct QueueStateTests {
-    private final class Started { var texts: [String] = [] }
+    private final class Started { var texts: [String] = []; var fileNames: [[String]] = [] }
 
     /// 毎回、まっさらにして、終わりに、片付ける。
     private func fresh() -> (ChatWindow, Started) {
@@ -17,7 +17,7 @@ extension SharedChatWindow {
         window.clear()
         window.reservationTimeout = .seconds(15)
         let started = Started()
-        window.startTyped = { started.texts.append($0) }
+        window.startTyped = { text, files in started.texts.append(text); started.fileNames.append(files.map(\.name)) }
         window.injectSpoken = nil
         window.interruptVoiceTurn = nil
         return (window, started)
@@ -220,6 +220,54 @@ extension SharedChatWindow {
         finish(window, t1)
         #expect(window.transcript.contains { $0.question == "orphan" && $0.outcome == .stopped("送られませんでした（声の流れが止まっています）") })
         #expect(started.texts == ["t1", "t2"] && window.claimTurn("orphan") == false)    // 予約は、残らない（次の質問が、動いている）
+    }
+
+    // MARK: 添えるファイル
+
+    private func sampleFiles(_ names: [String]) throws -> (dir: URL, urls: [URL]) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("vc-queue-files-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let urls = try names.map { name -> URL in
+            let url = dir.appendingPathComponent(name)
+            try Data("見本 \(name)".utf8).write(to: url)
+            return url
+        }
+        return (dir, urls)
+    }
+
+    @Test func attachedFilesTravelWithTheTypedQuestionAndDoNotStickToTheNextOne() throws {
+        let (window, started) = fresh(); defer { tearDown(window) }
+        let sample = try sampleFiles(["a.txt", "b.txt", "c.txt"]); defer { try? FileManager.default.removeItem(at: sample.dir) }
+        window.addFiles([sample.urls[0]])
+        window.submitTyped("first")                                   // 考えていない：すぐ始まる。ファイルは、この質問のもの
+        let t1 = begin(window, "first")
+        #expect(window.attachedFiles.isEmpty)                          // 札は、空になる（次の質問に、付かない）
+        window.addFiles([sample.urls[1]]); window.submitTyped("second")
+        window.addFiles([sample.urls[2]]); window.submitTyped("third")  // 順番待ちで、まとめられる質問の、ファイルも、まとまる
+        finish(window, t1)
+        #expect(started.texts == ["first", "second\n\nthird"])
+        #expect(started.fileNames == [["a.txt"], ["b.txt", "c.txt"]])
+        #expect(window.attachedFiles.isEmpty)
+    }
+
+    @Test func takingAQueuedQuestionBackReturnsItsFilesToTheComposer() throws {
+        let (window, _) = fresh(); defer { tearDown(window) }
+        let sample = try sampleFiles(["a.txt"]); defer { try? FileManager.default.removeItem(at: sample.dir) }
+        window.submitTyped("busy"); _ = begin(window, "busy")
+        window.addFiles([sample.urls[0]]); window.submitTyped("queued")
+        guard let item = window.queued.first else { Issue.record("順番待ちが空"); return }
+        window.removeQueued(item.id)
+        #expect(window.attachedFiles.map(\.name) == ["a.txt"])         // 外した質問の、ファイルは、入力欄へ戻る
+    }
+
+    @Test func secretFilesAreRefusedWithAVisibleReasonAndTheRestIsAttached() throws {
+        let (window, _) = fresh(); defer { tearDown(window) }
+        let sample = try sampleFiles(["ok.txt", ".env"]); defer { try? FileManager.default.removeItem(at: sample.dir) }
+        window.addFiles(sample.urls)
+        #expect(window.attachedFiles.map(\.name) == ["ok.txt"])
+        #expect(window.fileNoticeText?.contains(".env") == true)
+        window.clear()
+        #expect(window.attachedFiles.isEmpty && window.fileNoticeText == nil)   // 会話を消すと、札も消える
     }
 }
 }

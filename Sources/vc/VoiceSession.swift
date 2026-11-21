@@ -58,7 +58,7 @@ import VCSpeech
         ChatMode.shared.scorer = jev   // 会話の判断（撮ったスクリーンショットを使うか・最新の情報が要るか）
         let chatConfirmation = Confirmation(scorer: jev)   // 会話の道具の確認（上書き・安全でないコマンド）の、声の「はい」の判定
         // 会話のウィンドウの入力欄：文字で質問する（声の流れと、同じ処理。確認は、パネルのボタンで答える：声の返事は、待たない）
-        ChatWindow.shared.startTyped = { text in
+        ChatWindow.shared.startTyped = { text, files in
             Task { @MainActor in
                 let token = CancelToken()
                 let box = TypedTask()
@@ -66,7 +66,7 @@ import VCSpeech
                 // 声の質問が来たら、この質問は、中断する（処理も止める）
                 let cancel: () -> Void = { token.supersede(); box.task?.cancel() }
                 box.task = Task { @MainActor in
-                    await ChatVoice.handle(text, token: token, context: context, chip: tr("入力"), speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel, fromQueue: true)
+                    await ChatVoice.handle(text, token: token, context: context, chip: tr("入力"), speakResults: false, confirmation: chatConfirmation, next: waitForever, cancelHook: cancel, fromQueue: true, files: files)
                 }
             }
         }

@@ -20,7 +20,7 @@ struct ChatPreviewCommand: Command {
         var first: UUID?, second: UUID?, third: UUID?
 
         window.setKeyHint(context.resolveHotKey().spec.displayName)
-        window.startTyped = { _ in }
+        window.startTyped = { _, _ in }
 
         // Markdown の表示の確認：ファイルの中身を、答えとして、1 つだけ出す
         if let path = arguments.option("--markdown") {

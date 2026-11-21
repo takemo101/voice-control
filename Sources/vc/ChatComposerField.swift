@@ -15,6 +15,8 @@ struct ComposerField: NSViewRepresentable {
     @Binding var text: String
     let fontSize: CGFloat
     let onSend: () -> Void
+    /// Finder でコピーしたファイルを貼り付けたとき（文字ではなく、ファイルとして添える）。
+    var onPasteFiles: (([URL]) -> Void)?
     static let maxLines = 6
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -27,6 +29,7 @@ struct ComposerField: NSViewRepresentable {
         scroll.borderType = .noBorder
         let view = Self.makeTextView(fontSize: fontSize)
         view.delegate = context.coordinator
+        view.onPasteFiles = onPasteFiles
         view.setAccessibilityLabel(tr("メッセージ"))
         scroll.documentView = view
         context.coordinator.textView = view
@@ -36,13 +39,14 @@ struct ComposerField: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let view = scroll.documentView as? NSTextView else { return }
+        (view as? ComposerTextView)?.onPasteFiles = onPasteFiles
         if view.font?.pointSize != fontSize { view.font = .systemFont(ofSize: fontSize) }
         // 同じなら、触らない（入力の途中で、カーソルや変換中の文字を、壊さない）。送信で空にしたときなど、外から変わったときだけ
         if view.string != text { view.string = text }
     }
 
     /// 入力欄の `NSTextView`。**TextKit 1 を、明示する**（高さの測定が、レイアウトの管理に頼るため。既定の TextKit 2 では、測れなかった）。
-    static func makeTextView(fontSize: CGFloat) -> NSTextView {
+    static func makeTextView(fontSize: CGFloat) -> ComposerTextView {
         let storage = NSTextStorage()
         let layout = NSLayoutManager()
         let container = NSTextContainer(size: NSSize(width: 300, height: CGFloat.greatestFiniteMagnitude))
@@ -50,7 +54,7 @@ struct ComposerField: NSViewRepresentable {
         container.lineFragmentPadding = 0
         storage.addLayoutManager(layout)
         layout.addTextContainer(container)
-        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 20), textContainer: container)
+        let view = ComposerTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 20), textContainer: container)
         view.drawsBackground = false
         view.isRichText = false
         view.allowsUndo = true
@@ -110,5 +114,22 @@ struct ComposerField: NSViewRepresentable {
             }
             return true
         }
+    }
+}
+
+/// 入力欄の `NSTextView`：**Finder でコピーしたファイルを貼り付けたら、文字ではなく、ファイルとして添える**（それ以外の貼り付けは、標準のまま）。
+final class ComposerTextView: NSTextView {
+    var onPasteFiles: (([URL]) -> Void)?
+    /// 貼り付けの元（テストで、差し替える）。
+    var pasteboard: NSPasteboard = .general
+
+    override func paste(_ sender: Any?) {
+        let urls = Self.fileURLs(on: pasteboard)
+        if !urls.isEmpty, let onPasteFiles { onPasteFiles(urls); return }
+        super.paste(sender)
+    }
+
+    static func fileURLs(on pasteboard: NSPasteboard) -> [URL] {
+        (pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
     }
 }

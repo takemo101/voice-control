@@ -83,12 +83,14 @@ import VCSkill
 
     /// 画像を、外のエージェントへ送ってよいか、利用者に確かめる（送るたびに：画像と、送り先を見せる）。送ってよければ true。
     typealias ImageSendConfirm = @Sendable (_ image: URL, _ agent: ChatAgent) async -> Bool
+    /// 外のエージェントへ、**ファイルを送る前の確認**（ファイル名・大きさ・送り先を見せる）。
+    typealias FileSendConfirm = @Sendable (_ files: [ChatFile], _ agent: ChatAgent) async -> Bool
 
     /// 1 回の質問：添付を決めて（コード）、会話に渡し、答えを返す。進み具合は `progress` で知らせる。
     /// - `attachedImage`：会話のウィンドウに、添えてある画像（「この画面」と言わなくても、使う）。
     /// - `confirmImage`：**外のエージェントへ画像を送る前の確認**（なければ、送らない）。Apple の会話は、画像を、この Mac の中で文字にするので、確認は要らない。
     func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, onImage: (@MainActor (URL) -> Void)? = nil, onRoute: (@MainActor (ImageRoute) -> Void)? = nil, progress: @escaping @MainActor (String) -> Void,
-             onText: (@Sendable (String) -> Void)? = nil, confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
+             onText: (@Sendable (String) -> Void)? = nil, files: [ChatFile] = [], confirmFiles: FileSendConfirm? = nil, confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         var imageToSend: URL?
@@ -152,6 +154,27 @@ import VCSkill
             case let .attach(attachment): attachments.append(attachment); attached.insert(attachment.key)
             }
         }
+        // 添えたファイル：外のエージェントにだけ渡す（中身が、この Mac の外へ出る：**送るたびに、確認する**）。道具が足りず、渡せないものは、先に断る
+        var filesToSend: [ChatFile] = []
+        if !files.isEmpty {
+            if !agent.isExternal {
+                notes.append(tr("ファイルは、外のエージェントの会話でだけ、使えます（Apple のモデルでは、使いません）"))
+            } else {
+                let level = agent.effective(tools)
+                let passable = files.filter { ChatFileRules.delivery(of: $0, tools: level) != .needsTools }
+                let blocked = files.filter { ChatFileRules.delivery(of: $0, tools: level) == .needsTools }
+                if !blocked.isEmpty { notes.append(tr("渡せなかったファイル：\(blocked.map(\.name).joined(separator: "、"))（大きいファイル・文字でないファイルは、設定 > 会話 の道具を「＋ファイルを読む」以上にすると、渡せます）")) }
+                if !passable.isEmpty {
+                    if let confirmFiles {
+                        progress(tr("ファイルを送るか、確認しています…"))
+                        if await confirmFiles(passable, agent) { filesToSend = passable } else { notes.append(tr("ファイルは、送りませんでした")) }
+                    } else {
+                        notes.append(tr("確認できないので、ファイルは、送りません"))
+                    }
+                }
+            }
+        }
+        if !filesToSend.isEmpty { attachments.append(ChatAttachments.Attachment(label: "ファイル", body: ChatFileRules.memo(filesToSend), key: "files-" + filesToSend.map(\.name).joined(separator: ","))) }   // l10n-skip: 会話の記録に残す印（モデルへの文面）
         if let route { onRoute?(route) }   // 画像の扱いは、決まった時点で、ウィンドウへ知らせる（答えが出るまで、待たせない）
         progress(tr("考えています…"))
         let question = ChatAttachments.compose(question: utterance, attachments: attachments)
@@ -162,7 +185,7 @@ import VCSkill
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, onText: onText, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
+        }, onText: onText, files: filesToSend, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
             judgeCommand: auto ? scorer.map { scorer -> CommandJudge in { command in await Task.detached { CommandSafetyJudge(scorer: scorer).isHarmless(command) }.value } } : nil))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append(tr("しばらく話さなかったので、前の会話は終わりました")) }
         if reply.compacted { notes.append(tr("古いやり取りを、要約しました")) }

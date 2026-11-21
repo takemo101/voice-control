@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import VCCore
 import VCSkill
 
@@ -36,12 +37,37 @@ struct ChatView: View {
                 Rule()
                 AttachmentBar(image: image, external: state.warning != nil, retake: attach, detach: detach)
             }
+            if !state.files.isEmpty || state.fileNotice != nil {
+                Rule()
+                FileChips(state: state)
+            }
             Rule()
             ComposerBar(state: state, attach: attach)
         }
         .modifier(Surface(solid: state.solid, shape: shape))
+        .overlay { if state.dropTargeted { DropHint().transition(.opacity) } }
+        .animation(.easeOut(duration: 0.15), value: state.dropTargeted)
+        .onDrop(of: [.fileURL], isTargeted: $state.dropTargeted) { providers in handleDrop(providers) }
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.40), .white.opacity(0.05), ChatPalette.accent.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
         .clipShape(shape)
+    }
+
+    /// ファイルを、ウィンドウへ落とした：添える（フォルダ・秘密のファイルは、断る：`ChatFileRules`）。
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let matching = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+        guard !matching.isEmpty else { return false }
+        let found = DroppedURLs()
+        let group = DispatchGroup()
+        for provider in matching {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                defer { group.leave() }
+                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) { found.add(url) } else if let url = item as? URL { found.add(url) }
+            }
+        }
+        let add = state.addFiles
+        group.notify(queue: .main) { MainActor.assumeIsolated { add?(found.all) } }
+        return true
     }
 
     // MARK: ヘッダー
@@ -168,6 +194,106 @@ private struct JumpToLatestButton: View {
     }
 }
 
+/// ドロップで集めた URL（別のスレッドから足す）。
+private final class DroppedURLs: @unchecked Sendable {
+    private let lock = NSLock()
+    private var urls: [URL] = []
+    func add(_ url: URL) { lock.withLock { urls.append(url) } }
+    var all: [URL] { lock.withLock { urls } }
+}
+
+/// ファイルを、ウィンドウの上へ、ドラッグしている間の、案内。
+private struct DropHint: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .strokeBorder(ChatPalette.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(.black.opacity(0.55)))
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "paperclip").vcFont(28, weight: .semibold).foregroundStyle(ChatPalette.accent)
+                    Text(tr("ここへ落とすと、ファイルを添えます")).vcFont(14, weight: .semibold).foregroundStyle(.white)
+                    Text(tr("外のエージェントへ送る前に、確認します")).vcFont(11).foregroundStyle(.white.opacity(0.65))
+                }
+            }
+            .padding(6).allowsHitTesting(false)
+    }
+}
+
+/// 入力欄の上の、添えたファイルの札（外せる）と、断った理由。**外のエージェントへ送る前に、確認する**ことと、渡せないものを、先に見せる。
+private struct FileChips: View {
+    @ObservedObject var state: ChatWindowState
+
+    var body: some View {
+        let external = ChatMode.shared.agent.isExternal
+        let level = ChatMode.shared.agent.effective(ChatMode.shared.tools)
+        let blocked = state.files.filter { ChatFileRules.delivery(of: $0, tools: level) == .needsTools }
+        VStack(alignment: .leading, spacing: 6) {
+            if !state.files.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(state.files) { file in
+                            FileChip(file: file, warn: external && blocked.contains(where: { $0.id == file.id })) { state.removeFile?(file.id) }
+                        }
+                    }
+                    .padding(1)   // 札の縁取りが、スクロールの端で、切れない
+                }
+                if !external {
+                    Label(tr("Apple のモデルの会話では、ファイルは使えません（外のエージェントの会話で、使えます）"), systemImage: "info.circle").vcFont(11).foregroundStyle(ChatPalette.orange)
+                } else if !blocked.isEmpty {
+                    Label(tr("色が付いたファイルは、道具を「＋ファイルを読む」以上にすると、渡せます（小さい文字ファイルは、そのまま渡せます）"), systemImage: "exclamationmark.triangle.fill").vcFont(11).foregroundStyle(ChatPalette.orange)
+                } else {
+                    Label(tr("次の質問に付けます。送る前に、確認します"), systemImage: "lock.shield").vcFont(11).foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            if let notice = state.fileNotice {
+                Label(notice, systemImage: "exclamationmark.circle.fill").vcFont(11).foregroundStyle(ChatPalette.orange).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(.white.opacity(0.04))
+    }
+}
+
+private struct FileChip: View {
+    let file: ChatFile
+    let warn: Bool
+    let remove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: file.isText ? "doc.text" : "doc").vcFont(11, weight: .semibold)
+            Text(file.name).vcFont(12, weight: .semibold).lineLimit(1).truncationMode(.middle).frame(maxWidth: 190, alignment: .leading)
+            Text(file.sizeText).vcFont(10.5).foregroundStyle(.white.opacity(0.5))
+            Button(action: remove) { Image(systemName: "xmark.circle.fill").vcFont(12) }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("このファイルを外す"))
+        }
+        .foregroundStyle(warn ? ChatPalette.orange : .white.opacity(0.9))
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Capsule().fill((warn ? ChatPalette.orange : Color.white).opacity(warn ? 0.14 : 0.10)))
+        .overlay(Capsule().strokeBorder((warn ? ChatPalette.orange : Color.white).opacity(0.3), lineWidth: 0.7))
+    }
+}
+
+/// 入力欄の左の、「ファイルを添える」ボタン（クリップ）。落とす・⌘V でも、添えられる。
+private struct FileButton: View {
+    let attached: Bool
+    let action: () -> Void
+    @StateObject private var hover = HoverState()
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "paperclip").vcFont(14, weight: .semibold)
+                .foregroundStyle(attached ? ChatPalette.accent : .white.opacity(0.85))
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(attached ? ChatPalette.accent.opacity(0.18) : .white.opacity(hover.on ? 0.20 : 0.10)))
+                .overlay(Circle().strokeBorder(attached ? ChatPalette.accent.opacity(0.5) : .white.opacity(0.14), lineWidth: 0.7))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain).onHover { hover.on = $0 }
+        .help(tr("ファイルを添える（ウィンドウへ落とす・⌘V の貼り付けでも）"))
+        .accessibilityLabel(tr("ファイルを添える"))
+    }
+}
+
 /// 入力欄の左の、「画面を撮る」ボタン（撮った画像は、質問に添えられる）。添えているときは、色が付く。撮っている間は、押せない。
 private struct AttachButton: View {
     let attached: Bool
@@ -249,14 +375,15 @@ private struct ComposerBar: View {
             guide
             HStack(alignment: .bottom, spacing: 8) {
                 AttachButton(attached: state.image != nil, capturing: state.capturing, action: attach)
+                FileButton(attached: !state.files.isEmpty) { state.pickFiles?() }
                 if state.submit != nil {
                     // 複数行：⇧Return で改行・Return で送信（1 行から、最大 6 行まで、高くなる）
                     ZStack(alignment: .topLeading) {
                         if state.draft.isEmpty {
-                            Text(busy ? tr("続けて質問すると、順番待ちに入ります（Return）") : tr("メッセージを入力（Return で送信・⇧Return で改行）"))
+                            Text(busy ? tr("続けて質問すると、順番待ちに入ります（Return）") : tr("メッセージを入力（Return で送信・⇧Return で改行・ファイルは、落として添える）"))
                                 .vcFont(13).foregroundStyle(.white.opacity(0.42)).lineLimit(1).allowsHitTesting(false)
                         }
-                        ComposerField(text: $state.draft, fontSize: 13 * scale, onSend: send)
+                        ComposerField(text: $state.draft, fontSize: 13 * scale, onSend: send, onPasteFiles: { state.addFiles?($0) })
                     }
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 19, style: .continuous).fill(.white.opacity(0.09)))
@@ -498,6 +625,11 @@ private struct EntryView: View {
             Spacer(minLength: 56)
             VStack(alignment: .trailing, spacing: 4) {
                 if let image = entry.image { AttachmentCard(image: image) }
+                ForEach(entry.fileNames, id: \.self) { name in
+                    Label(name, systemImage: "paperclip").vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.middle)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(.white.opacity(0.14))).overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.7))
+                }
                 Text(entry.question)
                     .vcFont(14, weight: .medium).foregroundStyle(.white)
                     .textSelection(.enabled)
