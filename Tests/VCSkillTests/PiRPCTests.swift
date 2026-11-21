@@ -68,13 +68,13 @@ import Testing
     @Test func theGatesConfirmBecomesAPermissionRequestWithTheRealCommandAndTheAnswerGoesBack() {
         let dialect = PiRPCDialect()
         let command = "rm -rf build && echo '長い' " + String(repeating: "x", count: 600)
-        let asked = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u1"), "method": .string("confirm"), "title": .string("bash"),
+        let asked = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u1"), "method": .string("confirm"), "title": .string("vc-gate:bash"),
                                          "message": .string(String(decoding: JSONValue.object(["command": .string(command)]).serialized() ?? Data(), as: UTF8.self))]))
         let permission = asked.messages.first
         #expect(permission?["method"]?.string == "session/request_permission" && permission?["id"]?.string == "u1")
         let call = ACPToolCall(permission?["params"]?["toolCall"] ?? .null)
         #expect(call.kind == "execute" && call.command == command)                                    // 切らない：コマンドは、全部を見せる
-        let write = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u2"), "method": .string("confirm"), "title": .string("write"), "message": .string(#"{"path":"/tmp/a.txt","content":"x"}"#)]))
+        let write = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u2"), "method": .string("confirm"), "title": .string("vc-gate:write"), "message": .string(#"{"path":"/tmp/a.txt","content":"x"}"#)]))
         let editCall = ACPToolCall(write.messages.first?["params"]?["toolCall"] ?? .null)
         #expect(editCall.kind == "edit" && editCall.path == "/tmp/a.txt")
         // 許可・断る・取りやめが、確認の返事になる
@@ -88,6 +88,18 @@ import Testing
         #expect(select.lines.first?["cancelled"]?.bool == true && select.messages.isEmpty)
     }
 
+    @Test func anExtensionOrMcpToolIsAskedAboutWithItsNameAndArgumentsAndAForeignConfirmIsNotOurs() {
+        let dialect = PiRPCDialect()
+        let asked = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u5"), "method": .string("confirm"), "title": .string("vc-gate:mcp__notes__append"), "message": .string(#"{"text":"見本","to":"a"}"#)]))
+        let call = ACPToolCall(asked.messages.first?["params"]?["toolCall"] ?? .null)
+        #expect(call.kind == "other" && call.title.hasPrefix("mcp__notes__append ") && call.title.contains("見本"))     // 何を実行するか、確認の文で、見える
+        // 「すべて」以外の段階では、確認なしで断る。「すべて」では、聞く
+        #expect(ACPPermission.decide(call, level: .read) == .reject && ACPPermission.decide(call, level: .all) == .ask)
+        // 利用者の別の拡張が出した確認は、こちらの操作ではない：許可の要求にせず、取りやめで返す
+        let foreign = dialect.incoming(obj(["type": .string("extension_ui_request"), "id": .string("u6"), "method": .string("confirm"), "title": .string("Clear the session?"), "message": .string("x")]))
+        #expect(foreign.messages.isEmpty && foreign.lines.first?["cancelled"]?.bool == true)
+    }
+
     @Test func toolsAreMappedToAcpKindsSoThePermissionRulesApply() {
         #expect(["read", "grep", "find", "ls"].allSatisfy { PiRPCDialect.kind(of: $0) == "read" })
         #expect(PiRPCDialect.kind(of: "write") == "edit" && PiRPCDialect.kind(of: "edit") == "edit" && PiRPCDialect.kind(of: "bash") == "execute" && PiRPCDialect.kind(of: "mystery") == "other")
@@ -97,14 +109,16 @@ import Testing
         #expect(ACPPermission.decide(read, level: .read) == .allow && ACPPermission.decide(bash, level: .read) == .reject)
     }
 
-    @Test func theLaunchArgumentsRemoveTheToolsAtEachLevelAndTheGateExtensionIsOnlyLoadedForAll() throws {
+    @Test func theLaunchArgumentsRemoveTheBuiltInToolsAtEachLevelAndAlwaysLoadTheGateWhileLeavingTheUsersExtensionsAlone() throws {
         let profile = try #require(ACPAgentProfile.of(.pi))
         func args(_ level: ChatToolLevel) -> [String] { profile.launch(level: level) }
-        #expect(args(.none).contains("--no-tools") && args(.web).contains("--no-tools") && !args(.none).contains("-e"))
-        #expect(args(.read).joined(separator: " ").contains("--tools read,grep,find,ls") && !args(.read).contains("-e"))
-        #expect(args(.all).contains("-e") && !args(.all).contains("--no-tools"))
-        #expect(args(.all).contains("--no-extensions") && args(.all).contains("--no-approve") && args(.all).contains("--mode") && !args(.all).contains("-p"))   // 利用者の拡張・フォルダの設定は、読まない
-        #expect(PiGateExtension.source.contains("block: true") && PiGateExtension.source.contains("ctx.ui.confirm"))
+        #expect(args(.none).contains("--no-tools") && args(.web).contains("--no-tools") && !args(.all).contains("--no-tools"))
+        #expect(args(.read).joined(separator: " ").contains("--tools read,grep,find,ls") && !args(.all).contains("--tools"))
+        for level in ChatToolLevel.allCases { #expect(args(level).contains("-e") && args(level).contains("--mode") && args(level).contains("--no-approve") && !args(level).contains("-p")) }
+        // 利用者の拡張・MCP・スキル・文脈ファイルは、止めない（ACP のエージェントと同じ。確認は、すべての道具の前に、拡張が求める）。フォルダの `.pi` は、読まない
+        for level in ChatToolLevel.allCases { #expect(!args(level).contains("--no-extensions") && !args(level).contains("--no-mcp") && !args(level).contains("--no-skills") && !args(level).contains("--no-context-files")) }
+        #expect(PiGateExtension.source.contains("block: true") && PiGateExtension.source.contains("ctx.ui.confirm(\"vc-gate:\""))
+        #expect(PiGateExtension.source.contains("\"read\"") && !PiGateExtension.source.contains("\"bash\""))        // 読む組み込みだけ、聞かない（書く・コマンドは、名前で、ではなく、「それ以外」として聞く）
     }
 
     @Test func theGateExtensionFileIsWrittenOnceAndRewrittenWhenItsContentChanges() throws {
@@ -144,7 +158,7 @@ enum PiFakeAgent {
             text = "echo:" + msg[-12:]
             if "WRITE" in msg:
                 send({"type": "tool_execution_start", "toolCallId": "t1", "toolName": "write", "args": {"path": "b.txt", "content": "hi"}})
-                send({"type": "extension_ui_request", "id": "u1", "method": "confirm", "title": "write", "message": json.dumps({"path": "b.txt", "content": "hi"})})
+                send({"type": "extension_ui_request", "id": "u1", "method": "confirm", "title": "vc-gate:write", "message": json.dumps({"path": "b.txt", "content": "hi"})})
                 reply = json.loads(sys.stdin.readline())
                 note("ui", json.dumps(reply))
                 text = "done" if reply.get("confirmed") else "declined"

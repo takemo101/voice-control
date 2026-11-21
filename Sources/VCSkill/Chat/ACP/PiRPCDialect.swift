@@ -173,7 +173,11 @@ final class PiRPCDialect: ACPWireDialect, @unchecked Sendable {
         guard let id = record["id"]?.string, let method = record["method"]?.string else { return .init() }
         switch method {
         case "confirm":
-            let name = record["title"]?.string ?? "tool"
+            // こちらの拡張（題が `vc-gate:`）の確認だけを、許可の要求にする。利用者の別の拡張が出した確認は、こちらの操作ではない：取りやめで返す
+            guard let title = record["title"]?.string, title.hasPrefix("vc-gate:") else {
+                return ACPWireOutput(lines: [.object(["type": .string("extension_ui_response"), "id": .string(id), "cancelled": .bool(true)])])
+            }
+            let name = String(title.dropFirst("vc-gate:".count))
             // 拡張が、道具の引数を、JSON の文字にして、`message` に入れて渡す（切らない：コマンドは、全部を見せる）
             let input = record["message"]?.string.flatMap { JSONValue.parse(Data($0.utf8)) }
             let sessionID = lock.withLock { self.sessionID }
@@ -213,7 +217,12 @@ final class PiRPCDialect: ACPWireDialect, @unchecked Sendable {
     static func toolCall(name: String, input: JSONValue?) -> [String: JSONValue] {
         let path = input?["path"]?.string
         let command = input?["command"]?.string
-        var fields: [String: JSONValue] = ["kind": .string(kind(of: name)), "name": .string(name), "title": .string(command ?? path ?? name)]
+        // 題：コマンド・場所があれば、それ。**ほかの道具（拡張・MCP）は、名前と引数**（何を実行するか、確認の文で見えるように。長いものは切る：表示だけ）
+        var title = command ?? path ?? name
+        if command == nil, path == nil, kind(of: name) == "other", let input, input != .object([:]), let data = input.serialized() {
+            title = "\(name) " + String(String(decoding: data, as: UTF8.self).prefix(300))
+        }
+        var fields: [String: JSONValue] = ["kind": .string(kind(of: name)), "name": .string(name), "title": .string(title)]
         if let command { fields["rawInput"] = .object(["command": .string(command)]) }
         if let path { fields["locations"] = .array([.object(["path": .string(path)])]) }
         return fields
