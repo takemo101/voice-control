@@ -114,6 +114,34 @@ import Testing
         #expect(pieces.all.joined().trimmingCharacters(in: .whitespacesAndNewlines) == answer)    // 最終的な答えは、届いた文字の、合計
     }
 
+    private func sampleFiles(_ fx: ACPFixture) throws -> (text: ChatFile, binary: ChatFile) {
+        let textURL = fx.directory.deletingLastPathComponent().appendingPathComponent("attach-\(UUID().uuidString).txt")
+        let binaryURL = fx.directory.deletingLastPathComponent().appendingPathComponent("attach-\(UUID().uuidString).bin")
+        try Data("見本の文です".utf8).write(to: textURL)
+        try Data([0x01, 0x00, 0x02, 0x03]).write(to: binaryURL)
+        guard case let .success(text) = ChatFileRules.inspect(textURL), case let .success(binary) = ChatFileRules.inspect(binaryURL) else { throw ConversationError.failed("見本のファイルを作れません") }
+        return (text, binary)
+    }
+
+    @Test func aSmallTextFileIsEmbeddedAndAnotherFileIsLinkedThroughACopyThatIsRemovedAfterTheTurn() async throws {
+        let fx = try ACPFixture(); let backend = fx.backend(tools: .read); defer { backend.teardown() }
+        let files = try sampleFiles(fx)
+        defer { try? FileManager.default.removeItem(at: files.text.url); try? FileManager.default.removeItem(at: files.binary.url) }
+        let answer = try await backend.respond(instructions: "", turns: [], user: "hello", options: ChatCallOptions(files: [files.text, files.binary]))
+        #expect(answer.contains("kinds=resource,resource_link,text"))                              // 埋め込み・リンク・文面
+        #expect(answer.contains("embedded=見本の文です") && answer.contains("link=\(files.binary.name) exists=True"))   // 中身は、そのまま・リンク先は、ターンの間、存在する
+        #expect(!FileManager.default.fileExists(atPath: fx.directory.appendingPathComponent(ChatFileHandOff.folderName).path))   // 終わったら、作業フォルダから消える
+        #expect(FileManager.default.fileExists(atPath: files.binary.url.path))                    // 元のファイルは、そのまま
+    }
+
+    @Test func withoutTheReadToolOnlyTheEmbeddedFileGoesAndTheOtherIsReportedAsNotPassed() async throws {
+        let fx = try ACPFixture(); let backend = fx.backend(tools: .none); defer { backend.teardown() }
+        let files = try sampleFiles(fx)
+        defer { try? FileManager.default.removeItem(at: files.text.url); try? FileManager.default.removeItem(at: files.binary.url) }
+        let answer = try await backend.respond(instructions: "", turns: [], user: "hello", options: ChatCallOptions(files: [files.text, files.binary]))
+        #expect(answer.contains("kinds=resource,text") && !answer.contains("link="))              // 道具が「なし」：リンクは、渡さない
+    }
+
     @Test func anUnavailableAgentFallsBackToTheOldWayAndIsNotRetriedForAWhile() async throws {
         let launches = ACPCounter()
         let fallback = ExternalChatBackend(agent: .agy, tools: .read, runner: { _ in AgentRun(exitCode: 0, text: "従来の方式の答え") })

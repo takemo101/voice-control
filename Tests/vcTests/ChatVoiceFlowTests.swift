@@ -91,7 +91,7 @@ extension SharedChatWindow {
             let loop = self.loop!
             window.injectSpoken = { loop.inject($0, tag: "") }
             window.interruptVoiceTurn = { loop.interruptRunning() }
-            window.startTyped = { [unowned self] text in Task { @MainActor in await handle(text, token: CancelToken(), fromQueue: true) } }
+            window.startTyped = { [unowned self] text, _ in Task { @MainActor in await handle(text, token: CancelToken(), fromQueue: true) } }
             loop.begin(onReady: {})
         }
 

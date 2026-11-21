@@ -21,7 +21,7 @@ import VCSkill
     var isVisible: Bool { window?.isVisible == true }
 
     /// 文字の質問を、**始める**（声の流れの組み立てで、決める：`VoiceSession`）。なければ、入力欄は出さない。考えている間に送られた質問は、ここへ来ずに、順番待ちに入る（`submitTyped`）。
-    var startTyped: (@MainActor (String) -> Void)? {
+    var startTyped: (@MainActor (String, [ChatFile]) -> Void)? {
         didSet {
             if startTyped == nil { state.submit = nil } else { state.submit = { [unowned self] text in self.submitTyped(text) } }
         }
@@ -38,6 +38,7 @@ import VCSkill
     /// 質問を始めようとしている（始める処理が、`begin` を呼ぶまでの間）。この間に来た質問も、順番待ちに入る。
     private var starting = false
     private var reservation = 0
+    private var noticeGeneration = 0
     private var partialBuffer: [UUID: String] = [:]
     private var partialFlushScheduled = false
     /// 停止（ボタン）で、止めている最中。順番待ちは、送らずに、捨てる。
@@ -69,6 +70,9 @@ import VCSkill
             if !speaking { self?.state.speakingEntry = nil }
         }
         state.speaking = SaySpeaker.shared.isSpeaking(.conversation)
+        state.addFiles = { [unowned self] urls in addFiles(urls) }
+        state.removeFile = { [unowned self] id in removeFile(id) }
+        state.pickFiles = { [unowned self] in pickFiles() }
         state.sendNow = { [unowned self] id in sendNow(id) }
         state.removeQueued = { [unowned self] id in removeQueued(id) }
         state.stopTurn = { [unowned self] in stopCurrent() }
@@ -79,13 +83,14 @@ import VCSkill
     /// 質問が分かった：質問と「考えています…」を出す。`agent`：使っているエージェントの名前。`warning`：外へ送るときの断り（ヘッダーの橙の札）。`tools`：開けている道具（札）。
     /// 戻り値の `id` で、この往復を指す（答え・中断・失敗の知らせを、この往復だけに、届けるため）。
     @discardableResult
-    func begin(question: String, agent: String, warning: String?, tools: String?, cancel: (() -> Void)? = nil) -> UUID {
+    func begin(question: String, agent: String, warning: String?, tools: String?, files: [ChatFile] = [], cancel: (() -> Void)? = nil) -> UUID {
         starting = false
         state.agent = agent
         state.warning = warning
         state.tools = tools
         var entry = ChatEntry(question: question)
         entry.cancel = cancel
+        entry.fileNames = files.map { "\($0.name)（\($0.sizeText)）" }   // どのファイルを、添えた質問か、分かるように
         entry.image = state.image.map { EntryImage(thumbnail: $0.thumbnail) }   // 添えてある画像を、質問に付ける（どの画像についての質問か、分かるように）
         state.entries.begin(entry)
         state.scrollToken += 1
@@ -153,6 +158,7 @@ import VCSkill
 
     /// 記録を、すべて消す（会話の終了・リセット）。添えた画像も、外す。
     func clear() {
+        state.files = []; state.fileNotice = nil
         cancelCurrent()   // 考えている質問が、裏で動き続けないように（新しい会話に、前の答えが、混ざらない）
         state.entries = []
         dropQueue(reason: nil)
@@ -164,15 +170,61 @@ import VCSkill
 
     // MARK: 順番待ち（考えている間に送った質問）
 
+    // MARK: 添えるファイル（ドラッグ＆ドロップ・ファイルを選ぶ・貼り付け）
+
+    /// ファイルを添える（外のエージェントへ渡す：送る前に、確認する）。断ったものは、理由を、しばらく出す。
+    func addFiles(_ urls: [URL]) {
+        let result = ChatFileRules.add(urls, to: state.files)
+        state.files = result.files
+        showFileNotice(result.refusals.map(\.description))
+    }
+
+    func removeFile(_ id: UUID) { state.files.removeAll { $0.id == id } }
+
+    /// 添えてあるファイルを、取り出す（質問が、始まるとき。取り出したら、札は、空になる：次の質問へは、付けない）。
+    func takeFiles() -> [ChatFile] {
+        defer { state.files = [] }
+        return state.files
+    }
+
+    var attachedFiles: [ChatFile] { state.files }
+    var fileNoticeText: String? { state.fileNotice }
+
+    private func showFileNotice(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        state.fileNotice = Array(Set(lines)).sorted().joined(separator: "\n")
+        noticeGeneration += 1
+        let mine = noticeGeneration
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(7))   // try?: 取りやめられても、断りの表示が、残るだけ
+            if let self, self.noticeGeneration == mine { self.state.fileNotice = nil }
+        }
+    }
+
+    /// 「ファイルを選ぶ」：選んだファイルを、添える。
+    func pickFiles() {
+        let panel = NSOpenPanel()
+        panel.title = tr("会話に添えるファイル")
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.level = .modalPanel
+        panel.begin { [weak self] response in
+            guard response == .OK else { return }
+            Task { @MainActor in self?.addFiles(panel.urls) }
+        }
+    }
+
     /// 入力欄から、文字の質問が来た：考えていなければ、すぐ始める。考えている間は、順番待ちに入れる。
     func submitTyped(_ text: String) {
+        let files = takeFiles()   // 添えたファイルは、この質問のものになる（入力欄の上の札は、空になる）
         if isBusy || !state.queue.isEmpty {
-            state.queue.enqueue(text, source: .typed)
+            state.queue.enqueue(text, source: .typed, files: files)
             state.scrollToken += 1
             dispatchNext()   // 考えていなければ（取りこぼし）、ここで動かす
         } else {
             reserveStart()
-            startTyped?(text)
+            startTyped?(text, files)
         }
     }
 
@@ -225,7 +277,7 @@ import VCSkill
         guard !isBusy, let batch = state.queue.takeNext() else { return }
         reserveStart()
         switch batch.source {
-        case .typed: startTyped?(batch.text)
+        case .typed: startTyped?(batch.text, batch.files)
         case .voice:
             injectedText = batch.text
             if let injectSpoken, injectSpoken(batch.text) {   // 声の質問：声の流れの処理（確認の返事・読み上げ）へ戻す
@@ -256,6 +308,7 @@ import VCSkill
     func removeQueued(_ id: UUID) {
         guard let item = state.queue.remove(id) else { return }
         if state.draft.isEmpty { state.draft = item.text }   // 声の質問も、文字にして、入力欄へ戻す（直して、送り直せる）
+        if !item.files.isEmpty { state.files = Array((state.files + item.files.filter { f in !state.files.contains { $0.id == f.id } }).prefix(ChatFileRules.maxFiles)) }   // 添えたファイルも、戻す
     }
 
     /// 「今すぐ送る」：いまの質問を止めて、この 1 件を先に始める（残りは、そのあと）。
@@ -390,8 +443,9 @@ import VCSkill
     }
 
     /// 見た目の確認用（`vc chat-preview`）：本物のウィンドウに、見本の状態（添えた画像・読み上げの札）を、決める。
-    func previewState(attachedImage: Bool? = nil, speaking: Bool? = nil, header: (agent: String, warning: String?, tools: String?)? = nil, draft: String? = nil) {
+    func previewState(attachedImage: Bool? = nil, speaking: Bool? = nil, header: (agent: String, warning: String?, tools: String?)? = nil, draft: String? = nil, sampleFiles: Bool = false) {
         if let draft { state.draft = draft }
+        if sampleFiles { state.files = [ChatFile(url: URL(fileURLWithPath: "/tmp/見本-議事録.md"), size: 4_300, isText: true), ChatFile(url: URL(fileURLWithPath: "/tmp/見本-資料.pdf"), size: 1_800_000, isText: false)] }   // l10n-skip: preview sample
         if let attachedImage { state.image = attachedImage ? AttachedImage(thumbnail: Self.sampleThumbnail(), takenAt: Date().addingTimeInterval(-20)) : nil }
         if let speaking { state.speaking = speaking; state.speakingEntry = speaking ? state.entries.last?.id : nil }
         if let header { state.agent = header.agent; state.warning = header.warning; state.tools = header.tools }
@@ -540,6 +594,15 @@ enum ChatVoiceState: Equatable {
     @Published var scrollToken = 0
     /// 記録を、上へ戻って読んでいる（最新から離れている）：「最新へ」のボタンを出す。`ChatScroll` で判断する。
     @Published var awayFromBottom = false
+    /// 会話に添えるファイル（次の質問に付く）。
+    @Published var files: [ChatFile] = []
+    /// ファイルを断った理由（しばらく出す）。
+    @Published var fileNotice: String?
+    /// ファイルを、ウィンドウの上へ、ドラッグしている最中。
+    @Published var dropTargeted = false
+    var addFiles: (@MainActor ([URL]) -> Void)?
+    var removeFile: (@MainActor (UUID) -> Void)?
+    var pickFiles: (@MainActor () -> Void)?
     /// 会話に添えてある画像（撮ってから 180 秒だけ、使える）。
     @Published var image: AttachedImage?
     /// 範囲を選んでいる間。

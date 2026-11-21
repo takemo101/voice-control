@@ -120,7 +120,22 @@ final class OrderedMainForwarder: @unchecked Sendable {
         HUD.shared.show(HUDContent(phase: .info, title: stopped ? tr("止めました") : tr("止めるものが、ありません"), chip: chip), hideAfter: 1.8)
     }
 
-    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance, cancelHook: (() -> Void)? = nil, fromQueue: Bool = false) async {
+    /// 外のエージェントへ**ファイルを送る前の確認**：ファイル名・大きさと送り先を、パネルに出して、ボタンか声の「はい」で答える。送るたびに、聞く。
+    private static func askToSendFiles(_ files: [ChatFile], agent: ChatAgent, chip: String, confirmation: Confirmation, next: @escaping NextUtterance) async -> Bool {
+        SaySpeaker.shared.stop()
+        say(tr("ファイルを、\(agent.rawValue) へ送ります。よいですか"))
+        let list = files.map { "- \($0.name) (\($0.sizeText))" }.joined(separator: "\n")   // l10n-skip: ファイル名と大きさの一覧（言語に依らない）
+        var content = HUDContent(phase: .confirm, title: tr("このファイルを、\(agent.rawValue) へ送りますか？"), hint: tr("ファイルの中身が、この Mac の外（\(agent.label)）へ出ます。\(ConfirmGuide.howToAnswer)"), chip: chip)
+        content.reply = list
+        content.choices = true
+        HUD.shared.show(content)
+        notice("ファイルを \(agent.rawValue) へ送る確認：\(files.count) 件。パネルの\(ConfirmGuide.howToAnswer)")   // l10n-skip: log
+        let yes = (try? await VoiceHandlers.askByPanelOrVoice(confirmation: confirmation, next: next)) ?? false
+        if yes { HUD.shared.hide() } else { HUD.shared.show(HUDContent(phase: .info, title: tr("ファイルは、送りません"), chip: chip), hideAfter: 2) }
+        return yes
+    }
+
+    static func handle(_ utterance: String, token: CancelToken, context: CommandContext, chip: String, speakResults: Bool, confirmation: Confirmation, next: @escaping NextUtterance, cancelHook: (() -> Void)? = nil, fromQueue: Bool = false, files queuedFiles: [ChatFile] = []) async {
         guard !utterance.isEmpty else {
             notice("聞き取れなかった")   // l10n-skip: log
             HUD.shared.show(HUDContent(phase: .failure, title: tr("聞き取れませんでした"), hint: tr("もう一度、はっきり話してください"), chip: chip), hideAfter: 2.5)
@@ -147,8 +162,9 @@ final class OrderedMainForwarder: @unchecked Sendable {
         let agent = ChatMode.shared.agent
         let level = ChatMode.shared.tools
         let toolLabel: String? = level == .none ? nil : (level == .all ? (ChatMode.shared.auto ? tr("すべて・自動") : tr("すべて")) : (level == .read ? tr("＋読む") : "Web"))   // l10n-skip: "Web" is the same in both languages
+        let files = fromQueue ? queuedFiles : window.takeFiles()   // 声の質問は、始まるときに、添えてあるファイルを使う（文字の質問は、送ったときに、決まっている）
         let id = window.begin(question: utterance, agent: agent.isExternal ? agent.label : tr("Apple のモデル（この Mac の中）"),
-                              warning: agent.isExternal ? tr("この Mac の外へ送信") : (level == .none ? nil : tr("検索語を外へ送信")), tools: toolLabel, cancel: cancelHook)
+                              warning: agent.isExternal ? tr("この Mac の外へ送信") : (level == .none ? nil : tr("検索語を外へ送信")), tools: toolLabel, files: files, cancel: cancelHook)
         // **会話は、会話のウィンドウで見せる**（エージェントや答えの長さで、出たり出なかったりしない）。出ていなければ、前へ出す（キーは奪わない）。上のパネル（HUD）は、聞いている・確認・失敗のときだけ
         window.show(activate: false)
         HUD.shared.hide()
@@ -159,11 +175,14 @@ final class OrderedMainForwarder: @unchecked Sendable {
             let confirmImage: ChatMode.ImageSendConfirm = { file, sendTo in
                 await askToSendImage(file, agent: sendTo, chip: chip, confirmation: confirmation, next: next)
             }
+            let confirmFiles: ChatMode.FileSendConfirm = { sending, sendTo in
+                await askToSendFiles(sending, agent: sendTo, chip: chip, confirmation: confirmation, next: next)
+            }
             let answerStream = AnswerStream(window: window, id: id, speak: speakResults, token: token)
             let forwarder = OrderedMainForwarder { answerStream.push($0) }
             let outcome = try await ChatMode.shared.ask(utterance, engine: context.engine, token: token, attachedImage: window.attachedImageFile, onImage: { window.attachImage(id, file: $0) }, onRoute: { window.setImageRoute(id, $0) }, progress: { text in
                 window.setStatus(id, text)
-            }, onText: { forwarder.add($0) }, confirm: confirm, confirmImage: confirmImage)
+            }, onText: { forwarder.add($0) }, files: files, confirmFiles: confirmFiles, confirm: confirm, confirmImage: confirmImage)
             forwarder.drain()   // 届いた分は、答えを決める前に、すべて渡す
             if token.isCancelled || token.isSuperseded { window.stop(id, reason: token.isSuperseded ? tr("新しい質問を優先しました") : tr("取りやめました（Esc）"), dropsQueue: !token.isSuperseded); return }
             for note in outcome.notes { print("  " + Style.dim(note)) }

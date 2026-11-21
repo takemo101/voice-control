@@ -32,6 +32,8 @@ struct ChatEntry: Identifiable {
     var answer: String?
     var activities: [ChatActivity] = []
     var notes: [String] = []
+    /// この質問に添えた、ファイル（名前と大きさ）。
+    var fileNames: [String] = []
     /// この質問に付けた、画像。
     var image: EntryImage?
     /// 答えを整形した結果（描き直しのたびに、作り直さない）。

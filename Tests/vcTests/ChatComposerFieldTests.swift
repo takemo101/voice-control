@@ -48,4 +48,23 @@ import Testing
         view.string = "あ\nい"
         #expect(!ComposerField.measure(view, width: 300, fallbackFontSize: 13)!.overflows)
     }
+
+    /// Finder でコピーしたファイルの貼り付けは、文字を入れずに、ファイルとして添える。文字だけの貼り付けは、ファイルと見なさない。
+    @Test func pastingCopiedFilesAttachesThemInsteadOfInsertingText() throws {
+        let view = ComposerField.makeTextView(fontSize: 13)
+        let board = NSPasteboard(name: NSPasteboard.Name("vc-test-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+        view.pasteboard = board
+        var pasted: [URL] = []
+        view.onPasteFiles = { pasted = $0 }
+        let url = URL(fileURLWithPath: "/tmp/sample-attachment.txt")
+        board.clearContents()
+        board.writeObjects([url as NSURL])
+        view.paste(nil)
+        #expect(pasted.map(\.path) == [url.path] && view.string.isEmpty)
+        pasted = []
+        board.clearContents()
+        board.setString("ただの文", forType: .string)
+        #expect(ComposerTextView.fileURLs(on: board).isEmpty)   // 文字だけなら、ファイルとは、見なさない（標準の貼り付けへ）
+    }
 }

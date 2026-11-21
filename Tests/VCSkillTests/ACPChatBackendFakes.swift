@@ -4,7 +4,7 @@ import Foundation
 /// ACP の偽のエージェント（Python の小さなスクリプト。標準入出力で JSON-RPC を話す）と、それを動かす部品。`ACPChatBackendTests` が使う。
 enum ACPFakeAgent {
     static let script = #"""
-    import sys, json
+    import sys, json, os, urllib.parse
     log = open(sys.argv[1], "a")
     flavor = sys.argv[2] if len(sys.argv) > 2 else "modes"
     sessions = {}
@@ -38,6 +38,12 @@ enum ACPFakeAgent {
             sid = params["sessionId"]; sessions[sid] += 1
             text = " ".join(b.get("text", "") for b in params["prompt"])
             kinds = [b.get("type") for b in params["prompt"]]
+            filenote = ""
+            for b in params["prompt"]:   # 添えたファイル：リンクの先が、いま、存在するか／埋め込みの内容
+                if b.get("type") == "resource_link":
+                    filenote += " link=%s exists=%s" % (b.get("name"), os.path.exists(urllib.parse.unquote(b["uri"][7:])))
+                if b.get("type") == "resource":
+                    filenote += " embedded=%s" % b["resource"].get("text", "")[:30].replace(" ", "_")
             result = "ok"
             if "STREAM" in text:   # 答えが、少しずつ届く（最後の 1 つは、下の、いつもの答え）
                 for piece in ("first。", "second。"):
@@ -78,7 +84,7 @@ enum ACPFakeAgent {
                 continue
             if "EXIT" in text:
                 sys.exit(3)
-            send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "%s n=%d len=%d result=%s kinds=%s" % (sid, sessions[sid], len(text), result, ",".join(kinds))}}}})
+            send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "%s n=%d len=%d result=%s kinds=%s%s" % (sid, sessions[sid], len(text), result, ",".join(kinds), filenote)}}}})
             send({"jsonrpc": "2.0", "id": mid, "result": {"stopReason": "end_turn"}})
         elif method == "session/cancel":
             pass

@@ -9,7 +9,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 VC=${VC:-$ROOT/.build/release/vc}
 WORK=${1:-/tmp/vc-site-render}
-ICON=${ICON:-$ROOT/build/VoiceControl.app/Contents/Resources/AppIcon.icns}
+ICON=${ICON:-$ROOT/Resources/AppIcon.icns}   # 生成物（リポジトリにある）：build/ のアプリの、古いアイコンを、使わない
 [ -x "$VC" ] || { echo "vc が見つかりません（just build）: $VC"; exit 1; }
 command -v ffmpeg >/dev/null || { echo "ffmpeg が要ります"; exit 1; }
 rm -rf "$WORK"; mkdir -p "$WORK/home/skills" "$WORK/settings"
@@ -24,7 +24,10 @@ q() { ffmpeg -v error -y "$@"; }
 DOCS="$ROOT/docs/images"; SITE="$ROOT/site/assets"
 mkdir -p "$DOCS" "$SITE/img"
 # 設定の各ページ（幅 1200）
-for page in general keys voice chat models skills; do
+for page in general keys voice dictation chat models skills; do
   for dest in "$DOCS" "$SITE/img"; do q -i "$WORK/settings/settings-$page.png" -vf "scale=1200:-1:flags=lanczos" "$dest/settings-$page.png"; done
 done
+# 会話のウィンドウ：考えている間の順番待ち（本物の SwiftUI の画面を、画面の外で描く。幅 720）
+"$VC" settings-preview "$WORK/chat" --chat >/dev/null
+for dest in "$DOCS" "$SITE/img"; do q -i "$WORK/chat/chat-pending.png" -vf "scale=720:-1:flags=lanczos" "$dest/chat-queue.png"; done
 echo "作った: ${DOCS}・${SITE}"

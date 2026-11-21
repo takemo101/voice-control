@@ -9,6 +9,8 @@ public struct ChatCallOptions: Sendable {
     public var onActivity: ActivityHandler?
     /// **答えの文字が、届くたびに**（常駐の接続〔ACP〕の、エージェントだけ。少しずつ届く）。届いた順に、続きの文字だけを渡す。最終的な答え（`respond` の戻り値）が、正：これは、表示・読み上げを、早く始めるためのもの。
     public var onText: (@Sendable (String) -> Void)?
+    /// 外のエージェントに渡す、**利用者が、送ることを確かめた**ファイル（`ChatFileRules`）。小さい文字ファイルは、内容を埋め込み、それ以外は、作業フォルダへ、一時的にコピーして、リンクで渡す（終わったら、消す）。
+    public var files: [ChatFile]
     /// 確認が要る操作の前に、利用者に聞く（なければ、確認が要る操作は、しない：Apple の会話の道具と、ACP の許可の確認が使う）。
     public var confirm: ToolConfirm?
     /// 外のエージェントに見せる画像（**利用者が、送ることを確かめたもの**。作業フォルダへ、一時的にコピーして渡し、終わったら消す）。
@@ -22,8 +24,8 @@ public struct ChatCallOptions: Sendable {
     /// この呼び出しは、会話の往復ではない（要約など）：常駐の接続（ACP）では、会話のセッションの記憶に、数えない（次の質問は、新しいセッションで、過去の往復を渡す）。
     public var standalone: Bool
 
-    public init(onActivity: ActivityHandler? = nil, onText: (@Sendable (String) -> Void)? = nil, confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true, needsWeb: (@Sendable (String) -> Bool)? = nil, judgeCommand: CommandJudge? = nil, standalone: Bool = false) {
-        self.onActivity = onActivity; self.onText = onText; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb; self.needsWeb = needsWeb; self.judgeCommand = judgeCommand; self.standalone = standalone
+    public init(onActivity: ActivityHandler? = nil, onText: (@Sendable (String) -> Void)? = nil, files: [ChatFile] = [], confirm: ToolConfirm? = nil, image: URL? = nil, allowsWeb: Bool = true, needsWeb: (@Sendable (String) -> Bool)? = nil, judgeCommand: CommandJudge? = nil, standalone: Bool = false) {
+        self.onActivity = onActivity; self.onText = onText; self.files = files; self.confirm = confirm; self.image = image; self.allowsWeb = allowsWeb; self.needsWeb = needsWeb; self.judgeCommand = judgeCommand; self.standalone = standalone
     }
 }
 

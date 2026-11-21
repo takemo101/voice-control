@@ -1,4 +1,5 @@
 import Foundation
+import VCSkill
 
 /// 会話の「順番待ち」の 1 件：考えている間に、送られた質問（文字か、声）。
 struct QueuedMessage: Identifiable, Equatable {
@@ -6,6 +7,8 @@ struct QueuedMessage: Identifiable, Equatable {
     let id = UUID()
     let text: String
     let source: Source
+    /// この質問に添えたファイル（文字の質問だけ。声の質問は、始まるときに、添えてあるものを使う）。
+    let files: [ChatFile]
     /// 「今すぐ送る」で、先頭へ出した：ほかの文字と、まとめない（その 1 件だけを送る）。
     var isolated = false
 }
@@ -21,13 +24,15 @@ struct ChatQueue: Equatable {
         let ids: [UUID]
         let text: String
         let source: QueuedMessage.Source
+        /// まとめた質問に添えたファイル（上限まで）。
+        let files: [ChatFile]
     }
 
     var isEmpty: Bool { items.isEmpty }
 
     @discardableResult
-    mutating func enqueue(_ text: String, source: QueuedMessage.Source) -> QueuedMessage {
-        let item = QueuedMessage(text: text, source: source)
+    mutating func enqueue(_ text: String, source: QueuedMessage.Source, files: [ChatFile] = []) -> QueuedMessage {
+        let item = QueuedMessage(text: text, source: source, files: files)
         items.append(item)
         return item
     }
@@ -52,11 +57,11 @@ struct ChatQueue: Equatable {
         guard let first = items.first else { return nil }
         guard first.source == .typed, !first.isolated else {
             items.removeFirst()
-            return Batch(ids: [first.id], text: first.text, source: first.source)
+            return Batch(ids: [first.id], text: first.text, source: first.source, files: first.files)
         }
         let run = items.prefix { $0.source == .typed && !$0.isolated }
         items.removeFirst(run.count)
-        return Batch(ids: run.map(\.id), text: run.map(\.text).joined(separator: "\n\n"), source: .typed)
+        return Batch(ids: run.map(\.id), text: run.map(\.text).joined(separator: "\n\n"), source: .typed, files: Array(run.flatMap(\.files).prefix(ChatFileRules.maxFiles)))
     }
 
     /// すべて取り出す（停止：待っていた分は、送らない）。

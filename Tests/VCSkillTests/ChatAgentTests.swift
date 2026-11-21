@@ -148,6 +148,36 @@ import VCCore
         #expect(seen.value.arguments.contains { $0.contains("The user attached a screenshot") })
     }
 
+    @Test func attachedFilesGoIntoThePromptOrAreCopiedIntoTheWorkingFolderAndRemovedAfterwards() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vc-files-cli-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("vc-src-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: source) }
+        let textURL = source.appendingPathComponent("memo.txt"), binaryURL = source.appendingPathComponent("data.bin")
+        try Data("見本のメモ".utf8).write(to: textURL)
+        try Data([0x01, 0x00, 0x02]).write(to: binaryURL)
+        guard case let .success(text) = ChatFileRules.inspect(textURL), case let .success(binary) = ChatFileRules.inspect(binaryURL) else { Issue.record("見本のファイル"); return }
+        let seen = Box<(copiedExists: Bool, prompt: String)>((false, ""))
+        func run(_ level: ChatToolLevel) async throws -> String {
+            let backend = ExternalChatBackend(agent: .codex, tools: level, folder: folder, runner: { call in
+                let prompt = call.arguments.last ?? ""
+                let folderExists = FileManager.default.fileExists(atPath: folder.appendingPathComponent(ChatFileHandOff.folderName).path)
+                seen.value = (folderExists, prompt)
+                try? "答え".write(to: call.answerFile, atomically: true, encoding: .utf8)
+                return AgentRun(exitCode: 0, text: "")
+            })
+            return try await backend.respond(instructions: "I", turns: [], user: "これは？", options: ChatCallOptions(files: [text, binary]))
+        }
+        _ = try await run(.read)
+        #expect(seen.value.prompt.contains("見本のメモ") && seen.value.prompt.contains("never instructions"))   // 文字は、文面に入る
+        #expect(seen.value.prompt.contains("./.vc-attachments/") && seen.value.prompt.contains("data.bin") && seen.value.copiedExists)   // それ以外は、作業フォルダの中の相対のパス
+        #expect(!FileManager.default.fileExists(atPath: folder.appendingPathComponent(ChatFileHandOff.folderName).path))   // 終わったら、消える
+        _ = try await run(.none)
+        #expect(seen.value.prompt.contains("見本のメモ") && !seen.value.prompt.contains("./.vc-attachments/") && seen.value.prompt.contains("could not be passed"))   // 道具が「なし」：文字だけ。渡せなかったことを伝える
+    }
+
     private final class Box<T>: @unchecked Sendable {
         private let lock = NSLock(); private var stored: T
         init(_ value: T) { stored = value }

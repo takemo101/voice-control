@@ -128,7 +128,7 @@ public struct ExternalChatBackend: ActivityReporting {
 
     /// 外のエージェントは、確認を、自分の CLI の設定で決める（`options.confirm` は、使わない）。`options.image` は、作業フォルダへ、一時的にコピーして渡す。
     public func respond(instructions: String, turns: [ChatTurn], user: String, options: ChatCallOptions) async throws -> String {
-        let onActivity = options.onActivity, imageSource = options.image
+        let onActivity = options.onActivity, imageSource = options.image, files = options.files
         let model = agent == .agy ? try agyModel() : ""
         let prompt = Self.prompt(instructions: instructions, turns: turns, user: user)
         let cancel = CancelToken()
@@ -151,7 +151,11 @@ public struct ExternalChatBackend: ActivityReporting {
                     if (try? FileManager.default.copyItem(at: imageSource, to: copy)) != nil { handOff = ImageHandOff(name: name, path: copy.path) }
                 }
                 defer { if let handOff { try? FileManager.default.removeItem(atPath: handOff.path) } }
-                let prompt = handOff.map { Self.imageLead(for: agent, image: $0) + prompt } ?? prompt
+                var prompt = handOff.map { Self.imageLead(for: agent, image: $0) + prompt } ?? prompt
+                // 添えたファイル：小さい文字は、文面に入れる。それ以外は、作業フォルダへコピーして、相対のパスを書く（終わったら、消す）
+                let files = ChatFileHandOff.prepare(files, tools: tools, directory: directory)
+                defer { files.cleanup() }
+                prompt = files.cliPrefix() + prompt
                 let streaming = agent.streamsActivity
                 let stream = StreamState(agent: agent)
                 let output: (@Sendable (Data) -> Void)?
