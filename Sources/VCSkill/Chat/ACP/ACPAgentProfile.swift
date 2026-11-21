@@ -27,6 +27,10 @@ struct ACPAgentProfile {
     let readingModes: [String]
     /// モードが決められなかったとき、ACP で話さない（従来の方式へ戻る）か。**決められないと、確認なしで操作するモードのまま**になるもの（`claude` は、初期が `auto`）。
     let requiresMode: Bool
+    /// セッションを作るときに渡す、追加の設定（`session/new` の `_meta`）。`grok`：`yoloMode: false`（**利用者の設定が、確認なしでも、このアプリの会話は、聞いてもらう**：実測）。
+    var sessionMeta: JSONValue?
+    /// 「なし（会話だけ）」の段階で、Web 検索を、**止められるか**。許可の要求で止めるエージェントは、止められる。`grok` は、Web 検索を、許可の要求なしで行う（実測）ので、「なし」は、従来の CLI（`--disable-web-search`）で話す。
+    var canDisableWebSearch = true
 
     /// ACP で話せるエージェントの、違い。話せなければ nil。
     static func of(_ agent: ChatAgent) -> ACPAgentProfile? {
@@ -51,6 +55,14 @@ struct ACPAgentProfile {
             return ACPAgentProfile(agent: .codex, executable: "codex-acp", arguments: [], restrictedArguments: [], environment: [:],
                                    stateDirectories: [".codex"], statePrefixes: [], stateFiles: [],
                                    choosesModel: false, askingModes: ["read-only"], readingModes: ["read-only"], requiresMode: true)
+        case .grok:
+            // 本体が ACP を話す（`grok agent stdio`。アダプター不要）。`--no-leader`：共有の常駐プロセスに、つなげない（作業フォルダ・OS の制限が、効かなくなる）。
+            // **許可**：`modes` がなく、利用者の設定（`permission_mode = "always-approve"`）が、そのまま効く（実測：書き込み・コマンドが、聞かずに実行された）。`session/new` の `_meta.yoloMode: false` で、**聞いてくる**ようになる（実測：書き込みの許可の要求が来て、断れば、ファイルは作られない）。
+            // 読む・Web 検索は、聞かずに実行される（実測）：段階の「なし」は、Web 検索を止められないので、従来の CLI で話す。書き込み・コマンドは、聞いてくる（こちらが決める）＋ OS の制限。
+            return ACPAgentProfile(agent: .grok, executable: "grok", arguments: ["agent", "--no-leader", "stdio"], restrictedArguments: [], environment: [:],
+                                   stateDirectories: [".grok"], statePrefixes: [], stateFiles: [],
+                                   choosesModel: false, askingModes: [], readingModes: [], requiresMode: false,
+                                   sessionMeta: .object(["yoloMode": .bool(false)]), canDisableWebSearch: false)
         default:
             return nil
         }

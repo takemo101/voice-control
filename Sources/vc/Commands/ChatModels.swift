@@ -7,7 +7,7 @@ struct ChatModelsCommand: Command {
         name: "chat-models", group: .evaluation, summary: tr("会話のエージェントが選べるモデルの一覧を、取る（ACP。質問は送らない）"),
         usage: [tr("vc chat-models [<エージェント>] [<絞り込みの語>] [--no-sandbox]")],
         details: [
-            tr("エージェント（agy・opencode・claude・codex。ACP で話せるもの。既定：設定の会話のエージェント）を、一時的に起動して、初期化とセッションの作成だけを行い、返ってきた、モデルの一覧と、いまのモデルを出す。**質問は送らないので、モデルは呼ばれない**（契約の利用枠は、使わない）。"),
+            tr("エージェント（agy・opencode・grok・claude・codex。ACP で話せるもの。既定：設定の会話のエージェント）を、一時的に起動して、初期化とセッションの作成だけを行い、返ってきた、モデルの一覧と、いまのモデルを出す。**質問は送らないので、モデルは呼ばれない**（契約の利用枠は、使わない）。"),
             tr("絞り込みの語（あいまい検索：順に含まれていればよい。空白で区切った語は、すべて含むもの。例：`son 5`）を渡すと、合うものだけを、よく合う順に出す。一覧は、エージェント自身が返す（こちらは、モデルの名前を持たない）。選んだモデルは、設定 `chatModels`（設定ウィンドウ > 会話）か、`vc chat --model <値>`。"),
         ],
         options: [("--no-sandbox", tr("OS の制限なしで起動する"))],
@@ -24,7 +24,7 @@ struct ChatModelsCommand: Command {
         } else {
             agent = context.resolveChatAgent()
         }
-        guard agent.speaksACP else { fail(tr("\(agent.rawValue) は、ACP で話せないので、一覧を取れません（agy・opencode・claude・codex）")) }
+        guard agent.speaksACP else { fail(tr("\(agent.rawValue) は、ACP で話せないので、一覧を取れません（agy・opencode・grok・claude・codex）")) }
         do {
             let listing = try await ACPModelCatalog.list(for: agent, sandbox: sandbox)
             let chosen = context.currentSettings().chatModels?[agent.rawValue]

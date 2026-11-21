@@ -92,7 +92,7 @@ public enum ACPModelCatalog {
         do {
             _ = try await connection.request("initialize", .object([
                 "protocolVersion": .number(1), "clientCapabilities": .object([:]),
-                "clientInfo": .object(["name": .string("voice-control"), "title": .string("voice-control")])]), timeout: 20)
+                "clientInfo": ACPConnection.clientInfo]), timeout: 20)
             let created = try await connection.request("session/new", .object(["cwd": .string(scratch.path), "mcpServers": .array([])]), timeout: 30)
             let parsed = ACPModels.parse(created)
             guard !parsed.listing.choices.isEmpty else { throw ACPModelError(description: "\(agent.rawValue) は、モデルの一覧を返しませんでした") }

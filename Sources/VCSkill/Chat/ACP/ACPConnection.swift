@@ -25,6 +25,11 @@ enum ACPError: Error, Equatable, CustomStringConvertible {
 /// 要求（`request`）の応答を待つ・通知（`notify`）を送る・**相手からの要求**（許可の確認）に答える（`onRequest`）・相手からの通知（`onNotification`）を受ける。
 /// 相手が終わったら、待っている要求は、すべて `closed` で終わる。シェルは使わない。
 final class ACPConnection: @unchecked Sendable {
+    /// `initialize` で名乗る、こちらの情報。**`version` は、ACP の仕様で必須**（`grok` は、無いと、`Invalid params` で断る：実測）。
+    static var clientInfo: JSONValue {
+        .object(["name": .string("voice-control"), "title": .string("voice-control"), "version": .string(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0")])
+    }
+
     typealias RequestHandler = @Sendable (_ method: String, _ params: JSONValue) async -> JSONValue?
     typealias NotificationHandler = @Sendable (_ method: String, _ params: JSONValue) -> Void
 

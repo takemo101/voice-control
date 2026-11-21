@@ -114,6 +114,18 @@ import Testing
         #expect(pieces.all.joined().trimmingCharacters(in: .whitespacesAndNewlines) == answer)    // 最終的な答えは、届いた文字の、合計
     }
 
+    @Test func grokIsToldToAskForPermissionAndIntroducesItselfWithAVersion() async throws {
+        // grok は、利用者の設定が「確認なし」でも、この会話では、聞いてもらう（`session/new` の `_meta.yoloMode: false`）。`initialize` の名乗りには、版が要る（無いと、grok が断る）
+        let fx = try ACPFixture(); let backend = fx.backend(agent: .grok, tools: .all, flavor: "nomode"); defer { backend.teardown() }
+        _ = try await backend.respond(instructions: "", turns: [], user: "hello")
+        let log = fx.log
+        #expect(log.contains("\"yoloMode\": false"))
+        #expect(log.contains("\"version\":"))
+        let other = try ACPFixture(); let agy = other.backend(agent: .agy); defer { agy.teardown() }
+        _ = try await agy.respond(instructions: "", turns: [], user: "hello")
+        #expect(!other.log.contains("yoloMode"))                  // ほかのエージェントには、渡さない
+    }
+
     private func sampleFiles(_ fx: ACPFixture) throws -> (text: ChatFile, binary: ChatFile) {
         let textURL = fx.directory.deletingLastPathComponent().appendingPathComponent("attach-\(UUID().uuidString).txt")
         let binaryURL = fx.directory.deletingLastPathComponent().appendingPathComponent("attach-\(UUID().uuidString).bin")

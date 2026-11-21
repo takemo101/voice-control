@@ -46,15 +46,22 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     /// `acp`：ACP に対応したエージェント（`speaksACP`）は、常駐の ACP で話す（使えなければ、従来の方式へ戻る）。`sandbox`：その起動を、OS の制限（Seatbelt）つきにする（`ACPSandbox`）。
     public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false) -> ChatBackend {
         guard isExternal else { return AppleChatBackend(tools: tools, folder: folder) }
-        return talksACP(enabled: acp) ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model, auto: auto) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
+        return talksACP(enabled: acp, tools: tools) ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model, auto: auto) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
     }
 
-    /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）は、CLI 自身が。`claude`・`codex` は、利用者が入れたアダプター（`ACPAdapter`）を通して。`pi`・`grok` は、ACP を話さない（従来の方式）。
+    /// ACP（Agent Client Protocol）で話せるエージェント：`agy`（`agy acp`）・`opencode`（`opencode acp`）・`grok`（`grok agent stdio`）は、CLI 自身が。`claude`・`codex` は、利用者が入れたアダプター（`ACPAdapter`）を通して。`pi` は、ACP を話さない（従来の方式）。
     /// **段階の強制は、こちらの許可の返事で行う**（`ACPPermission`）：`opencode` は、何もしなければ、書き込みも、確認なしで行うので、起動のとき、全部を「聞く」設定にして、渡す（`ACPAgentProfile.launchEnvironment`）。
     public var speaksACP: Bool { ACPAgentProfile.of(self) != nil }
 
     /// 常駐の接続（ACP）で話すか（設定 `chatAcp` が有効で、ACP を話せるエージェント）。話すときは、操作の前に、エージェントが聞いてくる（`ACPPermission`）：設定画面の説明・確認のダイアログが、これで分ける。
-    public func talksACP(enabled acp: Bool) -> Bool { acp && speaksACP }
+    /// `tools` を渡すと、その段階で、ACP で話せるかも見る（`grok` は、Web 検索を止められないので、「なし」は、従来の CLI）。
+    public func talksACP(enabled acp: Bool, tools: ChatToolLevel) -> Bool { acp && speaksACP(at: tools) }   // 段階は、省略できない形に：`.none` が、`Optional.none` と取り違えられる
+
+    /// その段階で、ACP で話せるか（`speaksACP` で、「なし」の段階で Web 検索を止められないものは、除く）。
+    public func speaksACP(at tools: ChatToolLevel) -> Bool {
+        guard let profile = ACPAgentProfile.of(self) else { return false }
+        return tools != .none || profile.canDisableWebSearch
+    }
 
     /// Web 検索を、使えるエージェントか（`pi` は、検索の道具を持たない。Apple は、こちらが道具を渡す）。
     public var canSearchWeb: Bool { self != .pi }
