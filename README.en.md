@@ -14,16 +14,35 @@
 
 Audio and screen contents never leave your Mac, except where you explicitly choose an external agent (the settings window says so).
 
-**Dictation extras (experimental)**: register up to four keys to press after typing (Enter, ⌘Enter, …) and switch between them and “don't send” with a shortcut, the menu bar, or Settings > Voice; paste the last input again or copy a recent one (the last five are kept in memory only); an opt-in history (Settings > History, off by default; text and time only, in a file only you can read, auto-deleted after 7 days by default); speech language “Auto” (with a downloaded model) and a space added before English text typed right after a word.
+## Chat
+
+- **Queue while it thinks** (like Zed and Codync): if you ask again while an answer is being worked on — by typing or by voice — the new question joins a queue (dashed bubbles in the conversation) and is sent when the current one finishes. Waiting typed messages are merged into one question; spoken ones go one at a time. Each queued message has **Send now** (stops the current question and sends that one first) and **Remove**. When the input is empty the send button becomes **Stop**: it stops the current question and drops the queue (the dropped messages stay in the log as “not sent”). Not included: injecting a message into the answer that is already running (Zed's Steer).
+- **Spoken “stop”** (chat key only; next release): saying only “stop”, “cancel”, “never mind”, “wait” (or the Japanese equivalents) stops reading aloud and the current question and drops the queue. It is a whole-utterance word match (no model): a longer sentence such as “stop the music” is an ordinary question. The words are fixed for now (not configurable).
+- **Answers can start sooner** (agents that stream over ACP; next release): the text appears while the agent is still answering, and read-aloud starts sentence by sentence. It depends on the agent — measured: opencode streams, agy sends almost everything at once (little gain). Apple's model and non-streaming agents behave as before.
+- **“Latest” button** when you scroll up in the conversation, and a **multi-line input** (Return sends, ⇧Return inserts a line break; up to 6 lines) — next release.
+- Chat history is kept in memory only.
+
+## Dictation extras (experimental)
+
+- **Keys to press after typing** (Settings > Dictation): add as many as you like with “Add a key” (Enter, ⌘Enter, …). The choices are “Don't send” plus those keys; switch with a shortcut, the menu bar, or the “Current key” setting (no restart).
+- **Paste the last input again** (shortcut in Settings > Keys, or the menu bar) and **copy a recent input** (the last five are kept in memory only).
+- **History** (Settings > Dictation, **off by default**): when on, only the typed text and the time are saved, in `~/.voice-control/history.jsonl` (readable only by you), for 7 days by default. Search, copy, delete one, or delete all. Nothing is sent anywhere.
+- **Text cleanup**: remove filler words (um, uh…), and add a space before English text typed right after a word (never for Japanese).
+
+## Settings pages
+
+General · Keys · Voice (language, recording, read-aloud) · Dictation · Chat · Models · Skills.
 
 ## Languages
 
 Two settings, both defaulting to Japanese:
 
 - **Display language** (Settings > General > Language): the UI text (settings window, dialogs, menu, on-screen panel, screenshot selection, chat and Markdown windows, the `vc` command help) is shown in Japanese or English. Skill names/descriptions and agent answers are not translated. Permission prompts (microphone etc.) follow your Mac's language.
-- **Speech recognition language** (Settings > Voice > Language): the language you speak. It affects recognition (Apple SpeechTranscriber `en-US`, or the downloaded Whisper model), live captions, the spoken voice, the spoken "yes" for confirmations, and the language the models are told to answer in.
+- **Speech recognition language** (Settings > Voice > Language: Japanese / English / Auto): the language you speak. **Auto** detects the language from the audio, but only with a downloaded Whisper model; Apple's recognizer must be told a language, so Auto means the Mac's language there. It affects recognition (Apple SpeechTranscriber `en-US`, or the downloaded Whisper model), live captions, the spoken voice, the spoken "yes" for confirmations, and the language the models are told to answer in.
 
-The skill selection was built and measured in Japanese. With the same sentences translated to English it worked (action vs. chat: 19/20 and 20/20 on 40 sentences), but confidence is lower, so you may see more confirmations. Japanese-specific word rules (for example "end the chat" phrases in chat) do not work in English.
+The skill selection was built and measured in Japanese. With the same sentences translated to English it worked (action vs. chat: 19/20 and 20/20 on 40 sentences), but confidence is lower, so you may see more confirmations. The spoken “stop” words work in both Japanese and English; the “end the chat” phrases are Japanese only.
+
+**Languages can be added** (for developers; next release): per-language data (names, spoken “yes”, filler words, “stop” words…) lives in one place, translation tables are per language, and untranslated strings fall back to English. See [docs/development.md](docs/development.md) (Japanese). Adding a language covers the UI, recognition and read-aloud only; the skill selection accuracy has been measured only in Japanese and English.
 
 ## Getting started
 
@@ -33,7 +52,7 @@ The skill selection was built and measured in Japanese. With the same sentences 
 
 ## Safety in brief
 
-The language model can only run commands that a skill's `allowed-commands` permits; the check is done in code, not in the prompt. Speech, screen text, and model output are treated as untrusted data. Destructive operations ask for confirmation. See [SPEC.md](SPEC.md) (Japanese) for the requirements.
+The language model can only run commands that a skill's `allowed-commands` permits; the check is done in code, not in the prompt. Speech, screen text, and model output are treated as untrusted data. Destructive operations ask for confirmation. Speech and typed text are not written to files or logs, **except** the opt-in dictation history above and a screenshot you take yourself (kept for 3 minutes in a private location). When a command or an agent connection is stopped, the child processes it started are stopped too (next release). See [SPEC.md](SPEC.md) (Japanese) for the requirements.
 
 ## License
 

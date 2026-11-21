@@ -310,6 +310,8 @@ details .body .cmd { margin-top: var(--space-3); max-width: none; }
 .chat-grid figcaption { margin: var(--space-3) auto 0; max-width: 26rem; font-size: var(--text-xs); color: var(--color-ink-3); line-height: 1.7; }
 .gallery { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 40rem) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rule h3 small { margin-left: .5em; font-size: var(--text-xs); font-weight: 500; color: var(--color-ink-3); }   /* 「次の版」の印 */
 .gallery figure { margin: 0; }
+@media (min-width: 40rem) { .gallery figure:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - var(--space-3)); } }   /* 最後の 1 枚が余ったとき：中央に置く */
 .gallery figcaption { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-ink-3); line-height: 1.7; }
 .gallery figcaption b { color: var(--color-ink-2); }

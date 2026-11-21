@@ -152,9 +152,11 @@
           <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>キーで話す、または文字で聞く</h3><p>会話のキー（設定 &gt; キー）を押している間だけ話すか、メニューバーの「会話を開く」で、ウィンドウに文字で入れます。読み上げは、Esc やボタンで止められます。</p></div></li>
           <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><div><h3>道具を、段階で開ける</h3><p><b>なし</b>（初期設定）・<b>Web</b>（検索・ページの取得）・<b>＋読む</b>（作業フォルダのファイル）・<b>すべて</b>（書き込み・コマンド）。Apple のモデルの「すべて」は、<strong>上書きと、読むだけでないコマンドを、毎回確認</strong>します。</p></div></li>
           <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>画面を撮って、見せる</h3><p>「画面を撮る」で範囲を選ぶと、画像について聞けます。Apple のモデルは、<strong>Mac の中で</strong>読みます。外のエージェントへは、<strong>送るたびに、画像と送り先を見せて、確認</strong>します。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:150ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>考えている間に、続けて質問できる</h3><p>文字でも声でも、続けて送ると<strong>順番待ち</strong>に入り、いまの答えが終わってから送られます（待っている文字は、まとめて 1 回の質問に）。各件に<b>今すぐ送る</b>（いまの質問を止めて、先に）と<b>取り下げ</b>があり、入力欄が空のとき、送信ボタンは<b>停止</b>になります。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:165ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>止める・戻る・複数行 <small>次の版</small></h3><p>会話のキーで「止めて」「ストップ」「stop」と話すと、読み上げと考えている質問を止めます（発話の全体が一致したときだけ。「音楽を止めて」は、普通の質問です）。上へ戻って読んでいるときは「最新へ」のボタン。入力欄は、⇧Return で改行できます。</p></div></li>
           <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-chip"/></svg><div><h3>答える側を選べる</h3><p>初期設定は、Mac の中の Apple のモデル。<code>claude</code>・<code>codex</code>・<code>grok</code>・<code>agy</code>・<code>opencode</code>・<code>pi</code> のうち、<strong>Mac に入っているものだけ</strong>が選べます。選んだものがなくなったら、Apple のモデルで答えます。外のエージェントを選ぶと、<strong>発話がその提供元へ送られます</strong>（ヘッダーに印が出ます）。</p></div></li>
         </ul>
-        <p class="note-small reveal">会話の記録は、メモリだけです（ファイルにもログにも残しません）。「会話を終わって」・「新しい会話」・5 分間話さない・アプリの終了で消えます。</p>
+        <p class="note-small reveal">会話の記録は、メモリだけです（ファイルにもログにも残しません）。「会話を終わって」・「新しい会話」・5 分間話さない・アプリの終了で消えます。答えが少しずつ届くエージェント（opencode など）では、届いた文から表示と読み上げを始めます（次の版。エージェントによって、効き方が違います）。</p>
       </div>
     </div>
   </div>
@@ -186,8 +188,8 @@
       </article>
       <article class="card spotlight b-third reveal">
         <h3>声で文字を入力</h3>
-        <p>話した言葉を、いま使っているアプリにそのまま入力します。「えーと」などのつなぎ言葉は、辞書を使って消せます（初期設定はオフ）。</p>
-        <code class="mini">設定 &gt; キー &gt; 音声入力</code>
+        <p>話した言葉を、いま使っているアプリにそのまま入力します。入力のあとに送るキー（Enter・⌘Enter など）は、<strong>複数登録して切り替え</strong>られ、直前の入力の貼り直し、「えーと」の削除、英語の前の空白にも対応します。入力の<strong>履歴</strong>は、オンにしたときだけ残ります（初期設定はオフ）。</p>
+        <code class="mini">設定 &gt; キー ／ 設定 &gt; 音声入力</code>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>続けて頼む</h3>
@@ -267,8 +269,9 @@
     </header>
     <div class="gallery">
       <figure class="reveal"><div class="frame"><img src="assets/img/settings-general.png" width="1200" height="984" alt="設定の「一般」。準備状況、許可、ログイン時に起動、コマンド vc、診断" loading="lazy"></div><figcaption><b>一般</b>　準備状況（許可・モデル）、起動、コマンド vc、診断</figcaption></figure>
-      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-keys.png" width="1200" height="984" alt="設定の「キー」。声で頼む、音声入力、会話、画面撮影のキー" loading="lazy"></div><figcaption><b>キー</b>　声で頼む・音声入力・会話・画面撮影。右側のキーだけにもできます</figcaption></figure>
-      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-voice.png" width="1200" height="984" alt="設定の「音声」。録音中の音、文字の表示、読み上げ、つなぎ言葉" loading="lazy"></div><figcaption><b>音声</b>　録音中の音・文字の表示・読み上げと声・つなぎ言葉</figcaption></figure>
+      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-keys.png" width="1200" height="984" alt="設定の「キー」。声で頼む、音声入力、会話、画面撮影、直前の入力の貼り直しのキー" loading="lazy"></div><figcaption><b>キー</b>　声で頼む・音声入力・会話・画面撮影・直前の入力の貼り直し。右側のキーだけにもできます</figcaption></figure>
+      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-voice.png" width="1200" height="984" alt="設定の「音声」。認識の言語、録音中の音、文字の表示、読み上げ" loading="lazy"></div><figcaption><b>音声</b>　認識の言語（日本語・English・自動）・録音中の音・文字の表示・読み上げと声</figcaption></figure>
+      <figure class="reveal"><div class="frame"><img src="assets/img/settings-dictation.png" width="1200" height="984" alt="設定の「音声入力」。入力のあとに送るキー、入力の整え方、履歴" loading="lazy"></div><figcaption><b>音声入力</b>　入力のあとに送るキー（複数登録して切り替え）・つなぎ言葉・英語の空白・履歴（初期設定はオフ）</figcaption></figure>
       <figure class="reveal"><div class="frame"><img src="assets/img/settings-chat.png" width="1200" height="984" alt="設定の「会話」。エージェント、道具、作業フォルダ、会話の記録" loading="lazy"></div><figcaption><b>会話</b>　エージェント・道具の段階・作業フォルダ</figcaption></figure>
       <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-models.png" width="1200" height="984" alt="設定の「モデル」。エンジン、音声認識、モデルの取得" loading="lazy"></div><figcaption><b>モデル</b>　実行するモデル・音声認識・モデルの取得</figcaption></figure>
       <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-skills.png" width="1200" height="984" alt="設定の「スキル」。有効と無効の切り替え、インストール" loading="lazy"></div><figcaption><b>スキル</b>　有効・無効・インストール（一覧に、許可するコマンドと、外へ送るかが出ます）</figcaption></figure>
@@ -290,8 +293,9 @@
           <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけ実行する</h3><p>スキルに書いた <code>allowed-commands</code> と先頭が一致するコマンドだけを実行します。一致しなければ実行しません。</p></div></li>
           <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルは使わない</h3><p>パイプ（<code>|</code>）、リダイレクト（<code>&gt;</code>）、<code>&amp;&amp;</code> は使えません。<code>sudo</code> やシェルの起動は、許可リストに書くこともできません。</p></div></li>
           <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>危ない操作は確認する</h3><p>削除、送信、購入など取り消しにくい依頼だと判断したときや、自信がないときは、実行の前に確認します。スキルに <code>confirm: true</code> と書けば、そのスキルは必ず確認します。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。撮った画面の画像も、Mac の中のモデルだけに渡し、自分だけが読める場所に 1 枚だけ置いて、3 分で使えなくなります。例外は、自分で入れたときだけ使える 3 つのスキルと、<strong>自分で選んだ会話のエージェント</strong>です（下の「注意点」を見てください）。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。撮った画面の画像も、Mac の中のモデルだけに渡し、自分だけが読める場所に 1 枚だけ置いて、3 分で使えなくなります。例外は、自分で入れたときだけ使える 3 つのスキルと、<strong>自分で選んだ会話のエージェント</strong>です（下の「注意点」を見てください）。声で入力した文字の<strong>履歴</strong>は、設定でオンにしたときだけ、入力した文字と時刻を、自分だけが読めるファイルに、決めた日数だけ残します（初期設定はオフ。外へは送りません）。</p></div></li>
           <li class="rule spotlight reveal" style="--d:210ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>会話の道具も、コードが歯止めをかける</h3><p>Apple のモデルの道具は、作業フォルダの外・内部の URL へ行けず、シェル・インタプリタ・通信のコマンドは実行できません。上書きと、読むだけでないコマンドは、毎回、確認します。小さなモデルが、道具を呼ばずに作り話をしたときは、答えを出さずに、失敗として知らせます。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:225ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>止めたら、起こした子プロセスも止める <small>次の版</small></h3><p>コマンドの取りやめ・時間切れ、エージェントとの接続を閉じるとき、エージェントが起こした子プロセスも止めます（自分のセッションへ外れたものも。関係のないプロセスは、止めません）。</p></div></li>
           <li class="rule spotlight reveal" style="--d:240ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>聞こえた内容の「命令」には従わない</h3><p>話した内容、画面の文字、AI の出力に命令が書かれていても、実行の指示としては扱いません。</p></div></li>
         </ul>
         <div class="split reveal">
@@ -404,7 +408,7 @@ $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
       <li class="note spotlight reveal" style="--d:60ms"><h3>外へ送られるもの</h3><p>会話で、外のエージェント（claude・codex など）を選ぶと、<strong>発話が、その提供元へ送られます</strong>（画像は、送るたびに確認します。道具の「すべて」は、書き込み・コマンドも、そのエージェントの判断でできるので、聞き間違いや、ページの命令で、意図しない操作が起きえます）。スキルでは、<code>ask-agent</code> は調べる内容を、選んだ AI エージェントの提供元に送ります。<code>web-search</code> は検索ワードを、選んだサイトに送ります。<code>ask-agent-image</code> は<strong>撮った画面の画像</strong>を、選んだエージェント（codex・claude・agy・grok・opencode・pi）に送るので、<strong>実行のたびに確認</strong>します。どれも、自分で入れたときだけ使えます。インストールのとき、注意が表示されます。</p></li>
       <li class="note spotlight reveal" style="--d:60ms"><h3>署名は ad-hoc です</h3><p>Apple の Developer ID による署名と公証はありません。ブラウザで取得して Gatekeeper に止められたときは、<code>xattr -dr com.apple.quarantine /Applications/VoiceControl.app</code> を実行してください。</p></li>
       <li class="note spotlight reveal"><h3>音声認識も間違えます</h3><p>専門用語、数字、否定の言い方は、間違えやすくなります。実行する前に、聞こえた内容が画面に表示されます。</p></li>
-      <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクを長く使った場合、ウィンドウの実際の動き（Space の移動など）、会話の読み上げ・画像の確認パネルなど、実際のアプリ・声での動作は、まだ確認が終わっていません。確認した範囲としていない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>にそのまま書いてあります。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクを長く使った場合、ウィンドウの実際の動き（Space の移動など）、会話の読み上げ・画像の確認パネル、続けて話したときの順番待ち、声の「止めて」の認識、入力欄の直前の文字の読み取り（英語の空白）など、実際のアプリ・声での動作は、まだ確認が終わっていません。確認した範囲としていない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>にそのまま書いてあります。</p></li>
     </ul>
   </div>
 </section>
@@ -425,12 +429,13 @@ allowed-commands:
 Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
       <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
       <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う、ウィンドウ右上の「…」>「新しい会話を始める」、5 分間話さない、アプリを終える、のどれかで消えます。長くなったときは、古いやり取りを要約して続けます。</p></div></details>
+      <details class="reveal"><summary>会話で、考えている間に、続けて質問できますか？</summary><div class="body"><p>できます。文字でも、会話のキーの声でも、順番待ちに入り、いまの答えが終わってから送られます。待っている文字は、まとめて 1 回の質問になります（声は、1 件ずつ）。「今すぐ送る」は、いまの質問を止めて、その 1 件を先に始めます。いま答えている途中に、差し込む機能（Zed の Steer のようなもの）は、ありません。</p></div></details>
       <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 の選択肢には、<strong>この Mac に入っているエージェントだけ</strong>が出ます。入れていれば出ます（<code>PATH</code> と、<code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで、アンインストールしたら、Apple のモデルで答えます（設定は変わりません）。</p></div></details>
-      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。</p></div></details>
-      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声」で、「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面の辞書で足し引きできます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
+      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。<strong>例外は、設定 &gt; 音声入力 の「履歴」をオンにしたとき</strong>だけです（初期設定はオフ）。入力した文字と時刻だけを、自分だけが読めるファイル（<code>~/.voice-control/history.jsonl</code>）に、決めた日数（初期設定は 7 日）だけ残します。アプリの名前・画面・音声は、残しません。探す・1 件の削除・すべて消すができます。</p></div></details>
+      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声入力」で、「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面の辞書で足し引きできます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
       <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に、1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、アプリを終えると消えます。新しく撮ると、置き換わります。パネルの「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中の AI モデル（Apple のモデル、または画像に対応した Ollama のモデル）にだけ渡します。</p></div></details>
       <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとに出るパネルの<strong>「文字起こし」</strong>を押します。macOS の文字認識で読み取って、パネルの下に、そのまま出します（選んでコピーできます）。AI を通さないので、写し間違いがありません。最初の 1 回だけ、システムの準備で 30 秒ほどかかります。</p></div></details>
-      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。依頼を順番に分けて実行する機能は、設定の「モデル」で止められます。アプリ自体は、<code>just uninstall</code>（またはアプリをゴミ箱へ）で削除できます。</p></div></details>
+      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。会話では、考えている間に送信ボタンが<strong>停止</strong>になり、押すと、いまの質問を止めて、順番待ちも送りません。会話のキーで「止めて」と話しても止まります（次の版）。依頼を順番に分けて実行する機能は、設定の「モデル」で止められます。アプリ自体は、<code>just uninstall</code>（またはアプリをゴミ箱へ）で削除できます。</p></div></details>
     </div>
   </div>
 </section>
