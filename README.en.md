@@ -17,9 +17,10 @@ Audio and screen contents never leave your Mac, except where you explicitly choo
 ## Chat
 
 - **Queue while it thinks** (like Zed and Codync): if you ask again while an answer is being worked on — by typing or by voice — the new question joins a queue (dashed bubbles in the conversation) and is sent when the current one finishes. Waiting typed messages are merged into one question; spoken ones go one at a time. Each queued message has **Send now** (stops the current question and sends that one first) and **Remove**. When the input is empty the send button becomes **Stop**: it stops the current question and drops the queue (the dropped messages stay in the log as “not sent”). Not included: injecting a message into the answer that is already running (Zed's Steer).
-- **Spoken “stop”** (chat key only; next release): saying only “stop”, “cancel”, “never mind”, “wait” (or the Japanese equivalents) stops reading aloud and the current question and drops the queue. It is a whole-utterance word match (no model): a longer sentence such as “stop the music” is an ordinary question. The words are fixed for now (not configurable).
-- **Answers can start sooner** (agents that stream over ACP; next release): the text appears while the agent is still answering, and read-aloud starts sentence by sentence. It depends on the agent — measured: opencode streams, agy sends almost everything at once (little gain). Apple's model and non-streaming agents behave as before.
-- **“Latest” button** when you scroll up in the conversation, and a **multi-line input** (Return sends, ⇧Return inserts a line break; up to 6 lines) — next release.
+- **Spoken “stop”** (chat key only): saying only “stop”, “cancel”, “never mind”, “wait” (or the Japanese equivalents) stops reading aloud and the current question and drops the queue. It is a whole-utterance word match (no model): a longer sentence such as “stop the music” is an ordinary question. The words are fixed for now (not configurable).
+- **Answers can start sooner** (agents that stream over ACP): the text appears while the agent is still answering, and read-aloud starts sentence by sentence. It depends on the agent — measured: opencode streams, agy sends almost everything at once (little gain). Apple's model and non-streaming agents behave as before.
+- **“Latest” button** when you scroll up in the conversation, and a **multi-line input** (Return sends, ⇧Return inserts a line break; up to 6 lines).
+- **Attach files** (external-agent chats only): drop files on the chat window, pick them with the paperclip button, or paste copied files with ⌘V. They go with the next question only, and **you are asked before every send** (names, sizes, destination). Small text files (up to 100 KB) are passed as content; others are copied into the working folder for the run and passed as a link, only when tools are “+ Read files” or higher. Keys, `.env`, `~/.ssh`, and this app’s data are refused (judged by name and location — the confirmation is the last safeguard).
 - Chat history is kept in memory only.
 
 ## Dictation extras (experimental)
@@ -42,7 +43,7 @@ Two settings, both defaulting to Japanese:
 
 The skill selection was built and measured in Japanese. With the same sentences translated to English it worked (action vs. chat: 19/20 and 20/20 on 40 sentences), but confidence is lower, so you may see more confirmations. The spoken “stop” words work in both Japanese and English; the “end the chat” phrases are Japanese only.
 
-**Languages can be added** (for developers; next release): per-language data (names, spoken “yes”, filler words, “stop” words…) lives in one place, translation tables are per language, and untranslated strings fall back to English. See [docs/development.md](docs/development.md) (Japanese). Adding a language covers the UI, recognition and read-aloud only; the skill selection accuracy has been measured only in Japanese and English.
+**Languages can be added** (for developers): per-language data (names, spoken “yes”, filler words, “stop” words…) lives in one place, translation tables are per language, and untranslated strings fall back to English. See [docs/development.md](docs/development.md) (Japanese). Adding a language covers the UI, recognition and read-aloud only; the skill selection accuracy has been measured only in Japanese and English.
 
 ## Getting started
 
