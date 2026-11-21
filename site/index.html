@@ -51,13 +51,13 @@
     <div class="hero-copy">
       <p class="pill"><i aria-hidden="true"></i><b>試作版</b><span>v0.5.15</span><span>macOS 26 以降 / Apple シリコン</span></p>
       <h1><span class="line"><span class="nb">押しながら</span><span class="nb">話すと、</span></span><span class="line"><em class="hl">Mac が動く。</em></span></h1>
-      <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章でお願いするだけで、Mac の操作を代わりにやってくれる、メニューバーのアプリです。聞きたいことは、<strong>会話</strong>で答えてくれます。音声認識も AI モデルも、初期設定では Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
-      <p class="lead sub">何を実行してよいかは、AI の判断ではなく、あらかじめ決めた<strong>許可リスト</strong>で制限します。</p>
+      <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章で頼むと Mac を操作してくれる、メニューバーのアプリです。質問には会話で答えます。音声認識も AI も初期設定では Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
+      <p class="lead sub">実行してよいコマンドは、AI ではなく<strong>許可リスト</strong>で決めます。</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#install">インストールする</a>
         <a class="btn" href="#how">どう動くか見る</a>
       </div>
-      <p class="cmd-label">Mac 用のアプリ（dmg）をダウンロードして、「アプリケーション」へドラッグします</p>
+      <p class="cmd-label">dmg をダウンロードして、「アプリケーション」へドラッグします</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/takemo101/voice-control/releases/latest" rel="noopener">最新の dmg をダウンロード</a>
       </div>
@@ -69,7 +69,7 @@
           <source src="assets/video/demo-hud.mp4" type="video/mp4">
         </video>
       </div>
-      <figcaption>実際の画面の録画です（パネルの中身は見本）。Shift を押している間は録音し、離すと実行します。</figcaption>
+      <figcaption>実際の画面の録画です（中身は見本）。</figcaption>
     </figure>
   </div>
 </section>
@@ -77,9 +77,9 @@
 <!-- ───────── 3 つの特長 ───────── -->
 <section class="strip">
   <div class="wrap strip-grid">
-    <article class="spot reveal"><svg aria-hidden="true"><use href="#i-chip"/></svg><h2>Mac の中だけで動く</h2><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。話した内容をクラウドに送りません。</p></article>
-    <article class="spot reveal" style="--d:80ms"><svg aria-hidden="true"><use href="#i-shield"/></svg><h2>許可したコマンドだけ実行</h2><p>スキルごとに「使ってよいコマンド」を決めます。リストにないコマンドは、プログラムが実行を止めます。</p></article>
-    <article class="spot reveal" style="--d:160ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><h2>やりたいことを自分で足せる</h2><p>テキストファイル（SKILL.md）を 1 つ書くだけで、新しいスキルを追加できます。</p></article>
+    <article class="spot reveal"><svg aria-hidden="true"><use href="#i-chip"/></svg><h2>Mac の中だけで動く</h2><p>音声認識も AI も Mac の中で動きます。話した内容は、クラウドへ送りません。</p></article>
+    <article class="spot reveal" style="--d:80ms"><svg aria-hidden="true"><use href="#i-shield"/></svg><h2>許可したコマンドだけ実行</h2><p>スキルごとに、使ってよいコマンドを決めます。リストにないものは実行しません。</p></article>
+    <article class="spot reveal" style="--d:160ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><h2>やりたいことを自分で足せる</h2><p>SKILL.md を 1 つ書くだけで、スキルを足せます。</p></article>
   </div>
 </section>
 
@@ -88,7 +88,7 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>話してから、実行されるまで</h2>
-      <p>Shift を押して話し、離すと実行されます。いま何をしているかは、画面の上のパネルでいつでも確認できます。</p>
+      <p>Shift を押して話し、離すと実行します。いまの状況は、画面の上のパネルに出ます。</p>
     </header>
     <div class="how-grid" id="how-tabs">
       <div class="how-stage reveal">
@@ -99,14 +99,14 @@
           <img src="assets/img/hud-confirm.png" width="1056" height="420" alt="確認のパネル。「実行する」と「やめる」のボタンがある" loading="lazy">
           <img src="assets/img/hud-success.png" width="1056" height="420" alt="完了のパネル。実行したコマンドと結果が出ている" loading="lazy">
         </div></div>
-        <p class="how-note">画面は、<code>vc hud-preview</code> の見本（中身は作り物）を実機で撮ったものです。</p>
+        <p class="how-note">画面は <code>vc hud-preview</code> の見本です。</p>
       </div>
       <ol class="steps" role="tablist" aria-label="声で頼むときの流れ">
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>Shift を押している間、録音します</h3><p>離すまでは、何も実行されません。押すキーは、設定の「キー」で変えられます。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="1"><span class="step-n">2</span><h3>離すと、話した内容が文字になります</h3><p>Apple の音声認識を使います。Whisper に切り替えることもできます。音声は Mac の外に出ません。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="2"><span class="step-n">3</span><h3>合うスキルが選ばれて、実行されます</h3><p>小さな選択モデル（Tiny-Jev）が、約 0.1 秒でスキルを選びます。実行できるのは、そのスキルが許可したコマンドだけです。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="3"><span class="step-n">4</span><h3>危ない操作は、先に確認します</h3><p>削除や送信など、取り消しにくい操作は、実行する前に確認します。ボタン、キー、声の「はい」で答えられます。</p><span class="step-bar"></span></button></li>
-        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="4"><span class="step-n">5</span><h3>結果が画面に表示されます</h3><p>実行したコマンドと結果が出ます。Esc でいつでも取り消せます。話した内容は、ファイルにもログにも残しません。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="true" data-step="0"><span class="step-n">1</span><h3>Shift を押している間、録音します</h3><p>離すまで、何も実行しません。キーは設定で変えられます。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="1"><span class="step-n">2</span><h3>離すと、文字になります</h3><p>Apple の音声認識を使います（Whisper にも切り替えられます）。音声は Mac の外に出ません。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="2"><span class="step-n">3</span><h3>合うスキルが選ばれ、実行されます</h3><p>小さな選択モデル（Tiny-Jev）が約 0.1 秒で選びます。実行できるのは、そのスキルが許可したコマンドだけです。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="3"><span class="step-n">4</span><h3>危ない操作は、先に確認します</h3><p>削除や送信などは、実行前に確認します。ボタン・キー・声の「はい」で答えます。</p><span class="step-bar"></span></button></li>
+        <li role="presentation"><button class="step" role="tab" type="button" aria-selected="false" data-step="4"><span class="step-n">5</span><h3>結果が表示されます</h3><p>Esc でいつでも取り消せます。話した内容は、ファイルにもログにも残しません。</p><span class="step-bar"></span></button></li>
       </ol>
     </div>
   </div>
@@ -117,13 +117,13 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>こう話すと、こう動きます</h2>
-      <p>下の例を選んでみてください。本物の <code>vc run --dry-run</code> の出力です。<code>--dry-run</code> を付けると、実行はせずに、実行しようとするコマンドだけが表示されます。</p>
+      <p>例を選んでください。実行はせず、実行しようとするコマンドだけを出す <code>vc run --dry-run</code> の、本物の出力です。</p>
     </header>
     <div class="try-grid">
       <div class="reveal">
         <p class="try-label">話しかける内容</p>
         <ul class="chips" id="chips" aria-label="試す依頼"></ul>
-        <p class="note-small">どのスキルを使うかは自動で選ばれます。どのスキルにも当てはまらない依頼は、基本のコマンドで動く「既定スキル」が受け持ちます。</p>
+        <p class="note-small">スキルは自動で選ばれます。当てはまるものがなければ、「既定スキル」が受け持ちます。</p>
       </div>
       <figure class="console reveal" style="--d:80ms"><pre id="console" role="log" aria-live="polite" aria-label="実行結果の例"></pre></figure>
     </div>
@@ -135,7 +135,7 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>会話で、聞いて、調べて、答えてもらう</h2>
-      <p>スキルを選ばずに、質問を重ねられます。1 つのウィンドウに、質問と答えが続きます。調べるときは、使った操作が答えの下に残ります。</p>
+      <p>スキルを選ばずに、質問を重ねられます。調べたときの操作は、答えの下に残ります。</p>
     </header>
     <div class="chat-grid">
       <figure class="reveal">
@@ -145,19 +145,24 @@
             <source src="assets/video/demo-chat.mp4" type="video/mp4">
           </video>
         </div>
-        <figcaption>実際の画面の録画です（会話の中身は見本）。声を聞く → 調べて答える → 外のエージェント → 画像つきの質問、の順に流れます。</figcaption>
+        <figcaption>実際の画面の録画です（中身は見本）。</figcaption>
       </figure>
       <div>
         <ul class="rules">
-          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>キーで話す、または文字で聞く</h3><p>会話のキー（設定 &gt; キー）を押している間だけ話すか、メニューバーの「会話を開く」で、ウィンドウに文字で入れます。読み上げは、Esc やボタンで止められます。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><div><h3>道具を、段階で開ける</h3><p><b>なし</b>（初期設定）・<b>Web</b>（検索・ページの取得）・<b>＋読む</b>（作業フォルダのファイル）・<b>すべて</b>（書き込み・コマンド）。Apple のモデルの「すべて」は、<strong>上書きと、読むだけでないコマンドを、毎回確認</strong>します。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>画面を撮って、見せる</h3><p>「画面を撮る」で範囲を選ぶと、画像について聞けます。Apple のモデルは、<strong>Mac の中で</strong>読みます。外のエージェントへは、<strong>送るたびに、画像と送り先を見せて、確認</strong>します。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:150ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>考えている間に、続けて質問できる</h3><p>文字でも声でも、続けて送ると<strong>順番待ち</strong>に入り、いまの答えが終わってから送られます（待っている文字は、まとめて 1 回の質問に）。各件に<b>今すぐ送る</b>（いまの質問を止めて、先に）と<b>取り下げ</b>があり、入力欄が空のとき、送信ボタンは<b>停止</b>になります。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:165ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>止める・戻る・複数行</h3><p>会話のキーで「止めて」「ストップ」「stop」と話すと、読み上げと考えている質問を止めます（発話の全体が一致したときだけ。「音楽を止めて」は、普通の質問です）。上へ戻って読んでいるときは「最新へ」のボタン。入力欄は、⇧Return で改行できます。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:172ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>ファイルを添えて聞く</h3><p>会話ウィンドウへ<strong>ドロップ</strong>・クリップで選ぶ・Finder でコピーして <span class="kbd">⌘V</span>（外のエージェントの会話）。<strong>送るたびに、ファイル名・大きさ・送り先を見せて、確認します</strong>。小さい文字ファイルは内容を渡し、それ以外は、道具が「＋ファイルを読む」以上のときだけ、作業フォルダへ一時的にコピーして渡します（終わったら消えます）。鍵・<code>.env</code>・<code>~/.ssh</code> などは断ります。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-chip"/></svg><div><h3>答える側を選べる</h3><p>初期設定は、Mac の中の Apple のモデル。<code>claude</code>・<code>codex</code>・<code>grok</code>・<code>agy</code>・<code>opencode</code>・<code>pi</code> のうち、<strong>Mac に入っているものだけ</strong>が選べます。選んだものがなくなったら、Apple のモデルで答えます。外のエージェントを選ぶと、<strong>発話がその提供元へ送られます</strong>（ヘッダーに印が出ます）。</p></div></li>
+          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>キーで話す、または文字で聞く</h3><p>会話のキーを押している間話すか、メニューバーの「会話を開く」で文字を入れます。Esc で読み上げを止められます。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><div><h3>道具を、段階で開ける</h3><p><b>なし</b>（初期設定）・<b>Web</b>・<b>＋読む</b>（作業フォルダ）・<b>すべて</b>（書き込み・コマンド）。「すべて」は、書き込みやコマンドの前に確認します（外のエージェントで常駐の接続を切ると、確認なし）。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-chip"/></svg><div><h3>答える側を選べる</h3><p>初期設定は Mac の中の Apple のモデル。<code>claude</code>・<code>codex</code>・<code>grok</code>・<code>agy</code>・<code>opencode</code>・<code>pi</code> のうち、入っているものを選べます。外のエージェントを選ぶと、<strong>発話がその提供元へ送られます</strong>。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>画面を撮って、見せる</h3><p>範囲を選んで撮り、画像について聞けます。Apple のモデルは Mac の中で読みます。外のエージェントには、<strong>送るたびに確認</strong>します。</p></div></li>
         </ul>
-        <p class="note-small reveal">会話の記録は、メモリだけです（ファイルにもログにも残しません）。「会話を終わって」・「新しい会話」・5 分間話さない・アプリの終了で消えます。答えが少しずつ届くエージェント（opencode など）では、届いた文から表示と読み上げを始めます（エージェントによって、効き方が違います）。</p>
+        <details class="more">
+          <summary>ほかの機能（ファイル・続けて質問・止める）</summary>
+          <div class="body"><ul class="rules">
+          <li class="rule spotlight"  style="--d:172ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>ファイルを添えて聞く</h3><p>ウィンドウへドロップ・クリップで選ぶ・⌘V で貼り付け（外のエージェントのみ）。<strong>送るたびに確認</strong>します。鍵や <code>.env</code> などは断ります。</p></div></li>
+          <li class="rule spotlight"  style="--d:150ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>続けて質問できる</h3><p>考えている間に送ると<strong>順番待ち</strong>に入り、前の答えのあとに送られます。「今すぐ送る」と「取り下げ」もあります。</p></div></li>
+          <li class="rule spotlight"  style="--d:165ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>止める・戻る・複数行</h3><p>会話のキーで「止めて」と話すと止まります（「音楽を止めて」は、普通の質問です）。上へ戻ると「最新へ」が出て、⇧Return で改行できます。</p></div></li>
+          </ul></div>
+        </details>
+        <p class="note-small reveal">会話の記録はメモリだけです。「会話を終わって」・5 分間話さない・アプリの終了で消えます。</p>
       </div>
     </div>
   </div>
@@ -168,18 +173,18 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>できること</h2>
-      <p>声で頼むだけでなく、声で文字を入力したり、撮った画面について頼んだりできます。</p>
+      <p>声で頼む・声で入力する・画面を撮って頼む、が使えます。</p>
     </header>
     <div class="bento">
       <article class="card spotlight b-wide reveal">
         <h3>声で頼む</h3>
-        <p>Shift を押している間だけ話して、離すと実行します。Esc で取り消せます。実行中にもう一度話すと、前の処理を止めて、新しい依頼を実行します（確認の返事を待っているときは、返事として扱います）。</p>
+        <p>Shift を押している間話して、離すと実行します。Esc で取り消せます。実行中にもう一度話すと、前の処理を止めて、新しい依頼を実行します。</p>
         <div class="keys" aria-hidden="true"><span class="kbd">Shift</span> を押す<span class="arrow">→</span>話す<span class="arrow">→</span>離す<span class="arrow">→</span>実行<span class="sep">／</span><span class="kbd">Esc</span> で取り消し</div>
         <code class="mini">メニューバーのアプリ</code>
       </article>
       <article class="card spotlight b-third b-tall reveal" style="--d:80ms">
         <h3>結果を見やすく表示</h3>
-        <p>調べた結果や要約は、読みやすいウィンドウに表示されます。⌘C でコピーでき、Esc で閉じます。</p>
+        <p>調べた結果や要約を、読みやすいウィンドウに出します。⌘C でコピー、Esc で閉じます。</p>
         <div class="card-media is-inset">
           <video autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/demo-window-poster.jpg" aria-label="整形された結果のウィンドウが開く様子" width="700" height="640">
             <source src="assets/video/demo-window.webm" type="video/webm">
@@ -189,34 +194,34 @@
       </article>
       <article class="card spotlight b-third reveal">
         <h3>声で文字を入力</h3>
-        <p>話した言葉を、いま使っているアプリにそのまま入力します。入力のあとに送るキー（Enter・⌘Enter など）は、<strong>複数登録して切り替え</strong>られ、直前の入力の貼り直し、「えーと」の削除、英語の前の空白にも対応します。入力の<strong>履歴</strong>は、オンにしたときだけ残ります（初期設定はオフ）。</p>
+        <p>話した言葉を、いま使っているアプリに入力します。送るキー（Enter など）は複数登録でき、「えーと」の削除や、直前の入力の貼り直しもできます。履歴は、オンにしたときだけ残ります。</p>
         <code class="mini">設定 &gt; キー ／ 設定 &gt; 音声入力</code>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>続けて頼む</h3>
-        <p>「Claude で調べて、そのあと Spotify で次の曲」のように、続けて頼めます。依頼を順番に分けて、1 つずつ実行し、途中で失敗したらそこで止まります。</p>
+        <p>「Claude で調べて、そのあと Spotify で次の曲」のように、続けて頼めます。1 つずつ実行し、失敗したらそこで止まります。</p>
         <div class="mini-row"><code class="mini">設定 &gt; モデル</code><span class="mini-note">で無効にできます</span></div>
       </article>
       <article class="card spotlight b-third reveal">
         <h3>スキルを足せる</h3>
-        <p>「何をするか」と「使ってよいコマンド」を SKILL.md に書くだけです。同梱のスキルは、まとめて入れられます。</p>
+        <p>SKILL.md に「何をするか」と「使ってよいコマンド」を書くだけです。</p>
         <code class="mini">vc skills install --all</code>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>AI モデルを選べる</h3>
-        <p>初期設定は Apple のモデルです。Ollama や LM Studio など、自分の Mac 上のモデルにも切り替えられます。クラウドのモデルは指定できません。</p>
+        <p>初期設定は Apple のモデル。Ollama や LM Studio など、自分の Mac 上のモデルにも替えられます。クラウドのモデルは指定できません。</p>
         <code class="mini">設定 &gt; モデル &gt; エンジン</code>
       </article>
     </div>
 
     <header class="section-head reveal sub-head">
       <h2>画面を撮って、声で頼む</h2>
-      <p>撮った画面について、声で頼めます。画像は、Mac の中の AI モデルにだけ渡します。</p>
+      <p>撮った画面について、声で頼めます。画像は Mac の中のモデルにだけ渡します。</p>
     </header>
     <div class="bento">
       <article class="card spotlight b-wide reveal" style="--d:80ms">
         <h3>画面を撮って、声で頼む</h3>
-        <p>ショートカットで画面が静止して暗くなり、<strong>ドラッグで範囲</strong>、<strong>ウィンドウをクリック</strong>、<strong>Enter で全画面</strong>を選べます。大きさは「1200 × 500」のようにピクセルで表示されます。撮れたら、「この画像の文字を書き出して」「これは何？」「右半分を切り抜いて」「JPEG に変換して」と頼みます。<strong>画像は、Mac の中の AI モデルにだけ渡します。</strong></p>
+        <p>ショートカットで画面が止まります。<strong>ドラッグ</strong>で範囲、<strong>クリック</strong>でウィンドウ、<strong>Enter</strong> で全画面を選びます。撮れたら「この画像の文字を書き出して」「右半分を切り抜いて」のように頼みます。</p>
         <div class="keys" aria-hidden="true"><span class="kbd">⇧</span> 正方形<span class="sep">／</span><span class="kbd">⌥</span> 中心から<span class="sep">／</span><span class="kbd">Space</span> 動かす<span class="sep">／</span><span class="kbd">R</span> 前回<span class="sep">／</span><span class="kbd">Z</span> 拡大鏡（色のコピー）</div>
         <div class="card-media is-inset">
           <img src="assets/img/capture-drag.jpg" width="1500" height="850" alt="暗くなった画面で範囲をドラッグしている様子。範囲だけが明るく、大きさ「1200 × 500」と縦横比が表示され、下に操作の案内が出ている" loading="lazy">
@@ -225,19 +230,19 @@
       </article>
       <article class="card spotlight b-third b-tall-2 reveal">
         <h3>撮った画像のパネル</h3>
-        <p>撮ったあとに、画像のパネルが開きます。<strong>画像のコピー</strong>、<strong>パスのコピー</strong>、Finder で表示ができ、画像は、ほかのアプリへドラッグして渡せます。<strong>「文字起こし」</strong>を押すと、画像の文字を、そのまま、パネルの下に出します（macOS の文字認識。Mac の中だけで動きます）。</p>
+        <p>撮ると、画像のパネルが開きます。画像やパスのコピー、Finder での表示ができ、ほかのアプリへドラッグもできます。<strong>「文字起こし」</strong>は、画像の文字を macOS の文字認識で、そのまま出します。</p>
         <div class="card-media is-inset">
           <img src="assets/img/image-panel.png" width="631" height="900" alt="画像のパネル。画像、形式と大きさ、保存の状態、文字起こしの結果、画像をコピーのボタンが並んでいる" loading="lazy">
         </div>
       </article>
       <article class="card spotlight b-third reveal">
         <h3>ダブルタップで、話し終わるまで</h3>
-        <p>Shift を押している間だけ話す代わりに、<strong>2 回タップ</strong>すると、手を離しても録音が続きます。<strong>黙ると</strong>認識を始め、もう一度タップすると、すぐ始めます。押し続ける使い方は、そのままです。</p>
+        <p>Shift を<strong>2 回タップ</strong>すると、手を離しても録音が続き、黙ると認識を始めます。押し続ける使い方も、そのままです。</p>
         <div class="mini-row"><code class="mini">設定 &gt; キー</code><span class="mini-note">で、押している間だけに戻せます</span></div>
       </article>
       <article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>撮った画像を、ほかのツールへ</h3>
-        <p>スキルの本文に <code>${SCREENSHOT}</code> と書くと、撮った画像のパスが入ります。ImageMagick などの自分のコマンドに、画像を渡すスキルが作れます。</p>
+        <p>スキルに <code>${SCREENSHOT}</code> と書くと、撮った画像のパスが入ります。ImageMagick などに、画像を渡せます。</p>
         <div class="mini-row"><code class="mini">magick "${SCREENSHOT}" -trim …</code></div>
       </article>
     </div>
@@ -246,18 +251,18 @@
       <h2>同梱のスキル</h2>
       <p>リポジトリの <code>.voice-control/skills/</code> にあります。</p>
     </header>
-    <ul class="skills">
-      <li class="skill reveal"><span class="skill-name">spotify</span><span class="say"><q>音量を50にして</q><q>お気に入りの曲をかけて</q></span><span class="what">再生、一時停止、次の曲、音量、お気に入りの追加と再生、今の曲の読み上げ。<strong>曲名やアーティスト名を指定した再生はできません</strong>（検索ページを開くところまでです）。</span></li>
-      <li class="skill reveal"><span class="skill-name">clipboard-note</span><span class="say"><q>コピーした文章を要約して</q></span><span class="what">⌘C でコピーした文章を整えて、読みやすいウィンドウに表示します。</span></li>
-      <li class="skill reveal"><span class="skill-name">file-search</span><span class="say"><q>先月の議事録を開いて</q></span><span class="what">名前、場所、種類、期間でファイルを探します。候補が複数あれば選んで開きます。</span></li>
-      <li class="skill reveal"><span class="skill-name">web-search <span class="badge is-warn">外部に送信</span></span><span class="say"><q>Amazonでマウスを検索して</q></span><span class="what">指定したサイト（Google、Amazon、YouTube、楽天、Yahoo!、Wikipedia、地図、X）の検索ページをブラウザで開きます。検索ワードは、そのサイトに送られます。</span></li>
-      <li class="skill reveal"><span class="skill-name">ask-agent <span class="badge is-warn">外部に送信</span></span><span class="say"><q>クロードでRustの所有権を調べて</q></span><span class="what">agy、claude、codex、grok、opencode、pi のどれかに調べてもらい、要点をウィンドウに表示します。指定しなければ agy です。入っていないときは、Mac 内のモデルが、Web を見ずに答えます。</span></li>
-      <li class="skill reveal"><span class="skill-name">ask-agent-image <span class="badge is-warn">画像を外部に送信</span></span><span class="say"><q>この画面をクロードに見せて、エラーの意味を聞いて</q></span><span class="what">撮った画面を、codex・claude・agy・grok・opencode・pi のどれかに見せて、答えをウィンドウに表示します。画像が、選んだ提供元に送られるので、実行のたびに確認します。</span></li>
-      <li class="skill reveal"><span class="skill-name">image-ask</span><span class="say"><q>この画像の文字を書き出して</q><q>コピーした画像を要約して</q></span><span class="what">撮ったスクリーンショットか、コピーした画像について、文字の書き出し・説明・要約・翻訳を、読みやすいウィンドウに表示します（コピーするだけでも使えます）。画像は、Mac の中のモデルだけに渡します。コピーした文章は、clipboard-note が担当します。</span></li>
-      <li class="skill reveal"><span class="skill-name">image-edit</span><span class="say"><q>右半分を切り抜いて</q><q>JPEGに変換して</q></span><span class="what">撮った画面や、コピーした画像を、切り抜き、サイズ変更、回転、形式の変換、背景の除去（実験）をして保存します。続けて加工できます。</span></li>
-      <li class="skill reveal"><span class="skill-name">filler-add</span><span class="say"><q>『あのさ』をつなぎ言葉に追加して</q></span><span class="what">声で文字を入力するときに消す「つなぎ言葉」の辞書に、言葉を追加します。</span></li>
-      <li class="skill reveal"><span class="skill-name">default <span class="badge">組み込み</span></span><span class="say"><q>Safariを開いて</q></span><span class="what">上のどれにも当てはまらない依頼を、<code>agent-desktop</code> と基本のコマンド（open、say、ls、pwd、date）で実行します。許可の範囲は狭くしてあります。</span></li>
-    </ul>
+    <details class="more"><summary>同梱のスキル 10 個を見る</summary><div class="body"><ul class="skills">
+      <li class="skill"><span class="skill-name">spotify</span><span class="say"><q>音量を50にして</q><q>お気に入りの曲をかけて</q></span><span class="what">再生・一時停止・次の曲・音量・お気に入り・今の曲の読み上げ。<strong>曲名やアーティスト名での再生はできません</strong>（検索ページを開くまで）。</span></li>
+      <li class="skill"><span class="skill-name">clipboard-note</span><span class="say"><q>コピーした文章を要約して</q></span><span class="what">コピーした文章を整えて、読みやすいウィンドウに出します。</span></li>
+      <li class="skill"><span class="skill-name">file-search</span><span class="say"><q>先月の議事録を開いて</q></span><span class="what">名前・場所・種類・期間でファイルを探し、候補が複数なら選んで開きます。</span></li>
+      <li class="skill"><span class="skill-name">web-search <span class="badge is-warn">外部に送信</span></span><span class="say"><q>Amazonでマウスを検索して</q></span><span class="what">指定したサイト（Google、Amazon、YouTube、楽天、Yahoo!、Wikipedia、地図、X）の検索ページを開きます。検索ワードは、そのサイトに送られます。</span></li>
+      <li class="skill"><span class="skill-name">ask-agent <span class="badge is-warn">外部に送信</span></span><span class="say"><q>クロードでRustの所有権を調べて</q></span><span class="what">agy・claude・codex・grok・opencode・pi のどれかに調べてもらい、要点を表示します。指定しなければ agy です。</span></li>
+      <li class="skill"><span class="skill-name">ask-agent-image <span class="badge is-warn">画像を外部に送信</span></span><span class="say"><q>この画面をクロードに見せて、エラーの意味を聞いて</q></span><span class="what">撮った画面を、選んだエージェントに見せて、答えを表示します。画像は提供元に送られるので、毎回確認します。</span></li>
+      <li class="skill"><span class="skill-name">image-ask</span><span class="say"><q>この画像の文字を書き出して</q><q>コピーした画像を要約して</q></span><span class="what">撮った画面やコピーした画像の、文字の書き出し・説明・要約・翻訳を、ウィンドウに出します。画像は Mac の中のモデルにだけ渡します。</span></li>
+      <li class="skill"><span class="skill-name">image-edit</span><span class="say"><q>右半分を切り抜いて</q><q>JPEGに変換して</q></span><span class="what">撮った画面やコピーした画像を、切り抜き・サイズ変更・回転・形式変換・背景除去（実験）して保存します。</span></li>
+      <li class="skill"><span class="skill-name">filler-add</span><span class="say"><q>『あのさ』をつなぎ言葉に追加して</q></span><span class="what">声で入力するときに消す「つなぎ言葉」の辞書に、言葉を足します。</span></li>
+      <li class="skill"><span class="skill-name">default <span class="badge">組み込み</span></span><span class="say"><q>Safariを開いて</q></span><span class="what">上のどれにも当てはまらない依頼を、<code>agent-desktop</code> と基本のコマンド（open・say・ls・pwd・date）で実行します。許可の範囲は狭くしてあります。</span></li>
+    </ul></div></details>
   </div>
 </section>
 
@@ -266,18 +271,18 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>設定ウィンドウで、決める</h2>
-      <p>メニューバーのアイコン &gt; 「設定…」。変えた設定は、すぐ保存され、再起動なしで反映されます。</p>
+      <p>メニューバーのアイコン &gt; 「設定…」。変更はすぐ反映されます。</p>
     </header>
     <div class="gallery">
-      <figure class="reveal"><div class="frame"><img src="assets/img/settings-general.png" width="1200" height="984" alt="設定の「一般」。準備状況、許可、ログイン時に起動、コマンド vc、診断" loading="lazy"></div><figcaption><b>一般</b>　準備状況（許可・モデル）、起動、コマンド vc、診断</figcaption></figure>
-      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-keys.png" width="1200" height="984" alt="設定の「キー」。声で頼む、音声入力、会話、画面撮影、直前の入力の貼り直しのキー" loading="lazy"></div><figcaption><b>キー</b>　声で頼む・音声入力・会話・画面撮影・直前の入力の貼り直し。右側のキーだけにもできます</figcaption></figure>
-      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-voice.png" width="1200" height="984" alt="設定の「音声」。認識の言語、録音中の音、文字の表示、読み上げ" loading="lazy"></div><figcaption><b>音声</b>　認識の言語（日本語・English・自動）・録音中の音・文字の表示・読み上げと声</figcaption></figure>
-      <figure class="reveal"><div class="frame"><img src="assets/img/settings-dictation.png" width="1200" height="984" alt="設定の「音声入力」。入力のあとに送るキー、入力の整え方、履歴" loading="lazy"></div><figcaption><b>音声入力</b>　入力のあとに送るキー（複数登録して切り替え）・つなぎ言葉・英語の空白・履歴（初期設定はオフ）</figcaption></figure>
-      <figure class="reveal"><div class="frame"><img src="assets/img/settings-chat.png" width="1200" height="984" alt="設定の「会話」。エージェント、道具、作業フォルダ、会話の記録" loading="lazy"></div><figcaption><b>会話</b>　エージェント・道具の段階・作業フォルダ</figcaption></figure>
-      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-models.png" width="1200" height="984" alt="設定の「モデル」。エンジン、音声認識、モデルの取得" loading="lazy"></div><figcaption><b>モデル</b>　実行するモデル・音声認識・モデルの取得</figcaption></figure>
-      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-skills.png" width="1200" height="984" alt="設定の「スキル」。有効と無効の切り替え、インストール" loading="lazy"></div><figcaption><b>スキル</b>　有効・無効・インストール（一覧に、許可するコマンドと、外へ送るかが出ます）</figcaption></figure>
+      <figure class="reveal"><div class="frame"><img src="assets/img/settings-general.png" width="1200" height="984" alt="設定の「一般」。準備状況、許可、ログイン時に起動、コマンド vc、診断" loading="lazy"></div><figcaption><b>一般</b>　準備状況・起動・コマンド vc・診断</figcaption></figure>
+      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-keys.png" width="1200" height="984" alt="設定の「キー」。声で頼む、音声入力、会話、画面撮影、直前の入力の貼り直しのキー" loading="lazy"></div><figcaption><b>キー</b>　声で頼む・音声入力・会話・画面撮影のキー</figcaption></figure>
+      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-voice.png" width="1200" height="984" alt="設定の「音声」。認識の言語、録音中の音、文字の表示、読み上げ" loading="lazy"></div><figcaption><b>音声</b>　認識の言語・録音中の音・読み上げ</figcaption></figure>
+      <figure class="reveal"><div class="frame"><img src="assets/img/settings-dictation.png" width="1200" height="984" alt="設定の「音声入力」。入力のあとに送るキー、入力の整え方、履歴" loading="lazy"></div><figcaption><b>音声入力</b>　送るキー・つなぎ言葉・英語の空白・履歴</figcaption></figure>
+      <figure class="reveal"><div class="frame"><img src="assets/img/settings-chat.png" width="1200" height="984" alt="設定の「会話」。エージェント、道具、作業フォルダ、会話の記録" loading="lazy"></div><figcaption><b>会話</b>　エージェント・道具・作業フォルダ</figcaption></figure>
+      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-models.png" width="1200" height="984" alt="設定の「モデル」。エンジン、音声認識、モデルの取得" loading="lazy"></div><figcaption><b>モデル</b>　実行するモデル・音声認識・取得</figcaption></figure>
+      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-skills.png" width="1200" height="984" alt="設定の「スキル」。有効と無効の切り替え、インストール" loading="lazy"></div><figcaption><b>スキル</b>　有効・無効・インストール</figcaption></figure>
     </div>
-    <p class="note-small reveal">画面は、本物の設定ウィンドウを、画面の外で描いたものです（中身は見本。「一般」の許可の状態は、許可の前の、初めての状態です）。</p>
+    <p class="note-small reveal">画面は、本物の設定ウィンドウを画面の外で描いたものです（中身は見本）。</p>
   </div>
 </section>
 
@@ -286,19 +291,24 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>安全のしくみ</h2>
-      <p>AI は間違えることがあります。そのため、何を実行してよいかは AI に任せず、<strong>プログラムが毎回チェック</strong>します。</p>
+      <p>AI は間違えることがあります。だから、何を実行してよいかは、AI ではなく<strong>プログラムが毎回チェック</strong>します。</p>
     </header>
     <div class="safe-grid">
       <div>
         <ul class="rules">
-          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけ実行する</h3><p>スキルに書いた <code>allowed-commands</code> と先頭が一致するコマンドだけを実行します。一致しなければ実行しません。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルは使わない</h3><p>パイプ（<code>|</code>）、リダイレクト（<code>&gt;</code>）、<code>&amp;&amp;</code> は使えません。<code>sudo</code> やシェルの起動は、許可リストに書くこともできません。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>危ない操作は確認する</h3><p>削除、送信、購入など取り消しにくい依頼だと判断したときや、自信がないときは、実行の前に確認します。スキルに <code>confirm: true</code> と書けば、そのスキルは必ず確認します。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識、スキルの選択、初期設定の AI モデルは、すべて Mac の中で動きます。撮った画面の画像も、Mac の中のモデルだけに渡し、自分だけが読める場所に 1 枚だけ置いて、3 分で使えなくなります。例外は、自分で入れたときだけ使える 3 つのスキルと、<strong>自分で選んだ会話のエージェント</strong>です（下の「注意点」を見てください）。声で入力した文字の<strong>履歴</strong>は、設定でオンにしたときだけ、入力した文字と時刻を、自分だけが読めるファイルに、決めた日数だけ残します（初期設定はオフ。外へは送りません）。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:210ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>会話の道具も、コードが歯止めをかける</h3><p>Apple のモデルの道具は、作業フォルダの外・内部の URL へ行けず、シェル・インタプリタ・通信のコマンドは実行できません。上書きと、読むだけでないコマンドは、毎回、確認します。小さなモデルが、道具を呼ばずに作り話をしたときは、答えを出さずに、失敗として知らせます。</p></div></li>
-          <li class="rule spotlight reveal" style="--d:225ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>止めたら、起こした子プロセスも止める</h3><p>コマンドの取りやめ・時間切れ、エージェントとの接続を閉じるとき、エージェントが起こした子プロセスも止めます（自分のセッションへ外れたものも。関係のないプロセスは、止めません）。</p></div></li>
+          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>許可したコマンドだけ実行する</h3><p>スキルの <code>allowed-commands</code> と先頭が一致するコマンドだけ実行します。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>シェルは使わない</h3><p>パイプ・リダイレクト・<code>&amp;&amp;</code> は使えません。<code>sudo</code> やシェルの起動は、許可リストにも書けません。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>危ない操作は確認する</h3><p>削除・送信・購入など取り消しにくい操作や、自信がないときは、実行前に確認します。スキルに <code>confirm: true</code> と書くと、必ず確認します。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>話した内容を外に出さない</h3><p>音声認識・スキルの選択・初期設定の AI は、Mac の中で動きます。例外は、自分で入れた 3 つのスキルと、自分で選んだ会話のエージェントだけです（「使う前に」を見てください）。声で入力した文字の履歴は、オンにしたときだけ、自分だけが読めるファイルに残します。</p></div></li>
           <li class="rule spotlight reveal" style="--d:240ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>聞こえた内容の「命令」には従わない</h3><p>話した内容、画面の文字、AI の出力に命令が書かれていても、実行の指示としては扱いません。</p></div></li>
         </ul>
+        <details class="more">
+          <summary>ほかの歯止め（会話の道具・子プロセス）</summary>
+          <div class="body"><ul class="rules">
+          <li class="rule spotlight"  style="--d:210ms"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>会話の道具にも、歯止めがある</h3><p>Apple のモデルの道具は、作業フォルダの外や内部の URL へ行けず、シェルや通信のコマンドは使えません。小さなモデルが道具を呼ばずに作り話をしたら、答えにせず、失敗として知らせます。</p></div></li>
+          <li class="rule spotlight"  style="--d:225ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>止めたら、子プロセスも止める</h3><p>取りやめ・時間切れ・接続を閉じるとき、エージェントが起こした子プロセスも止めます。関係のないプロセスは止めません。</p></div></li>
+          </ul></div>
+        </details>
         <div class="split reveal">
           <div class="who is-code"><h3>プログラムが決めること</h3><ul><li>許可のチェック</li><li>確認が必要かどうか</li><li>止めるか、続けるか</li><li>入力のチェック</li></ul></div>
           <div class="who"><h3>AI がすること</h3><ul><li>許可の範囲内で手順を考える</li><li>コマンドの引数を組み立てる</li><li>結果を短く伝える</li></ul></div>
@@ -306,7 +316,7 @@
       </div>
       <figure class="shot reveal" style="--d:100ms">
         <div class="frame"><img src="assets/img/hud-denied.png" width="1056" height="420" alt="許可されていないコマンド ls を実行しなかったときのパネル。「open だけ許可」と表示されている" loading="lazy"></div>
-        <figcaption>許可されていないコマンドは実行されません。パネルに「許可されていないコマンドです（open だけ許可）」と表示されます。</figcaption>
+        <figcaption>許可されていないコマンドは実行されません。理由がパネルに出ます。</figcaption>
       </figure>
     </div>
   </div>
@@ -317,26 +327,26 @@
   <div class="wrap">
     <header class="section-head reveal">
       <h2>はじめかた</h2>
-      <p>5 つの手順で、声で Mac を動かすところまで進めます。コマンドは、ターミナルに貼り付けて実行してください。</p>
+      <p>5 つの手順です。コマンドは、ターミナルに貼り付けて実行します。</p>
     </header>
 
     <ol class="timeline" id="timeline">
       <span class="tl-line" aria-hidden="true"><span id="tl-fill"></span></span>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">1</span><div><h3>Mac の条件を確かめる</h3><p class="tl-what">次の 4 つを満たしているか確認します。</p></div></div>
+        <div class="tl-head"><span class="tl-n">1</span><div><h3>Mac の条件を確かめる</h3><p class="tl-what">次の 4 つを確認します。</p></div></div>
         <div class="tl-body">
           <ul class="checks">
             <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>macOS 26 以降</b></span></li>
             <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Apple シリコン</b>の Mac（M1 以降）</span></li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Apple Intelligence がオン</b><small>システム設定 &gt; Apple Intelligence と Siri で、オンにします。</small></span></li>
-            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Node.js（npm）</b>が使えること<small>手順 2 と、一部のスキルで使います。</small></span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Apple Intelligence がオン</b><small>システム設定 &gt; Apple Intelligence と Siri でオンにします。</small></span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>Node.js（npm）</b>が使えること<small>手順 2 と一部のスキルで使います。</small></span></li>
           </ul>
         </div>
       </li>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">2</span><div><h3>agent-desktop を入れる</h3><p class="tl-what">アプリの画面を操作するための道具です。</p></div></div>
+        <div class="tl-head"><span class="tl-n">2</span><div><h3>agent-desktop を入れる</h3><p class="tl-what">アプリの画面を操作する道具です。</p></div></div>
         <div class="tl-body">
           <p class="cmd-label">ターミナルで実行</p>
           <div class="cmd"><pre><code id="c-agent">npm install -g agent-desktop</code></pre><button class="copy" type="button" data-copy-from="c-agent">コピー</button></div>
@@ -346,40 +356,40 @@
       <li class="tl-step reveal">
         <div class="tl-head"><span class="tl-n">3</span><div><h3>アプリを入れる</h3><p class="tl-what">dmg を開いて、voice-control.app を「アプリケーション」へドラッグします。</p></div></div>
         <div class="tl-body">
-          <p class="cmd-label">ブラウザでダウンロードして、macOS に止められたとき（署名は ad-hoc です）、ターミナルで実行</p>
+          <p class="cmd-label">macOS に止められたら（署名は ad-hoc です）、ターミナルで実行</p>
           <div class="cmd"><pre><code id="c-install">xattr -dr com.apple.quarantine /Applications/VoiceControl.app</code></pre><button class="copy" type="button" data-copy-from="c-install">コピー</button></div>
-          <p class="tl-result"><b>結果：</b>アプリを開くと、メニューバーにマイクのアイコンが出ます（Dock には出ません）。メニューの「設定…」 &gt; モデル で、スキルを選ぶ小さなモデル（約 1.2 GB。SHA-256 を検証）を取得します。マイクとアクセシビリティの許可は、<strong>アプリ自身</strong>に付きます（ターミナルには、よりません）。</p>
+          <p class="tl-result"><b>結果：</b>メニューバーにマイクのアイコンが出ます。「設定…」&gt; モデル で、スキルを選ぶ小さなモデル（約 1.2 GB・SHA-256 を検証）を取得します。マイクとアクセシビリティの許可は、<strong>アプリ自身</strong>に付きます。</p>
         </div>
       </li>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">4</span><div><h3>足りない設定がないか確認する</h3><p class="tl-what">必要な許可や設定が、そろっているかを調べます。メニューバーのアイコン &gt; 「診断を見る」。</p></div></div>
+        <div class="tl-head"><span class="tl-n">4</span><div><h3>足りない設定がないか確認する</h3><p class="tl-what">必要な許可がそろっているか調べます。メニューバーのアイコン &gt; 「診断を見る」。</p></div></div>
         <div class="tl-body">
-          <p class="tl-result"><b>結果：</b>足りないものがあれば、直し方が表示されます（設定の「一般」でも、許可の状態を確認できます）。主に次の許可が必要です。</p>
+          <p class="tl-result"><b>結果：</b>足りないものと直し方が出ます。主に次の許可が必要です。</p>
           <div class="perms">
-            <div class="perm"><b>アクセシビリティ</b>キーの長押しの検出と、アプリの操作に使います。</div>
-            <div class="perm"><b>マイク</b>声で頼むときと、声で文字を入力するときに使います。</div>
-            <div class="perm"><b>オートメーション</b>Spotify など、スキルが別のアプリを操作するときに聞かれます。</div>
+            <div class="perm"><b>アクセシビリティ</b>キーの長押しの検出と、アプリの操作</div>
+            <div class="perm"><b>マイク</b>声で頼む・声で入力する</div>
+            <div class="perm"><b>オートメーション</b>スキルが別のアプリを操作するとき</div>
           </div>
         </div>
       </li>
 
       <li class="tl-step reveal">
-        <div class="tl-head"><span class="tl-n">5</span><div><h3>スキルを入れて、試す</h3><p class="tl-what">まず実行しない設定で試して、次に声で頼みます。</p></div></div>
+        <div class="tl-head"><span class="tl-n">5</span><div><h3>スキルを入れて、試す</h3><p class="tl-what">まず実行せずに試し、次に声で頼みます。</p></div></div>
         <div class="tl-body">
-          <p class="cmd-label"><b>5-1</b> 同梱のスキルを入れる（設定 &gt; スキル の「スキルをインストール」でも入れられます。ターミナルで入れるなら、設定の「一般」で、コマンド vc を入れてから）</p>
+          <p class="cmd-label"><b>5-1</b> 同梱のスキルを入れる（設定 &gt; スキル でも入れられます）</p>
           <div class="cmd"><pre><code id="c-skills">vc skills install --all</code></pre><button class="copy" type="button" data-copy-from="c-skills">コピー</button></div>
-          <p class="cmd-label"><b>5-2</b> 実行しないで、何をするかだけ見る</p>
+          <p class="cmd-label"><b>5-2</b> 実行せずに、何をするかだけ見る</p>
           <div class="cmd"><pre><code id="c-dry">vc run "音量を50にして" --dry-run</code></pre><button class="copy" type="button" data-copy-from="c-dry">コピー</button></div>
           <pre class="out" aria-label="実行結果の例">Tiny-Jev  spotify  90.2%（0.1 秒）
 $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
-          <p class="tl-result"><b>結果：</b>どのスキルが選ばれたかと、実行しようとするコマンドが表示されます。実際には何も実行されません。</p>
-          <p class="cmd-label"><b>5-3</b> 声で頼む（アプリを起動していれば、すぐ使えます）</p>
-          <p class="tl-result"><b>使い方：</b>Shift を押している間だけ話して、離すと実行されます。<strong>Shift を 2 回タップ</strong>すると、話し終わるまで聞きます。初回は、マイクとアクセシビリティの許可を求められます。</p>
-          <p class="cmd-label"><b>5-4</b> 会話する（任意。設定 &gt; キー の「会話」に <code>ropt</code> など、またはメニューバーの「会話を開く」）</p>
-          <p class="tl-result"><b>使い方：</b>会話のキーを押している間だけ話すか、ウィンドウに文字で質問します。調べものをさせたいときは、設定 &gt; 会話 の「道具」を「Web」にします。</p>
-          <p class="cmd-label"><b>5-5</b> 画面を撮って頼む（任意。設定 &gt; キー の「画面撮影」に <code>ctrl+opt+s</code> を決めます）</p>
-          <p class="tl-result"><b>使い方：</b>アプリを動かしたまま <code>ctrl+opt+s</code> を押し、範囲を選びます。そのあと、「この画像の文字を書き出して」のように頼みます。初回は、画面収録の許可を求められます。</p>
+          <p class="tl-result"><b>結果：</b>選ばれたスキルと、実行しようとするコマンドが出ます。何も実行されません。</p>
+          <p class="cmd-label"><b>5-3</b> 声で頼む</p>
+          <p class="tl-result"><b>使い方：</b>Shift を押している間話して、離すと実行します。Shift を 2 回タップすると、話し終わるまで聞きます。初回は、マイクとアクセシビリティの許可を求められます。</p>
+          <p class="cmd-label"><b>5-4</b> 会話する（任意）</p>
+          <p class="tl-result"><b>使い方：</b>会話のキー（設定 &gt; キー の「会話」に <code>ropt</code> など）を押して話すか、メニューバーの「会話を開く」で文字を入れます。調べものは、設定 &gt; 会話 の「道具」を「Web」にします。</p>
+          <p class="cmd-label"><b>5-5</b> 画面を撮って頼む（任意）</p>
+          <p class="tl-result"><b>使い方：</b>設定 &gt; キー の「画面撮影」に <code>ctrl+opt+s</code> を決め、押して範囲を選び、「この画像の文字を書き出して」のように頼みます。初回は画面収録の許可を求められます。</p>
         </div>
       </li>
     </ol>
@@ -387,9 +397,9 @@ $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
     <details class="more reveal">
       <summary>ソースから入れる・削除する・許可のやり直し</summary>
       <div class="body">
-        <p><strong>ソースから入れる</strong>　リポジトリを clone して <code>just install</code> を実行します（アプリを <code>~/Applications</code> へ入れて起動します。Swift 6.2 以降が必要です。初回は、音声認識の実行環境のビルドに数分かかります）。<code>just dmg</code> で、配布用の dmg を作れます。</p>
-        <p><strong>削除する</strong>　<code>just uninstall</code>（アプリ・コマンドのリンク・許可を取り除きます）。手で入れたなら、アプリをゴミ箱へ。モデル、設定、スキルは <code>~/.voice-control</code> に残ります。</p>
-        <p><strong>許可が効かないとき</strong>　設定ではオンなのに「許可されていません」と出るなら、<code>just reset-permissions</code>（このアプリの許可だけを取り消します。次の起動で、確認が出ます）。</p>
+        <p><strong>ソースから入れる</strong>　clone して <code>just install</code>（Swift 6.2 以降が必要。初回は、音声認識の実行環境のビルドに数分かかります）。<code>just dmg</code> で配布用の dmg を作れます。</p>
+        <p><strong>削除する</strong>　<code>just uninstall</code>（アプリ・コマンドのリンク・許可を取り除きます）。手で入れたなら、アプリをゴミ箱へ。モデル・設定・スキルは <code>~/.voice-control</code> に残ります。</p>
+        <p><strong>許可が効かないとき</strong>　設定ではオンなのに「許可されていません」と出るなら、<code>just reset-permissions</code>（このアプリの許可だけ取り消します）。</p>
       </div>
     </details>
   </div>
@@ -403,13 +413,13 @@ $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
       <p>voice-control は、どんな使い方が成り立つかを確かめている<strong>試作版</strong>です。完成した製品ではありません。</p>
     </header>
     <ul class="notes">
-      <li class="note spotlight reveal"><h3>AI は間違えることがあります</h3><p>スキルの選び間違いや、コマンドの組み立て間違いが起こることがあります。実行内容を先に見たいときは、<code>--dry-run</code> を付けてください。</p></li>
-      <li class="note spotlight reveal" style="--d:60ms"><h3>対応している環境</h3><p>macOS 26 以降の Apple シリコン Mac だけです。初期設定の AI モデルには、Apple Intelligence（オン）が必要です。使えない場合は、Mac 上の Ollama などに切り替えます（<code>--engine</code>）。</p></li>
-      <li class="note spotlight reveal"><h3>スクリーンショットには、画面収録の許可が要ります</h3><p>画面を撮るときだけ、システム設定の「画面収録」で、<strong>アプリ（voice-control）</strong>を許可してください（診断で確かめられます）。撮った画像は、3 分で使えなくなり、終了すると消えます。パネルの「パスをコピー」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。</p></li>
-      <li class="note spotlight reveal" style="--d:60ms"><h3>外へ送られるもの</h3><p>会話で、外のエージェント（claude・codex など）を選ぶと、<strong>発話が、その提供元へ送られます</strong>（画像は、送るたびに確認します。道具の「すべて」は、書き込み・コマンドも、そのエージェントの判断でできるので、聞き間違いや、ページの命令で、意図しない操作が起きえます）。スキルでは、<code>ask-agent</code> は調べる内容を、選んだ AI エージェントの提供元に送ります。<code>web-search</code> は検索ワードを、選んだサイトに送ります。<code>ask-agent-image</code> は<strong>撮った画面の画像</strong>を、選んだエージェント（codex・claude・agy・grok・opencode・pi）に送るので、<strong>実行のたびに確認</strong>します。どれも、自分で入れたときだけ使えます。インストールのとき、注意が表示されます。</p></li>
-      <li class="note spotlight reveal" style="--d:60ms"><h3>署名は ad-hoc です</h3><p>Apple の Developer ID による署名と公証はありません。ブラウザで取得して Gatekeeper に止められたときは、<code>xattr -dr com.apple.quarantine /Applications/VoiceControl.app</code> を実行してください。</p></li>
-      <li class="note spotlight reveal"><h3>音声認識も間違えます</h3><p>専門用語、数字、否定の言い方は、間違えやすくなります。実行する前に、聞こえた内容が画面に表示されます。</p></li>
-      <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクを長く使った場合、ウィンドウの実際の動き（Space の移動など）、会話の読み上げ・画像の確認パネル、続けて話したときの順番待ち、声の「止めて」の認識、入力欄の直前の文字の読み取り（英語の空白）など、実際のアプリ・声での動作は、まだ確認が終わっていません。確認した範囲としていない範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>にそのまま書いてあります。</p></li>
+      <li class="note spotlight reveal"><h3>AI は間違えることがあります</h3><p>スキルの選び間違いや、コマンドの組み立て間違いが起こります。先に見たいときは <code>--dry-run</code> を付けます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>対応している環境</h3><p>macOS 26 以降の Apple シリコンだけです。初期設定の AI には Apple Intelligence（オン）が必要です。使えなければ、Mac 上の Ollama などに切り替えます（<code>--engine</code>）。</p></li>
+      <li class="note spotlight reveal"><h3>画面を撮るには、画面収録の許可が要ります</h3><p>システム設定の「画面収録」で、<strong>voice-control</strong> を許可します（診断で確かめられます）。撮った画像は 3 分で使えなくなり、終了すると消えます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>外へ送られるもの</h3><p>会話で外のエージェント（claude・codex など）を選ぶと、<strong>発話がその提供元へ送られます</strong>。画像とファイルは、送るたびに確認します。道具の「すべて」では、聞き間違いやページの命令で、意図しない操作が起きえます。スキルでは、<code>ask-agent</code> が調べる内容を、<code>web-search</code> が検索ワードを、<code>ask-agent-image</code> が撮った画像（毎回確認）を、外へ送ります。どれも、自分で入れたときだけ使えます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>署名は ad-hoc です</h3><p>Apple の署名と公証はありません。Gatekeeper に止められたら、<code>xattr -dr com.apple.quarantine /Applications/VoiceControl.app</code> を実行します。</p></li>
+      <li class="note spotlight reveal"><h3>音声認識も間違えます</h3><p>専門用語・数字・否定は、間違えやすいです。実行前に、聞こえた内容が画面に出ます。</p></li>
+      <li class="note spotlight reveal" style="--d:60ms"><h3>確認が終わっていない部分があります</h3><p>マイクの長時間の使用・ウィンドウの実際の動き・読み上げや確認パネル・声の「止めて」・ファイルのドロップなど、実際のアプリや声での動作は、まだ確認が終わっていません。確認した範囲は、<a href="https://github.com/takemo101/voice-control/blob/main/docs/verification.md" rel="noopener">検証記録</a>に、そのまま書いてあります。</p></li>
     </ul>
   </div>
 </section>
@@ -419,8 +429,8 @@ $ osascript ~/.voice-control/skills/spotify/spotify.applescript volume 50</pre>
   <div class="wrap">
     <header class="section-head reveal"><h2>よくある質問</h2></header>
     <div class="faq">
-      <details class="reveal"><summary>本当に、話した内容は外に出ませんか？</summary><div class="body"><p>音声認識（初期設定は Apple のオンデバイス）、スキルの選択（Tiny-Jev）、初期設定の AI モデルは、Mac の中で動きます。通信するのは、インストール、モデルの取得、スキルの取得のときと、Ollama などを使うときの Mac 自身（<code>127.0.0.1</code>）だけです。例外は、自分で入れた <code>ask-agent</code>・<code>web-search</code>・<code>ask-agent-image</code> の 3 つのスキルと、会話で自分で選んだ外のエージェントです（画面の画像は、送るたびに確認します）。会話の Web 検索（Apple のモデル）では、<strong>検索語と、開いたページの URL だけ</strong>が、外へ出ます。</p></div></details>
-      <details class="reveal"><summary>話すときに押すキーは変えられますか？</summary><div class="body"><p>初期設定は Shift の長押しです。設定の「キー」で、たとえば <code>rshift</code>（右 Shift）に変えられます。声で頼むキーと、声で文字を入力するキーを、別々に設定することもできます。</p></div></details>
+      <details class="reveal"><summary>本当に、話した内容は外に出ませんか？</summary><div class="body"><p>音声認識（Apple のオンデバイス）・スキルの選択・初期設定の AI は、Mac の中で動きます。通信するのは、インストール・モデルやスキルの取得のときと、Ollama など Mac 自身（<code>127.0.0.1</code>）だけです。例外は、自分で入れた <code>ask-agent</code>・<code>web-search</code>・<code>ask-agent-image</code> と、自分で選んだ外のエージェントです。Apple のモデルの Web 検索では、検索語と開いたページの URL だけが外へ出ます。</p></div></details>
+      <details class="reveal"><summary>話すときに押すキーは変えられますか？</summary><div class="body"><p>初期設定は Shift の長押しです。設定の「キー」で変えられます（例：右 Shift の <code>rshift</code>）。声で頼むキーと、声で入力するキーは、別々にできます。</p></div></details>
       <details class="reveal"><summary>自分のスキルは作れますか？</summary><div class="body"><p>作れます。<code>~/.voice-control/skills/&lt;名前&gt;/SKILL.md</code> を、次のように書きます。</p><pre class="skillmd">---
 name: open-app
 description: アプリを開く：「Safari を開いて」
@@ -428,15 +438,15 @@ allowed-commands:
   - open
 ---
 Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
-      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上で動く Ollama や LM Studio などのモデルに切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> に固定されていて、クラウドのモデルは指定できません。</p></div></details>
-      <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う、ウィンドウ右上の「…」>「新しい会話を始める」、5 分間話さない、アプリを終える、のどれかで消えます。長くなったときは、古いやり取りを要約して続けます。</p></div></details>
-      <details class="reveal"><summary>会話で、考えている間に、続けて質問できますか？</summary><div class="body"><p>できます。文字でも、会話のキーの声でも、順番待ちに入り、いまの答えが終わってから送られます。待っている文字は、まとめて 1 回の質問になります（声は、1 件ずつ）。「今すぐ送る」は、いまの質問を止めて、その 1 件を先に始めます。いま答えている途中に、差し込む機能（Zed の Steer のようなもの）は、ありません。</p></div></details>
-      <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 の選択肢には、<strong>この Mac に入っているエージェントだけ</strong>が出ます。入れていれば出ます（<code>PATH</code> と、<code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで、アンインストールしたら、Apple のモデルで答えます（設定は変わりません）。</p></div></details>
-      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>話した内容の文字、画面の内容、入力した文字は、ファイルにもログにも残しません。表示するのは、画面の上のパネルとターミナルだけです。<strong>例外は、設定 &gt; 音声入力 の「履歴」をオンにしたとき</strong>だけです（初期設定はオフ）。入力した文字と時刻だけを、自分だけが読めるファイル（<code>~/.voice-control/history.jsonl</code>）に、決めた日数（初期設定は 7 日）だけ残します。アプリの名前・画面・音声は、残しません。探す・1 件の削除・すべて消すができます。</p></div></details>
-      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声入力」で、「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面の辞書で足し引きできます。声で文字を入力するときだけ働きます（声で頼む内容には使いません）。</p></div></details>
-      <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に、1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、アプリを終えると消えます。新しく撮ると、置き換わります。パネルの「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中の AI モデル（Apple のモデル、または画像に対応した Ollama のモデル）にだけ渡します。</p></div></details>
-      <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとに出るパネルの<strong>「文字起こし」</strong>を押します。macOS の文字認識で読み取って、パネルの下に、そのまま出します（選んでコピーできます）。AI を通さないので、写し間違いがありません。最初の 1 回だけ、システムの準備で 30 秒ほどかかります。</p></div></details>
-      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> を押すと、録音、認識、実行中のコマンドを取り消せます。会話では、考えている間に送信ボタンが<strong>停止</strong>になり、押すと、いまの質問を止めて、順番待ちも送りません。会話のキーで「止めて」と話しても止まります。依頼を順番に分けて実行する機能は、設定の「モデル」で止められます。アプリ自体は、<code>just uninstall</code>（またはアプリをゴミ箱へ）で削除できます。</p></div></details>
+      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上の Ollama や LM Studio に切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> 固定で、クラウドのモデルは指定できません。</p></div></details>
+      <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う・「新しい会話を始める」・5 分間話さない・アプリを終える、のどれかで消えます。長くなったら、古いやり取りを要約します。</p></div></details>
+      <details class="reveal"><summary>会話で、考えている間に、続けて質問できますか？</summary><div class="body"><p>できます。順番待ちに入り、いまの答えのあとに送られます。待っている文字は、まとめて 1 回の質問になります（声は 1 件ずつ）。答えの途中に差し込む機能（Zed の Steer のようなもの）は、ありません。</p></div></details>
+      <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 には、<strong>この Mac に入っているエージェントだけ</strong>が出ます（<code>PATH</code> と <code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで消したら、Apple のモデルで答えます。</p></div></details>
+      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>文字・画面の内容・入力した文字は、ファイルにもログにも残しません。<strong>例外は、設定 &gt; 音声入力 の「履歴」をオンにしたとき</strong>（初期設定はオフ）。入力した文字と時刻だけを、自分だけが読める <code>~/.voice-control/history.jsonl</code> に、決めた日数（初期設定は 7 日）だけ残します。探す・1 件削除・すべて消す、ができます。</p></div></details>
+      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声入力」で「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面で足し引きできます（声で入力するときだけ働きます）。</p></div></details>
+      <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に 1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、終了すると消えます。「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中のモデルにだけ渡します。</p></div></details>
+      <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとのパネルで<strong>「文字起こし」</strong>を押すと、macOS の文字認識で読み取って、そのまま出します。AI を通さないので、写し間違いがありません（最初の 1 回だけ、準備に 30 秒ほどかかります）。</p></div></details>
+      <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> で、録音・認識・実行中のコマンドを取り消せます。会話では、送信ボタンが<strong>停止</strong>になり、押すと、いまの質問と順番待ちを止めます。「止めて」と話しても止まります。アプリの削除は、<code>just uninstall</code>（またはゴミ箱へ）です。</p></div></details>
     </div>
   </div>
 </section>
