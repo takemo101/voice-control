@@ -184,9 +184,18 @@ import VCCore
         var value: T { get { lock.lock(); defer { lock.unlock() }; return stored } set { lock.lock(); stored = newValue; lock.unlock() } }
     }
 
+    @Test func grokTalksACPExceptAtTheNoToolsLevelWhereItCannotStopWebSearch() {
+        // grok の ACP は、Web 検索を、許可の要求なしで行う（実測）：「なし」は、`--disable-web-search` の効く従来の CLI で話す。pi は、ACP を話さない
+        #expect(ChatAgent.grok.speaksACP)
+        #expect(ChatAgent.grok.talksACP(enabled: true, tools: .web) && ChatAgent.grok.talksACP(enabled: true, tools: .read) && ChatAgent.grok.talksACP(enabled: true, tools: .all))
+        #expect(!ChatAgent.grok.talksACP(enabled: true, tools: .none) && !ChatAgent.grok.talksACP(enabled: false, tools: .all))
+        #expect(ChatAgent.agy.talksACP(enabled: true, tools: .none) && ChatAgent.opencode.talksACP(enabled: true, tools: .none))   // 許可の要求で止められるものは、「なし」でも ACP
+        #expect(!ChatAgent.pi.speaksACP)
+    }
+
     @Test func theAllToolsWarningSaysWhetherEachActionIsConfirmedByAgent() {
         // ACP で話す（`talksACP`）エージェントだけ、操作の前に、聞いてくる。ACP を切る・ACP を話せないものは、確認なし
-        #expect(ChatAgent.codex.talksACP(enabled: true) && !ChatAgent.codex.talksACP(enabled: false) && !ChatAgent.pi.talksACP(enabled: true))
+        #expect(ChatAgent.codex.talksACP(enabled: true, tools: .all) && !ChatAgent.codex.talksACP(enabled: false, tools: .all) && !ChatAgent.pi.talksACP(enabled: true, tools: .all))
         let acp = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: true)
         let direct = ChatToolLevel.allToolsDialogBody(agent: .codex, acp: false)
         let apple = ChatToolLevel.allToolsDialogBody(agent: .apple, acp: true)

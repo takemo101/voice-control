@@ -44,7 +44,7 @@ import VCCore
         ProcessTree.terminate(process, grace: 0.3)
         Thread.sleep(forTimeInterval: 0.15)
         #expect(ProcessProbe.isAlive(pid), "SIGTERM は、無視される（この時点では、生きている）")
-        #expect(ProcessProbe.waitUntilDead(pid), "猶予のあとの SIGKILL で、止まる（pid \(pid)）")
+        #expect(ProcessProbe.waitUntilDead(pid), "猶予のあとの SIGKILL で、止まる（pid \(pid)・状態：\(ProcessProbe.describe(pid))）")
     }
 
     @Test func descendantsAreFoundRecursivelyAndNothingUnrelatedIsTouched() throws {

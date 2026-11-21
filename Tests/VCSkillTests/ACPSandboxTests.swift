@@ -18,7 +18,7 @@ import VCCore
         #expect(all.contains("\(home)/.local/share/opencode") && !all.contains(".gemini"))                // エージェント自身の置き場
         #expect(ACPSandbox.profile(agent: .agy, level: .read, folder: folder, home: home).contains("\(home)/.gemini"))
         #expect(all.contains("(deny file-read*") && all.contains("\(home)/.ssh") && all.contains("\(home)/.aws") && all.contains("\(home)/.gnupg"))
-        #expect(ACPSandbox.applies(to: .agy) && ACPSandbox.applies(to: .opencode) && ACPSandbox.applies(to: .claude) && ACPSandbox.applies(to: .codex) && !ACPSandbox.applies(to: .grok) && !ACPSandbox.applies(to: .pi))
+        #expect(ACPSandbox.applies(to: .agy) && ACPSandbox.applies(to: .opencode) && ACPSandbox.applies(to: .claude) && ACPSandbox.applies(to: .codex) && ACPSandbox.applies(to: .grok) && !ACPSandbox.applies(to: .pi))
     }
 
     @Test func quotesInAPathCannotBreakOutOfTheProfile() {

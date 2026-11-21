@@ -119,7 +119,7 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
                 // こちらが持つ機能は、宣言しない（ファイル・端末は、エージェントが、自分で行う：許可の確認だけ、こちらが受ける）
                 let initialized = try await fresh.request("initialize", .object([
                     "protocolVersion": .number(1), "clientCapabilities": .object([:]),
-                    "clientInfo": .object(["name": .string("voice-control"), "title": .string("voice-control")])]), timeout: 15)
+                    "clientInfo": ACPConnection.clientInfo]), timeout: 15)
                 lock.withLock {
                     supportsClose = initialized["agentCapabilities"]?["sessionCapabilities"]?["close"] != nil
                     embeddedContextOK = initialized["agentCapabilities"]?["promptCapabilities"]?["embeddedContext"]?.bool != false
@@ -134,7 +134,9 @@ public final class ACPChatBackend: ActivityReporting, @unchecked Sendable {
         }
         let created: JSONValue
         do {
-            created = try await connection.request("session/new", .object(["cwd": .string(workingDirectory().path), "mcpServers": .array([])]), timeout: 25)
+            var params: [String: JSONValue] = ["cwd": .string(workingDirectory().path), "mcpServers": .array([])]
+            if let meta = profile.sessionMeta { params["_meta"] = meta }
+            created = try await connection.request("session/new", .object(params), timeout: 25)
         } catch { connection.close(); throw ACPError.unavailable(tr("セッションを作れません（\(error)）")) }
         guard let id = created["sessionId"]?.string else { connection.close(); throw ACPError.unavailable(tr("セッションの番号が返りません")) }
         let modeApplied = await configure(connection: connection, sessionID: id, created: created)

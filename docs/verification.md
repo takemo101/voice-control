@@ -1898,6 +1898,21 @@ SPEC §6 の「一部確認・未確認」の債務（58 件中 35 件。2026-11
 - **未測定・未確認**：**Claude**（認証切れ。アダプターに、`CLAUDE_CODE_EXECUTABLE` が要る）／アプリのサンドボックス（OS の制限）が効いているとき、作業フォルダの外のファイルへ、リンクで届くか（コピーは、作業フォルダの中なので、届く見込み。[INFERENCE]）／画像・PDF の扱い（エージェントによる。リンクで渡すだけ）／25 MB に近い大きなファイル／実際のドラッグ＆ドロップ・ファイルを選ぶパネル・⌘V の貼り付け・送る前の確認パネル（ボタンと声の「はい」）は、**人間の確認待ち**。
 - **限界**：秘密の判定は、名前と場所だけ（中身は、調べない）。名前の違う鍵は、通る：送る前の確認が、最後の歯止め。
 
+## grok を ACP に（2026-11-21。利用者の依頼：「Zed みたいに grok や pi も ACP 対応できる？」）
+
+- **前の見送り（2026-11-16）の見直し**：当時の記録は「`modes` がなく、書き込み・コマンド・Web 検索が、許可の要求なしで実行された」。今回の実測で、**原因の一部が、利用者の grok の設定**（`~/.grok/config.toml` の `permission_mode = "always-approve"`）だったと分かった：`session/new` の `_meta: {"yoloMode": false}` を渡すと、**書き込みの許可の要求が来て、断れば、ファイルは作られない**（grok 1.0.89。公式の文書にある `_meta.yoloMode`・`autoMode`）。当時の環境は、記録が無いので、同じ原因かは、**不明**。
+- **実測**（`grok agent --no-leader stdio`。自作のフォルダ）：`initialize` は `clientInfo.version` が無いと `Invalid params` で断る（→ `version` を足した。ACP の仕様で必須）。`session/new` は認証済みで、そのまま通る。`modes` はなく、`configOptions` は `model`（4 つ）・`reasoning_effort`。`promptCapabilities` は `image`・`embeddedContext`。**読む（作業フォルダの外の `/etc/hosts` も）・Web 検索は、`yoloMode: false` でも、許可の要求なしで実行された**。作業フォルダの `.grok/config.toml` に、Web 検索の `ask`・`deny` の規則を置いても、効かなかった（信頼したフォルダだけ読むのか、規則の書き方か：**未調査**）。
+- **決めたこと**：grok は ACP で話す（`ACPAgentProfile.grok`：`grok agent --no-leader stdio`・`sessionMeta: yoloMode false`・OS の制限〔`~/.grok` だけ書ける〕）。**道具の「なし」だけ、従来の CLI**（`--disable-web-search` が効く）：ACP では、Web 検索を止められないため。「Web」「＋読む」「すべて」は、ACP。得るもの：「すべて」で、**書き込み・コマンドを、毎回、確認する**（従来の CLI は `--always-approve`＝確認なし・OS の制限なし）／常駐の接続／少しずつの表示（未測定）。
+- **実物（`vc chat-check --agent grok`・OS の制限つき・自作のフォルダ）**：「すべて」：`yes`（パネルで許可→ファイルを作った）・`no`（断る→作らなかった）・`outside`（フォルダの外への書き込みは、パネルで許可しても、**OS の制限で、作られなかった**。コマンドも同じ）。「＋読む」：`blocked`（書き込みの依頼は、パネルなしで、断った）・`read`・`web`（パネルなしで、答えた）。`vc chat-models grok`：4 件。
+- **単体テスト**：`session/new` に `yoloMode: false` を渡す（ほかのエージェントには、渡さない）・`initialize` に版がある・grok は、「なし」だけ ACP で話さない・pi は ACP を話さない。全ターゲット通過（vc 260・VCSpeech 156・VCSkill 376・VCDecision 9・VCCore 52）。
+- **未確認・限界**：grok の**新しい版で、`yoloMode` が変わる**と、「すべて」の確認が、黙って効かなくなる（確認のパネルが出ない）：版が変わったら、`vc chat-check --agent grok` で、確かめ直す。`esc`・`hidden`・`swap`・`long` のシナリオ・自動モード・少しずつの表示・画像は、**未実施**。grok は、起動のたびに、`grok update --trigger=auto_background` を、裏で動かす（従来の CLI の経路でも同じ。OS の制限の中では、書けない）。
+- **pi（ACP のアダプター〔`pi-acp`〕は使わない。pi 自身の RPC モードを、こちらで話す案：利用者の判断待ち）**：`pi-acp`（npm。作者は個人〔svkozak〕・MIT・依存 3・約 7 MB）を、手元の pi 1.6.0 に、つないで測ると、`initialize`・`session/new` は通るが、`modes` は考える量（minimal〜max）で、許可のモードではない。pi には許可の要求の仕組みがなく（公式の文書：「すべての道具の呼び出しの前に、承認を求めない」）、アダプターの引数では、毎回の確認も、読むまでの強制も、できない。第三者のアダプターの追加は、AGENTS.md の方針（claude・codex だけ）の変更にもなる。
+  - **利用者の提案「pi の RPC モードのアダプターを、こちらで作って使う」を、実測した**（pi 1.6.0・`pi --mode rpc --no-session --no-extensions --no-skills --no-context-files --no-themes`・自作のフォルダ。ACP は通さない。JSONL を、直接、話した）：起動から `get_state` の応答まで 0.1〜0.6 秒。`prompt` → `message_update`（`text_delta` の差分。少しずつ届く）→ `agent_settled` で、1 回の質問が終わる。**同じプロセスで、会話が続く**（合言葉を覚えている）／`new_session` で、忘れる／`abort` で止まり（`aborted: true`）、そのあとの質問も、答える／`images` つきの `prompt` で、画像を見た／`get_available_models` で、49 件の一覧／標準入力を閉じると、終了コード 0 で、終わる。
+  - **段階の強制**：`--tools read,grep,find,ls` で、書き込み・コマンドの道具が、**そもそも無くなる**（書き込みの依頼に、「道具がない」と答え、ファイルは作られなかった）。pi には Web 検索の道具がない（`canSearchWeb` は、もともと偽）。
+  - **「すべて」の毎回の確認**：pi の拡張（`-e <ファイル>`・`--no-extensions` と併用）を 1 つ、**こちらが書く**（`tool_call` で、`write`・`edit`・`bash` の前に、`ctx.ui.confirm`〔RPC では `extension_ui_request` の `confirm` として届き、`extension_ui_response` で答える〕を呼び、断られたら `{block: true}` を返す。約 10 行。import 不要）。実測：断る→ `write` が止まり、ファイルは作られず、pi は「断られた」と答えた／許可→ ファイルが作られた。確認の本文には、道具の名前と引数（`{"path":"b.txt","content":"hi"}`）が届くので、`ACPPermission` と同じ規則（取り返しのつかないものを断る・作業フォルダの外・自動モード）に、つなげる見込み。
+  - **そのほか分かったこと**：pi の RPC には、`steer`（答えの途中に、指示を差し込む）・`follow_up` がある（ACP にはない。今回は使わない）。利用者が入れている pi の拡張（`pi-lens` など）は、`--no-extensions` で、止められる。プロジェクトの設定の読み込みは、`--no-approve` で、止められる。
+  - **未測定**：OS の制限（Seatbelt）の中での起動（`~/.pi` の書き込みの範囲）／`abort` の、実際の止まるまでの時間（上の測定は、条件が悪く、10 秒かかったが、原因は、測定の側〔最初の記録が来るまで、判定していない〕）／拡張の `confirm` に、時間切れ・取りやめを返したとき／長い会話・要約との組み合わせ／ファイルの添付（`embeddedContext` の概念がないので、文面へ入れる形）／アプリの子プロセス管理（`ProcessTree`）との組み合わせ。
+
 ## 未実施・未確認
 
 - 実アプリでのスキルの実行、複数のスキルの取り違え、複数手のスキル。

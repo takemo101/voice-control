@@ -14,7 +14,7 @@ enum ACPFakeAgent {
         log.write(" ".join(str(p) for p in parts) + "\n"); log.flush()
     for line in sys.stdin:
         m = json.loads(line); method = m.get("method"); mid = m.get("id"); params = m.get("params", {})
-        note(method, json.dumps(params, ensure_ascii=False)[:160])
+        note(method, json.dumps(params, ensure_ascii=False)[:600])
         if method == "initialize":
             send({"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": 1, "agentCapabilities": {"sessionCapabilities": {"close": {}}} if flavor == "config" else {}}})
         elif method == "session/new":

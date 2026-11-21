@@ -10,7 +10,7 @@
 |---|---|---|
 | Ask by voice | Hold a key (default: Shift), speak, release | Tiny-Jev (an on-device 0.6B model) picks a matching skill; only the commands that skill allows are run |
 | Dictation | Another key | Your speech is typed into the frontmost app |
-| Chat | A chat key, or the Chat window | Questions are answered by Apple's on-device model or an agent you choose (agy, opencode, Claude, Codex…), with optional tools |
+| Chat | A chat key, or the Chat window | Questions are answered by Apple's on-device model or an agent you choose (agy, opencode, grok, Claude, Codex…), with optional tools |
 
 Audio and screen contents never leave your Mac, except where you explicitly choose an external agent (the settings window says so).
 
