@@ -34,7 +34,7 @@ struct ChatPage: View {
             }
             if agent.speaksACP {
                 RowDivider()
-                SwitchRow(model: model, title: tr("常駐の接続（ACP）で話す"), detail: tr("速く答えます。使えないときは、従来の方式に戻ります"), value: model.settings.chatAcp ?? true) { $0.chatAcp = $1 }
+                SwitchRow(model: model, title: tr("常駐の接続（\(agent.persistentProtocolName)）で話す"), detail: tr("速く答えます。使えないときは、従来の方式に戻ります"), value: model.settings.chatAcp ?? true) { $0.chatAcp = $1 }
                 RowDivider()
                 SwitchRow(model: model, title: tr("OS の制限つきで動かす（サンドボックス）"), detail: tr("書き込みを、作業フォルダだけに限ります"), value: model.settings.chatSandbox ?? true) { $0.chatSandbox = $1 }
             }

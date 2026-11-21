@@ -184,6 +184,11 @@ import VCCore
         var value: T { get { lock.lock(); defer { lock.unlock() }; return stored } set { lock.lock(); stored = newValue; lock.unlock() } }
     }
 
+    @Test func piNamesItsPersistentConnectionRPCAndTheOthersACP() {
+        #expect(ChatAgent.pi.persistentProtocolName == "RPC")
+        #expect([ChatAgent.agy, .opencode, .grok, .claude, .codex].allSatisfy { $0.persistentProtocolName == "ACP" })
+    }
+
     @Test func grokTalksACPExceptAtTheNoToolsLevelWhereItCannotStopWebSearch() {
         // grok の ACP は、Web 検索を、許可の要求なしで行う（実測）：「なし」は、`--disable-web-search` の効く従来の CLI で話す。pi は、ACP を話さない
         #expect(ChatAgent.grok.speaksACP)

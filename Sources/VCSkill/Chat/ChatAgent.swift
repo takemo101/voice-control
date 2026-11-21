@@ -53,6 +53,9 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     /// **段階の強制は、こちらの許可の返事で行う**（`ACPPermission`）：`opencode` は、何もしなければ、書き込みも、確認なしで行うので、起動のとき、全部を「聞く」設定にして、渡す（`ACPAgentProfile.launchEnvironment`）。
     public var speaksACP: Bool { ACPAgentProfile.of(self) != nil }
 
+    /// 常駐の接続で使う、通信の決まりの名前（画面に出す）。pi は、ACP ではなく、自身の RPC モード。
+    public var persistentProtocolName: String { self == .pi ? "RPC" : "ACP" }
+
     /// 常駐の接続（ACP）で話すか（設定 `chatAcp` が有効で、ACP を話せるエージェント）。話すときは、操作の前に、エージェントが聞いてくる（`ACPPermission`）：設定画面の説明・確認のダイアログが、これで分ける。
     /// `tools` を渡すと、その段階で、ACP で話せるかも見る（`grok` は、Web 検索を止められないので、「なし」は、従来の CLI）。
     public func talksACP(enabled acp: Bool, tools: ChatToolLevel) -> Bool { acp && speaksACP(at: tools) }   // 段階は、省略できない形に：`.none` が、`Optional.none` と取り違えられる

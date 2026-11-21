@@ -11,7 +11,7 @@ extension EnglishTables {
         "Apple（この Mac の中）": "Apple (on this Mac)",
         "%@（見つかりません）": "%@ (not found)",
         "%@ が、この Mac に見つかりません（アンインストールされた？）。いまは、Apple のモデルで答えます。入れ直すと、また使えます。": "%@ was not found on this Mac (uninstalled?). Replies now come from the Apple model. Reinstall it to use it again.",
-        "常駐の接続（ACP）で話す": "Use a persistent connection (ACP)",
+        "常駐の接続（%@）で話す": "Use a persistent connection (%@)",
         "速く答えます。使えないときは、従来の方式に戻ります": "Replies faster. Falls back to the previous method when unavailable",
         "OS の制限つきで動かす（サンドボックス）": "Run with OS restrictions (sandbox)",
         "書き込みを、作業フォルダだけに限ります": "Limits writing to the working folder",

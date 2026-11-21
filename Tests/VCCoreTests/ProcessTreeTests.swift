@@ -41,10 +41,11 @@ import VCCore
         try process.run()
         let pid = try #require(ProcessProbe.readPid(pidFile))
         defer { kill(pid, SIGKILL); if process.isRunning { process.terminate() } }
-        ProcessTree.terminate(process, grace: 0.3)
+        // 猶予は、「SIGTERM のあとも、生きている」ことを確かめる時間（`ps` の起動を含む）より、十分に長く：負荷の高い CI で、確かめる前に、SIGKILL が来てしまった
+        ProcessTree.terminate(process, grace: 2.0)
         Thread.sleep(forTimeInterval: 0.15)
         #expect(ProcessProbe.isAlive(pid), "SIGTERM は、無視される（この時点では、生きている）")
-        #expect(ProcessProbe.waitUntilDead(pid), "猶予のあとの SIGKILL で、止まる（pid \(pid)・状態：\(ProcessProbe.describe(pid))）")
+        #expect(ProcessProbe.waitUntilDead(pid, seconds: 8), "猶予のあとの SIGKILL で、止まる（pid \(pid)・状態：\(ProcessProbe.describe(pid))）")
     }
 
     @Test func descendantsAreFoundRecursivelyAndNothingUnrelatedIsTouched() throws {
