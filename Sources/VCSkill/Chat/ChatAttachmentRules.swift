@@ -11,6 +11,19 @@ public enum ChatEndCommand {
     }
 }
 
+/// 会話の**ストップワード**（言語モデルを通さず、文字で見分ける）：「止めて」「ストップ」「stop」など。**発話の全体が、決まった言い方と同じときだけ**（空白・句読点・大文字小文字は、問わない）。
+/// 「音楽を止めて」（スキルへの依頼）・「ストップウォッチを見せて」（質問）のような、長い文は、止めずに、普通に扱う。言い方は、言語ごと：`LanguageProfile.chatStopPhrases`。
+public enum ChatStopCommand {
+    private static let ignored = Set(" 　、。，．！？!?.,'’\"「」~〜…")
+    private static func normalized(_ text: String) -> String { String(text.lowercased().filter { !ignored.contains($0) }) }
+    private static let phrases = Set(AppLanguage.allChatStopPhrases.map(normalized))
+
+    public static func matches(_ utterance: String) -> Bool {
+        let text = normalized(utterance)
+        return !text.isEmpty && phrases.contains(text)
+    }
+}
+
 /// 添付（画像・文章）の、**外へ出さない・会話に重ねない**規則（**純粋**。クリップボードの読み取り・ファイル・確認は、呼ぶ側 `ChatMode` が行う）。
 extension ChatAttachments {
     /// コピーした文章を、どうするか。

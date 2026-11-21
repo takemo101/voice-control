@@ -88,7 +88,7 @@ import VCSkill
     /// - `attachedImage`：会話のウィンドウに、添えてある画像（「この画面」と言わなくても、使う）。
     /// - `confirmImage`：**外のエージェントへ画像を送る前の確認**（なければ、送らない）。Apple の会話は、画像を、この Mac の中で文字にするので、確認は要らない。
     func ask(_ utterance: String, engine: Engine, token: CancelToken?, attachedImage: URL? = nil, onImage: (@MainActor (URL) -> Void)? = nil, onRoute: (@MainActor (ImageRoute) -> Void)? = nil, progress: @escaping @MainActor (String) -> Void,
-             confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
+             onText: (@Sendable (String) -> Void)? = nil, confirm: ToolConfirm? = nil, confirmImage: ImageSendConfirm? = nil) async throws -> Outcome {
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         var imageToSend: URL?
@@ -162,7 +162,7 @@ import VCSkill
         let reply = try await conversation.ask(question, options: ChatCallOptions(onActivity: { activity in
             log.add(activity)
             Task { @MainActor in progress(activity.text) }
-        }, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
+        }, onText: onText, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
             judgeCommand: auto ? scorer.map { scorer -> CommandJudge in { command in await Task.detached { CommandSafetyJudge(scorer: scorer).isHarmless(command) }.value } } : nil))
         if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append(tr("しばらく話さなかったので、前の会話は終わりました")) }
         if reply.compacted { notes.append(tr("古いやり取りを、要約しました")) }

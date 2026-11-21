@@ -39,6 +39,9 @@ enum ACPFakeAgent {
             text = " ".join(b.get("text", "") for b in params["prompt"])
             kinds = [b.get("type") for b in params["prompt"]]
             result = "ok"
+            if "STREAM" in text:   # 答えが、少しずつ届く（最後の 1 つは、下の、いつもの答え）
+                for piece in ("first。", "second。"):
+                    send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": piece}}}})
             if "SHOWRUN" in text:
                 send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call", "toolCallId": "r1", "kind": "execute", "title": "ls -la"}}})
                 send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": {"sessionUpdate": "tool_call_update", "toolCallId": "r1", "status": "completed", "content": [{"type": "content", "content": {"type": "text", "text": "Created At: 2026\nCommand exited with code 0.\n\nCommand output:\na.txt\r\nb.txt\r\n"}}]}}})

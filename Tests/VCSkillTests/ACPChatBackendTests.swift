@@ -106,6 +106,14 @@ import Testing
         #expect(seen.all.map { [$0.kind == .search ? "search" : "?", $0.detail] } == [["search", "東京 天気"]] && seen.all.allSatisfy { $0.id != nil && $0.output == nil })   // 番号つき（結果が来たら、置き換えるため）
     }
 
+    @Test func theAnswerArrivesInPiecesInOrderAndTheFinalAnswerIsTheirSum() async throws {
+        let fx = try ACPFixture(); let backend = fx.backend(tools: .web); defer { backend.teardown() }
+        let pieces = ACPCollected<String>()
+        let answer = try await backend.respond(instructions: "", turns: [], user: "STREAM", options: ChatCallOptions(onText: { pieces.add($0) }))
+        #expect(pieces.all.count >= 3 && Array(pieces.all.prefix(2)) == ["first。", "second。"])   // 少しずつ・届いた順に
+        #expect(pieces.all.joined().trimmingCharacters(in: .whitespacesAndNewlines) == answer)    // 最終的な答えは、届いた文字の、合計
+    }
+
     @Test func anUnavailableAgentFallsBackToTheOldWayAndIsNotRetriedForAWhile() async throws {
         let launches = ACPCounter()
         let fallback = ExternalChatBackend(agent: .agy, tools: .read, runner: { _ in AgentRun(exitCode: 0, text: "従来の方式の答え") })

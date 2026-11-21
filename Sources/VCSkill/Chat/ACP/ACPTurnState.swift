@@ -31,8 +31,10 @@ final class ACPTurnState: @unchecked Sendable {
     /// 自動モードで、コードの規則が決められないコマンドを、無害か判定する（Tiny-Jev。なければ、確認に回す）。
     private let judge: CommandJudge?
     private let onActivity: ActivityHandler?
+    private let onText: (@Sendable (String) -> Void)?
 
-    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, auto: Bool = false, judge: CommandJudge? = nil, onActivity: ActivityHandler?) {
+    init(tools: ChatToolLevel, folder: URL, sessionID: String, confirm: ToolConfirm?, auto: Bool = false, judge: CommandJudge? = nil, onActivity: ActivityHandler?, onText: (@Sendable (String) -> Void)? = nil) {
+        self.onText = onText
         self.auto = auto; self.judge = judge; self.tools = tools; self.folder = folder; self.sessionID = sessionID; self.confirm = confirm; self.onActivity = onActivity
     }
 
@@ -55,7 +57,10 @@ final class ACPTurnState: @unchecked Sendable {
         lock.withLock { lastProgress = Date() }
         switch update["sessionUpdate"]?.string {
         case "agent_message_chunk":
-            if let chunk = update["content"]?["text"]?.string { lock.withLock { collected += chunk } }
+            if let chunk = update["content"]?["text"]?.string {
+                lock.withLock { collected += chunk }
+                onText?(chunk)   // 届いた順に、続きの文字を知らせる（最終的な答えは、`text`）
+            }
         case "tool_call":
             let call = ACPToolCall(update)
             guard let callID = update["toolCallId"]?.string, lock.withLock({ calls[callID] == nil }) else { return }

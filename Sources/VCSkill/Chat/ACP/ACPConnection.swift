@@ -56,7 +56,7 @@ final class ACPConnection: @unchecked Sendable {
         func remove(_ process: Process) { lock.withLock { _ = processes.removeValue(forKey: ObjectIdentifier(process)) } }
         func terminateAll() {
             let all = lock.withLock { Array(processes.values) }
-            for process in all where process.isRunning { process.terminate() }
+            for process in all where process.isRunning { ProcessTree.terminateAndWait(process) }   // 子孫ごと。終了の最中なので、待って止める
         }
     }
 
@@ -133,7 +133,7 @@ final class ACPConnection: @unchecked Sendable {
         lock.unlock()
         try? input?.close()
         if let process {
-            if process.isRunning { process.terminate() }
+            if process.isRunning { ProcessTree.terminate(process) }   // エージェントが起こした子孫（bash・osascript など）ごと
             Self.live.remove(process)
         }
         finish()
