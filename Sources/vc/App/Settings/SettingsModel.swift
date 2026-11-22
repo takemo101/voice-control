@@ -262,7 +262,7 @@ enum DownloadState: Equatable {
 
     // MARK: エンジン
 
-    /// OpenAI 互換のサーバーの場所（書き方が正しいとき）。
+    /// Ollama・OpenAI 互換のサーバーの場所（書き方が正しいとき。Ollama は、省くと既定）。
     var engineServer: ServerAddress? { SettingsRules.engineServer(kind: engineKind, rest: engineRest) }
     /// 通信先が、同じ LAN か（音声・画面の内容が、LAN へ出る）。
     var engineOverLAN: Bool { engineServer.map { !$0.isLoopback } ?? false }
@@ -291,19 +291,71 @@ enum DownloadState: Equatable {
         update { $0.engineApproved = on ? server.endpoint : nil }
     }
 
-    /// OpenAI 互換の、モデルの名前・エンドポイントの入力（片方だけ、渡す）。保存する形（`<モデル>@<場所>`）にして、`setEngine` へ。
-    func setOpenAI(model name: String? = nil, endpoint: String? = nil) {
+    /// Ollama・OpenAI 互換の、モデルの名前・エンドポイントの入力（片方だけ、渡す）。保存する形（`<モデル>@<場所>`）にして、`setEngine` へ。
+    func setModelEndpoint(model name: String? = nil, endpoint: String? = nil) {
         let parts = SettingsRules.splitOpenAI(engineRest)
         if let endpoint { engineEndpointDraft = endpoint }
         let normalized = SettingsRules.normalizeEndpoint(engineEndpointDraft)
-        setEngine(kind: .openai, rest: SettingsRules.openAIRest(model: name ?? parts.model, endpoint: engineEndpointDraft))
+        setEngine(kind: engineKind, rest: SettingsRules.modelRest(kind: engineKind, model: name ?? parts.model, endpoint: engineEndpointDraft))
         if let problem = normalized.problem { engineProblem = problem }   // `https://` など、場所の書き方の問題
     }
 
+    // MARK: 一覧・接続の確認（質問は送らない：一覧の取得と、モデルの有無の確認だけ）
+
+    enum EngineProbe: Equatable {
+        case idle, working
+        case ok(String)
+        case failed(String)
+    }
+    @Published private(set) var engineProbe: EngineProbe = .idle
+    /// サーバーが持っているモデル（「一覧」で取ったもの）。
+    @Published private(set) var engineModels: [String] = []
+
+    /// 「一覧」：サーバーのモデルの一覧を取る。
+    func loadEngineModels() {
+        guard let server = engineServer, engineKind != .apple else { return }
+        let kind: ModelServerCatalog.Kind = engineKind == .ollama ? .ollama : .openAI
+        engineProbe = .working
+        Task { [weak self] in
+            do {
+                let names = try await ModelServerCatalog.list(kind: kind, server: server)
+                guard let self, self.engineServer == server else { return }   // 取っている間に、場所が変わった：捨てる
+                self.engineModels = names
+                self.engineProbe = .ok(tr("\(names.count) 件のモデルがあります"))
+            } catch {
+                guard let self, self.engineServer == server else { return }
+                self.engineModels = []
+                self.engineProbe = .failed("\(error)")
+            }
+        }
+    }
+
+    /// 「確かめる」：サーバーが動いていて、キーが通り、モデルがあるか。
+    func checkEngine() {
+        guard engineKind != .apple, engineProblem == nil, let text = Optional(SettingsRules.engineText(kind: engineKind, rest: engineRest)), let engine = try? Engine.parse(text) else { return }   // try?: 書き方の問題は、`engineProblem` が出している
+        let server = engineServer
+        engineProbe = .working
+        Task { [weak self] in
+            do {
+                try await engine.verify()
+                guard let self, self.engineServer == server else { return }
+                self.engineProbe = .ok(tr("使えます（サーバーに、モデルがあります）"))
+            } catch {
+                guard let self, self.engineServer == server else { return }
+                self.engineProbe = .failed("\(error)")
+            }
+        }
+    }
+
+    func chooseEngineModel(_ name: String) { setModelEndpoint(model: name) }
+
     func setEngine(kind: SettingsRules.EngineKind, rest: String) {
+        let previous = engineServer
         engineKind = kind
         engineRest = rest
         engineKeyDraft = ""   // 入力中のキーは、前のサーバーのもの：残さない
+        if previous != engineServer { engineModels = [] }   // 一覧は、そのサーバーのもの
+        engineProbe = .idle   // 確認の結果は、入力が変わったら、古い
         engineProblem = SettingsRules.engineProblem(kind: kind, rest: rest)
         guard engineProblem == nil else { return }
         let text = SettingsRules.engineText(kind: kind, rest: rest)

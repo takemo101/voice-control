@@ -303,7 +303,7 @@ model loaded 4.3s (length 1024)
 | エンジン | 書き方 | 例 |
 |---|---|---|
 | Apple（既定） | `apple` | |
-| Ollama | `ollama:<モデル>`（`127.0.0.1:11434`） | 声の入力（メニューバーのアプリ） |
+| Ollama | `ollama:<モデル>`（`127.0.0.1:11434`）・場所を替えるなら `ollama:<モデル>@<ポート>`・`ollama:<モデル>@<ホスト>:<ポート>` | 声の入力（メニューバーのアプリ） |
 | OpenAI 互換のサーバー（LM Studio・oMLX・Strata・llama.cpp のサーバー・vLLM・Jan など。道具の呼び出しに対応するモデル） | `openai:<モデル>@<ポート>`（`127.0.0.1:<ポート>`）・LAN は `openai:<モデル>@<ホスト>:<ポート>` | `vc run "…" --engine openai:qwen3-4b@1234`・`--engine openai:qwen@192.168.1.5:8080` |
 
 - **使えるもの**：サーバーが動いていて、モデルがあること（Ollama：`ollama pull qwen3.5:4b`）。`vc doctor --engine …` で確かめる。`vc` は、サーバーもモデルも、取得しない。

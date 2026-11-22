@@ -1,4 +1,5 @@
 import Testing
+import VCSkill
 import VCCore
 @testable import vc
 
@@ -55,7 +56,14 @@ import VCCore
             #expect(SettingsRules.normalizeEndpoint(input) == (expected, nil), "\(input)")
         }
         #expect(SettingsRules.normalizeEndpoint("https://192.168.1.5:8080").problem != nil)
-        #expect(SettingsRules.openAIRest(model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080")
+        #expect(SettingsRules.modelRest(kind: .openai, model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080")
+        // Ollama は、エンドポイントを省ける（省くと、`<モデル>` だけ：既定の場所）
+        #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "") == "qwen3.5:4b")
+        #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "192.168.1.5:11434") == "qwen3.5:4b@192.168.1.5:11434")
+        #expect(SettingsRules.engineProblem(kind: .ollama, rest: "qwen3.5:4b") == nil && SettingsRules.engineProblem(kind: .ollama, rest: "qwen3.5:4b@192.168.1.5:11434") == nil)
+        #expect(SettingsRules.engineProblem(kind: .ollama, rest: "@11434") == "モデルの名前を入れてください")
+        #expect(SettingsRules.engineServer(kind: .ollama, rest: "qwen3.5:4b") == Engine.ollamaDefault)               // 省くと、既定
+        #expect(SettingsRules.engineServer(kind: .ollama, rest: "m@192.168.1.5:11434")?.endpoint == "192.168.1.5:11434")
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@192.168.1.5:8080") == nil)
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@") == "エンドポイントを入れてください（例：8000・192.168.1.5:8080）")   // 途中の入力は、問題として見せる（保存しない）
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "@8000") == "モデルの名前を入れてください")

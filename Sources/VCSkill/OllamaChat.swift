@@ -1,11 +1,16 @@
 import Foundation
 import VCCore
 
-/// Ollama（`127.0.0.1:11434`。`/api/chat`）のアダプター。
+/// Ollama（`/api/chat`）のアダプター。既定は `127.0.0.1:11434`。同じ LAN の Ollama も、場所（`ServerAddress`）で、向けられる。APIキーは、サーバー別の保管庫（`EngineKeyStore`）から付ける（Ollama 自身は、キーを要らないが、手前にプロキシを置くとき）。
 struct OllamaChat: ChatModel {
     static let port = 11434
     let model: String
-    let server = LocalServer(name: "Ollama", port: Self.port)
+    let server: LocalServer
+
+    init(model: String, server address: ServerAddress = Engine.ollamaDefault, keys: EngineKeyStore = .standard) {
+        self.model = model
+        server = LocalServer(name: "Ollama", address: address, apiKey: keys.key(for: address.endpoint))
+    }
 
     func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
         let (data, status) = try await server.send(path: "/api/chat", body: Self.request(model: model, messages: messages, tools: tools))

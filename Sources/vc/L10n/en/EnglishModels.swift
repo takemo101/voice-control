@@ -123,5 +123,14 @@ extension EnglishTables {
         "エンドポイント": "Endpoint",
         "エンドポイントを入れてください（例：8000・192.168.1.5:8080）": "Enter the endpoint (e.g. 8000 or 192.168.1.5:8080)",
         "サーバーが返すモデルの名前（例：qwen3-4b）": "Model name the server reports (e.g. qwen3-4b)",
+        "%@ 件のモデルがあります": "%@ models available",
+        "サーバー・APIキー・モデルがあるかを確かめます（質問は、送りません）": "Checks the server, the API key and that the model exists (no question is sent)",
+        "モデルの一覧が、空です": "The model list is empty",
+        "使えます（サーバーに、モデルがあります）": "Works (the server has the model)",
+        "接続": "Connection",
+        "省くと 127.0.0.1:11434。LAN は 192.168.1.5:11434 か 〜.local:11434": "Defaults to 127.0.0.1:11434. A LAN: 192.168.1.5:11434 or name.local:11434",
+        "確かめる": "Check",
+        "確認中…": "Checking…",
+        "選ぶ": "Choose",
     ]
 }

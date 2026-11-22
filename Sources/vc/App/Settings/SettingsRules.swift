@@ -165,15 +165,17 @@ enum SettingsRules {
         return (value, nil)
     }
 
-    /// 2 つの入力欄から、保存する形（`<モデル>@<場所>`）にする。
-    static func openAIRest(model: String, endpoint: String) -> String {
-        model.trimmingCharacters(in: .whitespaces) + "@" + normalizeEndpoint(endpoint).value
+    /// 2 つの入力欄から、保存する形（`<モデル>@<場所>`）にする。**Ollama は、場所が空なら、`<モデル>` だけ**（既定の場所）。
+    static func modelRest(kind: EngineKind, model: String, endpoint: String) -> String {
+        let name = model.trimmingCharacters(in: .whitespaces)
+        let place = normalizeEndpoint(endpoint).value
+        return kind == .ollama && place.isEmpty ? name : name + "@" + place
     }
 
-    /// OpenAI 互換のエンジンの、サーバーの場所（書き方が正しいときだけ。APIキーの鍵・LAN の許可の鍵）。
+    /// Ollama・OpenAI 互換のエンジンの、サーバーの場所（書き方が正しいときだけ。APIキーの鍵・LAN の許可の鍵）。Ollama は、場所を省くと、既定。
     static func engineServer(kind: EngineKind, rest: String) -> ServerAddress? {
-        guard kind == .openai, case let .openAI(_, server)? = try? Engine.parse(engineText(kind: kind, rest: rest)) else { return nil }   // try?: 書き方が違えば、場所は、なし（問題は、`engineProblem` が出す）
-        return server
+        guard kind != .apple, let engine = try? Engine.parse(engineText(kind: kind, rest: rest)) else { return nil }   // try?: 書き方が違えば、場所は、なし（問題は、`engineProblem` が出す）
+        return engine.server
     }
 
     /// エンジンの書き方の問題（なければ `nil`）。クラウドのモデルは、拒否される（`Engine.parse`）。
@@ -183,7 +185,7 @@ enum SettingsRules {
             let parts = splitOpenAI(rest)
             if parts.model.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }
             if parts.endpoint.isEmpty { return tr("エンドポイントを入れてください（例：8000・192.168.1.5:8080）") }
-        }
+        } else if kind == .ollama, splitOpenAI(rest).model.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }
         do { _ = try Engine.parse(engineText(kind: kind, rest: rest)); return nil } catch { return "\(error)" }
     }
 }

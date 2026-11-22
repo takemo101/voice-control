@@ -34,6 +34,9 @@ private enum FakeServer {
         def log_message(self, *a): pass
         def do_GET(self):
             log.write("%s auth=%s\n" % (self.path, self.headers.get("Authorization"))); log.flush()
+            if self.path == "/api/tags":
+                body = json.dumps({"models": [{"name": "b:latest"}, {"name": "a:7b"}, {"name": "bad name"}, {"name": "gpt-oss:120b-cloud"}]}).encode()
+                self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(body); return
             if self.path == "/redir":
                 self.send_response(302); self.send_header("Location", "http://127.0.0.1:%s/leak" % other); self.end_headers(); return
             if self.path == "/secure" and self.headers.get("Authorization") != "Bearer k-sample":
@@ -79,6 +82,17 @@ private enum FakeServer {
         // キーが無いときは、ヘッダーを付けない（空の文字も、なしと同じ）
         _ = try await LocalServer(name: "t", address: address, apiKey: "").send(path: "/v1/models", body: nil)
         #expect(((try? String(contentsOf: server.log, encoding: .utf8)) ?? "").contains("/v1/models auth=None"))
+    }
+
+    @Test func theModelListOfEitherServerKindIsReadAndUnusableNamesAreDropped() async throws {
+        let server = try start(); defer { server.process.terminate(); try? FileManager.default.removeItem(at: server.directory) }
+        let keys = EngineKeyStore(file: server.directory.appendingPathComponent("keys.json"))
+        let address = ServerAddress.loopback(port: server.port)
+        #expect(try await ModelServerCatalog.list(kind: .openAI, server: address, keys: keys) == ["m"])                   // `data[].id`
+        #expect(try await ModelServerCatalog.list(kind: .ollama, server: address, keys: keys) == ["a:7b", "b:latest"])     // `models[].name`：使えない名前（空白・クラウド）は、残さない
+        let missing = ServerAddress.loopback(port: 1)                                                                      // つながらない：理由が、文で返る
+        await #expect(throws: ModelServerCatalog.Failure.self) { try await ModelServerCatalog.list(kind: .openAI, server: missing, keys: keys) }
+        #expect(ModelServerCatalog.parse(kind: .openAI, data: Data("壊れた".utf8)).isEmpty)
     }
 
     @Test func aRedirectIsNotFollowedSoTheKeyCannotLeakToAnotherServer() async throws {

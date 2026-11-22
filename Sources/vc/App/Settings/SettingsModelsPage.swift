@@ -23,17 +23,20 @@ struct ModelsPage: View {
             if model.engineKind != .apple {
                 RowDivider()
                 Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("サーバーが返すモデルの名前（例：qwen3-4b）")) {
-                    TextField("", text: Binding(
-                        get: { model.engineKind == .openai ? SettingsRules.splitOpenAI(model.engineRest).model : model.engineRest },
-                        set: { model.engineKind == .openai ? model.setOpenAI(model: $0) : model.setEngine(kind: model.engineKind, rest: $0) }), prompt: Text(model.engineKind.placeholder))
-                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
-                }
-                if model.engineKind == .openai {
-                    RowDivider()
-                    Row(tr("エンドポイント"), detail: tr("この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080")) {
-                        TextField("", text: Binding(get: { model.engineEndpointDraft }, set: { model.setOpenAI(endpoint: $0) }), prompt: Text("127.0.0.1:8000"))
-                            .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
+                    HStack(spacing: 6) {
+                        TextField("", text: Binding(get: { SettingsRules.splitOpenAI(model.engineRest).model }, set: { model.setModelEndpoint(model: $0) }), prompt: Text(model.engineKind.placeholder))
+                            .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 180)
+                        if model.engineModels.isEmpty {
+                            Button(tr("一覧")) { model.loadEngineModels() }.controlSize(.small).disabled(model.engineServer == nil || model.engineProbe == .working)
+                        } else {
+                            Menu(tr("選ぶ")) { ForEach(model.engineModels, id: \.self) { name in Button(name) { model.chooseEngineModel(name) } } }.controlSize(.small).fixedSize()
+                        }
                     }
+                }
+                RowDivider()
+                Row(tr("エンドポイント"), detail: model.engineKind == .ollama ? tr("省くと 127.0.0.1:11434。LAN は 192.168.1.5:11434 か 〜.local:11434") : tr("この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080")) {
+                    TextField("", text: Binding(get: { model.engineEndpointDraft }, set: { model.setModelEndpoint(endpoint: $0) }), prompt: Text(model.engineKind == .ollama ? "127.0.0.1:11434" : "127.0.0.1:8000"))
+                        .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
                 }
                 if let problem = model.engineProblem {
                     Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
@@ -49,6 +52,15 @@ struct ModelsPage: View {
                     }
                     if let problem = model.engineKeyProblem {
                         Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
+                    }
+                    RowDivider()
+                    Row(tr("接続"), detail: tr("サーバー・APIキー・モデルがあるかを確かめます（質問は、送りません）")) {
+                        Button(model.engineProbe == .working ? tr("確認中…") : tr("確かめる")) { model.checkEngine() }.controlSize(.small).disabled(model.engineProbe == .working || model.engineProblem != nil)
+                    }
+                    switch model.engineProbe {
+                    case let .ok(text): Label(text, systemImage: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(.green).padding(.horizontal, 14).padding(.bottom, 8)
+                    case let .failed(text): Label(text, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8).fixedSize(horizontal: false, vertical: true)
+                    default: EmptyView()
                     }
                     if !server.isLoopback {
                         RowDivider()

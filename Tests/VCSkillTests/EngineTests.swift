@@ -5,10 +5,22 @@ import Testing
 @Suite struct EngineTests {
     @Test func theEngineIsAppleOllamaOrOpenAICompatible() throws {
         #expect(try Engine.parse("apple") == .apple)
-        #expect(try Engine.parse("ollama:qwen3.5:4b") == .ollama(model: "qwen3.5:4b"))   // モデル名の `:` は、そのまま
-        #expect(try Engine.parse("ollama:qwen2.5") == .ollama(model: "qwen2.5"))
+        #expect(try Engine.parse("ollama:qwen3.5:4b") == .ollama(model: "qwen3.5:4b", server: Engine.ollamaDefault))   // モデル名の `:` は、そのまま。場所を省くと、既定
+        #expect(try Engine.parse("ollama:qwen2.5") == .ollama(model: "qwen2.5", server: .loopback(port: 11434)))
         #expect(try Engine.parse("openai:qwen3-4b@1234") == .openAI(model: "qwen3-4b", server: .loopback(port: 1234)))
         #expect(try Engine.parse("openai:org/model:q4@8080") == .openAI(model: "org/model:q4", server: .loopback(port: 8080)))
+    }
+
+    /// Ollama も、場所を書ける（省くと、既定の `127.0.0.1:11434`）。LAN は、OpenAI 互換と同じ規則。
+    @Test func anOllamaEndpointIsOptionalAndFollowsTheSameNetworkRules() throws {
+        #expect(try Engine.parse("ollama:qwen3.5:4b@11435") == .ollama(model: "qwen3.5:4b", server: .loopback(port: 11435)))
+        let lan = try Engine.parse("ollama:qwen3.5:4b@192.168.1.5:11434")
+        #expect(lan == .ollama(model: "qwen3.5:4b", server: try ServerAddress.make(host: "192.168.1.5", port: 11434)) && lan.talksOverLAN && lan.serverEndpoint == "192.168.1.5:11434")
+        #expect(!(try Engine.parse("ollama:m")).talksOverLAN && Engine.apple.server == nil && Engine.apple.serverEndpoint == nil)
+        #expect(throws: Engine.ParseError.invalidHost("8.8.8.8")) { try Engine.parse("ollama:m@8.8.8.8:11434") }
+        #expect(throws: Engine.ParseError.invalidPort("x")) { try Engine.parse("ollama:m@x") }
+        #expect(throws: Engine.ParseError.invalidPort("")) { try Engine.parse("ollama:m@") }
+        #expect(throws: Engine.ParseError.cloudModel("m-cloud")) { try Engine.parse("ollama:m-cloud@192.168.1.5:11434") }
     }
 
     @Test func unknownEnginesBadNamesAndCloudModelsAreRefused() {
