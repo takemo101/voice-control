@@ -119,7 +119,6 @@ extension EnglishTables {
         "設定済み（表示しません）": "Set (not shown)",
         "許可するまで、このサーバーは、使われません。": "This server isn't used until you allow it.",
         "https:// は使えません（http:// だけ。暗号化された通信には、未対応です）": "https:// can't be used (http:// only; encrypted connections aren't supported)",
-        "この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080": "This Mac: 8000 or 127.0.0.1:8000. A LAN: 192.168.1.5:8080 or name.local:8080",
         "エンドポイント": "Endpoint",
         "エンドポイントを入れてください（例：8000・192.168.1.5:8080）": "Enter the endpoint (e.g. 8000 or 192.168.1.5:8080)",
         "サーバーが返すモデルの名前（例：qwen3-4b）": "Model name the server reports (e.g. qwen3-4b)",
@@ -128,9 +127,12 @@ extension EnglishTables {
         "モデルの一覧が、空です": "The model list is empty",
         "使えます（サーバーに、モデルがあります）": "Works (the server has the model)",
         "接続": "Connection",
-        "省くと 127.0.0.1:11434。LAN は 192.168.1.5:11434 か 〜.local:11434": "Defaults to 127.0.0.1:11434. A LAN: 192.168.1.5:11434 or name.local:11434",
         "確かめる": "Check",
         "確認中…": "Checking…",
         "選ぶ": "Choose",
+        "%@:// は使えません（http:// だけ。暗号化された通信には、未対応です）": "%@:// can't be used (http:// only; encrypted connections aren't supported)",
+        "この Mac は 8000。LAN は http://192.168.1.5:8080/v1。/v2 など、API の経路も書けます（省くと /v1）": "This Mac: 8000. A LAN: http://192.168.1.5:8080/v1. You can also write the API path such as /v2 (defaults to /v1)",
+        "省くと 127.0.0.1:11434。LAN は http://192.168.1.5:11434。経路を替えるなら 末尾に /ollama など": "Defaults to 127.0.0.1:11434. A LAN: http://192.168.1.5:11434. To change the path, add e.g. /ollama at the end",
+        "経路「%@」が使えません（/v1・/v2・/openai/v1 のような、英数字・. _ ~ - の部分を / でつないだもの）": "Path “%@” can't be used (parts of letters, digits and . _ ~ - joined with /, like /v1, /v2 or /openai/v1)",
     ]
 }

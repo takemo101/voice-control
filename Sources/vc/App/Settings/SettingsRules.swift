@@ -153,14 +153,16 @@ enum SettingsRules {
         return (String(rest[..<at]), String(rest[rest.index(after: at)...]))
     }
 
-    /// 入力されたエンドポイントを、`<ポート>` か `<ホスト>:<ポート>` にする：`http://` と、終わりの `/`・`/v1` は、落とす（`http://192.168.1.5:8080/v1` を、そのまま貼れる）。
-    /// `https://` は、使えない（暗号化の通信には、未対応）。
+    /// 入力されたエンドポイントを、保存する形（`<ポート>`・`<ホスト>:<ポート>`、あとに経路 `/v1` など）にする：`http://` は、落とし（ポートがなければ `:80`）、終わりの `/` も落とす。
+    /// 経路は、そのまま残す（`/v1`・`/v2`・`/openai/v1`）。`https://` は、使えない（暗号化の通信には、未対応）。
     static func normalizeEndpoint(_ text: String) -> (value: String, problem: String?) {
         var value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if value.lowercased().hasPrefix("https://") { return (value, tr("https:// は使えません（http:// だけ。暗号化された通信には、未対応です）")) }
-        if value.lowercased().hasPrefix("http://") { value = String(value.dropFirst("http://".count)) }
-        while value.hasSuffix("/") { value.removeLast() }
-        if value.lowercased().hasSuffix("/v1") { value = String(value.dropLast(3)) }
+        if value.lowercased().hasPrefix("http://") {
+            value = String(value.dropFirst("http://".count))
+            let authority = value.firstIndex(of: "/").map { String(value[..<$0]) } ?? value
+            if !authority.isEmpty, !authority.contains(":") { value = authority + ":80" + String(value.dropFirst(authority.count)) }   // ポートを省いた URL：80
+        }
         while value.hasSuffix("/") { value.removeLast() }
         return (value, nil)
     }

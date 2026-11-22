@@ -93,7 +93,7 @@ enum VisionModel {
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             do {
-                let (data, status) = try await server.send(path: "/api/chat", body: ollamaRequest(model: model, png: png, question: question))
+                let (data, status) = try await server.send(path: server.address.basePath + "/api/chat", body: ollamaRequest(model: model, png: png, question: question))
                 box.value = ollamaReply(status: status, data: data, model: model)
             } catch { box.value = .failure(ToolFailure(exitCode: 1, message: "\(error)")) }
             done.signal()

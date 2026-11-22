@@ -14,6 +14,15 @@ import VCCore
         }
     }
 
+    @Test func aBasePathMustBeASafeSlashSeparatedPathAndIsNotPartOfTheKeyOrTheApproval() throws {
+        for ok in ["/v1", "/v2", "/openai/v1", "/api/v1", "/a_b.c~d-e"] { #expect(ServerAddress.validBasePath(ok), "\(ok)") }
+        for bad in ["", "v1", "/", "//v1", "/v1/", "/../x", "/a/../b", "/./a", "/v1?x=1", "/v1#f", "/a b", "/あ", String(repeating: "/a", count: 60)] { #expect(!ServerAddress.validBasePath(bad), "\(bad)") }
+        #expect(throws: ServerAddress.Problem.invalidPath("/../x")) { try ServerAddress.make(host: "10.0.0.1", port: 1, basePath: "/../x") }
+        let one = try ServerAddress.make(host: "10.0.0.1", port: 8080, basePath: "/v1"), two = try ServerAddress.make(host: "10.0.0.1", port: 8080, basePath: "/v2")
+        #expect(one.endpoint == "10.0.0.1:8080" && two.endpoint == one.endpoint && one != two)     // 許可・キーは、サーバー（ホスト:ポート）ごと
+        #expect(one.root(default: "/v1") == "/v1" && ServerAddress.loopback(port: 1).root(default: "/v1") == "/v1" && two.root(default: "/v1") == "/v2")
+    }
+
     @Test func aLocalNameMustResolveOnlyToPrivateAddressesBeforeAnythingIsSent() async throws {
         let name = try ServerAddress.make(host: "box.local", port: 8000)
         #expect(try await name.connectHost(lookup: { _ in ["192.168.1.9"] }) == "192.168.1.9")
@@ -34,7 +43,7 @@ private enum FakeServer {
         def log_message(self, *a): pass
         def do_GET(self):
             log.write("%s auth=%s\n" % (self.path, self.headers.get("Authorization"))); log.flush()
-            if self.path == "/api/tags":
+            if self.path.endswith("/api/tags"):
                 body = json.dumps({"models": [{"name": "b:latest"}, {"name": "a:7b"}, {"name": "bad name"}, {"name": "gpt-oss:120b-cloud"}]}).encode()
                 self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(body); return
             if self.path == "/redir":
@@ -93,6 +102,19 @@ private enum FakeServer {
         let missing = ServerAddress.loopback(port: 1)                                                                      // つながらない：理由が、文で返る
         await #expect(throws: ModelServerCatalog.Failure.self) { try await ModelServerCatalog.list(kind: .openAI, server: missing, keys: keys) }
         #expect(ModelServerCatalog.parse(kind: .openAI, data: Data("壊れた".utf8)).isEmpty)
+    }
+
+    /// 経路：OpenAI 互換は、`<経路>/models`（省くと `/v1`）。Ollama は、`<経路>/api/tags`（省くと、なし）。
+    @Test func theBasePathDecidesWhereTheApiIsAskedForTheListOfModels() async throws {
+        let server = try start(); defer { server.process.terminate(); try? FileManager.default.removeItem(at: server.directory) }
+        let keys = EngineKeyStore(file: server.directory.appendingPathComponent("keys.json"))
+        _ = try await ModelServerCatalog.list(kind: .openAI, server: .loopback(port: server.port), keys: keys)
+        _ = try await ModelServerCatalog.list(kind: .openAI, server: .loopback(port: server.port, basePath: "/v2"), keys: keys)
+        _ = try await ModelServerCatalog.list(kind: .openAI, server: .loopback(port: server.port, basePath: "/openai/v1"), keys: keys)
+        _ = try await ModelServerCatalog.list(kind: .ollama, server: .loopback(port: server.port), keys: keys)
+        _ = try await ModelServerCatalog.list(kind: .ollama, server: .loopback(port: server.port, basePath: "/ollama"), keys: keys)
+        let log = (try? String(contentsOf: server.log, encoding: .utf8)) ?? ""
+        for expected in ["/v1/models ", "/v2/models ", "/openai/v1/models ", "/api/tags ", "/ollama/api/tags "] { #expect(log.contains(expected), "\(expected)") }
     }
 
     @Test func aRedirectIsNotFollowedSoTheKeyCannotLeakToAnotherServer() async throws {

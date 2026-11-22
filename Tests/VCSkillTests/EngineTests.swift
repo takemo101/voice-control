@@ -23,6 +23,21 @@ import Testing
         #expect(throws: Engine.ParseError.cloudModel("m-cloud")) { try Engine.parse("ollama:m-cloud@192.168.1.5:11434") }
     }
 
+    /// 場所には、プロトコル（`http://` だけ）と、経路（`/v1`・`/v2`…）を、書ける。
+    @Test func theSchemeAndTheApiPathCanBeWrittenButOnlyHttpIsSupported() throws {
+        #expect(try Engine.parse("openai:m@8000/v2") == .openAI(model: "m", server: .loopback(port: 8000, basePath: "/v2")))
+        #expect(try Engine.parse("openai:m@http://192.168.1.5:8080/openai/v1") == .openAI(model: "m", server: try ServerAddress.make(host: "192.168.1.5", port: 8080, basePath: "/openai/v1")))
+        #expect(try Engine.parse("openai:m@http://box.local/v1/") == .openAI(model: "m", server: try ServerAddress.make(host: "box.local", port: 80, basePath: "/v1")))   // ポートを省いた URL：80。終わりの `/` は、落とす
+        #expect(try Engine.parse("ollama:m@http://127.0.0.1:11434/ollama") == .ollama(model: "m", server: .loopback(port: 11434, basePath: "/ollama")))
+        #expect(try Engine.parse("openai:m@8000").server == .loopback(port: 8000) && (try Engine.parse("openai:m@8000/v1")).serverEndpoint == "127.0.0.1:8000")   // 経路は、許可・キーの鍵に入らない
+        #expect(throws: Engine.ParseError.invalidScheme("https")) { try Engine.parse("openai:m@https://192.168.1.5:8080/v1") }
+        #expect(throws: Engine.ParseError.invalidScheme("ftp")) { try Engine.parse("openai:m@ftp://192.168.1.5:21") }
+        #expect(throws: Engine.ParseError.invalidPath("/../x")) { try Engine.parse("openai:m@8000/../x") }
+        #expect(throws: Engine.ParseError.invalidPath("/v1?x=1")) { try Engine.parse("openai:m@8000/v1?x=1") }
+        #expect(throws: Engine.ParseError.invalidHost("8.8.8.8")) { try Engine.parse("openai:m@http://8.8.8.8/v1") }
+        #expect(throws: Engine.ParseError.invalidHost("")) { try Engine.parse("openai:m@http://:80") }   // ホストが、空
+    }
+
     @Test func unknownEnginesBadNamesAndCloudModelsAreRefused() {
         #expect(throws: Engine.ParseError.unknown("openrouter:gpt")) { try Engine.parse("openrouter:gpt") }
         #expect(throws: Engine.ParseError.invalidModel("")) { try Engine.parse("ollama:") }

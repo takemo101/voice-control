@@ -6,17 +6,29 @@ import VCCore
 /// ホストに書けるもの：
 /// - この Mac：`127.0.0.1`・`localhost`（省略すると、これ）。
 /// - **LAN**：IPv4 の私的なアドレス（`10.x`・`172.16〜31.x`・`192.168.x`・リンクローカル `169.254.x`・Tailscale などの `100.64〜127.x`）と、`<名前>.local`（mDNS）。
+/// **経路（`basePath`）**：API の根（`/v1`・`/v2`・`/openai/v1`・リバースプロキシの下の `/ollama` など）。OpenAI 互換は、省くと `/v1`。Ollama は、省くと、なし（`/api/chat` の前に、足す）。**プロトコルは、HTTP だけ**（HTTPS は、未対応：証明書の扱いが決まっていない）。
 /// 公開のホスト名・公開の IP・IPv6 は、書けない。**`.local` の名前は、通信の直前に引いて、すべての答えが私的なアドレスか確かめる**（名前の引き先が、外を指していたら、送らない）。
 /// LAN への通信は、暗号化されない（HTTP）。設定では、利用者が、その場所ごとに許可する（`Settings.engineApproved`）。
 public struct ServerAddress: Sendable, Equatable {
     public let host: String
     public let port: Int
+    /// API の根（`/v1` など）。なければ、空（既定を使う）。**鍵・許可の鍵（`endpoint`）には、含めない**：同じサーバーの、経路違いは、同じ許可・同じキー。
+    public let basePath: String
 
     public static let loopbackHost = "127.0.0.1"
 
-    init(host: String, port: Int) { self.host = host; self.port = port }
+    init(host: String, port: Int, basePath: String = "") { self.host = host; self.port = port; self.basePath = basePath }
 
-    public static func loopback(port: Int) -> ServerAddress { ServerAddress(host: loopbackHost, port: port) }
+    public static func loopback(port: Int, basePath: String = "") -> ServerAddress { ServerAddress(host: loopbackHost, port: port, basePath: basePath) }
+
+    /// API の根：書かれていれば、それ。なければ、`fallback`（OpenAI 互換は `/v1`）。
+    func root(default fallback: String) -> String { basePath.isEmpty ? fallback : basePath }
+
+    /// 経路の書き方（`/v1`・`/openai/v1`）：`/` で始まり、英数字・`.`・`_`・`~`・`-` の部分が続く。`..`・空の部分・`?`・`#` は、不可。
+    static func validBasePath(_ path: String) -> Bool {
+        guard path.count <= 100, path.range(of: "^(/[A-Za-z0-9._~-]+)+$", options: .regularExpression) != nil else { return false }
+        return !path.split(separator: "/").contains { $0 == ".." || $0 == "." }
+    }
 
     /// 画面・鍵の置き場の名前に使う、`ホスト:ポート`。
     public var endpoint: String { "\(host):\(port)" }
@@ -24,18 +36,19 @@ public struct ServerAddress: Sendable, Equatable {
     /// この Mac（`127.0.0.1`）か。
     public var isLoopback: Bool { host == Self.loopbackHost }
 
-    public enum Problem: Error, Equatable { case notAllowed(String) }
+    public enum Problem: Error, Equatable { case notAllowed(String), invalidPath(String) }
 
     /// ホストの書き方を検査して、場所にする（**純粋**）。`localhost` は `127.0.0.1` にする。大文字は小文字にする。
-    public static func make(host rawHost: String, port: Int) throws -> ServerAddress {
+    public static func make(host rawHost: String, port: Int, basePath: String = "") throws -> ServerAddress {
+        guard basePath.isEmpty || validBasePath(basePath) else { throw Problem.invalidPath(basePath) }
         let host = rawHost.lowercased()
-        if host == "localhost" || host == loopbackHost { return .loopback(port: port) }
+        if host == "localhost" || host == loopbackHost { return .loopback(port: port, basePath: basePath) }
         if let octets = ipv4Octets(host) {
             guard isPrivate(octets) else { throw Problem.notAllowed(rawHost) }
-            return ServerAddress(host: host, port: port)
+            return ServerAddress(host: host, port: port, basePath: basePath)
         }
         guard host.range(of: "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.local$", options: .regularExpression) != nil else { throw Problem.notAllowed(rawHost) }
-        return ServerAddress(host: host, port: port)
+        return ServerAddress(host: host, port: port, basePath: basePath)
     }
 
     /// `a.b.c.d`（各 0〜255）。書き方が違えば nil（`1.2.3`・`01.2.3.4`・`256.0.0.1` など）。

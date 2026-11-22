@@ -304,7 +304,7 @@ model loaded 4.3s (length 1024)
 |---|---|---|
 | Apple（既定） | `apple` | |
 | Ollama | `ollama:<モデル>`（`127.0.0.1:11434`）・場所を替えるなら `ollama:<モデル>@<ポート>`・`ollama:<モデル>@<ホスト>:<ポート>` | 声の入力（メニューバーのアプリ） |
-| OpenAI 互換のサーバー（LM Studio・oMLX・Strata・llama.cpp のサーバー・vLLM・Jan など。道具の呼び出しに対応するモデル） | `openai:<モデル>@<ポート>`（`127.0.0.1:<ポート>`）・LAN は `openai:<モデル>@<ホスト>:<ポート>` | `vc run "…" --engine openai:qwen3-4b@1234`・`--engine openai:qwen@192.168.1.5:8080` |
+| OpenAI 互換のサーバー（LM Studio・oMLX・Strata・llama.cpp のサーバー・vLLM・Jan など。道具の呼び出しに対応するモデル） | `openai:<モデル>@<ポート>`（`127.0.0.1:<ポート>`）・LAN は `openai:<モデル>@<ホスト>:<ポート>`・API の経路は、場所のあとに `/v2` など（省くと `/v1`）・`http://` を付けてもよい（`https://` は未対応） | `vc run "…" --engine openai:qwen3-4b@1234`・`--engine openai:qwen@192.168.1.5:8080` |
 
 - **使えるもの**：サーバーが動いていて、モデルがあること（Ollama：`ollama pull qwen3.5:4b`）。`vc doctor --engine …` で確かめる。`vc` は、サーバーもモデルも、取得しない。
 - **安全は、モデルに関わらず同じ**：スキルの選択（Tiny-Jev）・`allowed-commands` の照合（シェルなし）・出力の整形・コマンド数の上限（15）・Esc の取りやめ・確認は、同じ。モデルが何を言っても、許可にないコマンドは、実行されない。

@@ -13,7 +13,7 @@ public enum ModelServerCatalog {
     public static func list(kind: Kind, server address: ServerAddress, keys: EngineKeyStore = .standard) async throws -> [String] {
         let server = LocalServer(name: kind == .ollama ? "Ollama" : tr("OpenAI 互換サーバー"), address: address, apiKey: keys.key(for: address.endpoint))
         do {
-            let (data, status) = try await server.send(path: kind == .ollama ? "/api/tags" : "/v1/models", body: nil)
+            let (data, status) = try await server.send(path: kind == .ollama ? address.basePath + "/api/tags" : address.root(default: "/v1") + "/models", body: nil)
             guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
             let names = parse(kind: kind, data: data)
             guard !names.isEmpty else { throw ChatError.badResponse(tr("モデルの一覧が、空です")) }

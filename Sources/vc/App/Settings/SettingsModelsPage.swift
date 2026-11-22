@@ -34,7 +34,7 @@ struct ModelsPage: View {
                     }
                 }
                 RowDivider()
-                Row(tr("エンドポイント"), detail: model.engineKind == .ollama ? tr("省くと 127.0.0.1:11434。LAN は 192.168.1.5:11434 か 〜.local:11434") : tr("この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080")) {
+                Row(tr("エンドポイント"), detail: model.engineKind == .ollama ? tr("省くと 127.0.0.1:11434。LAN は http://192.168.1.5:11434。経路を替えるなら 末尾に /ollama など") : tr("この Mac は 8000。LAN は http://192.168.1.5:8080/v1。/v2 など、API の経路も書けます（省くと /v1）")) {
                     TextField("", text: Binding(get: { model.engineEndpointDraft }, set: { model.setModelEndpoint(endpoint: $0) }), prompt: Text(model.engineKind == .ollama ? "127.0.0.1:11434" : "127.0.0.1:8000"))
                         .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
                 }

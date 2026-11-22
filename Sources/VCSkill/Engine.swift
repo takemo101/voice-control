@@ -16,12 +16,16 @@ public enum Engine: Sendable, Equatable {
         case cloudModel(String)
         case invalidPort(String)
         case invalidHost(String)
+        case invalidPath(String)
+        case invalidScheme(String)
         public var description: String {
             switch self {
             case .unknown(let s): return tr("エンジン「\(s)」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。LAN は openai:<モデル>@<ホスト>:<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）")
             case .invalidModel(let m): return tr("モデル名「\(m)」が使えません（英数字・. _ : / - だけ）")
             case .cloudModel(let m): return tr("「\(m)」は、クラウドのモデルです。音声・画面の内容を、外へ出さないので、使えません")
             case .invalidPort(let p): return tr("ポート「\(p)」が使えません（1〜65535 の数）")
+            case .invalidPath(let p): return tr("経路「\(p)」が使えません（/v1・/v2・/openai/v1 のような、英数字・. _ ~ - の部分を / でつないだもの）")
+            case .invalidScheme(let s): return tr("\(s):// は使えません（http:// だけ。暗号化された通信には、未対応です）")
             case .invalidHost(let h): return tr("ホスト「\(h)」は使えません（この Mac と、同じ LAN だけ：127.0.0.1・192.168.x.x などの私的なアドレス・〜.local の名前。インターネットのサーバーは、使えません）")
             }
         }
@@ -50,13 +54,23 @@ public enum Engine: Sendable, Equatable {
         throw ParseError.unknown(text)
     }
 
-    /// 場所（`<ポート>` か `<ホスト>:<ポート>`）。
-    private static func place(_ text: String) throws -> ServerAddress {
+    /// 場所：`[http://]<ポート>`・`[http://]<ホスト>:<ポート>`・どちらも、あとに経路（`/v1`・`/openai/v1`）を付けられる。`http://` を付けたときは、ポートを省ける（80）。`https://` は、使えない。
+    private static func place(_ raw: String) throws -> ServerAddress {
+        var text = raw
+        var hadScheme = false
+        let lower = text.lowercased()
+        if lower.hasPrefix("http://") { text = String(text.dropFirst("http://".count)); hadScheme = true }
+        else if let range = lower.range(of: "://") { throw ParseError.invalidScheme(String(lower[..<range.lowerBound])) }
+        var path = ""
+        if let slash = text.firstIndex(of: "/") { path = String(text[slash...]); text = String(text[..<slash]) }
+        while path.hasSuffix("/") { path.removeLast() }
+        guard path.isEmpty || ServerAddress.validBasePath(path) else { throw ParseError.invalidPath(path) }
         let hostText: String?, portText: String
-        if let colon = text.lastIndex(of: ":") { hostText = String(text[..<colon]); portText = String(text[text.index(after: colon)...]) } else { hostText = nil; portText = text }
+        if let colon = text.lastIndex(of: ":") { hostText = String(text[..<colon]); portText = String(text[text.index(after: colon)...]) }
+        else if hadScheme { hostText = text; portText = "80" } else { hostText = nil; portText = text }
         guard let port = Int(portText), (1...65535).contains(port) else { throw ParseError.invalidPort(portText) }
-        guard let hostText else { return .loopback(port: port) }
-        do { return try ServerAddress.make(host: hostText, port: port) } catch { throw ParseError.invalidHost(hostText) }
+        guard let hostText else { return .loopback(port: port, basePath: path) }
+        do { return try ServerAddress.make(host: hostText, port: port, basePath: path) } catch { throw ParseError.invalidHost(hostText) }
     }
 
     private static func validModel(_ model: String) throws -> String {

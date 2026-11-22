@@ -51,12 +51,12 @@ import VCCore
     @Test func theOpenAIEndpointIsAPastedUrlOrAHostAndPortAndHttpsIsRefused() {
         #expect(SettingsRules.splitOpenAI("qwen@192.168.1.5:8080") == ("qwen", "192.168.1.5:8080") && SettingsRules.splitOpenAI("org/m:q4@8000") == ("org/m:q4", "8000"))
         #expect(SettingsRules.splitOpenAI("only-model") == ("only-model", ""))
-        for (input, expected) in [("8000", "8000"), (" 127.0.0.1:8000 ", "127.0.0.1:8000"), ("http://192.168.1.5:8080", "192.168.1.5:8080"), ("http://192.168.1.5:8080/v1", "192.168.1.5:8080"),
-                                  ("HTTP://Box.local:8000/v1/", "Box.local:8000"), ("http://127.0.0.1:8000/", "127.0.0.1:8000")] {
+        for (input, expected) in [("8000", "8000"), (" 127.0.0.1:8000 ", "127.0.0.1:8000"), ("http://192.168.1.5:8080", "192.168.1.5:8080"), ("http://192.168.1.5:8080/v1", "192.168.1.5:8080/v1"),
+                                  ("HTTP://Box.local:8000/v2/", "Box.local:8000/v2"), ("http://127.0.0.1:8000/", "127.0.0.1:8000"), ("http://box.local/openai/v1", "box.local:80/openai/v1"), ("http://192.168.1.5", "192.168.1.5:80")] {
             #expect(SettingsRules.normalizeEndpoint(input) == (expected, nil), "\(input)")
         }
         #expect(SettingsRules.normalizeEndpoint("https://192.168.1.5:8080").problem != nil)
-        #expect(SettingsRules.modelRest(kind: .openai, model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080")
+        #expect(SettingsRules.modelRest(kind: .openai, model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080/v1")
         // Ollama は、エンドポイントを省ける（省くと、`<モデル>` だけ：既定の場所）
         #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "") == "qwen3.5:4b")
         #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "192.168.1.5:11434") == "qwen3.5:4b@192.168.1.5:11434")
