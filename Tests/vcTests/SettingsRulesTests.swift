@@ -46,6 +46,22 @@ import VCCore
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "no-port") != nil)   // ポートがない
     }
 
+    /// OpenAI 互換の入力欄は、モデルの名前とエンドポイントの 2 つ。貼り付けた URL（`http://…/v1`）も、受ける。
+    @Test func theOpenAIEndpointIsAPastedUrlOrAHostAndPortAndHttpsIsRefused() {
+        #expect(SettingsRules.splitOpenAI("qwen@192.168.1.5:8080") == ("qwen", "192.168.1.5:8080") && SettingsRules.splitOpenAI("org/m:q4@8000") == ("org/m:q4", "8000"))
+        #expect(SettingsRules.splitOpenAI("only-model") == ("only-model", ""))
+        for (input, expected) in [("8000", "8000"), (" 127.0.0.1:8000 ", "127.0.0.1:8000"), ("http://192.168.1.5:8080", "192.168.1.5:8080"), ("http://192.168.1.5:8080/v1", "192.168.1.5:8080"),
+                                  ("HTTP://Box.local:8000/v1/", "Box.local:8000"), ("http://127.0.0.1:8000/", "127.0.0.1:8000")] {
+            #expect(SettingsRules.normalizeEndpoint(input) == (expected, nil), "\(input)")
+        }
+        #expect(SettingsRules.normalizeEndpoint("https://192.168.1.5:8080").problem != nil)
+        #expect(SettingsRules.openAIRest(model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080")
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@192.168.1.5:8080") == nil)
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@") == "エンドポイントを入れてください（例：8000・192.168.1.5:8080）")   // 途中の入力は、問題として見せる（保存しない）
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "@8000") == "モデルの名前を入れてください")
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "m@8.8.8.8:80") != nil)                              // 公開の場所は、拒否
+    }
+
     @Test func theSendKeyOnlyNeedsAReadableStrokeAndNeverClashesWithTriggers() {
         var settings = Settings()
         settings.hotkey = "cmd+return"   // 同じ組み合わせのトリガーがあっても、1 回押すキーは、重なりを見ない

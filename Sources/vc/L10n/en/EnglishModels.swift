@@ -116,8 +116,12 @@ extension EnglishTables {
         "スキルを実行するモデルへ、話した内容・選んだ画面の内容・実行結果が、同じ LAN の %@ へ送られます。通信は、暗号化されません（HTTP）。このサーバーを、信頼できるときだけ、許可してください。": "What you say, the screen content you chose and the command results are sent to %@ on your LAN, for the model that runs skills. The connection is not encrypted (HTTP). Allow it only for a server you trust.",
         "ホスト「%@」は使えません（この Mac と、同じ LAN だけ：127.0.0.1・192.168.x.x などの私的なアドレス・〜.local の名前。インターネットのサーバーは、使えません）": "Host “%@” can't be used (only this Mac and the same LAN: 127.0.0.1, private addresses such as 192.168.x.x, or a name ending in .local. Servers on the internet can't)",
         "ポート「%@」が使えません（1〜65535 の数）": "Port “%@” can't be used (a number from 1 to 65535)",
-        "例：model@8000（LAN は model@192.168.1.5:8080）": "e.g. model@8000 (on a LAN: model@192.168.1.5:8080)",
         "設定済み（表示しません）": "Set (not shown)",
         "許可するまで、このサーバーは、使われません。": "This server isn't used until you allow it.",
+        "https:// は使えません（http:// だけ。暗号化された通信には、未対応です）": "https:// can't be used (http:// only; encrypted connections aren't supported)",
+        "この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080": "This Mac: 8000 or 127.0.0.1:8000. A LAN: 192.168.1.5:8080 or name.local:8080",
+        "エンドポイント": "Endpoint",
+        "エンドポイントを入れてください（例：8000・192.168.1.5:8080）": "Enter the endpoint (e.g. 8000 or 192.168.1.5:8080)",
+        "サーバーが返すモデルの名前（例：qwen3-4b）": "Model name the server reports (e.g. qwen3-4b)",
     ]
 }

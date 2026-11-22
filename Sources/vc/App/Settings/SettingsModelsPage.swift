@@ -22,9 +22,18 @@ struct ModelsPage: View {
             }
             if model.engineKind != .apple {
                 RowDivider()
-                Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("例：model@8000（LAN は model@192.168.1.5:8080）")) {
-                    TextField("", text: Binding(get: { model.engineRest }, set: { model.setEngine(kind: model.engineKind, rest: $0) }), prompt: Text(model.engineKind.placeholder))
+                Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("サーバーが返すモデルの名前（例：qwen3-4b）")) {
+                    TextField("", text: Binding(
+                        get: { model.engineKind == .openai ? SettingsRules.splitOpenAI(model.engineRest).model : model.engineRest },
+                        set: { model.engineKind == .openai ? model.setOpenAI(model: $0) : model.setEngine(kind: model.engineKind, rest: $0) }), prompt: Text(model.engineKind.placeholder))
                         .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
+                }
+                if model.engineKind == .openai {
+                    RowDivider()
+                    Row(tr("エンドポイント"), detail: tr("この Mac は 8000 か 127.0.0.1:8000。LAN は 192.168.1.5:8080 か 〜.local:8080")) {
+                        TextField("", text: Binding(get: { model.engineEndpointDraft }, set: { model.setOpenAI(endpoint: $0) }), prompt: Text("127.0.0.1:8000"))
+                            .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
+                    }
                 }
                 if let problem = model.engineProblem {
                     Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)

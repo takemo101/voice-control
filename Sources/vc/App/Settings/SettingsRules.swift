@@ -129,7 +129,7 @@ enum SettingsRules {
             case .openai: return tr("OpenAI 互換（この Mac・LAN のサーバー）")
             }
         }
-        var placeholder: String { self == .ollama ? "qwen3.5:4b" : "model@8000" }
+        var placeholder: String { self == .ollama ? "qwen3.5:4b" : "qwen3-4b" }
     }
 
     /// 設定の文字列を、種類と、そのあとの部分に分ける（`ollama:qwen3.5:4b` → ollama・`qwen3.5:4b`）。
@@ -145,6 +145,31 @@ enum SettingsRules {
         return kind == .apple ? "apple" : "\(kind.rawValue):\(trimmed)"
     }
 
+    // MARK: OpenAI 互換：モデルの名前と、エンドポイント（入力欄は、2 つに分ける。保存する形は `<モデル>@<場所>` のまま）
+
+    /// `<モデル>@<場所>` を、モデルの名前と、場所に分ける（最後の `@` で。`@` がなければ、全部がモデル）。
+    static func splitOpenAI(_ rest: String) -> (model: String, endpoint: String) {
+        guard let at = rest.lastIndex(of: "@") else { return (rest, "") }
+        return (String(rest[..<at]), String(rest[rest.index(after: at)...]))
+    }
+
+    /// 入力されたエンドポイントを、`<ポート>` か `<ホスト>:<ポート>` にする：`http://` と、終わりの `/`・`/v1` は、落とす（`http://192.168.1.5:8080/v1` を、そのまま貼れる）。
+    /// `https://` は、使えない（暗号化の通信には、未対応）。
+    static func normalizeEndpoint(_ text: String) -> (value: String, problem: String?) {
+        var value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.lowercased().hasPrefix("https://") { return (value, tr("https:// は使えません（http:// だけ。暗号化された通信には、未対応です）")) }
+        if value.lowercased().hasPrefix("http://") { value = String(value.dropFirst("http://".count)) }
+        while value.hasSuffix("/") { value.removeLast() }
+        if value.lowercased().hasSuffix("/v1") { value = String(value.dropLast(3)) }
+        while value.hasSuffix("/") { value.removeLast() }
+        return (value, nil)
+    }
+
+    /// 2 つの入力欄から、保存する形（`<モデル>@<場所>`）にする。
+    static func openAIRest(model: String, endpoint: String) -> String {
+        model.trimmingCharacters(in: .whitespaces) + "@" + normalizeEndpoint(endpoint).value
+    }
+
     /// OpenAI 互換のエンジンの、サーバーの場所（書き方が正しいときだけ。APIキーの鍵・LAN の許可の鍵）。
     static func engineServer(kind: EngineKind, rest: String) -> ServerAddress? {
         guard kind == .openai, case let .openAI(_, server)? = try? Engine.parse(engineText(kind: kind, rest: rest)) else { return nil }   // try?: 書き方が違えば、場所は、なし（問題は、`engineProblem` が出す）
@@ -154,6 +179,11 @@ enum SettingsRules {
     /// エンジンの書き方の問題（なければ `nil`）。クラウドのモデルは、拒否される（`Engine.parse`）。
     static func engineProblem(kind: EngineKind, rest: String) -> String? {
         if kind != .apple, rest.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }
+        if kind == .openai {
+            let parts = splitOpenAI(rest)
+            if parts.model.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }
+            if parts.endpoint.isEmpty { return tr("エンドポイントを入れてください（例：8000・192.168.1.5:8080）") }
+        }
         do { _ = try Engine.parse(engineText(kind: kind, rest: rest)); return nil } catch { return "\(error)" }
     }
 }

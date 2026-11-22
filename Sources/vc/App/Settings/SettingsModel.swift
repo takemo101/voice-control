@@ -57,6 +57,8 @@ enum DownloadState: Equatable {
     @Published private(set) var keyProblems: [KeyKind: String] = [:]
     @Published var engineKind: SettingsRules.EngineKind = .apple
     @Published var engineRest = ""
+    /// OpenAI 互換のエンドポイントの入力欄（貼り付けたままの形：`http://…/v1` も、そのまま見せる）。
+    @Published var engineEndpointDraft = ""
     @Published private(set) var engineProblem: String?
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
@@ -122,6 +124,7 @@ enum DownloadState: Equatable {
         let split = SettingsRules.splitEngine(settings.engine)
         engineKind = split.kind
         engineRest = split.rest
+        engineEndpointDraft = SettingsRules.splitOpenAI(split.rest).endpoint
         engineProblem = nil
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
     }
@@ -286,6 +289,15 @@ enum DownloadState: Equatable {
             guard AppAlerts.confirm(title: tr("\(server.endpoint) へ、音声・画面の内容を送りますか？"), message: tr("スキルを実行するモデルへ、話した内容・選んだ画面の内容・実行結果が、同じ LAN の \(server.endpoint) へ送られます。通信は、暗号化されません（HTTP）。このサーバーを、信頼できるときだけ、許可してください。"), confirm: tr("許可する"), cancel: tr("やめる"), style: .warning) else { return }
         }
         update { $0.engineApproved = on ? server.endpoint : nil }
+    }
+
+    /// OpenAI 互換の、モデルの名前・エンドポイントの入力（片方だけ、渡す）。保存する形（`<モデル>@<場所>`）にして、`setEngine` へ。
+    func setOpenAI(model name: String? = nil, endpoint: String? = nil) {
+        let parts = SettingsRules.splitOpenAI(engineRest)
+        if let endpoint { engineEndpointDraft = endpoint }
+        let normalized = SettingsRules.normalizeEndpoint(engineEndpointDraft)
+        setEngine(kind: .openai, rest: SettingsRules.openAIRest(model: name ?? parts.model, endpoint: engineEndpointDraft))
+        if let problem = normalized.problem { engineProblem = problem }   // `https://` など、場所の書き方の問題
     }
 
     func setEngine(kind: SettingsRules.EngineKind, rest: String) {
