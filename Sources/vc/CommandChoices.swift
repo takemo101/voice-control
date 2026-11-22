@@ -33,10 +33,16 @@ extension CommandContext {
     /// スキルを実行するモデル（`--engine` → 設定 → 既定の Apple のモデル）。
     func resolveEngine(settings: Settings) throws -> Engine {
         guard let text = options.engine ?? settings.engine else { return .apple }
-        do { return try Engine.parse(text) } catch {
-            let fromSettings = options.engine == nil
+        let fromSettings = options.engine == nil
+        let engine: Engine
+        do { engine = try Engine.parse(text) } catch {
             throw StartupProblem(fromSettings ? tr("settings.json の engine: \(error)（設定ウィンドウ > モデル > エンジン で直す）") : "\(error)", page: fromSettings ? .models : nil)
         }
+        // **LAN のサーバーへは、音声・画面の内容が出る**：設定からは、利用者が、その場所を許可したときだけ（`--engine` は、その場の、明示の指定）
+        if fromSettings, engine.talksOverLAN, settings.engineApproved?.lowercased() != engine.serverEndpoint {
+            throw StartupProblem(tr("LAN のサーバー（\(engine.serverEndpoint ?? "")）へ、音声・画面の内容を送ることを、許可していません（設定ウィンドウ > モデル で、許可する）"), page: .models)
+        }
+        return engine
     }
 
     /// 使う音声認識（`--stt` → 設定 → 既定の Apple）。

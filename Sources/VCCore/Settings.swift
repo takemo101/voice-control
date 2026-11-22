@@ -33,7 +33,9 @@ import Foundation
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
 /// - `fillers`：消すつなぎ言葉の辞書（利用者が足し引きする）。なければ、既定の辞書（解釈は Speech 層）。
 /// - `multiStep`：1 つの依頼を、複数のステップに分けて実行するか。なければ、分ける（設定ウィンドウ > モデル で、1 依頼 = 1 スキル）。
-/// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`。解釈は Skill 層）。なければ、Apple。
+/// - `engine`：スキルを実行するモデル（`apple`・`ollama:<モデル>`・`openai:<モデル>@<ポート>`・LAN は `openai:<モデル>@<ホスト>:<ポート>`。解釈は Skill 層）。なければ、Apple。
+/// - `engineApproved`：LAN のサーバー（`ホスト:ポート`）へ、**音声・画面の内容を送ることを、利用者が許可した場所**（設定ウィンドウ > モデル）。`engine` の場所と違えば、使わない。
+/// - **APIキーは、ここに置かない**（`EngineKeyStore`：自分だけが読める別のファイル）。
 /// - `trustedProjects`：プロジェクトのスキル（`<ルート>/.voice-control/skills`）を読み込んでよいと、利用者が確認したプロジェクトのルート。**既定は、どれも信頼しない**。
 public struct Settings: Codable, Sendable, Equatable {
     public var disabledSkills: [String] = []
@@ -72,6 +74,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var multiStep: Bool?
     public var fillers: [String]?
     public var engine: String?
+    public var engineApproved: String?
     public var trustedProjects: [String] = []
 
     public init() {}
@@ -115,6 +118,7 @@ public struct Settings: Codable, Sendable, Equatable {
         multiStep = try c.decodeIfPresent(Bool.self, forKey: .multiStep)
         fillers = try c.decodeIfPresent([String].self, forKey: .fillers)
         engine = try c.decodeIfPresent(String.self, forKey: .engine)
+        engineApproved = try c.decodeIfPresent(String.self, forKey: .engineApproved)
         trustedProjects = try c.decodeIfPresent([String].self, forKey: .trustedProjects) ?? []
     }
 

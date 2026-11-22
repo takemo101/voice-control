@@ -259,9 +259,39 @@ enum DownloadState: Equatable {
 
     // MARK: エンジン
 
+    /// OpenAI 互換のサーバーの場所（書き方が正しいとき）。
+    var engineServer: ServerAddress? { SettingsRules.engineServer(kind: engineKind, rest: engineRest) }
+    /// 通信先が、同じ LAN か（音声・画面の内容が、LAN へ出る）。
+    var engineOverLAN: Bool { engineServer.map { !$0.isLoopback } ?? false }
+    /// その LAN の場所を、利用者が許可しているか。
+    var engineLANApproved: Bool { engineServer.map { settings.engineApproved?.lowercased() == $0.endpoint } ?? false }
+    /// そのサーバーの APIキーを、保管庫に持っているか（値は、見せない）。
+    var engineKeyConfigured: Bool { _ = engineKeyRevision; return engineServer.map { EngineKeyStore.standard.hasKey(for: $0.endpoint) } ?? false }
+    @Published private(set) var engineKeyRevision = 0
+    @Published private(set) var engineKeyProblem: String?
+    /// 入力中の APIキー（保存したら、空にする。画面に、残さない）。
+    @Published var engineKeyDraft = ""
+
+    func setEngineKey(_ key: String) {
+        guard let server = engineServer else { return }
+        do { try EngineKeyStore.standard.set(key, for: server.endpoint); engineKeyProblem = nil } catch { engineKeyProblem = "\(error)" }
+        engineKeyDraft = ""
+        engineKeyRevision += 1
+    }
+
+    /// LAN の場所への許可：オンにするとき、何が出るかを見せて、確認する。
+    func setEngineLANApproved(_ on: Bool) {
+        guard let server = engineServer, !server.isLoopback else { return }
+        if on {
+            guard AppAlerts.confirm(title: tr("\(server.endpoint) へ、音声・画面の内容を送りますか？"), message: tr("スキルを実行するモデルへ、話した内容・選んだ画面の内容・実行結果が、同じ LAN の \(server.endpoint) へ送られます。通信は、暗号化されません（HTTP）。このサーバーを、信頼できるときだけ、許可してください。"), confirm: tr("許可する"), cancel: tr("やめる"), style: .warning) else { return }
+        }
+        update { $0.engineApproved = on ? server.endpoint : nil }
+    }
+
     func setEngine(kind: SettingsRules.EngineKind, rest: String) {
         engineKind = kind
         engineRest = rest
+        engineKeyDraft = ""   // 入力中のキーは、前のサーバーのもの：残さない
         engineProblem = SettingsRules.engineProblem(kind: kind, rest: rest)
         guard engineProblem == nil else { return }
         let text = SettingsRules.engineText(kind: kind, rest: rest)

@@ -126,10 +126,10 @@ enum SettingsRules {
             switch self {
             case .apple: return tr("Apple（この Mac の中。既定）")
             case .ollama: return tr("Ollama（この Mac のサーバー）")
-            case .openai: return tr("OpenAI 互換（この Mac のサーバー）")
+            case .openai: return tr("OpenAI 互換（この Mac・LAN のサーバー）")
             }
         }
-        var placeholder: String { self == .ollama ? "qwen3.5:4b" : tr("モデル名@ポート") }
+        var placeholder: String { self == .ollama ? "qwen3.5:4b" : "model@8000" }
     }
 
     /// 設定の文字列を、種類と、そのあとの部分に分ける（`ollama:qwen3.5:4b` → ollama・`qwen3.5:4b`）。
@@ -143,6 +143,12 @@ enum SettingsRules {
     static func engineText(kind: EngineKind, rest: String) -> String {
         let trimmed = rest.trimmingCharacters(in: .whitespaces)
         return kind == .apple ? "apple" : "\(kind.rawValue):\(trimmed)"
+    }
+
+    /// OpenAI 互換のエンジンの、サーバーの場所（書き方が正しいときだけ。APIキーの鍵・LAN の許可の鍵）。
+    static func engineServer(kind: EngineKind, rest: String) -> ServerAddress? {
+        guard kind == .openai, case let .openAI(_, server)? = try? Engine.parse(engineText(kind: kind, rest: rest)) else { return nil }   // try?: 書き方が違えば、場所は、なし（問題は、`engineProblem` が出す）
+        return server
     }
 
     /// エンジンの書き方の問題（なければ `nil`）。クラウドのモデルは、拒否される（`Engine.parse`）。

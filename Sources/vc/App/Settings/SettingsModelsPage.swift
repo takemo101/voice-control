@@ -11,7 +11,7 @@ struct ModelsPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Card(tr("スキルを実行するモデル"), footer: tr("この Mac のサーバー（127.0.0.1）だけ使えます。クラウドのモデルは、使えません。")) {
+        Card(tr("スキルを実行するモデル"), footer: tr("この Mac と、同じ LAN のサーバーだけ使えます。インターネットのクラウドのモデルは、使えません。")) {
             Row(tr("エンジン"), detail: nil) {
                 Picker("", selection: Binding(get: { model.engineKind }, set: { model.setEngine(kind: $0, rest: $0 == .apple ? "" : model.engineRest) })) {
                     Text("Apple").tag(SettingsRules.EngineKind.apple)
@@ -22,12 +22,34 @@ struct ModelsPage: View {
             }
             if model.engineKind != .apple {
                 RowDivider()
-                Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("例：モデル名@ポート")) {
+                Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("例：model@8000（LAN は model@192.168.1.5:8080）")) {
                     TextField("", text: Binding(get: { model.engineRest }, set: { model.setEngine(kind: model.engineKind, rest: $0) }), prompt: Text(model.engineKind.placeholder))
                         .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
                 }
                 if let problem = model.engineProblem {
                     Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
+                }
+                if let server = model.engineServer {
+                    RowDivider()
+                    Row(tr("APIキー"), detail: model.engineKeyConfigured ? tr("設定済み（表示しません）") : tr("なし。サーバーが要求するときだけ入れます")) {
+                        HStack(spacing: 6) {
+                            SecureField("", text: $model.engineKeyDraft, prompt: Text(model.engineKeyConfigured ? "••••••••" : "sk-…")).labelsHidden().textFieldStyle(.roundedBorder).frame(width: 150)
+                            Button(tr("保存")) { model.setEngineKey(model.engineKeyDraft) }.controlSize(.small).disabled(model.engineKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                            if model.engineKeyConfigured { Button(tr("消す")) { model.setEngineKey("") }.controlSize(.small) }
+                        }
+                    }
+                    if let problem = model.engineKeyProblem {
+                        Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
+                    }
+                    if !server.isLoopback {
+                        RowDivider()
+                        Row(tr("この LAN のサーバーを許可"), detail: tr("\(server.endpoint) へ、音声・画面の内容が、暗号化されずに送られます")) {
+                            BrandSwitch(isOn: Binding(get: { model.engineLANApproved }, set: { model.setEngineLANApproved($0) }))
+                        }
+                        if !model.engineLANApproved {
+                            Label(tr("許可するまで、このサーバーは、使われません。"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 8)
+                        }
+                    }
                 }
             }
             RowDivider()

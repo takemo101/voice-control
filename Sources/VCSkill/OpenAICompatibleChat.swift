@@ -1,14 +1,17 @@
 import Foundation
 import VCCore
 
-/// OpenAI 互換の API（`/v1/chat/completions`。道具の呼び出しつき）のアダプター。LM Studio・llama.cpp のサーバー・vLLM・Jan など。**通信先は、この Mac の `127.0.0.1:<ポート>` だけ**。
+/// OpenAI 互換の API（`/v1/chat/completions`。道具の呼び出しつき）のアダプター。LM Studio・oMLX・Strata・llama.cpp のサーバー・vLLM・Jan など。**通信先は、この Mac の `127.0.0.1` か、同じ LAN だけ**（`ServerAddress`）。APIキーは、サーバー別の保管庫（`EngineKeyStore`）から、`Authorization: Bearer` で付ける。
 struct OpenAICompatibleChat: ChatModel {
     let model: String
     let server: LocalServer
 
-    init(model: String, port: Int) {
+    init(model: String, port: Int) { self.init(model: model, server: .loopback(port: port)) }
+
+    /// `keys`：APIキーの保管庫（サーバー別。なければ、付けない）。
+    init(model: String, server address: ServerAddress, keys: EngineKeyStore = .standard) {
         self.model = model
-        server = LocalServer(name: tr("OpenAI 互換サーバー"), port: port)
+        server = LocalServer(name: tr("OpenAI 互換サーバー"), address: address, apiKey: keys.key(for: address.endpoint))
     }
 
     func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
