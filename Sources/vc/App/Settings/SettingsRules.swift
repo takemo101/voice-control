@@ -180,6 +180,15 @@ enum SettingsRules {
         return engine.server
     }
 
+    /// 種類を切り替えたとき、その種類の入力欄に出す内容：**使っているエンジンが、その種類なら、それ**。そうでなければ、その種類で**最後に使った入力**（`remembered`）。なければ、空。
+    /// Ollama と OpenAI 互換の設定は、別々（片方を選んでも、もう片方の入力が、混ざらない）。
+    static func rest(for kind: EngineKind, engine: String?, remembered: [String: String]?) -> String {
+        guard kind != .apple else { return "" }
+        let active = splitEngine(engine)
+        if active.kind == kind { return active.rest }
+        return remembered?[kind.rawValue] ?? ""
+    }
+
     /// 設定ファイルへ**保存する** `engine` の文字。**許可していない LAN のサーバーは、保存しない**（`nil`＝Apple のモデル）：保存すると、アプリの再読み込みが「許可していません」の失敗になり、許可を押す前に、エラーが出てしまう。
     /// 許可（`approved`）は、その場所（`ホスト:ポート`）ごと。
     static func persistedEngine(kind: EngineKind, rest: String, approved: String?) -> String? {

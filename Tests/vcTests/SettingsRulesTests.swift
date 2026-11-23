@@ -70,6 +70,16 @@ import VCCore
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "m@8.8.8.8:80") != nil)                              // 公開の場所は、拒否
     }
 
+    /// Ollama と OpenAI 互換の入力は、別々：切り替えても、混ざらない。使っている種類は、保存した `engine` が、そのまま。ほかは、最後に使った入力。
+    @Test func eachEngineKeepsItsOwnInputWhenYouSwitchBetweenThem() {
+        let remembered = ["ollama": "qwen3.5:4b@192.168.1.5:11434", "openai": "inkling@8000/v2"]
+        #expect(SettingsRules.rest(for: .ollama, engine: "openai:m@8000", remembered: remembered) == "qwen3.5:4b@192.168.1.5:11434")   // 使っているのは OpenAI：Ollama は、覚えていた入力
+        #expect(SettingsRules.rest(for: .openai, engine: "openai:m@8000", remembered: remembered) == "m@8000")                          // 使っている種類は、その設定
+        #expect(SettingsRules.rest(for: .openai, engine: "ollama:q", remembered: remembered) == "inkling@8000/v2")
+        #expect(SettingsRules.rest(for: .openai, engine: nil, remembered: nil) == "" && SettingsRules.rest(for: .ollama, engine: "openai:m@8000", remembered: [:]) == "")   // 覚えていなければ、空：OpenAI の入力は、混ざらない
+        #expect(SettingsRules.rest(for: .apple, engine: "openai:m@8000", remembered: remembered) == "")
+    }
+
     /// 許可していない LAN のサーバーは、保存しない（保存すると、再読み込みが「許可していません」の失敗になる）。許可は、場所ごと。
     @Test func aLANEngineIsPersistedOnlyOnceThatPlaceIsApproved() {
         #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080", approved: nil) == nil)

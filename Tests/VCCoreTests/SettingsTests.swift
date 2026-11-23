@@ -72,5 +72,20 @@ import VCCore
         try Data(#"{"hotkey":"shift"}"#.utf8).write(to: file)
         #expect(try Settings.load(from: file).chatModels == nil)
     }
-}
 
+    /// 種類（Ollama・OpenAI 互換）ごとの、最後に使った入力・LAN の許可：保存して、読み直せる。古いファイルでは、なし。
+    @Test func eachEngineKindKeepsItsLastInputAndTheLANApprovalIsStored() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("vc-settings-\(UUID().uuidString)/settings.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        var settings = try Settings.load(from: file)
+        #expect(settings.engineRests == nil && settings.engineApproved == nil)
+        settings.engine = "openai:m@8000"
+        settings.engineRests = ["ollama": "qwen3.5:4b@192.168.1.5:11434", "openai": "m@8000"]
+        settings.engineApproved = "192.168.1.5:11434"
+        try settings.save(to: file)
+        let reloaded = try Settings.load(from: file)
+        #expect(reloaded.engineRests == ["ollama": "qwen3.5:4b@192.168.1.5:11434", "openai": "m@8000"] && reloaded.engineApproved == "192.168.1.5:11434")
+        try Data(#"{"hotkey":"shift"}"#.utf8).write(to: file)
+        #expect(try Settings.load(from: file).engineRests == nil)
+    }
+}

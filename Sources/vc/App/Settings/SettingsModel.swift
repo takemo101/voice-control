@@ -124,6 +124,7 @@ enum DownloadState: Equatable {
         let split = SettingsRules.splitEngine(settings.engine)
         engineKind = split.kind
         engineRest = split.rest
+        rememberedRests = settings.engineRests ?? [:]
         engineEndpointDraft = SettingsRules.splitOpenAI(split.rest).endpoint
         engineProblem = nil
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
@@ -355,6 +356,36 @@ enum DownloadState: Equatable {
 
     func chooseEngineModel(_ name: String) { setModelEndpoint(model: name) }
 
+    /// 種類ごとの、最後に使った入力（画面の中。有効なものは、設定にも保存する：`Settings.engineRests`）。
+    private var rememberedRests: [String: String] = [:]
+
+    /// 種類（Apple・Ollama・OpenAI 互換）を切り替える。**種類ごとの設定は、別々**：出ていく側の入力を覚え、入る側の、覚えていた入力を出す（なければ、空）。
+    func switchEngineKind(_ kind: SettingsRules.EngineKind) {
+        guard kind != engineKind else { return }
+        if engineKind != .apple { rememberedRests[engineKind.rawValue] = engineRest }
+        let rest = rememberedRests[kind.rawValue] ?? SettingsRules.rest(for: kind, engine: settings.engine, remembered: settings.engineRests)
+        engineKind = kind
+        engineRest = rest
+        engineEndpointDraft = SettingsRules.splitOpenAI(rest).endpoint
+        engineKeyDraft = ""
+        engineModels = []
+        engineProbe = .idle
+        engineProblem = kind == .apple || rest.isEmpty ? nil : SettingsRules.engineProblem(kind: kind, rest: rest)   // まだ、何も入れていない種類には、問題を出さない
+        let persisted = engineProblem == nil && !rest.isEmpty ? SettingsRules.persistedEngine(kind: kind, rest: rest, approved: settings.engineApproved) : nil   // 入力がなければ、Apple のまま
+        let rests = validRests()
+        update { $0.engine = persisted; $0.engineRests = rests.isEmpty ? nil : rests }
+    }
+
+    /// 設定へ保存する、種類ごとの入力（書き方が正しいものだけ）。
+    private func validRests() -> [String: String] {
+        var out = settings.engineRests ?? [:]
+        for kind in [SettingsRules.EngineKind.ollama, .openai] {
+            guard let rest = rememberedRests[kind.rawValue] else { continue }
+            if SettingsRules.engineProblem(kind: kind, rest: rest) == nil { out[kind.rawValue] = rest }
+        }
+        return out
+    }
+
     func setEngine(kind: SettingsRules.EngineKind, rest: String) {
         let previous = engineServer
         engineKind = kind
@@ -365,7 +396,9 @@ enum DownloadState: Equatable {
         engineProblem = SettingsRules.engineProblem(kind: kind, rest: rest)
         guard engineProblem == nil else { return }
         let persisted = SettingsRules.persistedEngine(kind: kind, rest: rest, approved: settings.engineApproved)   // 許可していない LAN のサーバーは、保存しない（Apple のまま）
-        update { $0.engine = persisted }
+        if kind != .apple { rememberedRests[kind.rawValue] = rest }
+        let rests = validRests()
+        update { $0.engine = persisted; $0.engineRests = rests.isEmpty ? nil : rests }
     }
 
     // MARK: 音声認識・モデル

@@ -13,7 +13,7 @@ struct ModelsPage: View {
     var body: some View {
         Card(tr("スキルを実行するモデル"), footer: tr("この Mac と、同じ LAN のサーバーだけ使えます。インターネットのクラウドのモデルは、使えません。")) {
             Row(tr("エンジン"), detail: nil) {
-                Picker("", selection: Binding(get: { model.engineKind }, set: { model.setEngine(kind: $0, rest: $0 == .apple ? "" : model.engineRest) })) {
+                Picker("", selection: Binding(get: { model.engineKind }, set: { model.switchEngineKind($0) })) {
                     Text("Apple").tag(SettingsRules.EngineKind.apple)
                     Text("Ollama").tag(SettingsRules.EngineKind.ollama)
                     Text(tr("OpenAI 互換")).tag(SettingsRules.EngineKind.openai)
