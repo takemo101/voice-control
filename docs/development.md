@@ -44,6 +44,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `vc eval-plan corpus/plan.tsv --set dev\|test` | 依頼を複数のステップに分ける判断（言語モデル）と、各ステップのスキルの選び方の当たり率。dev は調整用・test は最後に 1 回（Tiny-Jev のモデルと、言語モデルが要る。実行はしない） |
 | `scripts/eval-skills.py [--engine apple\|ollama:<モデル>] [--rounds N] [--skill <名前>]` | **全スキルを、言語モデルで動かし、依頼から、正しいコマンドが出るか**を数える（`corpus/skills.tsv`。`--dry-run`：実行しない。一時の `VC_HOME` で、利用者の設定・クリップボードには触れない。Tiny-Jev は使わず、スキルを指定する）。スキルの本文・実行者を変えたら、これで、エンジンごとに測る |
 | `just eval` | 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（`vc eval-gate corpus/gate.tsv`。Tiny-Jev のモデルが要る。実機は操作しない） |
+| `vc eval-route corpus/hybrid.tsv` | 発話を、スキルで実行するか・会話で答えるかに、振り分けられるかの当たり率（会話とスキルを混ぜる機能の土台の測定。`just` には入れていない。取っておいた文 `corpus/hybrid-test.tsv` は、調整に使わない。Tiny-Jev のモデルが要る。実行はしない） |
 | `just fixture [--ja\|--many N\|--dup]` | 検証用の自作ウィンドウを起動（`just fixture-stop` で終了） |
 | `just vc <args>` | ビルドして `vc` を呼ぶ |
 
