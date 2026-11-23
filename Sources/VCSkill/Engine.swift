@@ -83,6 +83,14 @@ public enum Engine: Sendable, Equatable {
     }
 
     /// 種類（Apple は、なし）。
+    /// モデルの名前（`apple` は、なし）。
+    public var modelName: String? {
+        switch self {
+        case .apple: return nil
+        case let .ollama(model, _), let .openAI(model, _): return model
+        }
+    }
+
     public var kind: ModelServerKind? {
         switch self {
         case .apple: return nil

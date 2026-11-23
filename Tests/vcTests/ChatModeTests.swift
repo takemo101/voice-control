@@ -29,4 +29,11 @@ enum HotKeySpecTestHelper {
         #expect(try ChatMode.ImageRoute.digested(by: Engine.parse("ollama:m")) == .local)   // この Mac の 127.0.0.1
         #expect(try ChatMode.ImageRoute.digested(by: Engine.parse("ollama:m@192.168.0.5:11434")) == .lan)
     }
+
+    @Test func theWindowNamesTheRunningAgentShortlyAndTheServerWithItsModel() throws {
+        let setup = ChatSetup(agent: .server, engine: try Engine.parse("openai:demo-model@192.168.0.5:8080"))
+        #expect(setup.windowName(running: .server).hasSuffix("demo-model") && setup.windowName(running: .server).count < 40)   // 見出しに収まる長さ（設定の長い説明は、出さない）
+        #expect(setup.windowName(running: .apple) != setup.windowName(running: .server))   // 使えず Apple に替わったときは、Apple と出す
+        #expect(setup.windowName(running: .claude) == ChatAgent.claude.label)
+    }
 }

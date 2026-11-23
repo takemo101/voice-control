@@ -253,6 +253,16 @@ struct ChatSetup: Equatable {
     /// スキルを実行するモデル（設定 > モデル）。`server` の会話は、これの行き先で答える（`Apple` なら、答えられない：`ChatAgent.canAnswer`）。
     var engine = Engine.apple
 
+    /// 会話のウィンドウの見出しに出す、答える側の名前（短く：長い説明は、設定にある）。サーバーは、モデル名を添える。
+    /// `running`：いま実際に答えているエージェント（選んだものが使えず、Apple に替わっていることがある）。
+    func windowName(running: ChatAgent) -> String {
+        switch running {
+        case .apple: return tr("Apple のモデル（この Mac の中）")
+        case .server: return tr("ローカルのサーバー") + (engine.modelName.map { " · \($0)" } ?? "")   // l10n-skip: 区切りとモデル名
+        default: return running.label
+        }
+    }
+
     /// 発話が、この Mac の外（同じ LAN のサーバー）へ出るか。`server` で、行き先が、この Mac の `127.0.0.1` でないとき。
     var sendsOverLAN: Bool { agent == .server && engine.server.map { !$0.isLoopback } ?? false }
 }

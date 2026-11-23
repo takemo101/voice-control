@@ -82,7 +82,7 @@ struct ChatView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(tr("会話")).vcFont(16, weight: .semibold).foregroundStyle(.white)
                 HStack(spacing: 6) {
-                    if !state.agent.isEmpty { Text(state.agent).vcFont(11, weight: .medium, maxScale: 1.15).lineLimit(1).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.6)) }
+                    if !state.agent.isEmpty { Text(state.agent).vcFont(11, weight: .medium, maxScale: 1.15).lineLimit(1).truncationMode(.middle).layoutPriority(-1).foregroundStyle(.white.opacity(0.6)) }
                     if let tools = state.tools { Chip(text: tools, symbol: "wrench.and.screwdriver.fill", color: ChatPalette.accent) }
                     if let warning = state.warning { Chip(text: warning, symbol: "arrow.up.forward.circle.fill", color: ChatPalette.orange) }
                 }
