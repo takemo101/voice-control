@@ -57,5 +57,11 @@ extension EnglishTables {
         "コマンド名にパスは使えない（PATH の名前だけ）": "The command name can't be a path (use a name found on PATH)",
         "コマンド名に使えない文字がある": "The command name contains characters that aren't allowed",
         "%@ は、許可できない（シェル・別のコマンドを起動する・権限を上げる）": "%@ can't be allowed (it is a shell, launches other commands or raises privileges)",
+        "取り消す": "Undo",
+        "やり直す": "Redo",
+        "切り取り": "Cut",
+        "貼り付け": "Paste",
+        "すべてを選択": "Select All",
+        "編集": "Edit",
     ]
 }
