@@ -43,6 +43,16 @@ private enum FakeServer {
         def log_message(self, *a): pass
         def do_GET(self):
             log.write("%s auth=%s\n" % (self.path, self.headers.get("Authorization"))); log.flush()
+            if self.path == "/chunked":
+                self.protocol_version = "HTTP/1.1"
+                self.send_response(200); self.send_header("Transfer-Encoding", "chunked"); self.send_header("Connection", "close"); self.end_headers()
+                for part in (b'{"data": [{"id"', b': "chunked-model"}]}'): self.wfile.write(b"%x\r\n%s\r\n" % (len(part), part))
+                self.wfile.write(b"0\r\n\r\n"); return
+            if self.path == "/slow":
+                import time; time.sleep(3)
+            if self.path == "/big":
+                body = b"x" * 3_000_000
+                self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
             if self.path.endswith("/api/tags"):
                 body = json.dumps({"models": [{"name": "b:latest"}, {"name": "a:7b"}, {"name": "bad name"}, {"name": "gpt-oss:120b-cloud"}]}).encode()
                 self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(body); return
@@ -115,6 +125,25 @@ private enum FakeServer {
         _ = try await ModelServerCatalog.list(kind: .ollama, server: .loopback(port: server.port, basePath: "/ollama"), keys: keys)
         let log = (try? String(contentsOf: server.log, encoding: .utf8)) ?? ""
         for expected in ["/v1/models ", "/v2/models ", "/openai/v1/models ", "/api/tags ", "/ollama/api/tags "] { #expect(log.contains(expected), "\(expected)") }
+    }
+
+    /// 通信は `LocalHTTP`（`URLSession` ではない）：チャンクの応答・大きな応答・時間切れ・取りやめ。
+    @Test func theTransportReadsChunkedAndLargeResponsesAndStopsOnTimeoutAndCancellation() async throws {
+        let server = try start(); defer { server.process.terminate(); try? FileManager.default.removeItem(at: server.directory) }
+        let local = LocalServer(name: "t", address: .loopback(port: server.port), apiKey: nil)
+        let chunked = try await local.send(path: "/chunked", body: nil)
+        #expect(chunked.status == 200 && String(decoding: chunked.data, as: UTF8.self) == #"{"data": [{"id": "chunked-model"}]}"#)
+        let big = try await local.send(path: "/big", body: nil)
+        #expect(big.status == 200 && big.data.count == 3_000_000)
+        let started = Date()
+        await #expect(throws: ChatError.timedOut(server: "t", endpoint: local.endpoint)) { try await local.send(path: "/slow", body: nil, timeout: 0.5) }
+        #expect(Date().timeIntervalSince(started) < 2.5)                                           // 待たずに、時間切れ
+        let task = Task { try await local.send(path: "/slow", body: nil, timeout: 30) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        task.cancel()
+        let cancelStart = Date()
+        _ = await task.result
+        #expect(Date().timeIntervalSince(cancelStart) < 2.0)                                        // 取りやめで、すぐ止まる
     }
 
     @Test func aRedirectIsNotFollowedSoTheKeyCannotLeakToAnotherServer() async throws {

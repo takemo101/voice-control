@@ -44,6 +44,8 @@ enum ChatError: Error, Equatable, CustomStringConvertible {
     case badResponse(String)
     /// APIキーが、違う・要る（HTTP 401・403）。
     case unauthorized(server: String, endpoint: String)
+    /// 時間内に、応答が終わらない。
+    case timedOut(server: String, endpoint: String)
     /// `.local` の名前が、引けない。
     case unresolved(host: String)
     /// 名前の引き先が、私的なアドレスでない（外を指している）：送らない。
@@ -56,6 +58,7 @@ enum ChatError: Error, Equatable, CustomStringConvertible {
         case .http(let status, let body): return tr("モデルのサーバーがエラーを返しました（HTTP \(status)）：\(body.prefix(200))")
         case .badResponse(let why): return tr("モデルのサーバーの応答を読めません（\(why)）")
         case .unauthorized(let server, let endpoint): return tr("\(server)（\(endpoint)）が、APIキーを受け付けません。キーが違うか、必要です（設定 > モデル > APIキー）")
+        case .timedOut(let server, let endpoint): return tr("\(server)（\(endpoint)）が、時間内に応えませんでした。届いているか・起動しているかを、確かめてください")
         case .unresolved(let host): return tr("「\(host)」の場所を、引けません")
         case .notPrivate(let host, let answer): return tr("「\(host)」の引き先（\(answer)）が、この Mac・LAN の外です。送りません")
         }
@@ -89,34 +92,29 @@ struct LocalServer: Sendable, Equatable {
     var port: Int { address.port }
     var endpoint: String { address.endpoint }
 
-    /// JSON を送る（`body` があれば POST、なければ GET）。状態コードと本文を返す。接続できなければ `ChatError.notRunning`。
-    /// **リダイレクトは、追わない**（APIキーを、別のところへ、送らない）。
-    func send(path: String, body: [String: Any]?, lookup: @Sendable (String) async -> [String] = ServerAddress.systemLookup) async throws -> (data: Data, status: Int) {
-        let host = try await address.connectHost(lookup: lookup)   // `.local` の名前は、ここで引いて、私的なアドレスか確かめる（引いた先へ、つなぐ）
-        guard let url = URL(string: "http://\(host):\(address.port)\(path)") else { throw ChatError.badResponse("URL") }
-        var request = URLRequest(url: url, timeoutInterval: 180)   // 初回は、モデルの読み込みで、長い
-        if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
+    /// JSON を送る（`body` があれば POST、なければ GET）。状態コードと本文を返す。接続できなければ `ChatError.notRunning`・時間内に終わらなければ `timedOut`。
+    /// **リダイレクトは、追わない**（APIキーを、別のところへ、送らない）。`timeout`：応答が終わるまでの上限（質問は、初回に、モデルの読み込みで長い。一覧・確認は、短く）。
+    /// 通信は `LocalHTTP`（`URLSession` ではない：HTTP を、App Transport Security が、断るため）。
+    func send(path: String, body: [String: Any]?, timeout: TimeInterval = 180, lookup: @Sendable (String) async -> [String] = ServerAddress.systemLookup) async throws -> (data: Data, status: Int) {
+        let host = try await address.connectHost(lookup: lookup)   // `.local` の名前は、ここで引いて、私的なアドレスか確かめる（引いた IP へ、つなぐ）
+        var headers: [(String, String)] = []
+        if let apiKey { headers.append(("Authorization", "Bearer \(apiKey)")) }
+        var payload: Data?
         if let body {
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            headers.append(("Content-Type", "application/json"))
+            payload = try JSONSerialization.data(withJSONObject: body)
         }
-        let session = URLSession(configuration: .ephemeral, delegate: NoRedirect(), delegateQueue: nil)
-        defer { session.finishTasksAndInvalidate() }
+        let request = LocalHTTP.requestData(method: body == nil ? "GET" : "POST", host: host, port: address.port, path: path, headers: headers, body: payload)
         do {
-            let (data, response) = try await session.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 401 || status == 403 { throw ChatError.unauthorized(server: name, endpoint: endpoint) }
-            return (data, status)
-        } catch let error as URLError where error.code == .cannotConnectToHost || error.code == .networkConnectionLost || error.code == .cannotFindHost || (error.code == .timedOut && !address.isLoopback) {
+            let response = try await LocalHTTP.send(request, to: host, port: address.port, timeout: timeout)
+            if response.status == 401 || response.status == 403 { throw ChatError.unauthorized(server: name, endpoint: endpoint) }
+            return (response.body, response.status)
+        } catch LocalHTTP.Failure.unreachable {
             throw ChatError.notRunning(server: name, endpoint: endpoint)
-        }
-    }
-
-    /// リダイレクトを、断る（応答は、そのまま、返る）。
-    private final class NoRedirect: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-        func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-            completionHandler(nil)
+        } catch LocalHTTP.Failure.timedOut {
+            throw ChatError.timedOut(server: name, endpoint: endpoint)
+        } catch let LocalHTTP.Failure.malformed(why) {
+            throw ChatError.badResponse(why)
         }
     }
 }

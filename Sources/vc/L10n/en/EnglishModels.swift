@@ -134,5 +134,7 @@ extension EnglishTables {
         "この Mac は 8000。LAN は http://192.168.1.5:8080/v1。/v2 など、API の経路も書けます（省くと /v1）": "This Mac: 8000. A LAN: http://192.168.1.5:8080/v1. You can also write the API path such as /v2 (defaults to /v1)",
         "省くと 127.0.0.1:11434。LAN は http://192.168.1.5:11434。経路を替えるなら 末尾に /ollama など": "Defaults to 127.0.0.1:11434. A LAN: http://192.168.1.5:11434. To change the path, add e.g. /ollama at the end",
         "経路「%@」が使えません（/v1・/v2・/openai/v1 のような、英数字・. _ ~ - の部分を / でつないだもの）": "Path “%@” can't be used (parts of letters, digits and . _ ~ - joined with /, like /v1, /v2 or /openai/v1)",
+        "%@（%@）が、時間内に応えませんでした。届いているか・起動しているかを、確かめてください": "%1$@ (%2$@) didn't respond in time. Check that it is reachable and running",
+        "サーバーにあるのは：%@（設定 > モデル の「一覧」で選べます）": "The server has: %@ (pick one with “List” in Settings > Models)",
     ]
 }

@@ -20,7 +20,7 @@ struct OllamaChat: ChatModel {
     }
 
     func check() async throws {
-        let (data, status) = try await server.send(path: server.address.basePath + "/api/tags", body: nil)
+        let (data, status) = try await server.send(path: server.address.basePath + "/api/tags", body: nil, timeout: 15)
         guard status == 200, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let models = root["models"] as? [[String: Any]] else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }   // try?: 読めなければ、失敗として返す
         // 「qwen3.5」と書けば「qwen3.5:latest」を指す（Ollama と同じ）
         let wanted = model.contains(":") ? model : model + ":latest"

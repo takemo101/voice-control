@@ -22,9 +22,13 @@ struct OpenAICompatibleChat: ChatModel {
     }
 
     func check() async throws {
-        let (data, status) = try await server.send(path: server.address.root(default: "/v1") + "/models", body: nil)
+        let (data, status) = try await server.send(path: server.address.root(default: "/v1") + "/models", body: nil, timeout: 15)
         guard status == 200, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let models = root["data"] as? [[String: Any]] else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }   // try?: 読めなければ、失敗として返す
-        guard models.compactMap({ $0["id"] as? String }).contains(model) else { throw ChatError.modelNotFound(model: model, hint: tr("サーバーに、このモデルを読み込んでください")) }
+        let ids = models.compactMap { $0["id"] as? String }
+        guard ids.contains(model) else {
+            // 名前は、サーバーが返す「id」と、一字一句、同じ（ファイル名ではない）：あるものを、見せる
+            let shown = ids.prefix(5).joined(separator: tr("・"))
+            throw ChatError.modelNotFound(model: model, hint: ids.isEmpty ? tr("サーバーに、このモデルを読み込んでください") : tr("サーバーにあるのは：\(shown)（設定 > モデル の「一覧」で選べます）")) }
     }
 
     // MARK: 通信の形（OpenAI 互換）
