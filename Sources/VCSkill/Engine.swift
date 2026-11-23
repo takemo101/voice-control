@@ -5,39 +5,72 @@ import Foundation
 /// スキルを選ぶ Tiny-Jev は、どれでも同じ。
 public enum Engine: Sendable, Equatable {
     case apple
-    /// Ollama のモデル名（例：`qwen3.5:4b`）。通信先は `127.0.0.1:11434`。
-    case ollama(model: String)
-    /// OpenAI 互換のサーバー（LM Studio・llama.cpp のサーバー・vLLM・Jan など）のモデルと、**この Mac の**ポート。
-    case openAI(model: String, port: Int)
+    /// Ollama のモデル名（例：`qwen3.5:4b`）と、場所（省略すると、この Mac の `127.0.0.1:11434`。同じ LAN の Ollama も、書ける）。
+    case ollama(model: String, server: ServerAddress)
+    /// OpenAI 互換のサーバー（LM Studio・oMLX・Strata・llama.cpp のサーバー・vLLM・Jan など）のモデルと、場所（この Mac、または**同じ LAN**。`ServerAddress`）。
+    case openAI(model: String, server: ServerAddress)
 
     public enum ParseError: Error, Equatable, CustomStringConvertible {
         case unknown(String)
         case invalidModel(String)
         case cloudModel(String)
         case invalidPort(String)
+        case invalidHost(String)
+        case invalidPath(String)
+        case invalidScheme(String)
         public var description: String {
             switch self {
-            case .unknown(let s): return tr("エンジン「\(s)」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）")
+            case .unknown(let s): return tr("エンジン「\(s)」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。LAN は openai:<モデル>@<ホスト>:<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）")
             case .invalidModel(let m): return tr("モデル名「\(m)」が使えません（英数字・. _ : / - だけ）")
             case .cloudModel(let m): return tr("「\(m)」は、クラウドのモデルです。音声・画面の内容を、外へ出さないので、使えません")
-            case .invalidPort(let p): return tr("ポート「\(p)」が使えません（1〜65535 の数。通信先は、この Mac の 127.0.0.1 だけ）")
+            case .invalidPort(let p): return tr("ポート「\(p)」が使えません（1〜65535 の数）")
+            case .invalidPath(let p): return tr("経路「\(p)」が使えません（/v1・/v2・/openai/v1 のような、英数字・. _ ~ - の部分を / でつないだもの）")
+            case .invalidScheme(let s): return tr("\(s):// は使えません（http:// だけ。暗号化された通信には、未対応です）")
+            case .invalidHost(let h): return tr("ホスト「\(h)」は使えません（この Mac と、同じ LAN だけ：127.0.0.1・192.168.x.x などの私的なアドレス・〜.local の名前。インターネットのサーバーは、使えません）")
             }
         }
     }
 
-    /// `apple`・`ollama:<モデル>`（モデル名の中の `:` は、そのまま：`ollama:qwen3.5:4b`）・`openai:<モデル>@<ポート>`。
+    /// 既定の Ollama の場所。
+    public static let ollamaDefault = ServerAddress.loopback(port: 11434)
+
+    /// `apple`・`ollama:<モデル>`（モデル名の中の `:` は、そのまま：`ollama:qwen3.5:4b`。場所を省くと、`127.0.0.1:11434`）・`ollama:<モデル>@<場所>`・
+    /// `openai:<モデル>@<ポート>`（この Mac）・`openai:<モデル>@<ホスト>:<ポート>`（同じ LAN）。場所は、`<ポート>` か `<ホスト>:<ポート>`（`ServerAddress`）。
     public static func parse(_ text: String) throws -> Engine {
         if text == "apple" { return .apple }
-        if text.hasPrefix("ollama:") { return .ollama(model: try validModel(String(text.dropFirst("ollama:".count)))) }
+        if text.hasPrefix("ollama:") {
+            let rest = String(text.dropFirst("ollama:".count))
+            guard let at = rest.lastIndex(of: "@") else { return .ollama(model: try validModel(rest), server: ollamaDefault) }   // 場所を省く：既定
+            let model = try validModel(String(rest[..<at]))
+            return .ollama(model: model, server: try place(String(rest[rest.index(after: at)...])))
+        }
         if text.hasPrefix("openai:") {
             let rest = String(text.dropFirst("openai:".count))
-            // ポートは、最後の `@` のあと（ホストは、書けない：127.0.0.1 に固定）
+            // 場所は、最後の `@` のあと：`<ポート>`（この Mac）か `<ホスト>:<ポート>`（ホストは、この Mac と LAN だけ：`ServerAddress`）
             guard let at = rest.lastIndex(of: "@") else { throw ParseError.invalidPort("") }
-            let portText = String(rest[rest.index(after: at)...])
-            guard let port = Int(portText), (1...65535).contains(port) else { throw ParseError.invalidPort(portText) }
-            return .openAI(model: try validModel(String(rest[..<at])), port: port)
+            let model = try validModel(String(rest[..<at]))
+            return .openAI(model: model, server: try place(String(rest[rest.index(after: at)...])))
         }
         throw ParseError.unknown(text)
+    }
+
+    /// 場所：`[http://]<ポート>`・`[http://]<ホスト>:<ポート>`・どちらも、あとに経路（`/v1`・`/openai/v1`）を付けられる。`http://` を付けたときは、ポートを省ける（80）。`https://` は、使えない。
+    private static func place(_ raw: String) throws -> ServerAddress {
+        var text = raw
+        var hadScheme = false
+        let lower = text.lowercased()
+        if lower.hasPrefix("http://") { text = String(text.dropFirst("http://".count)); hadScheme = true }
+        else if let range = lower.range(of: "://") { throw ParseError.invalidScheme(String(lower[..<range.lowerBound])) }
+        var path = ""
+        if let slash = text.firstIndex(of: "/") { path = String(text[slash...]); text = String(text[..<slash]) }
+        while path.hasSuffix("/") { path.removeLast() }
+        guard path.isEmpty || ServerAddress.validBasePath(path) else { throw ParseError.invalidPath(path) }
+        let hostText: String?, portText: String
+        if let colon = text.lastIndex(of: ":") { hostText = String(text[..<colon]); portText = String(text[text.index(after: colon)...]) }
+        else if hadScheme { hostText = text; portText = "80" } else { hostText = nil; portText = text }
+        guard let port = Int(portText), (1...65535).contains(port) else { throw ParseError.invalidPort(portText) }
+        guard let hostText else { return .loopback(port: port, basePath: path) }
+        do { return try ServerAddress.make(host: hostText, port: port, basePath: path) } catch { throw ParseError.invalidHost(hostText) }
     }
 
     private static func validModel(_ model: String) throws -> String {
@@ -51,12 +84,26 @@ public enum Engine: Sendable, Equatable {
     func makeChat() -> (any ChatModel)? {
         switch self {
         case .apple: return nil
-        case .ollama(let model): return OllamaChat(model: model)
-        case .openAI(let model, let port): return OpenAICompatibleChat(model: model, port: port)
+        case .ollama(let model, let server): return OllamaChat(model: model, server: server)
+        case .openAI(let model, let server): return OpenAICompatibleChat(model: model, server: server)
         }
     }
 
     /// 使える状態か（`vc doctor`）：サーバーが動いていて、モデルがあるか。`apple` は、ここでは調べない（`AppleIntelligence`）。失敗は `ChatError`（`description` が、理由と手順）。
+    /// 通信先が、この Mac の外（同じ LAN）か。**音声・画面の内容が、LAN へ出る**（暗号化されない）。
+    public var talksOverLAN: Bool { server.map { !$0.isLoopback } ?? false }
+
+    /// 通信先（`ホスト:ポート`）。Ollama・OpenAI 互換だけ。APIキーの保管庫の鍵。
+    public var serverEndpoint: String? { server?.endpoint }
+
+    /// 通信先の場所（Apple は、なし）。
+    public var server: ServerAddress? {
+        switch self {
+        case .apple: return nil
+        case let .ollama(_, server), let .openAI(_, server): return server
+        }
+    }
+
     public func verify() async throws {
         try await makeChat()?.check()
     }

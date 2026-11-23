@@ -171,6 +171,7 @@ enum AppAlerts {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLocalization.bootstrap(settings: Settings.loadOrDefault().settings)   // 表示言語（設定ウィンドウ・ダイアログ）
+        EditMenu.install()   // ⌘V・⌘C・⌘X・⌘A・⌘Z：入力欄に届くように（メニューバーのアプリは、編集メニューを持たない）
         statusMenu = StatusMenu(runtime: AppRuntime.shared)
         // SIGTERM も、通常の終了と同じ道（後始末）を通す
         signal(SIGTERM, SIG_IGN)

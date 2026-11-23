@@ -39,7 +39,7 @@ enum VisionModel {
         do { png = try ImageOps.downscaledPNG(image, maxSide: maxSide) } catch { return .failure(ToolFailure(exitCode: 1, message: "\(error)")) }
         switch engine {
         case .apple: return askApple(png: png, question: question, cancel: cancel, workDirectory: workDirectory)
-        case let .ollama(model): return askOllama(png: png, question: question, model: model)
+        case let .ollama(model, server): return askOllama(png: png, question: question, model: model, server: server)
         case .openAI: return .failure(ToolFailure(exitCode: 1, message: tr("OpenAI 互換のエンジンは、画像に未対応です。apple か ollama:<画像に対応したモデル> にしてください（設定ウィンドウ > モデル > エンジン）")))
         }
     }
@@ -87,13 +87,13 @@ enum VisionModel {
         ]
     }
 
-    private static func askOllama(png: Data, question: String, model: String) -> Result<String, ToolFailure> {
-        let server = LocalServer(name: "Ollama", port: OllamaChat.port)
+    private static func askOllama(png: Data, question: String, model: String, server address: ServerAddress) -> Result<String, ToolFailure> {
+        let server = OllamaChat(model: model, server: address).server   // 場所・APIキーは、会話と同じ
         let box = Box<Result<String, ToolFailure>>()
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             do {
-                let (data, status) = try await server.send(path: "/api/chat", body: ollamaRequest(model: model, png: png, question: question))
+                let (data, status) = try await server.send(path: server.address.basePath + "/api/chat", body: ollamaRequest(model: model, png: png, question: question))
                 box.value = ollamaReply(status: status, data: data, model: model)
             } catch { box.value = .failure(ToolFailure(exitCode: 1, message: "\(error)")) }
             done.signal()

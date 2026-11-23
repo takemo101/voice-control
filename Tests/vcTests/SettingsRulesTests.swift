@@ -1,4 +1,5 @@
 import Testing
+import VCSkill
 import VCCore
 @testable import vc
 
@@ -44,6 +45,50 @@ import VCCore
         #expect(SettingsRules.engineProblem(kind: .ollama, rest: "qwen3.5:4b") == nil)
         #expect(SettingsRules.engineProblem(kind: .ollama, rest: "  ") == "モデルの名前を入れてください")
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "no-port") != nil)   // ポートがない
+    }
+
+    /// OpenAI 互換の入力欄は、モデルの名前とエンドポイントの 2 つ。貼り付けた URL（`http://…/v1`）も、受ける。
+    @Test func theOpenAIEndpointIsAPastedUrlOrAHostAndPortAndHttpsIsRefused() {
+        #expect(SettingsRules.splitOpenAI("qwen@192.168.1.5:8080") == ("qwen", "192.168.1.5:8080") && SettingsRules.splitOpenAI("org/m:q4@8000") == ("org/m:q4", "8000"))
+        #expect(SettingsRules.splitOpenAI("only-model") == ("only-model", ""))
+        for (input, expected) in [("8000", "8000"), (" 127.0.0.1:8000 ", "127.0.0.1:8000"), ("http://192.168.1.5:8080", "192.168.1.5:8080"), ("http://192.168.1.5:8080/v1", "192.168.1.5:8080/v1"),
+                                  ("HTTP://Box.local:8000/v2/", "Box.local:8000/v2"), ("http://127.0.0.1:8000/", "127.0.0.1:8000"), ("http://box.local/openai/v1", "box.local:80/openai/v1"), ("http://192.168.1.5", "192.168.1.5:80")] {
+            #expect(SettingsRules.normalizeEndpoint(input) == (expected, nil), "\(input)")
+        }
+        #expect(SettingsRules.normalizeEndpoint("https://192.168.1.5:8080").problem != nil)
+        #expect(SettingsRules.modelRest(kind: .openai, model: " qwen3-4b ", endpoint: "http://192.168.1.5:8080/v1") == "qwen3-4b@192.168.1.5:8080/v1")
+        // Ollama は、エンドポイントを省ける（省くと、`<モデル>` だけ：既定の場所）
+        #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "") == "qwen3.5:4b")
+        #expect(SettingsRules.modelRest(kind: .ollama, model: "qwen3.5:4b", endpoint: "192.168.1.5:11434") == "qwen3.5:4b@192.168.1.5:11434")
+        #expect(SettingsRules.engineProblem(kind: .ollama, rest: "qwen3.5:4b") == nil && SettingsRules.engineProblem(kind: .ollama, rest: "qwen3.5:4b@192.168.1.5:11434") == nil)
+        #expect(SettingsRules.engineProblem(kind: .ollama, rest: "@11434") == "モデルの名前を入れてください")
+        #expect(SettingsRules.engineServer(kind: .ollama, rest: "qwen3.5:4b") == Engine.ollamaDefault)               // 省くと、既定
+        #expect(SettingsRules.engineServer(kind: .ollama, rest: "m@192.168.1.5:11434")?.endpoint == "192.168.1.5:11434")
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@192.168.1.5:8080") == nil)
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "qwen3-4b@") == "エンドポイントを入れてください（例：8000・192.168.1.5:8080）")   // 途中の入力は、問題として見せる（保存しない）
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "@8000") == "モデルの名前を入れてください")
+        #expect(SettingsRules.engineProblem(kind: .openai, rest: "m@8.8.8.8:80") != nil)                              // 公開の場所は、拒否
+    }
+
+    /// Ollama と OpenAI 互換の入力は、別々：切り替えても、混ざらない。使っている種類は、保存した `engine` が、そのまま。ほかは、最後に使った入力。
+    @Test func eachEngineKeepsItsOwnInputWhenYouSwitchBetweenThem() {
+        let remembered = ["ollama": "qwen3.5:4b@192.168.1.5:11434", "openai": "inkling@8000/v2"]
+        #expect(SettingsRules.rest(for: .ollama, engine: "openai:m@8000", remembered: remembered) == "qwen3.5:4b@192.168.1.5:11434")   // 使っているのは OpenAI：Ollama は、覚えていた入力
+        #expect(SettingsRules.rest(for: .openai, engine: "openai:m@8000", remembered: remembered) == "m@8000")                          // 使っている種類は、その設定
+        #expect(SettingsRules.rest(for: .openai, engine: "ollama:q", remembered: remembered) == "inkling@8000/v2")
+        #expect(SettingsRules.rest(for: .openai, engine: nil, remembered: nil) == "" && SettingsRules.rest(for: .ollama, engine: "openai:m@8000", remembered: [:]) == "")   // 覚えていなければ、空：OpenAI の入力は、混ざらない
+        #expect(SettingsRules.rest(for: .apple, engine: "openai:m@8000", remembered: remembered) == "")
+    }
+
+    /// 許可していない LAN のサーバーは、保存しない（保存すると、再読み込みが「許可していません」の失敗になる）。許可は、場所ごと。
+    @Test func aLANEngineIsPersistedOnlyOnceThatPlaceIsApproved() {
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080", approved: nil) == nil)
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080", approved: "192.168.1.6:8080") == nil)   // 別の場所の許可は、効かない
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080/v2", approved: "192.168.1.5:8080") == "openai:m@192.168.1.5:8080/v2")   // 経路が違っても、同じ場所
+        #expect(SettingsRules.persistedEngine(kind: .ollama, rest: "m@box.local:11434", approved: "BOX.local:11434") == "ollama:m@box.local:11434")
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@8000", approved: nil) == "openai:m@8000")                     // この Mac は、許可が要らない
+        #expect(SettingsRules.persistedEngine(kind: .ollama, rest: "qwen3.5:4b", approved: nil) == "ollama:qwen3.5:4b")
+        #expect(SettingsRules.persistedEngine(kind: .apple, rest: "", approved: nil) == nil)
     }
 
     @Test func theSendKeyOnlyNeedsAReadableStrokeAndNeverClashesWithTriggers() {

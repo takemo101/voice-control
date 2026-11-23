@@ -1,21 +1,26 @@
 import Foundation
 import VCCore
 
-/// Ollama（`127.0.0.1:11434`。`/api/chat`）のアダプター。
+/// Ollama（`/api/chat`）のアダプター。既定は `127.0.0.1:11434`。同じ LAN の Ollama も、場所（`ServerAddress`）で、向けられる。APIキーは、サーバー別の保管庫（`EngineKeyStore`）から付ける（Ollama 自身は、キーを要らないが、手前にプロキシを置くとき）。
 struct OllamaChat: ChatModel {
     static let port = 11434
     let model: String
-    let server = LocalServer(name: "Ollama", port: Self.port)
+    let server: LocalServer
+
+    init(model: String, server address: ServerAddress = Engine.ollamaDefault, keys: EngineKeyStore = .standard) {
+        self.model = model
+        server = LocalServer(name: "Ollama", address: address, apiKey: keys.key(for: address.endpoint))
+    }
 
     func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
-        let (data, status) = try await server.send(path: "/api/chat", body: Self.request(model: model, messages: messages, tools: tools))
+        let (data, status) = try await server.send(path: server.address.basePath + "/api/chat", body: Self.request(model: model, messages: messages, tools: tools))
         if status == 404 { throw ChatError.modelNotFound(model: model, hint: tr("ollama pull \(model) で取得してください")) }
         guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
         return try Self.reply(from: data)
     }
 
     func check() async throws {
-        let (data, status) = try await server.send(path: "/api/tags", body: nil)
+        let (data, status) = try await server.send(path: server.address.basePath + "/api/tags", body: nil, timeout: 15)
         guard status == 200, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let models = root["models"] as? [[String: Any]] else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }   // try?: 読めなければ、失敗として返す
         // 「qwen3.5」と書けば「qwen3.5:latest」を指す（Ollama と同じ）
         let wanted = model.contains(":") ? model : model + ":latest"

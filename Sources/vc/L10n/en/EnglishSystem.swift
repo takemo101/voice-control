@@ -28,10 +28,8 @@ extension EnglishTables {
         "スクリーンショットを置けません（%@）": "Couldn't store the screenshot (%@)",
         // 音声認識
         // エンジン
-        "エンジン「%@」は使えません（apple・ollama:<モデル>・openai:<モデル>@<ポート>。例：ollama:qwen3.5:4b・openai:qwen3-4b@1234）": "The engine “%@” isn't supported (use apple, ollama:<model> or openai:<model>@<port>, for example ollama:qwen3.5:4b or openai:qwen3-4b@1234).",
         "モデル名「%@」が使えません（英数字・. _ : / - だけ）": "The model name “%@” isn't valid (letters, digits and . _ : / - only).",
         "「%@」は、クラウドのモデルです。音声・画面の内容を、外へ出さないので、使えません": "“%@” is a cloud model. It can't be used because voice and screen content never leave this Mac.",
-        "ポート「%@」が使えません（1〜65535 の数。通信先は、この Mac の 127.0.0.1 だけ）": "The port “%@” isn't valid (a number from 1 to 65535; only 127.0.0.1 on this Mac is used).",
         // スキルの読み込み
         "先頭に、フロントマター（--- で囲む）がない": "The front matter (enclosed in ---) is missing at the top",
         "name がない": "name is missing",
@@ -59,5 +57,11 @@ extension EnglishTables {
         "コマンド名にパスは使えない（PATH の名前だけ）": "The command name can't be a path (use a name found on PATH)",
         "コマンド名に使えない文字がある": "The command name contains characters that aren't allowed",
         "%@ は、許可できない（シェル・別のコマンドを起動する・権限を上げる）": "%@ can't be allowed (it is a shell, launches other commands or raises privileges)",
+        "取り消す": "Undo",
+        "やり直す": "Redo",
+        "切り取り": "Cut",
+        "貼り付け": "Paste",
+        "すべてを選択": "Select All",
+        "編集": "Edit",
     ]
 }

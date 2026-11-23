@@ -438,7 +438,7 @@ allowed-commands:
   - open
 ---
 Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done: &lt;one short sentence&gt;</pre><p><code>allowed-commands</code> に書いたコマンドだけが実行できます。詳しくは、<a href="https://github.com/takemo101/voice-control/blob/main/docs/skills.md" rel="noopener">docs/skills.md</a> を見てください。</p></div></details>
-      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上の Ollama や LM Studio に切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は <code>127.0.0.1</code> 固定で、クラウドのモデルは指定できません。</p></div></details>
+      <details class="reveal"><summary>Apple Intelligence が使えない Mac ではどうなりますか？</summary><div class="body"><p>Mac 上の Ollama や LM Studio に切り替えられます（設定 &gt; モデル &gt; エンジン）。通信先は、この Mac（<code>127.0.0.1</code>）と、許可した同じ LAN のサーバーだけです。クラウドのモデルは指定できません。</p></div></details>
       <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う・「新しい会話を始める」・5 分間話さない・アプリを終える、のどれかで消えます。長くなったら、古いやり取りを要約します。</p></div></details>
       <details class="reveal"><summary>会話で、考えている間に、続けて質問できますか？</summary><div class="body"><p>できます。順番待ちに入り、いまの答えのあとに送られます。待っている文字は、まとめて 1 回の質問になります（声は 1 件ずつ）。答えの途中に差し込む機能（Zed の Steer のようなもの）は、ありません。</p></div></details>
       <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 には、<strong>この Mac に入っているエージェントだけ</strong>が出ます（<code>PATH</code> と <code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで消したら、Apple のモデルで答えます。</p></div></details>
