@@ -68,7 +68,7 @@ struct ModelsPage: View {
                             BrandSwitch(isOn: Binding(get: { model.engineLANApproved }, set: { model.setEngineLANApproved($0) }))
                         }
                         if !model.engineLANApproved {
-                            Label(tr("許可するまで、このサーバーは、使われません。"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 8)
+                            Label(tr("許可するまで、この設定は、保存されず、使われません（いまは Apple のモデルです）。"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 8)
                         }
                     }
                 }

@@ -180,6 +180,15 @@ enum SettingsRules {
         return engine.server
     }
 
+    /// 設定ファイルへ**保存する** `engine` の文字。**許可していない LAN のサーバーは、保存しない**（`nil`＝Apple のモデル）：保存すると、アプリの再読み込みが「許可していません」の失敗になり、許可を押す前に、エラーが出てしまう。
+    /// 許可（`approved`）は、その場所（`ホスト:ポート`）ごと。
+    static func persistedEngine(kind: EngineKind, rest: String, approved: String?) -> String? {
+        let text = engineText(kind: kind, rest: rest)
+        if text == "apple" { return nil }
+        if let server = engineServer(kind: kind, rest: rest), !server.isLoopback, approved?.lowercased() != server.endpoint { return nil }
+        return text
+    }
+
     /// エンジンの書き方の問題（なければ `nil`）。クラウドのモデルは、拒否される（`Engine.parse`）。
     static func engineProblem(kind: EngineKind, rest: String) -> String? {
         if kind != .apple, rest.trimmingCharacters(in: .whitespaces).isEmpty { return tr("モデルの名前を入れてください") }

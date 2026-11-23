@@ -117,7 +117,6 @@ extension EnglishTables {
         "ホスト「%@」は使えません（この Mac と、同じ LAN だけ：127.0.0.1・192.168.x.x などの私的なアドレス・〜.local の名前。インターネットのサーバーは、使えません）": "Host “%@” can't be used (only this Mac and the same LAN: 127.0.0.1, private addresses such as 192.168.x.x, or a name ending in .local. Servers on the internet can't)",
         "ポート「%@」が使えません（1〜65535 の数）": "Port “%@” can't be used (a number from 1 to 65535)",
         "設定済み（表示しません）": "Set (not shown)",
-        "許可するまで、このサーバーは、使われません。": "This server isn't used until you allow it.",
         "https:// は使えません（http:// だけ。暗号化された通信には、未対応です）": "https:// can't be used (http:// only; encrypted connections aren't supported)",
         "エンドポイント": "Endpoint",
         "エンドポイントを入れてください（例：8000・192.168.1.5:8080）": "Enter the endpoint (e.g. 8000 or 192.168.1.5:8080)",
@@ -136,5 +135,6 @@ extension EnglishTables {
         "経路「%@」が使えません（/v1・/v2・/openai/v1 のような、英数字・. _ ~ - の部分を / でつないだもの）": "Path “%@” can't be used (parts of letters, digits and . _ ~ - joined with /, like /v1, /v2 or /openai/v1)",
         "%@（%@）が、時間内に応えませんでした。届いているか・起動しているかを、確かめてください": "%1$@ (%2$@) didn't respond in time. Check that it is reachable and running",
         "サーバーにあるのは：%@（設定 > モデル の「一覧」で選べます）": "The server has: %@ (pick one with “List” in Settings > Models)",
+        "許可するまで、この設定は、保存されず、使われません（いまは Apple のモデルです）。": "Until you allow it, this setting isn't saved or used (the Apple model is used for now).",
     ]
 }

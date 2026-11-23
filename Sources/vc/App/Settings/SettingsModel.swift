@@ -288,7 +288,13 @@ enum DownloadState: Equatable {
         if on {
             guard AppAlerts.confirm(title: tr("\(server.endpoint) へ、音声・画面の内容を送りますか？"), message: tr("スキルを実行するモデルへ、話した内容・選んだ画面の内容・実行結果が、同じ LAN の \(server.endpoint) へ送られます。通信は、暗号化されません（HTTP）。このサーバーを、信頼できるときだけ、許可してください。"), confirm: tr("許可する"), cancel: tr("やめる"), style: .warning) else { return }
         }
-        update { $0.engineApproved = on ? server.endpoint : nil }
+        // 許可と一緒に、いまの入力を保存する（許可するまでは、保存していない）。外すと、Apple のモデルに戻る
+        let approved = on ? server.endpoint : nil
+        let (kind, rest, valid) = (engineKind, engineRest, engineProblem == nil)
+        update {
+            $0.engineApproved = approved
+            if valid { $0.engine = SettingsRules.persistedEngine(kind: kind, rest: rest, approved: approved) }
+        }
     }
 
     /// Ollama・OpenAI 互換の、モデルの名前・エンドポイントの入力（片方だけ、渡す）。保存する形（`<モデル>@<場所>`）にして、`setEngine` へ。
@@ -358,8 +364,8 @@ enum DownloadState: Equatable {
         engineProbe = .idle   // 確認の結果は、入力が変わったら、古い
         engineProblem = SettingsRules.engineProblem(kind: kind, rest: rest)
         guard engineProblem == nil else { return }
-        let text = SettingsRules.engineText(kind: kind, rest: rest)
-        update { $0.engine = text == "apple" ? nil : text }
+        let persisted = SettingsRules.persistedEngine(kind: kind, rest: rest, approved: settings.engineApproved)   // 許可していない LAN のサーバーは、保存しない（Apple のまま）
+        update { $0.engine = persisted }
     }
 
     // MARK: 音声認識・モデル

@@ -70,6 +70,17 @@ import VCCore
         #expect(SettingsRules.engineProblem(kind: .openai, rest: "m@8.8.8.8:80") != nil)                              // 公開の場所は、拒否
     }
 
+    /// 許可していない LAN のサーバーは、保存しない（保存すると、再読み込みが「許可していません」の失敗になる）。許可は、場所ごと。
+    @Test func aLANEngineIsPersistedOnlyOnceThatPlaceIsApproved() {
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080", approved: nil) == nil)
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080", approved: "192.168.1.6:8080") == nil)   // 別の場所の許可は、効かない
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@192.168.1.5:8080/v2", approved: "192.168.1.5:8080") == "openai:m@192.168.1.5:8080/v2")   // 経路が違っても、同じ場所
+        #expect(SettingsRules.persistedEngine(kind: .ollama, rest: "m@box.local:11434", approved: "BOX.local:11434") == "ollama:m@box.local:11434")
+        #expect(SettingsRules.persistedEngine(kind: .openai, rest: "m@8000", approved: nil) == "openai:m@8000")                     // この Mac は、許可が要らない
+        #expect(SettingsRules.persistedEngine(kind: .ollama, rest: "qwen3.5:4b", approved: nil) == "ollama:qwen3.5:4b")
+        #expect(SettingsRules.persistedEngine(kind: .apple, rest: "", approved: nil) == nil)
+    }
+
     @Test func theSendKeyOnlyNeedsAReadableStrokeAndNeverClashesWithTriggers() {
         var settings = Settings()
         settings.hotkey = "cmd+return"   // 同じ組み合わせのトリガーがあっても、1 回押すキーは、重なりを見ない
