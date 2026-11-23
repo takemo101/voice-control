@@ -5,7 +5,7 @@ import Testing
 @Suite struct EngineTests {
     @Test func theEngineIsAppleOllamaOrOpenAICompatible() throws {
         #expect(try Engine.parse("apple") == .apple)
-        #expect(try Engine.parse("ollama:qwen3.5:4b") == .ollama(model: "qwen3.5:4b", server: Engine.ollamaDefault))   // モデル名の `:` は、そのまま。場所を省くと、既定
+        #expect(try Engine.parse("ollama:qwen3.5:4b") == .ollama(model: "qwen3.5:4b", server: ModelServerKind.ollama.defaultAddress!))   // モデル名の `:` は、そのまま。場所を省くと、既定
         #expect(try Engine.parse("ollama:qwen2.5") == .ollama(model: "qwen2.5", server: .loopback(port: 11434)))
         #expect(try Engine.parse("openai:qwen3-4b@1234") == .openAI(model: "qwen3-4b", server: .loopback(port: 1234)))
         #expect(try Engine.parse("openai:org/model:q4@8080") == .openAI(model: "org/model:q4", server: .loopback(port: 8080)))
@@ -15,8 +15,8 @@ import Testing
     @Test func anOllamaEndpointIsOptionalAndFollowsTheSameNetworkRules() throws {
         #expect(try Engine.parse("ollama:qwen3.5:4b@11435") == .ollama(model: "qwen3.5:4b", server: .loopback(port: 11435)))
         let lan = try Engine.parse("ollama:qwen3.5:4b@192.168.1.5:11434")
-        #expect(lan == .ollama(model: "qwen3.5:4b", server: try ServerAddress.make(host: "192.168.1.5", port: 11434)) && lan.talksOverLAN && lan.serverEndpoint == "192.168.1.5:11434")
-        #expect(!(try Engine.parse("ollama:m")).talksOverLAN && Engine.apple.server == nil && Engine.apple.serverEndpoint == nil)
+        #expect(lan == .ollama(model: "qwen3.5:4b", server: try ServerAddress.make(host: "192.168.1.5", port: 11434)) && lan.server?.isLoopback == false && lan.server?.endpoint == "192.168.1.5:11434")
+        #expect((try Engine.parse("ollama:m")).server?.isLoopback == true && Engine.apple.server == nil && Engine.apple.kind == nil)
         #expect(throws: Engine.ParseError.invalidHost("8.8.8.8")) { try Engine.parse("ollama:m@8.8.8.8:11434") }
         #expect(throws: Engine.ParseError.invalidPort("x")) { try Engine.parse("ollama:m@x") }
         #expect(throws: Engine.ParseError.invalidPort("")) { try Engine.parse("ollama:m@") }
@@ -29,7 +29,7 @@ import Testing
         #expect(try Engine.parse("openai:m@http://192.168.1.5:8080/openai/v1") == .openAI(model: "m", server: try ServerAddress.make(host: "192.168.1.5", port: 8080, basePath: "/openai/v1")))
         #expect(try Engine.parse("openai:m@http://box.local/v1/") == .openAI(model: "m", server: try ServerAddress.make(host: "box.local", port: 80, basePath: "/v1")))   // ポートを省いた URL：80。終わりの `/` は、落とす
         #expect(try Engine.parse("ollama:m@http://127.0.0.1:11434/ollama") == .ollama(model: "m", server: .loopback(port: 11434, basePath: "/ollama")))
-        #expect(try Engine.parse("openai:m@8000").server == .loopback(port: 8000) && (try Engine.parse("openai:m@8000/v1")).serverEndpoint == "127.0.0.1:8000")   // 経路は、許可・キーの鍵に入らない
+        #expect(try Engine.parse("openai:m@8000").server == .loopback(port: 8000) && (try Engine.parse("openai:m@8000/v1")).server?.endpoint == "127.0.0.1:8000")   // 経路は、許可・キーの鍵に入らない
         #expect(throws: Engine.ParseError.invalidScheme("https")) { try Engine.parse("openai:m@https://192.168.1.5:8080/v1") }
         #expect(throws: Engine.ParseError.invalidScheme("ftp")) { try Engine.parse("openai:m@ftp://192.168.1.5:21") }
         #expect(throws: Engine.ParseError.invalidPath("/../x")) { try Engine.parse("openai:m@8000/../x") }
@@ -55,10 +55,10 @@ import Testing
         #expect(throws: Engine.ParseError.invalidPort("0")) { try Engine.parse("openai:m@0") }
         #expect(throws: Engine.ParseError.invalidPort("70000")) { try Engine.parse("openai:m@70000") }
         let lan = try Engine.parse("openai:qwen@192.168.1.5:8080")
-        #expect(lan == .openAI(model: "qwen", server: try ServerAddress.make(host: "192.168.1.5", port: 8080)) && lan.talksOverLAN && lan.serverEndpoint == "192.168.1.5:8080")
+        #expect(lan == .openAI(model: "qwen", server: try ServerAddress.make(host: "192.168.1.5", port: 8080)) && lan.server?.isLoopback == false && lan.server?.endpoint == "192.168.1.5:8080")
         #expect(try Engine.parse("openai:m@Mac-Studio.local:8000") == .openAI(model: "m", server: try ServerAddress.make(host: "mac-studio.local", port: 8000)))
         let here = try Engine.parse("openai:m@localhost:8000")
-        #expect(here == .openAI(model: "m", server: .loopback(port: 8000)) && !here.talksOverLAN)       // この Mac は、LAN ではない
+        #expect(here == .openAI(model: "m", server: .loopback(port: 8000)) && here.server?.isLoopback == true)       // この Mac は、LAN ではない
         for host in ["evil.example", "8.8.8.8", "172.32.0.1", "192.169.1.1", "100.128.0.1", "[::1]", "fe80::1", "1.2.3", "010.0.0.1", "example.local.evil.com"] {
             #expect(throws: Engine.ParseError.invalidHost(host)) { try Engine.parse("openai:m@\(host):1234") }
         }
@@ -66,8 +66,8 @@ import Testing
     }
 
     @Test func theBuiltInAdaptersStartOnLocalhost() {
-        #expect(OllamaChat(model: "m").server.endpoint == "127.0.0.1:11434")
-        #expect(OpenAICompatibleChat(model: "m", port: 1234).server.endpoint == "127.0.0.1:1234")
+        #expect(OllamaChat(model: "m", server: ModelServerKind.ollama.defaultAddress!).server.endpoint == "127.0.0.1:11434")
+        #expect(OpenAICompatibleChat(model: "m", server: .loopback(port: 1234)).server.endpoint == "127.0.0.1:1234")
         #expect(Engine.apple.makeChat() == nil)
     }
 }

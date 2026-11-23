@@ -13,18 +13,18 @@ struct ModelsPage: View {
     var body: some View {
         Card(tr("スキルを実行するモデル"), footer: tr("この Mac と、同じ LAN のサーバーだけ使えます。インターネットのクラウドのモデルは、使えません。")) {
             Row(tr("エンジン"), detail: nil) {
-                Picker("", selection: Binding(get: { model.engineKind }, set: { model.switchEngineKind($0) })) {
-                    Text("Apple").tag(SettingsRules.EngineKind.apple)
-                    Text("Ollama").tag(SettingsRules.EngineKind.ollama)
-                    Text(tr("OpenAI 互換")).tag(SettingsRules.EngineKind.openai)
+                Picker("", selection: Binding(get: { model.engineDraft.kind }, set: { model.switchEngineKind($0) })) {
+                    Text("Apple").tag(EngineKind.apple)
+                    Text("Ollama").tag(EngineKind.ollama)
+                    Text(tr("OpenAI 互換")).tag(EngineKind.openai)
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            if model.engineKind != .apple {
+            if model.engineDraft.kind != .apple {
                 RowDivider()
-                Row(tr("モデル"), detail: model.engineKind == .ollama ? tr("例：qwen3.5:4b") : tr("サーバーが返すモデルの名前（例：qwen3-4b）")) {
+                Row(tr("モデル"), detail: model.engineDraft.kind == .ollama ? tr("例：qwen3.5:4b") : tr("サーバーが返すモデルの名前（例：qwen3-4b）")) {
                     HStack(spacing: 6) {
-                        TextField("", text: Binding(get: { SettingsRules.splitOpenAI(model.engineRest).model }, set: { model.setModelEndpoint(model: $0) }), prompt: Text(model.engineKind.placeholder))
+                        TextField("", text: Binding(get: { model.engineDraft.model }, set: { model.setModelEndpoint(model: $0) }), prompt: Text(model.engineDraft.kind.placeholder))
                             .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 180)
                         if model.engineModels.isEmpty {
                             Button(tr("一覧")) { model.loadEngineModels() }.controlSize(.small).disabled(model.engineServer == nil || model.engineProbe == .working)
@@ -34,11 +34,11 @@ struct ModelsPage: View {
                     }
                 }
                 RowDivider()
-                Row(tr("エンドポイント"), detail: model.engineKind == .ollama ? tr("省くと 127.0.0.1:11434。LAN は http://192.168.1.5:11434。経路を替えるなら 末尾に /ollama など") : tr("この Mac は 8000。LAN は http://192.168.1.5:8080/v1。/v2 など、API の経路も書けます（省くと /v1）")) {
-                    TextField("", text: Binding(get: { model.engineEndpointDraft }, set: { model.setModelEndpoint(endpoint: $0) }), prompt: Text(model.engineKind == .ollama ? "127.0.0.1:11434" : "127.0.0.1:8000"))
+                Row(tr("エンドポイント"), detail: model.engineDraft.kind == .ollama ? tr("省くと 127.0.0.1:11434。LAN は http://192.168.1.5:11434。経路を替えるなら 末尾に /ollama など") : tr("この Mac は 8000。LAN は http://192.168.1.5:8080/v1。/v2 など、API の経路も書けます（省くと /v1）")) {
+                    TextField("", text: Binding(get: { model.engineDraft.endpoint }, set: { model.setModelEndpoint(endpoint: $0) }), prompt: Text(model.engineDraft.kind == .ollama ? "127.0.0.1:11434" : "127.0.0.1:8000"))
                         .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 220)
                 }
-                if let problem = model.engineProblem {
+                if let problem = model.engineDraft.problem {
                     Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red).padding(.horizontal, 14).padding(.bottom, 8)
                 }
                 if let server = model.engineServer {
@@ -55,7 +55,7 @@ struct ModelsPage: View {
                     }
                     RowDivider()
                     Row(tr("接続"), detail: tr("サーバー・APIキー・モデルがあるかを確かめます（質問は、送りません）")) {
-                        Button(model.engineProbe == .working ? tr("確認中…") : tr("確かめる")) { model.checkEngine() }.controlSize(.small).disabled(model.engineProbe == .working || model.engineProblem != nil)
+                        Button(model.engineProbe == .working ? tr("確認中…") : tr("確かめる")) { model.checkEngine() }.controlSize(.small).disabled(model.engineProbe == .working || model.engineDraft.problem != nil)
                     }
                     switch model.engineProbe {
                     case let .ok(text): Label(text, systemImage: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(.green).padding(.horizontal, 14).padding(.bottom, 8)

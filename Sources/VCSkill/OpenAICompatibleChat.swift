@@ -6,29 +6,28 @@ struct OpenAICompatibleChat: ChatModel {
     let model: String
     let server: LocalServer
 
-    init(model: String, port: Int) { self.init(model: model, server: .loopback(port: port)) }
+    private static let kind = ModelServerKind.openAI
 
     /// `keys`：APIキーの保管庫（サーバー別。なければ、付けない）。
     init(model: String, server address: ServerAddress, keys: EngineKeyStore = .standard) {
         self.model = model
-        server = LocalServer(name: tr("OpenAI 互換サーバー"), address: address, apiKey: keys.key(for: address.endpoint))
+        server = Self.kind.server(at: address, keys: keys)
     }
 
     func chat(_ messages: [ChatMessage], tools: Bool) async throws -> ChatMessage {
-        let (data, status) = try await server.send(path: server.address.root(default: "/v1") + "/chat/completions", body: Self.request(model: model, messages: messages, tools: tools))
+        let (data, status) = try await server.send(path: Self.kind.chatPath(server.address), body: Self.request(model: model, messages: messages, tools: tools))
         if status == 404 { throw ChatError.modelNotFound(model: model, hint: tr("サーバーに、このモデルを読み込んでください")) }
         guard status == 200 else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }
         return try Self.reply(from: data)
     }
 
     func check() async throws {
-        let (data, status) = try await server.send(path: server.address.root(default: "/v1") + "/models", body: nil, timeout: 15)
-        guard status == 200, let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let models = root["data"] as? [[String: Any]] else { throw ChatError.http(status, String(decoding: data, as: UTF8.self)) }   // try?: 読めなければ、失敗として返す
-        let ids = models.compactMap { $0["id"] as? String }
+        let ids = try await Self.kind.listModelNames(on: server)
         guard ids.contains(model) else {
             // 名前は、サーバーが返す「id」と、一字一句、同じ（ファイル名ではない）：あるものを、見せる
             let shown = ids.prefix(5).joined(separator: tr("・"))
-            throw ChatError.modelNotFound(model: model, hint: ids.isEmpty ? tr("サーバーに、このモデルを読み込んでください") : tr("サーバーにあるのは：\(shown)（設定 > モデル の「一覧」で選べます）")) }
+            throw ChatError.modelNotFound(model: model, hint: ids.isEmpty ? tr("サーバーに、このモデルを読み込んでください") : tr("サーバーにあるのは：\(shown)（設定 > モデル の「一覧」で選べます）"))
+        }
     }
 
     // MARK: 通信の形（OpenAI 互換）

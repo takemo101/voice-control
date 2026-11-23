@@ -39,8 +39,8 @@ extension CommandContext {
             throw StartupProblem(fromSettings ? tr("settings.json の engine: \(error)（設定ウィンドウ > モデル > エンジン で直す）") : "\(error)", page: fromSettings ? .models : nil)
         }
         // **LAN のサーバーへは、音声・画面の内容が出る**：設定からは、利用者が、その場所を許可したときだけ（`--engine` は、その場の、明示の指定）
-        if fromSettings, engine.talksOverLAN, settings.engineApproved?.lowercased() != engine.serverEndpoint {
-            throw StartupProblem(tr("LAN のサーバー（\(engine.serverEndpoint ?? "")）へ、音声・画面の内容を送ることを、許可していません（設定ウィンドウ > モデル で、許可する）"), page: .models)
+        if fromSettings, let server = engine.server, !server.isApproved(by: settings.engineApproved) {
+            throw StartupProblem(tr("LAN のサーバー（\(server.endpoint)）へ、音声・画面の内容を送ることを、許可していません（設定ウィンドウ > モデル で、許可する）"), page: .models)
         }
         return engine
     }

@@ -34,8 +34,6 @@ extension EnglishTables {
         "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）": "Speak while holding the key; on release, your speech is typed into the frontmost app (no skills are used)",
         "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）": "Speak while holding the key; on release, your speech is sent as a chat question (no skills are used; you can also type in the Chat window; experimental)",
         "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）": "Press to select an area, then ask by voice (key combinations only)",
-        "Apple（この Mac の中。既定）": "Apple (on this Mac, default)",
-        "Ollama（この Mac のサーバー）": "Ollama (server on this Mac)",
         "モデルの名前を入れてください": "Enter a model name",
         // スキル
         "スキル": "Skills",
@@ -106,7 +104,6 @@ extension EnglishTables {
         "APIキー": "API key",
         "APIキーを保存できません": "Couldn't save the API key",
         "LAN のサーバー（%@）へ、音声・画面の内容を送ることを、許可していません（設定ウィンドウ > モデル で、許可する）": "Sending voice and screen content to the LAN server (%@) isn't approved (approve it in Settings > Models)",
-        "OpenAI 互換（この Mac・LAN のサーバー）": "OpenAI-compatible (server on this Mac or LAN)",
         "「%@」の場所を、引けません": "Can't resolve “%@”",
         "「%@」の引き先（%@）が、この Mac・LAN の外です。送りません": "“%1$@” resolves to %2$@, which is outside this Mac and the LAN. Nothing is sent",
         "この LAN のサーバーを許可": "Allow this LAN server",
@@ -117,7 +114,6 @@ extension EnglishTables {
         "ホスト「%@」は使えません（この Mac と、同じ LAN だけ：127.0.0.1・192.168.x.x などの私的なアドレス・〜.local の名前。インターネットのサーバーは、使えません）": "Host “%@” can't be used (only this Mac and the same LAN: 127.0.0.1, private addresses such as 192.168.x.x, or a name ending in .local. Servers on the internet can't)",
         "ポート「%@」が使えません（1〜65535 の数）": "Port “%@” can't be used (a number from 1 to 65535)",
         "設定済み（表示しません）": "Set (not shown)",
-        "https:// は使えません（http:// だけ。暗号化された通信には、未対応です）": "https:// can't be used (http:// only; encrypted connections aren't supported)",
         "エンドポイント": "Endpoint",
         "エンドポイントを入れてください（例：8000・192.168.1.5:8080）": "Enter the endpoint (e.g. 8000 or 192.168.1.5:8080)",
         "サーバーが返すモデルの名前（例：qwen3-4b）": "Model name the server reports (e.g. qwen3-4b)",
@@ -136,5 +132,6 @@ extension EnglishTables {
         "%@（%@）が、時間内に応えませんでした。届いているか・起動しているかを、確かめてください": "%1$@ (%2$@) didn't respond in time. Check that it is reachable and running",
         "サーバーにあるのは：%@（設定 > モデル の「一覧」で選べます）": "The server has: %@ (pick one with “List” in Settings > Models)",
         "許可するまで、この設定は、保存されず、使われません（いまは Apple のモデルです）。": "Until you allow it, this setting isn't saved or used (the Apple model is used for now).",
+        "モデルの一覧を読めません": "Can't read the model list",
     ]
 }

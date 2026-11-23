@@ -18,7 +18,7 @@ enum Help {
             ("--model <dir>", tr("Tiny-Jev のモデルの場所（既定：VC_MODEL_DIR → ~/.voice-control/models/tiny-jev-0.6b → ./models/tiny-jev-0.6b。取得：アプリの設定 > モデル）")),
             (tr("--length <トークン数>"), tr("Tiny-Jev の入力の長さ（既定 1024。長いほど遅い）")),
             (tr("--floor <0〜1>"), tr("確信度の下限（既定 0.40。未満は実行しない）")),
-            (tr("--engine <エンジン>"), tr("スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:qwen3.5:4b＝この Mac の Ollama。openai:<モデル>@<ポート>＝この Mac の OpenAI 互換サーバー〔LM Studio・llama.cpp など〕。通信先は 127.0.0.1 だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら vc engine set）")),
+            (tr("--engine <エンジン>"), tr("スキルを実行するモデル（既定：apple＝Apple のオンデバイスのモデル。ollama:<モデル>[@<場所>]＝Ollama（場所を省くと 127.0.0.1:11434）。openai:<モデル>@<場所>＝OpenAI 互換のサーバー〔LM Studio・oMLX・Strata など〕。場所は、ポート（この Mac）か ホスト:ポート（同じ LAN）に API の経路（例 http://192.168.1.5:8080/v1）。通信先は、この Mac と同じ LAN だけ。クラウドのモデルは使えない。確認：vc doctor --engine …。常にそうするなら、設定ウィンドウ > モデル）")),
             (tr("--stt <音声認識>"), tr("使う音声認識（既定：apple＝Apple の SpeechTranscriber。whisper-large-v3-turbo＝ダウンロードしたモデル。取得：設定ウィンドウ > モデル。常にそうするなら 設定ウィンドウ > モデル > 音声認識）")),
             ("-h, --help", tr("このヘルプを表示")),
             ("-V, --version", tr("版を表示")),
