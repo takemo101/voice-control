@@ -27,6 +27,21 @@ import Testing
         #expect(sent.messages.first?.content == "SYS" && sent.messages.last?.content == "私の好きな色は？")
     }
 
+    @Test func anImageIsAttachedToTheNewMessageOnlyAndAServerRefusalMentionsTheImage() async throws {
+        let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")!   // 1×1 の PNG
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("ms-chat-\(UUID().uuidString).png")
+        try png.write(to: file); defer { try? FileManager.default.removeItem(at: file) }
+        let fake = Fake(.success("見えます"))
+        _ = try await ModelServerChatBackend(chat: fake).respond(instructions: "S", turns: [ChatTurn(user: "前", assistant: "答え")], user: "これは何？", options: ChatCallOptions(image: file))
+        let sent = try #require(fake.sent.first?.messages)
+        #expect(sent.dropLast().allSatisfy { $0.images.isEmpty })   // 過去の往復には、付けない（文脈を埋めない）
+        #expect(sent.last?.images.count == 1 && Data(base64Encoded: sent.last!.images[0]) != nil)
+        do { _ = try await ModelServerChatBackend(chat: Fake(.failure(.http(400, "no vision")))).respond(instructions: "S", turns: [], user: "q", options: ChatCallOptions(image: file)); Issue.record("失敗するはず") }
+        catch let ConversationError.failed(message) { #expect(message.contains("400") && message.contains("画像")) }
+        do { _ = try await ModelServerChatBackend(chat: Fake(.failure(.http(400, "x")))).respond(instructions: "S", turns: [], user: "q"); Issue.record("失敗するはず") }
+        catch let ConversationError.failed(message) { #expect(!message.contains("画像を付けました")) }   // 画像なしなら、画像の案内は出さない
+    }
+
     @Test func serverFailuresAndEmptyAnswersSurfaceAsAConversationFailureWithTheServersReason() async {
         for (outcome, expected) in [(Result<String, ChatError>.failure(.timedOut(server: "S", endpoint: "127.0.0.1:1")), "127.0.0.1:1"), (.failure(.http(500, "boom")), "500"), (.success(" \n"), "空")] {
             do { _ = try await ModelServerChatBackend(chat: Fake(outcome)).respond(instructions: "", turns: [], user: "q"); Issue.record("失敗するはず") }

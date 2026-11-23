@@ -48,6 +48,10 @@ struct OpenAICompatibleChat: ChatModel {
                 return ["id": call.id ?? "call_\(call.name)", "type": "function", "function": ["name": call.name, "arguments": arguments]]
             }
         }
+        if !m.images.isEmpty {
+            // 画像つきの発言：内容を、文と画像（data URL）の並びにする（OpenAI 互換の形）
+            out["content"] = [["type": "text", "text": m.content]] + m.images.map { ["type": "image_url", "image_url": ["url": "data:image/png;base64,\($0)"]] }
+        }
         if m.role == .tool { out["tool_call_id"] = m.toolCallID ?? "call_\(m.toolName ?? "run_command")" }
         return out
     }

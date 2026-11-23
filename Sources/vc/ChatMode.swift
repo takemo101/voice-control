@@ -103,6 +103,7 @@ import VCSkill
         var notes: [String] = []
         var attachments: [ChatAttachments.Attachment] = []
         var imageToSend: URL?
+        var sentImageKey: String?   // ローカルのサーバーへ、そのまま渡した画像の印（会話が新しくなっても、同じ画像を、続けて送らない）
         var route: ImageRoute?
         var cleanup: [() -> Void] = []
         defer { cleanup.forEach { $0() } }   // コピーした画像の書き出しは、答えが出たあとに、消す
@@ -141,6 +142,12 @@ import VCSkill
                     } else {
                         route = .notUsed(tr("確認できないので、送りません"))
                     }
+                } else if agent == .server {
+                    // ローカルのサーバー：画像を、そのまま、いまの質問に付けて渡す（同じ画像は、1 度だけ。答えは、会話の記録に残る）。サーバーのモデルが、画像に対応しているかは、サーバー次第
+                    let key = "image-" + ChatAttachments.fingerprint(file)
+                    route = .digested(by: engine)
+                    if attached.contains(key) { if plan != .attached { notes.append(tr("同じ画像は、すでに会話に入っています")) } }
+                    else { imageToSend = file; attached.insert(key); sentImageKey = key }
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
                     if attached.contains(key) { route = .digested(by: engine); if plan != .attached { notes.append(tr("同じ画像は、すでに会話に入っています")) } }
@@ -196,7 +203,7 @@ import VCSkill
             Task { @MainActor in progress(activity.text) }
         }, onText: onText, files: filesToSend, confirm: confirm, image: imageToSend, allowsWeb: !webOff, needsWeb: scorer.map { scorer -> (@Sendable (String) -> Bool) in { _ in ChatWebNeed(scorer: scorer).needsWeb(utterance) } },
             judgeCommand: auto ? scorer.map { scorer -> CommandJudge in { command in await Task.detached { CommandSafetyJudge(scorer: scorer).isHarmless(command) }.value } } : nil))
-        if reply.startedNew { attached = Set(attachments.map(\.key)); notes.append(tr("しばらく話さなかったので、前の会話は終わりました")) }
+        if reply.startedNew { attached = Set(attachments.map(\.key) + [sentImageKey].compactMap { $0 }); notes.append(tr("しばらく話さなかったので、前の会話は終わりました")) }
         if reply.compacted { notes.append(tr("古いやり取りを、要約しました")) }
         if reply.compactionFailed { notes.append(tr("要約に失敗して、古いやり取りを忘れました")) }
         return Outcome(answer: reply.text, notes: notes, activities: log.items, startedNew: reply.startedNew, imageRoute: route)

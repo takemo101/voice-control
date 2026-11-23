@@ -180,6 +180,8 @@ extension EnglishTables {
         "設定 > モデル で、Ollama か OpenAI 互換を選んでください。いまは、Apple のモデルで答えます。": "Choose Ollama or OpenAI-compatible in Settings > Models. For now, answers come from the Apple model.",
         "ローカルのサーバーが選ばれていません（設定 > モデル で、Ollama か OpenAI 互換を選ぶ）。Apple のモデルで答えました": "No local server is chosen (choose Ollama or OpenAI-compatible in Settings > Models). Answered with the Apple model",
         "答えが空でした": "The answer was empty",
+        "画像を読めません（%@）": "Could not read the image (%@)",
+        "（画像を付けました。このモデルが、画像に対応しているか、確かめてください）": " (An image was attached. Check that this model supports images.)",
         "同じ LAN のサーバーで処理": "Processed on a server on the same LAN",
         "ファイルは、送りません": "Files won't be sent",
         "ファイルは、送りませんでした": "The files were not sent",
