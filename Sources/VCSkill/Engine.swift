@@ -1,7 +1,7 @@
 import VCCore
 import Foundation
 
-/// スキルを実行するモデル。既定は、Apple のオンデバイスの言語モデル。ほかは、この Mac のローカルのサーバー（`127.0.0.1`）のモデルに替えられる。
+/// スキルを実行するモデル。既定は、Apple のオンデバイスの言語モデル。ほかは、モデルのサーバー（Ollama・OpenAI 互換。この Mac の `127.0.0.1` か、**同じ LAN**。`ModelServerKind`・`ServerAddress`）のモデルに替えられる。
 /// スキルを選ぶ Tiny-Jev は、どれでも同じ。
 public enum Engine: Sendable, Equatable {
     case apple

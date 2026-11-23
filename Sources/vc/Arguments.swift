@@ -46,7 +46,7 @@ struct CommonOptions {
     /// 取り除かない（`vc run` は、自分の `--dry-run` を、あとで取り除く）。
     var dryRun: Bool
     var floor: Double?
-    /// スキルを実行するモデル（`apple` か `ollama:<モデル>`）。解釈は `CommandContext.engine`。
+    /// スキルを実行するモデル（`apple`・`ollama:<モデル>[@<場所>]`・`openai:<モデル>@<場所>`）。解釈は `Engine.parse`。
     var engine: String?
     /// 使う音声認識（`apple` か、ダウンロードしたモデルの ID）。解釈は `CommandContext.speechChoice`。
     var stt: String?

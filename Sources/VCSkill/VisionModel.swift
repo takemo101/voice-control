@@ -1,7 +1,7 @@
 import Foundation
 import VCCore
 
-/// 画像を見て答える言語モデル（`vc see`）。**この Mac の中のモデルだけ**：Apple のオンデバイスのモデル（`fm respond --image`）か、Ollama の画像に対応したモデル（`127.0.0.1`）。
+/// 画像を見て答える言語モデル（`vc see`）。**Apple のオンデバイスのモデル**（`fm respond --image`）か、Ollama の画像に対応したモデル（この Mac の `127.0.0.1`。**同じ LAN の Ollama なら、画像が、その LAN へ出る**：設定からは、利用者が、その場所を許可したときだけ：`Settings.engineApproved`）。
 /// 画像（画面の内容）は、この Mac の外へ出ない。どこにも残さない（縮めた画像は、答えたあとに消す）。
 /// 画像の中の文字は、**非信頼のデータ**：命令として扱わない（指示で、そう伝える）。
 enum VisionModel {
