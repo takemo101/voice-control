@@ -26,10 +26,10 @@ import VCSkill
         settings.engineApproved = "192.168.1.6:8080"                                 // 別の場所の許可は、効かない
         #expect(throws: StartupProblem.self) { try context().resolveEngine(settings: settings) }
         settings.engineApproved = "192.168.1.5:8080"
-        #expect(try context().resolveEngine(settings: settings).talksOverLAN)
+        #expect(try context().resolveEngine(settings: settings).server?.isLoopback == false)
         var here = Settings(); here.engine = "openai:m@8000"                          // この Mac は、許可が要らない
         #expect(try context().resolveEngine(settings: here) == .openAI(model: "m", server: .loopback(port: 8000)))
-        #expect(try context(engine: "openai:m@192.168.1.5:8080").resolveEngine(settings: Settings()).talksOverLAN)
+        #expect(try context(engine: "openai:m@192.168.1.5:8080").resolveEngine(settings: Settings()).server?.isLoopback == false)
     }
 
     @Test func aMisspeltSpeechModelOrChatAgentIsAProblemToo() {

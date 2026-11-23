@@ -31,47 +31,40 @@ public enum Engine: Sendable, Equatable {
         }
     }
 
-    /// 既定の Ollama の場所。
-    public static let ollamaDefault = ServerAddress.loopback(port: 11434)
-
     /// `apple`・`ollama:<モデル>`（モデル名の中の `:` は、そのまま：`ollama:qwen3.5:4b`。場所を省くと、`127.0.0.1:11434`）・`ollama:<モデル>@<場所>`・
-    /// `openai:<モデル>@<ポート>`（この Mac）・`openai:<モデル>@<ホスト>:<ポート>`（同じ LAN）。場所は、`<ポート>` か `<ホスト>:<ポート>`（`ServerAddress`）。
+    /// `openai:<モデル>@<ポート>`（この Mac）・`openai:<モデル>@<ホスト>:<ポート>`（同じ LAN）。場所は、`[http://]<ポート>`・`[http://]<ホスト>:<ポート>` のあとに、経路（`EndpointText`・`ServerAddress`）。
     public static func parse(_ text: String) throws -> Engine {
         if text == "apple" { return .apple }
-        if text.hasPrefix("ollama:") {
-            let rest = String(text.dropFirst("ollama:".count))
-            guard let at = rest.lastIndex(of: "@") else { return .ollama(model: try validModel(rest), server: ollamaDefault) }   // 場所を省く：既定
-            let model = try validModel(String(rest[..<at]))
-            return .ollama(model: model, server: try place(String(rest[rest.index(after: at)...])))
+        guard let kind = ModelServerKind.allCases.first(where: { text.hasPrefix($0.prefix) }) else { throw ParseError.unknown(text) }
+        let rest = String(text.dropFirst(kind.prefix.count))
+        let model: String, address: ServerAddress
+        if let at = rest.lastIndex(of: "@") {
+            model = try validModel(String(rest[..<at]))
+            address = try place(String(rest[rest.index(after: at)...]))
+        } else if let fallback = kind.defaultAddress {
+            model = try validModel(rest)   // 場所を省く：既定
+            address = fallback
+        } else {
+            throw ParseError.invalidPort("")   // 既定の場所がない種類（OpenAI 互換）：場所が要る
         }
-        if text.hasPrefix("openai:") {
-            let rest = String(text.dropFirst("openai:".count))
-            // 場所は、最後の `@` のあと：`<ポート>`（この Mac）か `<ホスト>:<ポート>`（ホストは、この Mac と LAN だけ：`ServerAddress`）
-            guard let at = rest.lastIndex(of: "@") else { throw ParseError.invalidPort("") }
-            let model = try validModel(String(rest[..<at]))
-            return .openAI(model: model, server: try place(String(rest[rest.index(after: at)...])))
-        }
-        throw ParseError.unknown(text)
+        return kind == .ollama ? .ollama(model: model, server: address) : .openAI(model: model, server: address)
     }
 
-    /// 場所：`[http://]<ポート>`・`[http://]<ホスト>:<ポート>`・どちらも、あとに経路（`/v1`・`/openai/v1`）を付けられる。`http://` を付けたときは、ポートを省ける（80）。`https://` は、使えない。
+    /// 場所：`[http://]<ポート>`・`[http://]<ホスト>:<ポート>`（あとに経路）。`http://` を付けたときは、ポートを省ける（80）。`http` 以外のスキームは、使えない。
     private static func place(_ raw: String) throws -> ServerAddress {
-        var text = raw
-        var hadScheme = false
-        let lower = text.lowercased()
-        if lower.hasPrefix("http://") { text = String(text.dropFirst("http://".count)); hadScheme = true }
-        else if let range = lower.range(of: "://") { throw ParseError.invalidScheme(String(lower[..<range.lowerBound])) }
-        var path = ""
-        if let slash = text.firstIndex(of: "/") { path = String(text[slash...]); text = String(text[..<slash]) }
-        while path.hasSuffix("/") { path.removeLast() }
-        guard path.isEmpty || ServerAddress.validBasePath(path) else { throw ParseError.invalidPath(path) }
+        let parts = EndpointText.parts(raw)
+        if let scheme = parts.scheme, scheme != "http" { throw ParseError.invalidScheme(scheme) }
+        guard parts.path.isEmpty || ServerAddress.validBasePath(parts.path) else { throw ParseError.invalidPath(parts.path) }
         let hostText: String?, portText: String
-        if let colon = text.lastIndex(of: ":") { hostText = String(text[..<colon]); portText = String(text[text.index(after: colon)...]) }
-        else if hadScheme { hostText = text; portText = "80" } else { hostText = nil; portText = text }
+        if let colon = parts.authority.lastIndex(of: ":") { hostText = String(parts.authority[..<colon]); portText = String(parts.authority[parts.authority.index(after: colon)...]) }
+        else if parts.scheme != nil { hostText = parts.authority; portText = "80" } else { hostText = nil; portText = parts.authority }
         guard let port = Int(portText), (1...65535).contains(port) else { throw ParseError.invalidPort(portText) }
-        guard let hostText else { return .loopback(port: port, basePath: path) }
-        do { return try ServerAddress.make(host: hostText, port: port, basePath: path) } catch { throw ParseError.invalidHost(hostText) }
+        guard let hostText else { return .loopback(port: port, basePath: parts.path) }
+        do { return try ServerAddress.make(host: hostText, port: port, basePath: parts.path) } catch { throw ParseError.invalidHost(hostText) }
     }
+
+    /// 画面に出すモデルの名前として、使えるか（書き方・クラウドのモデルでない）。
+    public static func isUsableModelName(_ name: String) -> Bool { (try? validModel(name)) != nil }   // try?: 使えるか否かだけ（理由は、`parse` が出す）
 
     private static func validModel(_ model: String) throws -> String {
         guard model.range(of: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,100}$", options: .regularExpression) != nil else { throw ParseError.invalidModel(model) }
@@ -89,12 +82,14 @@ public enum Engine: Sendable, Equatable {
         }
     }
 
-    /// 使える状態か（`vc doctor`）：サーバーが動いていて、モデルがあるか。`apple` は、ここでは調べない（`AppleIntelligence`）。失敗は `ChatError`（`description` が、理由と手順）。
-    /// 通信先が、この Mac の外（同じ LAN）か。**音声・画面の内容が、LAN へ出る**（暗号化されない）。
-    public var talksOverLAN: Bool { server.map { !$0.isLoopback } ?? false }
-
-    /// 通信先（`ホスト:ポート`）。Ollama・OpenAI 互換だけ。APIキーの保管庫の鍵。
-    public var serverEndpoint: String? { server?.endpoint }
+    /// 種類（Apple は、なし）。
+    public var kind: ModelServerKind? {
+        switch self {
+        case .apple: return nil
+        case .ollama: return .ollama
+        case .openAI: return .openAI
+        }
+    }
 
     /// 通信先の場所（Apple は、なし）。
     public var server: ServerAddress? {
@@ -104,6 +99,7 @@ public enum Engine: Sendable, Equatable {
         }
     }
 
+    /// 使える状態か（`vc doctor`）：サーバーが動いていて、モデルがあるか。`apple` は、ここでは調べない（`AppleIntelligence`）。失敗は `ChatError`（`description` が、理由と直し方）。
     public func verify() async throws {
         try await makeChat()?.check()
     }

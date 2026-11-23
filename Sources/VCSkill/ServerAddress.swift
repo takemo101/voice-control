@@ -21,6 +21,9 @@ public struct ServerAddress: Sendable, Equatable {
 
     public static func loopback(port: Int, basePath: String = "") -> ServerAddress { ServerAddress(host: loopbackHost, port: port, basePath: basePath) }
 
+    /// 通信してよいか：この Mac は、いつも。**LAN は、利用者が、その場所を許可しているときだけ**（`approved`：設定 `engineApproved`。大文字小文字は、区別しない）。
+    public func isApproved(by approved: String?) -> Bool { isLoopback || approved?.lowercased() == endpoint }
+
     /// API の根：書かれていれば、それ。なければ、`fallback`（OpenAI 互換は `/v1`）。
     func root(default fallback: String) -> String { basePath.isEmpty ? fallback : basePath }
 

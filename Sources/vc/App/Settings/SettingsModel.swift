@@ -55,11 +55,8 @@ enum DownloadState: Equatable {
     /// キー欄の入力中の文字と、その問題。
     @Published var keyDrafts: [KeyKind: String] = [:]
     @Published private(set) var keyProblems: [KeyKind: String] = [:]
-    @Published var engineKind: SettingsRules.EngineKind = .apple
-    @Published var engineRest = ""
-    /// OpenAI 互換のエンドポイントの入力欄（貼り付けたままの形：`http://…/v1` も、そのまま見せる）。
-    @Published var engineEndpointDraft = ""
-    @Published private(set) var engineProblem: String?
+    /// エンジンの入力（状態と規則は、`EngineDraft`）。
+    @Published private(set) var engineDraft = EngineDraft(settings: Settings())
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
     /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
@@ -121,12 +118,7 @@ enum DownloadState: Equatable {
     private func syncDrafts() {
         for kind in KeyKind.fixed { keyDrafts[kind] = kind.value(in: settings) ?? "" }
         keyProblems = [:]
-        let split = SettingsRules.splitEngine(settings.engine)
-        engineKind = split.kind
-        engineRest = split.rest
-        rememberedRests = settings.engineRests ?? [:]
-        engineEndpointDraft = SettingsRules.splitOpenAI(split.rest).endpoint
-        engineProblem = nil
+        engineDraft = EngineDraft(settings: settings)
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
     }
 
@@ -264,11 +256,9 @@ enum DownloadState: Equatable {
     // MARK: エンジン
 
     /// Ollama・OpenAI 互換のサーバーの場所（書き方が正しいとき。Ollama は、省くと既定）。
-    var engineServer: ServerAddress? { SettingsRules.engineServer(kind: engineKind, rest: engineRest) }
-    /// 通信先が、同じ LAN か（音声・画面の内容が、LAN へ出る）。
-    var engineOverLAN: Bool { engineServer.map { !$0.isLoopback } ?? false }
-    /// その LAN の場所を、利用者が許可しているか。
-    var engineLANApproved: Bool { engineServer.map { settings.engineApproved?.lowercased() == $0.endpoint } ?? false }
+    var engineServer: ServerAddress? { engineDraft.server }
+    /// その場所を、通信してよいか（この Mac は、いつも。LAN は、利用者が、その場所を許可しているときだけ）。
+    var engineLANApproved: Bool { engineServer?.isApproved(by: settings.engineApproved) ?? false }
     /// そのサーバーの APIキーを、保管庫に持っているか（値は、見せない）。
     var engineKeyConfigured: Bool { _ = engineKeyRevision; return engineServer.map { EngineKeyStore.standard.hasKey(for: $0.endpoint) } ?? false }
     @Published private(set) var engineKeyRevision = 0
@@ -283,28 +273,46 @@ enum DownloadState: Equatable {
         engineKeyRevision += 1
     }
 
-    /// LAN の場所への許可：オンにするとき、何が出るかを見せて、確認する。
+    /// 種類（Apple・Ollama・OpenAI 互換）を切り替える。**種類ごとの入力は、別々**（`EngineDraft`）。
+    func switchEngineKind(_ kind: EngineKind) {
+        guard kind != engineDraft.kind else { return }
+        engineDraft.switchKind(kind, settings: settings)
+        resetEngineCheck()
+        saveEngineDraft()
+    }
+
+    /// モデルの名前・エンドポイントの入力（片方だけ、渡す）。問題がなければ、保存する。
+    func setModelEndpoint(model name: String? = nil, endpoint: String? = nil) {
+        let previous = engineServer
+        engineDraft.edit(model: name, endpoint: endpoint)
+        engineKeyDraft = ""   // 入力中のキーは、前のサーバーのもの：残さない
+        if previous != engineServer { engineModels = [] }   // 一覧は、そのサーバーのもの
+        engineProbe = .idle   // 確認の結果は、入力が変わったら、古い
+        guard engineDraft.problem == nil else { return }
+        saveEngineDraft()
+    }
+
+    func chooseEngineModel(_ name: String) { setModelEndpoint(model: name) }
+
+    /// LAN の場所への許可：オンにするとき、何が出るかを見せて、確認する。**許可と一緒に、いまの入力を保存する**（許可するまでは、保存していない）。外すと、Apple のモデルに戻る。
     func setEngineLANApproved(_ on: Bool) {
         guard let server = engineServer, !server.isLoopback else { return }
         if on {
             guard AppAlerts.confirm(title: tr("\(server.endpoint) へ、音声・画面の内容を送りますか？"), message: tr("スキルを実行するモデルへ、話した内容・選んだ画面の内容・実行結果が、同じ LAN の \(server.endpoint) へ送られます。通信は、暗号化されません（HTTP）。このサーバーを、信頼できるときだけ、許可してください。"), confirm: tr("許可する"), cancel: tr("やめる"), style: .warning) else { return }
         }
-        // 許可と一緒に、いまの入力を保存する（許可するまでは、保存していない）。外すと、Apple のモデルに戻る
         let approved = on ? server.endpoint : nil
-        let (kind, rest, valid) = (engineKind, engineRest, engineProblem == nil)
+        let draft = engineDraft
         update {
             $0.engineApproved = approved
-            if valid { $0.engine = SettingsRules.persistedEngine(kind: kind, rest: rest, approved: approved) }
+            if draft.problem == nil { $0.engine = draft.persistedEngine(approved: approved) }
         }
     }
 
-    /// Ollama・OpenAI 互換の、モデルの名前・エンドポイントの入力（片方だけ、渡す）。保存する形（`<モデル>@<場所>`）にして、`setEngine` へ。
-    func setModelEndpoint(model name: String? = nil, endpoint: String? = nil) {
-        let parts = SettingsRules.splitOpenAI(engineRest)
-        if let endpoint { engineEndpointDraft = endpoint }
-        let normalized = SettingsRules.normalizeEndpoint(engineEndpointDraft)
-        setEngine(kind: engineKind, rest: SettingsRules.modelRest(kind: engineKind, model: name ?? parts.model, endpoint: engineEndpointDraft))
-        if let problem = normalized.problem { engineProblem = problem }   // `https://` など、場所の書き方の問題
+    /// 入力を、設定ファイルへ保存する（`engine`：使うもの。`engineRests`：種類ごとの、最後の入力）。
+    private func saveEngineDraft() {
+        let engine = engineDraft.persistedEngine(approved: settings.engineApproved)
+        let rests = engineDraft.persistedRests(base: settings.engineRests)
+        update { $0.engine = engine; $0.engineRests = rests }
     }
 
     // MARK: 一覧・接続の確認（質問は送らない：一覧の取得と、モデルの有無の確認だけ）
@@ -318,10 +326,15 @@ enum DownloadState: Equatable {
     /// サーバーが持っているモデル（「一覧」で取ったもの）。
     @Published private(set) var engineModels: [String] = []
 
+    private func resetEngineCheck() {
+        engineKeyDraft = ""
+        engineModels = []
+        engineProbe = .idle
+    }
+
     /// 「一覧」：サーバーのモデルの一覧を取る。
     func loadEngineModels() {
-        guard let server = engineServer, engineKind != .apple else { return }
-        let kind: ModelServerCatalog.Kind = engineKind == .ollama ? .ollama : .openAI
+        guard let server = engineServer, let kind = engineDraft.kind.serverKind else { return }
         engineProbe = .working
         Task { [weak self] in
             do {
@@ -339,7 +352,8 @@ enum DownloadState: Equatable {
 
     /// 「確かめる」：サーバーが動いていて、キーが通り、モデルがあるか。
     func checkEngine() {
-        guard engineKind != .apple, engineProblem == nil, let text = Optional(SettingsRules.engineText(kind: engineKind, rest: engineRest)), let engine = try? Engine.parse(text) else { return }   // try?: 書き方の問題は、`engineProblem` が出している
+        let draft = engineDraft
+        guard draft.kind != .apple, draft.problem == nil, let engine = try? Engine.parse(EngineRules.engineText(kind: draft.kind, rest: draft.rest)) else { return }   // try?: 書き方の問題は、`problem` が出している
         let server = engineServer
         engineProbe = .working
         Task { [weak self] in
@@ -352,53 +366,6 @@ enum DownloadState: Equatable {
                 self.engineProbe = .failed("\(error)")
             }
         }
-    }
-
-    func chooseEngineModel(_ name: String) { setModelEndpoint(model: name) }
-
-    /// 種類ごとの、最後に使った入力（画面の中。有効なものは、設定にも保存する：`Settings.engineRests`）。
-    private var rememberedRests: [String: String] = [:]
-
-    /// 種類（Apple・Ollama・OpenAI 互換）を切り替える。**種類ごとの設定は、別々**：出ていく側の入力を覚え、入る側の、覚えていた入力を出す（なければ、空）。
-    func switchEngineKind(_ kind: SettingsRules.EngineKind) {
-        guard kind != engineKind else { return }
-        if engineKind != .apple { rememberedRests[engineKind.rawValue] = engineRest }
-        let rest = rememberedRests[kind.rawValue] ?? SettingsRules.rest(for: kind, engine: settings.engine, remembered: settings.engineRests)
-        engineKind = kind
-        engineRest = rest
-        engineEndpointDraft = SettingsRules.splitOpenAI(rest).endpoint
-        engineKeyDraft = ""
-        engineModels = []
-        engineProbe = .idle
-        engineProblem = kind == .apple || rest.isEmpty ? nil : SettingsRules.engineProblem(kind: kind, rest: rest)   // まだ、何も入れていない種類には、問題を出さない
-        let persisted = engineProblem == nil && !rest.isEmpty ? SettingsRules.persistedEngine(kind: kind, rest: rest, approved: settings.engineApproved) : nil   // 入力がなければ、Apple のまま
-        let rests = validRests()
-        update { $0.engine = persisted; $0.engineRests = rests.isEmpty ? nil : rests }
-    }
-
-    /// 設定へ保存する、種類ごとの入力（書き方が正しいものだけ）。
-    private func validRests() -> [String: String] {
-        var out = settings.engineRests ?? [:]
-        for kind in [SettingsRules.EngineKind.ollama, .openai] {
-            guard let rest = rememberedRests[kind.rawValue] else { continue }
-            if SettingsRules.engineProblem(kind: kind, rest: rest) == nil { out[kind.rawValue] = rest }
-        }
-        return out
-    }
-
-    func setEngine(kind: SettingsRules.EngineKind, rest: String) {
-        let previous = engineServer
-        engineKind = kind
-        engineRest = rest
-        engineKeyDraft = ""   // 入力中のキーは、前のサーバーのもの：残さない
-        if previous != engineServer { engineModels = [] }   // 一覧は、そのサーバーのもの
-        engineProbe = .idle   // 確認の結果は、入力が変わったら、古い
-        engineProblem = SettingsRules.engineProblem(kind: kind, rest: rest)
-        guard engineProblem == nil else { return }
-        let persisted = SettingsRules.persistedEngine(kind: kind, rest: rest, approved: settings.engineApproved)   // 許可していない LAN のサーバーは、保存しない（Apple のまま）
-        if kind != .apple { rememberedRests[kind.rawValue] = rest }
-        let rests = validRests()
-        update { $0.engine = persisted; $0.engineRests = rests.isEmpty ? nil : rests }
     }
 
     // MARK: 音声認識・モデル

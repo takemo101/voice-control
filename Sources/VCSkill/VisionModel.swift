@@ -88,12 +88,13 @@ enum VisionModel {
     }
 
     private static func askOllama(png: Data, question: String, model: String, server address: ServerAddress) -> Result<String, ToolFailure> {
-        let server = OllamaChat(model: model, server: address).server   // 場所・APIキーは、会話と同じ
+        let kind = ModelServerKind.ollama
+        let server = kind.server(at: address)   // 場所・APIキーは、会話と同じ
         let box = Box<Result<String, ToolFailure>>()
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             do {
-                let (data, status) = try await server.send(path: server.address.basePath + "/api/chat", body: ollamaRequest(model: model, png: png, question: question))
+                let (data, status) = try await server.send(path: kind.chatPath(address), body: ollamaRequest(model: model, png: png, question: question))
                 box.value = ollamaReply(status: status, data: data, model: model)
             } catch { box.value = .failure(ToolFailure(exitCode: 1, message: "\(error)")) }
             done.signal()
