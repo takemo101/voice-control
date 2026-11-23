@@ -41,6 +41,10 @@ import VCSkill
     /// 使えなければ、**Apple のモデル**で答える（会話の記録は、そのまま。設定は、変えない：入れ直せば、また使える）。戻り値は、利用者に見せる断り
     func settleAgent() async -> String? {
         let chosen = setup.agent
+        if !chosen.canAnswer(with: setup.engine) {
+            if agent != .apple { await conversation.replaceBackend(rebuildBackend(for: .apple)) }
+            return tr("ローカルのサーバーが選ばれていません（設定 > モデル で、Ollama か OpenAI 互換を選ぶ）。Apple のモデルで答えました")
+        }
         if chosen.isExternal, !AgentLocator.isAvailable(chosen) {
             if agent != .apple { await conversation.replaceBackend(rebuildBackend(for: .apple)) }
             return tr("\(chosen.rawValue) が、この Mac に見つかりません（アンインストールされた？）。Apple のモデルで答えました")
@@ -53,7 +57,7 @@ import VCSkill
     private func rebuildBackend(for runner: ChatAgent) -> ChatBackend {
         agent = runner
         tools = runner.effective(setup.tools)
-        return runner.makeBackend(tools: tools, folder: setup.folder, acp: setup.acp, sandbox: setup.sandbox, model: setup.model, auto: setup.auto)
+        return runner.makeBackend(tools: tools, folder: setup.folder, acp: setup.acp, sandbox: setup.sandbox, model: setup.model, auto: setup.auto, engine: setup.engine)
     }
 
     func end() async {
@@ -71,6 +75,8 @@ import VCSkill
     enum ImageRoute: Equatable {
         /// この Mac の中で、文字にして、質問に入れた（Apple の会話）。
         case local
+        /// 同じ LAN のサーバーで、文字にして、質問に入れた（スキルを実行するモデルが、LAN の Ollama のとき。F73(4)：許可した場所だけ）。
+        case lan
         /// 外のエージェント（名前）へ送る確認を、待っている。
         case confirming(String)
         /// 外のエージェント（名前）へ送った（確認して）。
@@ -79,6 +85,9 @@ import VCSkill
         case declined(String)
         /// 使えなかった（理由）。
         case notUsed(String)
+
+        /// 画像を、文字にした場所：この Mac か、同じ LAN のサーバー（`engine`：スキルを実行するモデル）。
+        static func digested(by engine: Engine) -> ImageRoute { engine.server.map { $0.isLoopback ? .local : .lan } ?? .local }
     }
 
     /// 画像を、外のエージェントへ送ってよいか、利用者に確かめる（送るたびに：画像と、送り先を見せる）。送ってよければ true。
@@ -134,12 +143,12 @@ import VCSkill
                     }
                 } else {
                     let key = "image-" + ChatAttachments.fingerprint(file)
-                    if attached.contains(key) { route = .local; if plan != .attached { notes.append(tr("同じ画像は、すでに会話に入っています")) } }
+                    if attached.contains(key) { route = .digested(by: engine); if plan != .attached { notes.append(tr("同じ画像は、すでに会話に入っています")) } }
                     else {
                         progress(tr("画像を読んでいます…"))
                         let digest = await Task.detached { ChatAttachments.imageAttachment(file: file, engine: engine, cancel: token) }.value
                         switch digest {
-                        case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key); route = .local
+                        case let .success(attachment): attachments.append(attachment); attached.insert(attachment.key); route = .digested(by: engine)
                         case let .failure(failure): route = .notUsed(tr("読めませんでした")); notes.append(tr("画像を読めませんでした（\(failure.message)）。画像なしで答えます"))
                         }
                     }
@@ -158,7 +167,7 @@ import VCSkill
         var filesToSend: [ChatFile] = []
         if !files.isEmpty {
             if !agent.isExternal {
-                notes.append(tr("ファイルは、外のエージェントの会話でだけ、使えます（Apple のモデルでは、使いません）"))
+                notes.append(tr("ファイルは、外のエージェントの会話でだけ、使えます（Apple のモデル・ローカルのサーバーでは、使いません）"))
             } else {
                 let level = agent.effective(tools)
                 let passable = files.filter { ChatFileRules.delivery(of: $0, tools: level) != .needsTools }
@@ -234,6 +243,11 @@ struct ChatSetup: Equatable {
     var model: String?
     /// 自動モード（設定 `chatAuto`）。
     var auto = false
+    /// スキルを実行するモデル（設定 > モデル）。`server` の会話は、これの行き先で答える（`Apple` なら、答えられない：`ChatAgent.canAnswer`）。
+    var engine = Engine.apple
+
+    /// 発話が、この Mac の外（同じ LAN のサーバー）へ出るか。`server` で、行き先が、この Mac の `127.0.0.1` でないとき。
+    var sendsOverLAN: Bool { agent == .server && engine.server.map { !$0.isLoopback } ?? false }
 }
 
 extension CommandContext {
@@ -242,7 +256,7 @@ extension CommandContext {
         let settings = currentSettings()
         let (tools, folder) = resolveChatTools()
         return ChatSetup(agent: agent, tools: tools, folder: folder, acp: settings.chatAcp ?? true, sandbox: settings.chatSandbox ?? true,
-                         model: settings.chatModels?[agent.rawValue], auto: settings.chatAuto ?? false)
+                         model: settings.chatModels?[agent.rawValue], auto: settings.chatAuto ?? false, engine: engine)
     }
 }
 

@@ -528,6 +528,7 @@ private struct RouteChip: View {
             case nil: return (tr("読んでいます…"), "ellipsis", .white.opacity(0.6))
             case let .confirming(agent)?: return (tr("\(agent) へ送る確認待ち"), "hourglass", ChatPalette.orange)
             case .local?: return (tr("この Mac の中で処理"), "lock.fill", Color(red: 0.35, green: 0.85, blue: 0.6))
+            case .lan?: return (tr("同じ LAN のサーバーで処理"), "network", ChatPalette.orange)
             case let .sent(agent)?: return (tr("\(agent) へ送信"), "arrow.up.forward.circle.fill", ChatPalette.orange)
             case .declined?: return (tr("送信しませんでした"), "xmark.circle.fill", .white.opacity(0.6))
             case let .notUsed(reason)?: return (reason, "exclamationmark.triangle.fill", .white.opacity(0.6))

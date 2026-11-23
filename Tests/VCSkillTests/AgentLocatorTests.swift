@@ -10,7 +10,7 @@ import Testing
         let installed: Set<String> = ["/Users/x/.local/bin/claude", "/opt/homebrew/bin/codex"]
         let dirs = AgentLocator.searchDirectories(environment: ["PATH": "/usr/bin:/bin"], home: home)
         let available = AgentLocator.available(directories: dirs, isExecutable: { installed.contains($0) })
-        #expect(available == [.apple, .claude, .codex])                      // 入っていない agy・grok・opencode・pi は、出さない
+        #expect(available == [.apple, .server, .claude, .codex])             // Apple と、設定のサーバーは、いつも選べる。入っていない agy・grok・opencode・pi は、出さない
         #expect(AgentLocator.isAvailable(.apple, directories: [], isExecutable: { _ in false }))   // Apple は、CLI がなくても、使える
         #expect(!AgentLocator.isAvailable(.grok, directories: dirs, isExecutable: { installed.contains($0) }))
     }
