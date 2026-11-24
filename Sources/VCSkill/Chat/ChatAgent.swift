@@ -4,10 +4,13 @@ import VCCore
 /// 会話に使うエージェント（答えを作る側）。**既定は、この Mac の Apple のモデル**（外へ出さない）。
 /// `agy`・`claude`・`codex`・`grok`・`opencode`・`pi`（コーディングエージェントの CLI）を選ぶと、**会話の発話が、その提供元へ送られる**：`ask-agent` と同じ、「この Mac の外へ出さない」の例外（SPEC N1）。利用者が `設定ウィンドウ > モデル set` で選んだときだけ。
 public enum ChatAgent: String, CaseIterable, Sendable {
-    case apple, agy, claude, codex, grok, opencode, pi
+    case apple
+    /// 設定 > モデル の、Ollama・OpenAI 互換のサーバー（`Engine`）で答える、**道具なしの、単純な会話**（SPEC F75）。場所は、その設定のもの（この Mac の `127.0.0.1`、または、利用者が許可した同じ LAN）。
+    case server
+    case agy, claude, codex, grok, opencode, pi
 
-    /// この Mac の外へ送るか。
-    public var isExternal: Bool { self != .apple }
+    /// 外のコーディングエージェント（提供元）へ送るか。`server` は、利用者が設定で選んだ、この Mac か同じ LAN のサーバーなので、含めない。
+    public var isExternal: Bool { self != .apple && self != .server }
 
     /// 表示名（提供元）。
     public var label: String {
@@ -19,6 +22,7 @@ public enum ChatAgent: String, CaseIterable, Sendable {
         case .grok: return tr("Grok（grok。xAI）")
         case .opencode: return tr("OpenCode（opencode。設定したモデルの提供元）")
         case .pi: return tr("pi（pi。設定したモデルの提供元）")
+        case .server: return tr("ローカルのサーバー（設定 > モデル の Ollama・OpenAI 互換）")
         }
     }
 
@@ -33,9 +37,13 @@ public enum ChatAgent: String, CaseIterable, Sendable {
             "grok": .grok, "グロック": .grok,   // l10n-skip：照合に使う語・名前（画面に出ない）
             "opencode": .opencode, "open code": .opencode, "オープンコード": .opencode,   // l10n-skip：照合に使う語・名前（画面に出ない）
             "pi": .pi, "パイ": .pi,   // l10n-skip：照合に使う語・名前（画面に出ない）
+            "server": .server, "サーバー": .server, "ollama": .server, "openai": .server,   // l10n-skip：照合に使う語・名前（画面に出ない）
         ]
         return aliases[key]
     }
+
+    /// 答えられる状態か：`server` は、設定 > モデル で、Ollama か OpenAI 互換が選ばれているときだけ（Apple のままなら、行き先がない）。
+    public func canAnswer(with engine: Engine) -> Bool { self != .server || engine.server != nil }
 
     /// このエージェントの、会話の長さの決まり。Apple は 8,192 トークンなので小さく、外のエージェントは、大きな文脈を持つので、大きくする（毎回、全部を送るので、大きすぎると、遅く・高くなる）。
     public var budget: ChatBudget {
@@ -44,7 +52,8 @@ public enum ChatAgent: String, CaseIterable, Sendable {
 
     /// 答える側。`tools`・`folder`：外のエージェントに開ける道具の段階と、作業フォルダ（Apple には、効かない）。
     /// `acp`：ACP に対応したエージェント（`speaksACP`）は、常駐の ACP で話す（使えなければ、従来の方式へ戻る）。`sandbox`：その起動を、OS の制限（Seatbelt）つきにする（`ACPSandbox`）。
-    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false) -> ChatBackend {
+    public func makeBackend(tools: ChatToolLevel = .none, folder: URL? = nil, acp: Bool = true, sandbox: Bool = true, model: String? = nil, auto: Bool = false, engine: Engine = .apple) -> ChatBackend {
+        if self == .server, let chat = engine.makeChat() { return ModelServerChatBackend(chat: chat) }   // サーバーのエンジンがなければ、Apple（呼ぶ側が、先に、断る：`canAnswer(with:)`）
         guard isExternal else { return AppleChatBackend(tools: tools, folder: folder) }
         return talksACP(enabled: acp, tools: tools) ? ACPChatBackend(agent: self, tools: tools, folder: folder, sandbox: sandbox, model: model, auto: auto) : ExternalChatBackend(agent: self, tools: tools, folder: folder)
     }
@@ -73,5 +82,6 @@ public enum ChatAgent: String, CaseIterable, Sendable {
     public var streamsActivity: Bool { isExternal }
 
     /// このエージェントで、実際に使う段階（`pi` は、検索がないので、「Web」は、「なし」になる）。
-    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel { tools == .web && !canSearchWeb ? .none : tools }
+    /// `server` は、道具を持たない（会話だけ）。
+    public func effective(_ tools: ChatToolLevel) -> ChatToolLevel { self == .server || (tools == .web && !canSearchWeb) ? .none : tools }
 }

@@ -74,7 +74,7 @@ public struct ExternalChatBackend: ActivityReporting {
     static func arguments(for agent: ChatAgent, prompt: String, directory: URL, answerFile: URL, agyModel: String, tools level: ChatToolLevel = .none, image: ImageHandOff? = nil) -> [String] {
         let level = agent.effective(level)
         switch agent {
-        case .apple: return []
+        case .apple, .server: return []
         case .agy:
             return ["-p", prompt, "--model", agyModel, "--output-format", "stream-json"] + (level == .all ? ["--mode", "auto", "--dangerously-skip-permissions"] : ["--mode", "plan", "--sandbox"]) + ["--print-timeout", "100s"]
         case .claude:

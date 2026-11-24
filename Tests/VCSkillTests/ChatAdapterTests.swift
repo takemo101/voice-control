@@ -39,6 +39,17 @@ import Testing
         #expect(body["reasoning_effort"] as? String == "none")   // 考えさせない（遅くなる）
     }
 
+    @Test func anImageGoesAsBase64InOllamaAndAsADataURLPartInOpenAI() throws {
+        let withImage = [ChatMessage(role: .user, content: "これは何？", images: ["QUJD"]), ChatMessage(role: .user, content: "画像なし")]
+        let ollama = try #require(OllamaChat.request(model: "m", messages: withImage, tools: false)["messages"] as? [[String: Any]])
+        #expect(ollama[0]["images"] as? [String] == ["QUJD"] && ollama[0]["content"] as? String == "これは何？" && ollama[1]["images"] == nil)
+        let openAI = try #require(OpenAICompatibleChat.request(model: "m", messages: withImage, tools: false)["messages"] as? [[String: Any]])
+        let parts = try #require(openAI[0]["content"] as? [[String: Any]])
+        #expect(parts.first?["type"] as? String == "text" && parts.first?["text"] as? String == "これは何？")
+        #expect((parts.last?["image_url"] as? [String: Any])?["url"] as? String == "data:image/png;base64,QUJD")
+        #expect(openAI[1]["content"] as? String == "画像なし")   // 画像のない発言は、いままでの形（文字）のまま
+    }
+
     @Test func aToolCallIsReadFromBothWireFormats() throws {
         let ollama = try json(["message": ["role": "assistant", "content": "", "tool_calls": [["function": ["name": "run_command", "arguments": ["command": "pbpaste", "n": 3, "flag": true]]]]]])
         let a = try OllamaChat.reply(from: ollama)

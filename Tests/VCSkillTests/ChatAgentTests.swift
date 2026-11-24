@@ -10,7 +10,7 @@ import VCCore
     @Test func namesAndAliasesResolveAndOnlyApplesStaysInside() {
         #expect(ChatAgent.parse("agy") == .agy && ChatAgent.parse(" Claude ") == .claude && ChatAgent.parse("コーデックス") == .codex && ChatAgent.parse("オープンコード") == .opencode && ChatAgent.parse("fm") == .apple)
         #expect(ChatAgent.parse("gpt") == nil && ChatAgent.parse("") == nil)
-        #expect(ChatAgent.allCases.filter { !$0.isExternal } == [.apple])
+        #expect(ChatAgent.allCases.filter { !$0.isExternal } == [.apple, .server])   // 外のコーディングエージェントへは送らない：Apple と、設定のサーバー
         #expect(ChatAgent.apple.budget == .standard && ChatAgent.agy.budget.trigger > ChatBudget.standard.trigger)
     }
 

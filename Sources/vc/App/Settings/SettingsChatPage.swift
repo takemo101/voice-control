@@ -18,7 +18,7 @@ struct ChatPage: View {
             Row(tr("会話に使うエージェント"), detail: installed.count == 1 ? tr("claude・codex などが、この Mac に入っていれば、ここに出ます") : nil) {
                 Picker("", selection: Binding(get: { model.settings.chatAgent ?? "apple" }, set: { value in model.update { $0.chatAgent = value == "apple" ? nil : value } })) {
                     ForEach(installed + (missing ? [selected] : []), id: \.rawValue) { choice in
-                        Text(choice == .apple ? tr("Apple（この Mac の中）") : (choice == selected && missing ? tr("\(choice.rawValue)（見つかりません）") : choice.rawValue)).tag(choice.rawValue)
+                        Text(choice == .apple ? tr("Apple（この Mac の中）") : (choice == .server ? tr("ローカルのサーバー") : (choice == selected && missing ? tr("\(choice.rawValue)（見つかりません）") : choice.rawValue))).tag(choice.rawValue)
                     }
                 }
                 .labelsHidden().frame(width: 190)
@@ -42,10 +42,12 @@ struct ChatPage: View {
                 RowDivider()
                 ChatModelRow(model: model, agent: agent)
             }
+            if agent == .server { ChatServerNote(model: model) }
             if agent.isExternal {
                 Label(tr("発話は、この Mac の外（提供元）へ送られます。"), systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
             }
+            if agent != .server {
             RowDivider()
             Row(tr("道具"), detail: agent.isExternal ? model.chatToolLevel.title : (model.chatToolLevel == .none ? tr("なし（会話だけ）") : (model.chatToolLevel == .web ? tr("Web 検索・日時") : (model.chatToolLevel == .read ? tr("＋ ファイルを読む（作業フォルダ）") : tr("すべて（書き込み・コマンド。確認つき）"))))) {
                 Picker("", selection: Binding(get: { agent.effective(model.chatToolLevel) }, set: { model.setChatTools($0) })) {
@@ -56,11 +58,12 @@ struct ChatPage: View {
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            if !agent.isExternal, model.chatToolLevel == .all {
+            }
+            if agent != .server, !agent.isExternal, model.chatToolLevel == .all {
             Label(tr("書き込みとコマンドの実行ができます。上書きと安全でないコマンドは、毎回、確認します。"), systemImage: "exclamationmark.octagon.fill")
                 .font(.system(size: 11)).foregroundStyle(Brand.rec1).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
-        if !agent.isExternal, model.chatToolLevel != .none {
+        if agent != .server, !agent.isExternal, model.chatToolLevel != .none {
             Label(tr("検索語と開いたページの URL が、この Mac の外へ送られます。"), systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
@@ -79,7 +82,7 @@ struct ChatPage: View {
                     BrandSwitch(isOn: Binding(get: { (model.settings.chatAuto ?? false) && sandboxOn }, set: { model.setChatAuto($0) })).opacity(sandboxOn ? 1 : 0.4).disabled(!sandboxOn)
                 }
             }
-            if model.chatToolLevel.usesFolder {
+            if agent != .server, model.chatToolLevel.usesFolder {
                 RowDivider()
                 Row(tr("作業フォルダ"), detail: model.chatFolderPath) {
                     HStack(spacing: 8) {
@@ -95,6 +98,22 @@ struct ChatPage: View {
             Row(tr("会話の記録"), detail: tr("メモリだけ。5 分話さないと、終わります")) {
                 Button(tr("リセット")) { AppActions.resetConversation() }.controlSize(.small)
             }
+        }
+    }
+}
+
+/// 「ローカルのサーバー」の会話の説明：行き先（設定 > モデル）と、同じ LAN への送信。道具は、ない（会話だけ）。
+struct ChatServerNote: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        if let server = engine.server {
+            Label(server.isLoopback ? tr("この Mac のサーバー（\(server.endpoint)）で答えます。道具はなく、会話だけです。") : tr("同じ LAN のサーバー（\(server.endpoint)）へ、発話と、使った画像・文章の内容が送られます。道具はなく、会話だけです。"), systemImage: server.isLoopback ? "info.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 11)).foregroundStyle(server.isLoopback ? Color.secondary : Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
+        } else {
+            Label(tr("設定 > モデル で、Ollama か OpenAI 互換を選んでください。いまは、Apple のモデルで答えます。"), systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

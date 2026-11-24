@@ -41,7 +41,7 @@ public struct AgentStream: Sendable {
         case .agy: return agy(object)
         case .opencode: return opencode(object)
         case .pi: return pi(object)
-        case .apple: return []
+        case .apple, .server: return []
         }
     }
 

@@ -118,7 +118,7 @@ import VCSpeech
             kv(tr("音声認識"), speech.choice.title, width: w)
             kv(tr("実行"), context.engineText ?? "apple", width: w)
             kv(tr("ほかの音"), muter === OutputMuter.disabled ? tr("録音中も流したまま") : tr("録音中は消す"), width: w)
-            if let chatSpec { kv(tr("会話"), holdWhile(chatSpec, .chat) + (chatAgent.isExternal ? tr("。エージェント：\(chatAgent.rawValue)（発話が、この Mac の外へ送られる）") : ""), width: w) }
+            if let chatSpec { kv(tr("会話"), holdWhile(chatSpec, .chat) + (chatAgent.isExternal ? tr("。エージェント：\(chatAgent.rawValue)（発話が、この Mac の外へ送られる）") : (chatAgent == .server && chatAgent.canAnswer(with: context.engine) ? tr("。ローカルのサーバー：\(context.engineText ?? "apple")") : "")), width: w) }
             if let dictateSpec { kv(tr("音声入力"), holdWhile(dictateSpec, .dictate), width: w) }
             if let shotSpec { kv(tr("画面撮影"), tr("\(shotSpec.description) を押して範囲を選び、そのあと声で頼む"), width: w) }
             kv(tr("スキル"), context.options.dryRun ? Style.yellow(tr("実行しない（--dry-run）")) : Style.green(tr("実行する")), width: w)

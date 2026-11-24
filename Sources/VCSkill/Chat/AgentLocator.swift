@@ -46,9 +46,9 @@ public enum AgentLocator {
         return [adapter.cliEnvironmentKey: cli]
     }
 
-    /// 使えるか（Apple は、いつも使える。外のエージェントは、CLI が入っていれば）。
+    /// 使えるか（Apple・サーバーは、いつも選べる〔サーバーは、行き先の有無を `ChatAgent.canAnswer` が見る〕。外のエージェントは、CLI が入っていれば）。
     public static func isAvailable(_ agent: ChatAgent, directories: [String] = searchDirectories(), isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> Bool {
-        agent == .apple || executablePath(for: agent, directories: directories, isExecutable: isExecutable) != nil
+        agent == .apple || agent == .server || executablePath(for: agent, directories: directories, isExecutable: isExecutable) != nil
     }
 
     /// 選択肢に出す、使えるエージェント（Apple を先頭に）。

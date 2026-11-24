@@ -43,6 +43,7 @@ struct OllamaChat: ChatModel {
         var out: [String: Any] = ["role": m.role.rawValue, "content": m.content]
         if !m.toolCalls.isEmpty { out["tool_calls"] = m.toolCalls.map { ["function": ["name": $0.name, "arguments": $0.arguments]] } }
         if let name = m.toolName { out["tool_name"] = name }
+        if !m.images.isEmpty { out["images"] = m.images }   // Ollama：base64 の画像の並び
         return out
     }
 

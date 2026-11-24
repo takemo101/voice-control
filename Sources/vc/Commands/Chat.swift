@@ -38,6 +38,7 @@ struct ChatCommand: Command {
         if arguments.flag("--auto") { setup.auto = true }
         ChatMode.shared.configure(setup)
         if !agent.isExternal, ChatMode.shared.tools != .none { notice(tr("Apple のモデル＋道具（\(ChatMode.shared.tools.title)）— 検索語と、開いたページの URL が、この Mac の外へ送られます")) }
+        if agent == .server, agent.canAnswer(with: context.engine) { notice(tr("ローカルのサーバー：\(context.engineText ?? "apple")") + (ChatMode.shared.setup.sendsOverLAN ? tr(" — 発話が、同じ LAN のサーバーへ送られます") : "")) }
         if agent.isExternal { notice(tr("エージェント：\(agent.label) — 発話が、この Mac の外へ送られます") + (ChatMode.shared.tools == .none ? "" : tr("（道具：\(ChatMode.shared.tools.title)）"))) }
         // 撮ったスクリーンショットを使うかの判定（Tiny-Jev）。読めなければ、言葉で決める
         if let jev = try? context.tryLoadJev() { ChatMode.shared.scorer = jev }

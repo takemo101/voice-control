@@ -163,8 +163,8 @@ final class OrderedMainForwarder: @unchecked Sendable {
         let level = ChatMode.shared.tools
         let toolLabel: String? = level == .none ? nil : (level == .all ? (ChatMode.shared.auto ? tr("すべて・自動") : tr("すべて")) : (level == .read ? tr("＋読む") : "Web"))   // l10n-skip: "Web" is the same in both languages
         let files = fromQueue ? queuedFiles : window.takeFiles()   // 声の質問は、始まるときに、添えてあるファイルを使う（文字の質問は、送ったときに、決まっている）
-        let id = window.begin(question: utterance, agent: agent.isExternal ? agent.label : tr("Apple のモデル（この Mac の中）"),
-                              warning: agent.isExternal ? tr("この Mac の外へ送信") : (level == .none ? nil : tr("検索語を外へ送信")), tools: toolLabel, files: files, cancel: cancelHook)
+        let id = window.begin(question: utterance, agent: ChatMode.shared.setup.windowName(running: agent),
+                              warning: agent.isExternal ? tr("この Mac の外へ送信") : (ChatMode.shared.setup.sendsOverLAN ? tr("同じ LAN のサーバーへ送信") : (level == .none ? nil : tr("検索語を外へ送信"))), tools: toolLabel, files: files, cancel: cancelHook)
         // **会話は、会話のウィンドウで見せる**（エージェントや答えの長さで、出たり出なかったりしない）。出ていなければ、前へ出す（キーは奪わない）。上のパネル（HUD）は、聞いている・確認・失敗のときだけ
         window.show(activate: false)
         HUD.shared.hide()

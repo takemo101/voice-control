@@ -18,6 +18,8 @@ struct ChatMessage: Sendable, Equatable {
     /// `role == .tool`：どの呼び出しの結果か（`id`・`name` を、そのまま返す）。
     var toolCallID: String?
     var toolName: String?
+    /// 添える画像（PNG を base64 にしたもの）。会話の「ローカルのサーバー」が、画像に対応したモデルへ渡す（`role == .user` だけ）。
+    var images: [String] = []
 }
 
 /// スキルを実行するモデルの、通信のアダプター。道具を呼ぶ流れ（呼ぶ → 結果を返す → 繰り返す）は、`ToolLoopAgent` が持つ（どのアダプターでも同じ）。
