@@ -46,7 +46,8 @@ import SwiftUI
     }
 
     /// 表示して、ウィンドウが閉じられるまで、イベントのループを回す（終わらない：閉じると、プロセスを終える）。
-    static func runUntilClosed(markdown: String, title: String) -> Never {
+    /// `timeout`：この秒数のあとに、**黙って**閉じる（フェードアウト。操作中でも）。なければ、閉じられるまで残る。
+    static func runUntilClosed(markdown: String, title: String, timeout: TimeInterval? = nil) -> Never {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)   // Dock に出さない
         let controller = MarkdownWindow(markdown: markdown, title: title)
@@ -56,6 +57,17 @@ import SwiftUI
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
             controller.window.animator().alphaValue = 1
+        }
+        if let timeout {
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak controller] in
+                MainActor.assumeIsolated {
+                    guard let window = controller?.window else { return }
+                    NSAnimationContext.runAnimationGroup({ ctx in
+                        ctx.duration = 0.25
+                        window.animator().alphaValue = 0
+                    }, completionHandler: { MainActor.assumeIsolated { window.close() } })   // 閉じると、`windowWillClose` が、プロセスを終える
+                }
+            }
         }
         withExtendedLifetime(controller) { app.run() }
         exit(0)
