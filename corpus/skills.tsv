@@ -146,3 +146,24 @@ image-edit	seq	vc image remove-background ; vc image crop square	背景を消し
 image-edit	seq	vc image remove-background ; vc image crop square	コピーした画像の背景を除去して、真四角にくり抜いて
 image-edit	seq	vc image crop right-half ; vc image convert jpg	右半分を切り抜いて、JPEGに変換して
 image-edit	seq	vc image resize --percent 50 ; vc image rotate 90	半分の大きさにして、右に回転して
+# todo-remind（2026-11-26。作り物の文。ここの文で、スキルの本文を調整した。取っておいた文は corpus/skills-todo-test.tsv）
+todo-remind	has	^osascript todo\.applescript add (15:00|15時) "レポート提出	15時にレポート提出のTodo追加して
+todo-remind	has	^osascript todo\.applescript add (15:00|午後3時) "歯医者	午後3時に歯医者へ行くのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (18:30|18時30分) "電話	18時30分に電話するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (09:00|9:00|午前9時|朝9時) "ミーティング	午前9時にミーティングの準備をTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (10:00|10時) "資料	今日の10時に資料を送るのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (17:00|夕方5時|午後5時|夜の5時) "買い物	夕方5時に買い物に行くのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (14:30|14時半) "会議	14時半に会議の資料を確認するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (20:15|20時15分) "ストレッチ	20:15にストレッチをするのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (11:00|11時) "部屋の掃除	11時に部屋の掃除をするのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (21:00|夜9時|夜の9時|午後9時) "洗濯	夜9時に洗濯物を取り込むのでTodoに追加して
+todo-remind	exact	osascript todo.applescript list	今日のTodoを見せて
+todo-remind	exact	osascript todo.applescript list	Todoの一覧を出して
+todo-remind	exact	osascript todo.applescript list	今のTodoを教えて
+todo-remind	exact	osascript todo.applescript list	やることリストを表示して
+todo-remind	exact	osascript todo.applescript delete "レポート"	レポートのTodoを消して
+todo-remind	exact	osascript todo.applescript delete "歯医者"	歯医者のTodoを削除して
+todo-remind	exact	osascript todo.applescript delete "ミーティング"	ミーティングの予定を取り消して
+todo-remind	exact	osascript todo.applescript delete all	Todoを全部消して
+todo-remind	exact	osascript todo.applescript delete all	Todoを全て削除して
+todo-remind	exact	osascript todo.applescript delete all	Todoを空にして

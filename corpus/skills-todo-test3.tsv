@@ -1,0 +1,13 @@
+# todo-remind の、3 つ目の取っておいた文（作り物。2026-11-26）。時刻を、コード（todo.sh の parse_time）が読む形に直したあとの、確認用。調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript add (14:00|午後2時) "宅配	午後2時に宅配便を受け取るのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (08:45|8:45|8時45分) "朝礼	8時45分に朝礼があるのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (23:00|23時) "戸締まり	23時に戸締まりを確認するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (18:30|夕方6時半|午後6時半|夜の6時半|夜6時半) "子ども	夕方6時半に子どもを迎えに行くのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (12:00|12時|昼の12時|昼12時|正午) "薬	昼の12時に薬を飲むのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (10:30|午前10時半) "オンライン	午前10時半にオンライン授業に参加するのでTodoに追加して
+todo-remind	exact	osascript todo.applescript list	今日のやることを見せて
+todo-remind	exact	osascript todo.applescript delete "宅配便"	宅配便のTodoを消して
+todo-remind	exact	osascript todo.applescript delete "朝礼"	朝礼の予定を削除して
+todo-remind	exact	osascript todo.applescript delete "戸締まり"	戸締まりのTodoを外して
+todo-remind	exact	osascript todo.applescript delete all	Todoを一括で消して

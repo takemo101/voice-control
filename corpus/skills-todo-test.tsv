@@ -1,0 +1,18 @@
+# todo-remind の、取っておいた文（作り物。2026-11-26）。調整が終わってからの、最後の確認だけに使う（調整には使わない）。
+# 使い方：scripts/eval-skills.py --skill todo-remind --corpus corpus/skills-todo-test.tsv
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話（corpus/skills.tsv と同じ）
+todo-remind	has	^osascript todo\.applescript add (16:00|16時) "請求書	16時に請求書を作るのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (13:00|午後1時) "ランチ	午後1時にランチの予約をTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (21:45|21時45分) "日記	21時45分に日記を書くのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (08:00|8:00|朝8時|午前8時) "薬	朝8時に薬を飲むのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (12:00|12時) "銀行	12時に銀行へ行くのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (19:30|19時半) "ジム	19時半にジムへ行くのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (16:00|午後4時) "上司	午後4時に上司へメールするのでTodoに追加して
+todo-remind	exact	osascript todo.applescript list	Todoを見せて
+todo-remind	exact	osascript todo.applescript list	今日やることを一覧にして
+todo-remind	exact	osascript todo.applescript list	Todoリストを開いて
+todo-remind	exact	osascript todo.applescript delete "請求書"	請求書のTodoを消して
+todo-remind	exact	osascript todo.applescript delete "ランチ"	ランチの予約をTodoから外して
+todo-remind	exact	osascript todo.applescript delete "日記"	日記のTodoを取り消して
+todo-remind	exact	osascript todo.applescript delete all	Todoを全部クリアして
+todo-remind	exact	osascript todo.applescript delete all	Todoを全削除して
