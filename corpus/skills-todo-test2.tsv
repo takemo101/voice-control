@@ -1,11 +1,11 @@
 # todo-remind の、2 つ目の取っておいた文（作り物。2026-11-26）。1 つ目（skills-todo-test.tsv）は、結果を見て調整に使ったので、調整後の確認は、こちら。
 # 形：スキル<TAB>照合<TAB>期待<TAB>発話
-todo-remind	has	^osascript todo\.applescript add (17:00|午後5時|夕方5時) "掃除機	午後5時に掃除機をかけるのでTodoに追加して
-todo-remind	has	^osascript todo\.applescript add (19:00|午後7時|夜の7時|夜7時) "夕食	午後7時に夕食の準備をするのでTodoに入れて
-todo-remind	has	^osascript todo\.applescript add (22:00|夜の10時|夜10時|午後10時) "本	夜の10時に本を読むのでTodoに登録して
-todo-remind	has	^osascript todo\.applescript add (10:30|10時半) "打ち合わせ	10時半に打ち合わせの資料を印刷するのでTodo追加して
-todo-remind	has	^osascript todo\.applescript add (18:00|午後6時|夕方6時) "犬	午後6時に犬にごはんをあげるのでTodoに追加して
-todo-remind	has	^osascript todo\.applescript add (09:00|9:00|朝9時|午前9時) "課題	朝9時に課題を提出するのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (17:00|午後5時|夕方5時|17|17時|17時0分) "掃除機	午後5時に掃除機をかけるのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (19:00|午後7時|夜の7時|夜7時|19|19時|19時0分) "夕食	午後7時に夕食の準備をするのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (22:00|夜の10時|夜10時|午後10時|22|22時|22時0分) "本	夜の10時に本を読むのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (10:30|10時半|10時30分) "打ち合わせ	10時半に打ち合わせの資料を印刷するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (18:00|午後6時|夕方6時|18|18時|18時0分) "犬	午後6時に犬にごはんをあげるのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (09:00|9:00|朝9時|午前9時|09時|9|9時|9時0分) "課題	朝9時に課題を提出するのでTodoに入れて
 todo-remind	exact	osascript todo.applescript delete "打ち合わせ"	打ち合わせのTodoを消して
 todo-remind	exact	osascript todo.applescript delete "夕食"	夕食の準備のTodoを削除して
 todo-remind	exact	osascript todo.applescript list	Todoを表示して

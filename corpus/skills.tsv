@@ -147,16 +147,16 @@ image-edit	seq	vc image remove-background ; vc image crop square	コピーした
 image-edit	seq	vc image crop right-half ; vc image convert jpg	右半分を切り抜いて、JPEGに変換して
 image-edit	seq	vc image resize --percent 50 ; vc image rotate 90	半分の大きさにして、右に回転して
 # todo-remind（2026-11-26。作り物の文。ここの文で、スキルの本文を調整した。取っておいた文は corpus/skills-todo-test.tsv）
-todo-remind	has	^osascript todo\.applescript add (15:00|15時) "レポート提出	15時にレポート提出のTodo追加して
-todo-remind	has	^osascript todo\.applescript add (15:00|午後3時) "歯医者	午後3時に歯医者へ行くのでTodoに入れて
-todo-remind	has	^osascript todo\.applescript add (18:30|18時30分) "電話	18時30分に電話するのでTodo追加して
-todo-remind	has	^osascript todo\.applescript add (09:00|9:00|午前9時|朝9時) "ミーティング	午前9時にミーティングの準備をTodoに登録して
-todo-remind	has	^osascript todo\.applescript add (10:00|10時) "資料	今日の10時に資料を送るのでTodo追加して
-todo-remind	has	^osascript todo\.applescript add (17:00|夕方5時|午後5時|夜の5時) "買い物	夕方5時に買い物に行くのでTodoに追加して
-todo-remind	has	^osascript todo\.applescript add (14:30|14時半) "会議	14時半に会議の資料を確認するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (15:00|15時|15|15時0分) "レポート提出	15時にレポート提出のTodo追加して
+todo-remind	has	^osascript todo\.applescript add (15:00|午後3時|15|15時|15時0分) "歯医者	午後3時に歯医者へ行くのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (18:30|18時30分|18時半) "電話	18時30分に電話するのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (09:00|9:00|午前9時|朝9時|09時|9|9時|9時0分) "ミーティング	午前9時にミーティングの準備をTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (10:00|10時|10|10時0分) "資料	今日の10時に資料を送るのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (17:00|夕方5時|午後5時|夜の5時|17|17時|17時0分) "買い物	夕方5時に買い物に行くのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (14:30|14時半|14時30分) "会議	14時半に会議の資料を確認するのでTodo追加して
 todo-remind	has	^osascript todo\.applescript add (20:15|20時15分) "ストレッチ	20:15にストレッチをするのでTodoに入れて
-todo-remind	has	^osascript todo\.applescript add (11:00|11時) "部屋の掃除	11時に部屋の掃除をするのでTodoに登録して
-todo-remind	has	^osascript todo\.applescript add (21:00|夜9時|夜の9時|午後9時) "洗濯	夜9時に洗濯物を取り込むのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (11:00|11時|11|11時0分) "部屋の掃除	11時に部屋の掃除をするのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (21:00|夜9時|夜の9時|午後9時|21|21時|21時0分) "洗濯	夜9時に洗濯物を取り込むのでTodoに追加して
 todo-remind	exact	osascript todo.applescript list	今日のTodoを見せて
 todo-remind	exact	osascript todo.applescript list	Todoの一覧を出して
 todo-remind	exact	osascript todo.applescript list	今のTodoを教えて
@@ -167,3 +167,14 @@ todo-remind	exact	osascript todo.applescript delete "ミーティング"	ミー�
 todo-remind	exact	osascript todo.applescript delete all	Todoを全部消して
 todo-remind	exact	osascript todo.applescript delete all	Todoを全て削除して
 todo-remind	exact	osascript todo.applescript delete all	Todoを空にして
+# todo-remind の run（時刻にスキルを実行する予約。2026-11-26。作り物の文。調整に使った）
+todo-remind	has	^osascript todo\.applescript run (10:00|10時|10|10時0分) "音楽	10時に音楽をかけるよう予約して
+todo-remind	has	^osascript todo\.applescript run (15:00|午後3時|15|15時|15時0分) "スクリーンショット	午後3時にスクリーンショットを撮るよう予約して
+todo-remind	has	^osascript todo\.applescript run (18:00|18時|18|18時0分) "Spotify	18時にSpotifyを再生するようにスケジュールして
+todo-remind	has	^osascript todo\.applescript run (21:00|21時|21|21時0分) "音量	21時に音量を下げるよう予約して
+todo-remind	has	^osascript todo\.applescript run (07:00|7:00|朝7時|7時|07時|7|7時0分) "天気	朝7時に天気を調べるよう予約して
+todo-remind	has	^osascript todo\.applescript run (12:00|12時|12|12時0分) "音楽	12時になったら音楽を止めるようにして
+todo-remind	has	^osascript todo\.applescript run (20:00|20時|20|20時0分) "画面|スクリーンショット	20時に画面を撮るよう予約して
+todo-remind	has	^osascript todo\.applescript run (16:30|16時半|16時30分) "ニュース|ブラウザ	16時半にブラウザでニュースを検索するよう予約して
+todo-remind	has	^osascript todo\.applescript run (09:00|9:00|9時|09時|9|9時0分) "曲	9時に曲を再生するよう予約して
+todo-remind	has	^osascript todo\.applescript run (22:00|22時|22|22時0分) "メモ	22時にメモ帳を開くよう予約して

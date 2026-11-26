@@ -1,0 +1,11 @@
+# todo-remind の run の、2 つ目の取っておいた文（作り物。2026-11-26）。時刻の数だけの受け入れ・例の差し替えのあとの確認用。調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript run (17:00|午後5時|夕方5時|17|17時|17時0分) "ウィンドウ	午後5時にウィンドウを閉じるよう予約して
+todo-remind	has	^osascript todo\.applescript run (11:30|11時半|11時30分) "Safari	11時半にSafariを開くようにスケジュールして
+todo-remind	has	^osascript todo\.applescript run (21:00|夜の9時|夜9時|午後9時|21|21時|21時0分) "曲|音楽|再生	夜の9時に再生中の曲を一時停止するよう予約して
+todo-remind	has	^osascript todo\.applescript run (15:00|15時|15|15時0分) "ニュース|ブラウザ	15時になったらブラウザでニュースを検索するようにして
+todo-remind	has	^osascript todo\.applescript run (14:00|午後2時|14時|14|14時0分) "ミュート|音	午後2時に音をミュートするよう予約して
+todo-remind	has	^osascript todo\.applescript run (06:00|6:00|6時|朝6時|06時|6|6時0分) "メール	朝6時にメールアプリを開くよう予約して
+todo-remind	has	^osascript todo\.applescript add (10:00|10時|10|10時0分) "歯	10時に歯を磨くのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (16:00|16時|16|16時0分) "宿題	16時に宿題を始めるのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (18:00|午後6時|18|18時|18時0分) "買い物	午後6時に買い物へ行くのでTodo登録して

@@ -1,0 +1,10 @@
+# todo-remind の run（予約の実行）の、取っておいた文（作り物。2026-11-26）。調整には使わない。add（ふつうの Todo）と取り違えないかも見る。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript run (11:00|11時|11|11時0分) "音楽	11時に音楽を流すよう予約して
+todo-remind	has	^osascript todo\.applescript run (16:00|午後4時|16|16時|16時0分) "音量	午後4時に音量を上げるようにスケジュールして
+todo-remind	has	^osascript todo\.applescript run (20:00|夜の8時|夜8時|午後8時|20|20時|20時0分) "スクリーンショット|画面	夜の8時にスクリーンショットを撮るよう予約して
+todo-remind	has	^osascript todo\.applescript run (08:30|8:30|8時半|8時30分) "Spotify|次の曲|曲	8時半にSpotifyの次の曲に進めるよう予約して
+todo-remind	has	^osascript todo\.applescript run (14:00|14時|14|14時0分) "音楽	14時になったら音楽を止めて
+todo-remind	has	^osascript todo\.applescript add (13:00|13時|13|13時0分) "洗濯	13時に洗濯を始めるのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (17:00|17時|17|17時0分) "会議	17時に会議の準備をするのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (19:00|19時|19|19時0分) "電話	19時に電話をかけるのでTodo登録して
