@@ -1,0 +1,8 @@
+# todo-remind の相対の時刻（「5分後」）の、取っておいた文（作り物。2026-11-26）。調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript add (3分後|3分) "ストレッチ	3分後にストレッチをするのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (25分後|25分) "薬	25分後に薬を飲むのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (2時間後|2時間|120分後|120分) "会議	2時間後に会議の準備をするのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript run (20分後|20分) "Spotify|音量	20分後にSpotifyの音量を下げるよう予約して
+todo-remind	has	^osascript todo\.applescript run (45分後|45分) "スクリーンショット|画面	45分後にスクリーンショットを撮るよう予約して
+todo-remind	has	^osascript todo\.applescript run (1時間後|1時間|60分後|60分) "ブラウザ|ニュース	1時間後にブラウザでニュースを検索して

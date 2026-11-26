@@ -1,6 +1,6 @@
 #!/bin/sh
 # 今日の Todo と、時間になったら、読み上げて、パネルを出す（`todo-remind` スキルの本体。`todo.applescript` から呼ばれる）。
-# 使い方：/bin/sh todo.sh add <時刻> "<内容>" | run <時刻> "<依頼>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時 など）。内部用：wait <epoch> <スキル|-> "<内容>"・time "<時刻>"
+# 使い方：/bin/sh todo.sh add <時刻> "<内容>" | run <時刻> "<依頼>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時・5分後・1時間半後 など）。内部用：wait <epoch> <スキル|-> "<内容>"・time "<時刻>"・relative "<5分後 など>"
 #
 # `run`：**時刻に、スキルを実行する予約**（`vc run`）。安全のために：①登録のとき、`vc run --dry-run` で、**特定のスキルに当たる**ときだけ受ける（既定スキル・このスキル自身・確認が要るスキルは、断る）②時刻になったら、**10 秒の予告**（読み上げ＋パネル。パネルを閉じると、取りやめ）③実行は、選ばれたスキルを指定して、`--yes` なしで（確認が要る操作は、無人だと「いいえ」になり、実行されない）④時刻から 2 分以上遅れたら（スリープなど）、実行しない。
 #
@@ -165,6 +165,46 @@ run_item() {
 	esac
 }
 
+# 「5分後」「1時間後」「1時間半後」「1時間30分後」「90秒後」を、秒数にする（標準出力）。読めなければ、何も出さずに、戻り値 1。「後」は、なくてもよい（「5分」）。
+# 言語モデルに、いまの時刻からの足し算は、させない（コードが、足す）。上限は 24 時間。
+parse_relative() {
+	words=$(nfc "$1" | /usr/bin/sed 's/０/0/g; s/１/1/g; s/２/2/g; s/３/3/g; s/４/4/g; s/５/5/g; s/６/6/g; s/７/7/g; s/８/8/g; s/９/9/g; s/ //g; s/　//g')
+	words=${words%に}
+	words=${words%後}
+	hours=0; minutes=0; seconds=0
+	case "$words" in
+	*時間半) hours=${words%時間半}; minutes=30 ;;
+	*時間*分) hours=${words%%時間*}; minutes=${words#*時間}; minutes=${minutes%分} ;;
+	*時間) hours=${words%時間} ;;
+	*分) minutes=${words%分} ;;
+	*秒) seconds=${words%秒} ;;
+	*) return 1 ;;
+	esac
+	for number in "$hours" "$minutes" "$seconds"; do
+		case "$number" in
+		''|*[!0-9]*) return 1 ;;
+		esac
+		[ "${#number}" -le 3 ] || return 1
+	done
+	total=$((10#$hours * 3600 + 10#$minutes * 60 + 10#$seconds))
+	[ "$total" -gt 0 ] && [ "$total" -le 86400 ] || return 1
+	printf '%s' "$total"
+}
+
+# 時刻（「15時」「5分後」）→ 目標の時刻（epoch）。**今日の中だけ**（日をまたぐ・過ぎた時刻は、断る）。読めなければ、戻り値 1・過ぎた／明日なら、戻り値 2。
+resolve_epoch() {
+	if offset=$(parse_relative "$1"); then
+		epoch=$(( $(/bin/date +%s) + offset ))
+	elif time_text=$(parse_time "$1"); then
+		epoch=$(/bin/date -j -f "%Y-%m-%d %H:%M:%S" "$(/bin/date +%Y-%m-%d) $time_text:00" +%s)
+	else
+		return 1
+	fi
+	[ "$epoch" -gt "$(/bin/date +%s)" ] || return 2
+	[ "$(/bin/date -r "$epoch" +%Y-%m-%d)" = "$(/bin/date +%Y-%m-%d)" ] || return 2
+	return 0
+}
+
 # 一覧のパネル（`vc` がなければ、出さない。出したか否かを、戻り値で）
 show_panel() {
 	vc=$(find_vc) || return 1
@@ -194,6 +234,10 @@ time)
 	# 内部用（テスト）：時刻の言い方を読む
 	parse_time "${2:-}" || echo "error"
 	;;
+relative)
+	# 内部用（テスト）：「5分後」などを、秒数に
+	parse_relative "${2:-}" || echo "error"
+	;;
 wait)
 	# 内部用：時刻まで、壁時計で待つ（`sleep` だけだと、スリープの間が数えられない）→ 読み上げ → パネル
 	target=${2:-0}
@@ -221,17 +265,13 @@ wait)
 	;;
 add)
 	text=$(clean "${3:-}")
-	if ! time_text=$(parse_time "${2:-}"); then
-		echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時)"
-		exit 0
-	fi
+	resolve_epoch "${2:-}"
+	case $? in
+	1) echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
+	2) echo "error: that time has already passed or is not today (only times later today can be set)"; exit 0 ;;
+	esac
 	if [ -z "$text" ]; then
 		echo "error: the todo text is empty"
-		exit 0
-	fi
-	epoch=$(/bin/date -j -f "%Y-%m-%d %H:%M:%S" "$(/bin/date +%Y-%m-%d) $time_text:00" +%s)
-	if [ "$epoch" -le "$(/bin/date +%s)" ]; then
-		echo "error: $time_text has already passed today (only today's times can be set)"
 		exit 0
 	fi
 	if [ "$(pending | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -ge "$max_items" ]; then
@@ -246,17 +286,13 @@ add)
 	;;
 run)
 	text=$(clean "${3:-}")
-	if ! time_text=$(parse_time "${2:-}"); then
-		echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時)"
-		exit 0
-	fi
+	resolve_epoch "${2:-}"
+	case $? in
+	1) echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
+	2) echo "error: that time has already passed or is not today (only times later today can be set)"; exit 0 ;;
+	esac
 	if [ -z "$text" ]; then
 		echo "error: the request is empty"
-		exit 0
-	fi
-	epoch=$(/bin/date -j -f "%Y-%m-%d %H:%M:%S" "$(/bin/date +%Y-%m-%d) $time_text:00" +%s)
-	if [ "$epoch" -le "$(/bin/date +%s)" ]; then
-		echo "error: $time_text has already passed today (only today's times can be set)"
 		exit 0
 	fi
 	if [ "$(pending | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -ge "$max_items" ]; then

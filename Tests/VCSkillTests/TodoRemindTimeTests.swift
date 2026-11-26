@@ -7,10 +7,10 @@ import Testing
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent(".voice-control/skills/todo-remind/todo.sh")
 
-    private func read(_ words: String) throws -> String {
+    private func read(_ words: String, _ action: String = "time") throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = [Self.script.path, "time", words]
+        process.arguments = [Self.script.path, action, words]
         let pipe = Pipe()
         process.standardOutput = pipe
         try process.run()
@@ -36,6 +36,19 @@ import Testing
     @Test func unreadableOrImpossibleTimesAreRefusedInsteadOfGuessed() throws {
         for words in ["25:00", "9時61分", "あした", "午後", "", "123", "99"] {
             let got = try read(words)
+            #expect(got == "error", "\(words) -> \(got)")
+        }
+    }
+
+    /// 「5分後」「1時間半後」：いまからの長さを、秒に（足し算は、コードが行う）。
+    @Test func relativeTimesBecomeSecondsAndImpossibleOnesAreRefused() throws {
+        let table: [(String, String)] = [("5分後", "300"), ("5分", "300"), ("30秒後", "30"), ("1時間後", "3600"), ("1時間半後", "5400"), ("1時間30分後", "5400"), ("２時間後に", "7200"), ("90分後", "5400"), ("24時間後", "86400")]
+        for (words, expected) in table {
+            let got = try read(words, "relative")
+            #expect(got == expected, "\(words) -> \(got)")
+        }
+        for words in ["0分後", "25時間後", "後", "あした", "5時間30", "1000分後", "9時15分", "15時", ""] {
+            let got = try read(words, "relative")
             #expect(got == "error", "\(words) -> \(got)")
         }
     }
