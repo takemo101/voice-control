@@ -8,10 +8,10 @@ import VCSkill
     @Test func cancelStopsARunningCommandQuickly() async {
         let token = CancelToken()
         let started = Date()
-        // 待つ処理と取りやめは、GCD で行う：Swift の並行処理のスレッドを、塞がない（CI は、全テストを同じプロセスで動かす）
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) { token.cancel() }
+        // 待つ処理と取りやめは、**専用のスレッド**で行う：GCD の共有のスレッドは、CI が、全テストを同じプロセスで動かすと、ほかのテストに塞がれて、取りやめの合図が、10 秒以上遅れた（実測：13.6 秒）。測りたいのは、取りやめの後始末の速さ
+        Thread.detachNewThread { Thread.sleep(forTimeInterval: 0.3); token.cancel() }
         let result = await withCheckedContinuation { (c: CheckedContinuation<CommandResult, Never>) in
-            DispatchQueue.global().async { c.resume(returning: CommandRunner.run(argv: ["sleep", "20"], timeout: 30, cancel: token)) }
+            Thread.detachNewThread { c.resume(returning: CommandRunner.run(argv: ["sleep", "20"], timeout: 30, cancel: token)) }
         }
         #expect(result.exitCode == 130 && !result.timedOut)
         #expect(Date().timeIntervalSince(started) < 10)   // 20 秒は待たない
