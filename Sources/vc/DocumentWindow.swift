@@ -7,9 +7,10 @@ enum DocumentWindow {
     static let maxBytes = 1_000_000
 
     /// 起こせなければ、理由を返す（見せ方は、呼び出し側）。
-    static func present(markdown: String, title: String? = nil) -> String? {
+    /// `timeout`：この秒数のあとに、黙って閉じる（`vc show --timeout`）。なければ、閉じるまで残る。
+    static func present(markdown: String, title: String? = nil, timeout: TimeInterval? = nil) -> String? {
         guard markdown.utf8.count <= maxBytes else { return tr("本文が大きすぎます（\(maxBytes / 1000) KB まで）") }
-        switch DetachedChild.launch(arguments: ["show", "--wait"] + (title.map { ["--title", $0] } ?? []), input: Data(markdown.utf8)) {
+        switch DetachedChild.launch(arguments: ["show", "--wait"] + (title.map { ["--title", $0] } ?? []) + (timeout.map { ["--timeout", String(format: "%g", $0)] } ?? []), input: Data(markdown.utf8)) {
         case .success: return nil
         case let .failure(failure): return failure.reason
         }

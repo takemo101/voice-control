@@ -57,8 +57,10 @@ markdown() {
 
 # 前に出した一覧のパネルを、閉じる（追加・削除のたびに、増えないように）。閉じるのは、この題名の、`vc show` だけ
 list_title="今日の Todo"
+list_seconds=20     # 一覧のパネルは、この秒数で、黙って閉じる（`vc show --timeout`）
+alert_seconds=60    # 時間の知らせのパネルは、見逃さないよう、長めに
 close_list_panels() {
-	/bin/ps -axww -o pid=,command= | /usr/bin/awk -v t="--title $list_title" '{ pid = $1; sub(/^ *[0-9]+ +/, ""); n = index($0, " show --wait "); if (n > 0 && substr($0, length($0) - length(t) + 1) == t) print pid }' | while read -r pid; do kill "$pid" 2>/dev/null; done
+	/bin/ps -axww -o pid=,command= | /usr/bin/awk -v t=" --title $list_title" '{ pid = $1; sub(/^ *[0-9]+ +/, ""); if (index($0, " show --wait ") > 0 && index($0, t) > 0) print pid }' | while read -r pid; do kill "$pid" 2>/dev/null; done
 }
 
 # 文字を、合成した形（NFC）にそろえる。**アプリが起こしたコマンドの引数は、濁点が、分かれた形（NFD：「ご」→「こ」＋゛）で届く**（Foundation の `Process`）ので、そのままでは、「ごろ」などが、照合できない・保存と検索の形がずれる
@@ -118,7 +120,7 @@ parse_time() {
 show_panel() {
 	vc=$(find_vc) || return 1
 	close_list_panels
-	markdown | "$vc" show --title "$list_title" >/dev/null 2>&1
+	markdown | "$vc" show --title "$list_title" --timeout "$list_seconds" >/dev/null 2>&1
 }
 
 # 一覧の文：「15:00 内容 / 16:00 内容」（`vc` がなければ、これを、結果に添える）
@@ -158,7 +160,7 @@ wait)
 	[ "$late" -gt 60 ] && sentence="遅れました。${sentence}"
 	(/usr/bin/say -v Kyoko "$sentence" || /usr/bin/say "$sentence") >/dev/null 2>&1 &
 	if vc=$(find_vc); then
-		printf '# 時間です\n\n## %s\n\n%s に設定した Todo です。\n' "$text" "$(/bin/date -r "$target" +%H:%M)" | "$vc" show --title "Todo の時間" >/dev/null 2>&1
+		printf '# 時間です\n\n## %s\n\n%s に設定した Todo です。\n' "$text" "$(/bin/date -r "$target" +%H:%M)" | "$vc" show --title "Todo の時間" --timeout "$alert_seconds" >/dev/null 2>&1
 	fi
 	wait
 	;;
