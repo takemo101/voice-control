@@ -178,3 +178,10 @@ todo-remind	has	^osascript todo\.applescript run (20:00|20時|20|20時0分) "画
 todo-remind	has	^osascript todo\.applescript run (16:30|16時半|16時30分) "ニュース|ブラウザ	16時半にブラウザでニュースを検索するよう予約して
 todo-remind	has	^osascript todo\.applescript run (09:00|9:00|9時|09時|9|9時0分) "曲	9時に曲を再生するよう予約して
 todo-remind	has	^osascript todo\.applescript run (22:00|22時|22|22時0分) "メモ	22時にメモ帳を開くよう予約して
+# todo-remind の相対の時刻（「5分後」。2026-11-26。作り物の文。調整に使った）
+todo-remind	has	^osascript todo\.applescript add (5分後|5分) "レポート	5分後にレポートを見直すのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (10分後|10分) "洗濯	10分後に洗濯物を取り込むのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (1時間後|1時間) "電話	1時間後に電話するのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript run (30分後|30分) "音楽	30分後に音楽をかけるよう予約して
+todo-remind	has	^osascript todo\.applescript run (15分後|15分) "画面|スクリーンショット	15分後に画面を撮って
+todo-remind	has	^osascript todo\.applescript run (1時間半後|1時間半|90分後|90分) "曲|音楽	1時間半後に曲を止めて

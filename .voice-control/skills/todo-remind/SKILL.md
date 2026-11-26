@@ -18,11 +18,12 @@ Actions:
 
 How to choose:
 - The user wants to ADD a todo (「15時にレポート提出のTodo追加して」「午後3時にミーティングをTodoに入れて」「夜のN時にお風呂を沸かすのでTodoに登録して」) → add.
-  - <time> is the time of day: copy the user's time expression EXACTLY, character by character, with no conversion and no calculation. Keep the words 午前 / 午後 / 朝 / 昼 / 夕方 / 夜 as said (never swap or drop them). The script reads the words. It is the words right before に in the request, it always contains a number, and it is never a word of the todo.
-    - Pattern (N stands for the numbers the user said): 「午前N時に…」 → 午前N時 · 「夜のN時に…」 → 夜のN時 · 「朝N時に…」 → 朝N時 · 「N時に…」 → N時 · 「HH:MMに…」 → HH:MM.
+  - <time> is EITHER a time of day OR a duration counted from now. Copy the user's words EXACTLY, character by character, with no conversion and no calculation. The unit stays as said: 分後 stays 分後, 時間後 stays 時間後, and 時 stays 時 (never turn 分 or 時間 into 時). Keep the words 午前 / 午後 / 朝 / 昼 / 夕方 / 夜 as said (never swap or drop them). The script reads the words. It is the words right before に in the request, it always contains a number, and it is never a word of the todo.
+    - Duration pattern (N stands for the number the user said): 「N分後に…」 → N分後 · 「N時間後に…」 → N時間後 · 「N秒後に…」 → N秒後.
+    - Time-of-day pattern: 「午前N時に…」 → 午前N時 · 「夜のN時に…」 → 夜のN時 · 「朝N時に…」 → 朝N時 · 「N時に…」 → N時 · 「HH:MMに…」 → HH:MM. Copy the user's own numbers; add 分 only if the user said it.
   - "<todo>" is ONLY the thing to do, in the user's words, without the time and without the request part. 「15時にレポート提出のTodo追加して」 → "レポート提出". 「午後1時に犬の散歩をするのでTodoに入れて」 → "犬の散歩をする". Keep it short. Put it in double quotes.
   - Only today. If the user names another day (明日・あさって・来週・a date), run NO command and reply: failed: 今日の分だけ、追加できます。
-- The user wants the MAC to DO something at a time, by itself (「N時に〇〇をするよう予約して」「時間になったら〇〇して」「N時に〇〇を実行するようにして」: words like 予約 · スケジュール · 時間になったら · 〜するように) → run <time> "<request>". <request> is the thing to be done, as a short sentence WITHOUT the time and WITHOUT the reservation words, in the user's words: 「N時にFinderでダウンロードフォルダを開くよう予約して」 → "Finderでダウンロードフォルダを開いて". A reminder for the USER to do something (電話する・資料を出す) is add, not run.
+- The user wants the MAC to DO something at a time, by itself (「N時に〇〇をするよう予約して」「時間になったら〇〇して」「N時に〇〇を実行するようにして」: words like 予約 · スケジュール · 時間になったら · 〜するように) → run <time> "<request>". <request> is the thing to be done, as a short sentence WITHOUT the time and WITHOUT the reservation words, in the user's words: 「N時にFinderでダウンロードフォルダを開くよう予約して」 → "Finderでダウンロードフォルダを開いて". A reminder for the USER to do something (電話する・資料を出す・「Todo」と言った) is add, not run.
 - The user wants to SEE the todos (「今日のTodoを見せて」「Todoを一覧にして」「予定を教えて」) → list.
 - The user wants to REMOVE one (「レポートのTodoを消して」「歯医者のTodoを削除して」「ミーティングの予定を取り消して」) → delete "<word>", where <word> is ONE distinctive noun from that todo, WITHOUT particles (の・を・に・は・が・で): 「請求書のTodoを消して」 → "請求書". 「歯医者のTodoを削除して」 → "歯医者".
 - The user wants to remove EVERYTHING (「Todoを全部消して」「Todoを全て削除して」「Todoを空にして」) → delete all.
