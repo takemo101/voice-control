@@ -18,9 +18,9 @@ confirm_seconds=10   # 予約の実行の、予告の長さ（この間に、パ
 late_limit=120       # 予約の実行は、時刻から、これ以上遅れたら、しない
 run_limit=180        # 予約の実行（`vc run`）の、上限（秒）
 
-# `vc`：メニューバーのアプリから呼ばれたときは、PATH に、ないことがある
+# `vc`：**アプリの `vc` を先に**使う（`PATH` の `vc` は、古い版のことがある：実際に、0.4.6 が、`~/.local/bin` に残っていて、`--timeout` を知らず、パネルが閉じなかった）。アプリがなければ、`PATH`・`~/.local/bin`（メニューバーのアプリから呼ばれたときは、`PATH` に、ないことがある）
 find_vc() {
-	for candidate in "$(command -v vc 2>/dev/null)" "$HOME/.local/bin/vc" "/Applications/VoiceControl.app/Contents/MacOS/vc" "$HOME/Applications/VoiceControl.app/Contents/MacOS/vc"; do
+	for candidate in "$HOME/Applications/VoiceControl.app/Contents/MacOS/vc" "/Applications/VoiceControl.app/Contents/MacOS/vc" "$(command -v vc 2>/dev/null)" "$HOME/.local/bin/vc"; do
 		if [ -n "$candidate" ] && [ -x "$candidate" ]; then
 			printf '%s' "$candidate"
 			return 0

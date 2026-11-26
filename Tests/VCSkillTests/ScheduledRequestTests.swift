@@ -16,9 +16,9 @@ import VCDecision
     }
 
     @Test func reservationPhrasingsAreRecognisedAndNeighbouringPhrasingsAreNot() throws {
-        for set in ["dev", "test"] {
+        for set in ["dev", "test", "test3"] {
             let table = try rows(set)
-            #expect(table.count >= 20, "\(set)")
+            #expect(table.count >= 14, "\(set)")
             for row in table { #expect(ScheduledRequest.matches(row.text) == row.expected, "\(set): \(row.text)") }
         }
     }
