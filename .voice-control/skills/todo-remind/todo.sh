@@ -1,8 +1,10 @@
 #!/bin/sh
 # 今日の Todo と、時間になったら、読み上げて、パネルを出す（`todo-remind` スキルの本体。`todo.applescript` から呼ばれる）。
-# 使い方：/bin/sh todo.sh add <時刻> "<内容>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時 など）。内部用：wait <epoch> "<内容>"・time "<時刻>"
+# 使い方：/bin/sh todo.sh add <時刻> "<内容>" | run <時刻> "<依頼>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時 など）。内部用：wait <epoch> <スキル|-> "<内容>"・time "<時刻>"
 #
-# 置き場所：**待機しているプロセスそのもの**（`/bin/sh …/todo.sh wait <epoch> <内容>`）。ファイルにも、ログにも、残さない。
+# `run`：**時刻に、スキルを実行する予約**（`vc run`）。安全のために：①登録のとき、`vc run --dry-run` で、**特定のスキルに当たる**ときだけ受ける（既定スキル・このスキル自身・確認が要るスキルは、断る）②時刻になったら、**10 秒の予告**（読み上げ＋パネル。パネルを閉じると、取りやめ）③実行は、選ばれたスキルを指定して、`--yes` なしで（確認が要る操作は、無人だと「いいえ」になり、実行されない）④時刻から 2 分以上遅れたら（スリープなど）、実行しない。
+#
+# 置き場所：**待機しているプロセスそのもの**（`/bin/sh …/todo.sh wait <epoch> <スキル|-> <内容>`）。ファイルにも、ログにも、残さない。
 # Mac の再起動・ログアウトで、消える。一覧は `ps` で、取り消しは、そのプロセスを止めて、行う。
 # 結果は、いつも、1 行（ok: …・error: …）。標準出力へ（終了コードは 0）。
 LC_ALL=en_US.UTF-8
@@ -12,6 +14,9 @@ self="$dir/todo.sh"
 prefix="/bin/sh $self wait "   # 待機プロセスの印（この形で、始まる行だけを、自分のものとする）
 max_items=20
 max_chars=100
+confirm_seconds=10   # 予約の実行の、予告の長さ（この間に、パネルを閉じると、取りやめ）
+late_limit=120       # 予約の実行は、時刻から、これ以上遅れたら、しない
+run_limit=180        # 予約の実行（`vc run`）の、上限（秒）
 
 # `vc`：メニューバーのアプリから呼ばれたときは、PATH に、ないことがある
 find_vc() {
@@ -24,7 +29,7 @@ find_vc() {
 	return 1
 }
 
-# 待機中の Todo：`pid<TAB>epoch<TAB>内容` を、時刻の順に
+# 待機中の Todo：`pid<TAB>epoch<TAB>内容` を、時刻の順に（実行の予約は、「▶ 依頼（スキル名）」）
 pending() {
 	/bin/ps -axww -o pid=,command= | /usr/bin/awk -v pre="$prefix" -v now="$(/bin/date +%s)" '
 		{
@@ -37,7 +42,13 @@ pending() {
 			if (n == 0) next
 			epoch = substr(rest, 1, n - 1)
 			if (epoch + 0 <= now + 0) next   # 時刻が来て、いま、読み上げている最中のものは、出さない
-			printf "%s\t%s\t%s\n", pid, epoch, substr(rest, n + 1)
+			rest = substr(rest, n + 1)
+			n = index(rest, " ")
+			if (n == 0) next
+			skill = substr(rest, 1, n - 1)
+			text = substr(rest, n + 1)
+			if (skill != "-") text = "▶ " text "（" skill "）"
+			printf "%s\t%s\t%s\n", pid, epoch, text
 		}' | /usr/bin/sort -t "$(printf '\t')" -k2,2n
 }
 
@@ -96,7 +107,7 @@ parse_time() {
 	*:*) hour=${words%%:*}; minute=${words#*:} ;;
 	*時半) hour=${words%時半}; minute=30 ;;
 	*時*) hour=${words%%時*}; minute=${words#*時}; minute=${minute%分}; [ -n "$minute" ] || minute=0 ;;
-	*) return 1 ;;
+	*) hour=$words; minute=0 ;;   # 数だけ（「10」）：言語モデルが「時」を落としても、時として読む（数字でなければ、下で断る）
 	esac
 	for number in "$hour" "$minute"; do
 		case "$number" in
@@ -114,6 +125,44 @@ parse_time() {
 		if [ "$hour" -ge 5 ] && [ "$hour" -le 11 ]; then hour=$((hour + 12)); elif [ "$hour" -eq 12 ]; then hour=0; fi ;;
 	esac
 	printf '%02d:%02d' "$hour" "$minute"
+}
+
+# 声で知らせる（背景で）
+speak() {
+	(/usr/bin/say -v Kyoko "$1" || /usr/bin/say "$1") >/dev/null 2>&1 &
+}
+
+# 予約の実行（`wait` から：`target`・`skill`・`text`・`late` を使う）：予告 → 実行 → 結果の知らせ
+run_item() {
+	if [ "$late" -gt "$late_limit" ]; then
+		speak "時刻を過ぎていたので、「${text}」は、実行しませんでした"
+		return
+	fi
+	if ! vc=$(find_vc); then
+		speak "vc が見つからないので、「${text}」を、実行できません"
+		return
+	fi
+	# 予告：パネルが、閉じられずに、`confirm_seconds` 残れば、実行。閉じられたら（早く終わったら）、取りやめ。**パネルを出せなかったときも、取りやめ**（安全側）
+	speak "${confirm_seconds}秒後に、「${text}」を実行します。やめるときは、パネルを閉じてください"
+	started=$(/bin/date +%s)
+	printf '# %s 秒後に実行します\n\n## %s\n\nスキル：%s\n\n**やめるときは、このパネルを閉じてください（Esc）。**\n' "$confirm_seconds" "$text" "$skill" | "$vc" show --wait --title "予約の実行" --timeout "$confirm_seconds" >/dev/null 2>&1
+	if [ "$(( $(/bin/date +%s) - started ))" -lt "$((confirm_seconds - 1))" ]; then
+		speak "取りやめました"
+		return
+	fi
+	# 実行：選ばれたスキルを指定して、`--yes` なし・標準入力なし（確認が要る操作は、「いいえ」になる）
+	output=$(/usr/bin/perl -e 'alarm shift; exec @ARGV' "$run_limit" "$vc" run "$text" --skill "$skill" --no-plan </dev/null 2>&1)
+	reply=$(printf '%s\n' "$output" | /usr/bin/grep -E '^ +[^ ]+ +(done|failed):' | /usr/bin/head -1 | /usr/bin/sed -E 's/^ +[^ ]+ +//')
+	case "$reply" in
+	done:*)
+		speak "「${text}」を、実行しました"
+		printf '# 実行しました\n\n## %s\n\nスキル：%s\n\n%s\n' "$text" "$skill" "${reply#done:}" | "$vc" show --title "予約の実行" --timeout "$alert_seconds" >/dev/null 2>&1
+		;;
+	*)
+		speak "「${text}」は、実行できませんでした"
+		printf '# 実行できませんでした\n\n## %s\n\nスキル：%s\n\n確認が要る操作・失敗のどちらかです。%s\n' "$text" "$skill" "${reply#failed:}" | "$vc" show --title "予約の実行" --timeout "$alert_seconds" >/dev/null 2>&1
+		;;
+	esac
 }
 
 # 一覧のパネル（`vc` がなければ、出さない。出したか否かを、戻り値で）
@@ -148,7 +197,8 @@ time)
 wait)
 	# 内部用：時刻まで、壁時計で待つ（`sleep` だけだと、スリープの間が数えられない）→ 読み上げ → パネル
 	target=${2:-0}
-	text=${3:-}
+	skill=${3:--}
+	text=${4:-}
 	while :; do
 		now=$(/bin/date +%s)
 		remaining=$((target - now))
@@ -156,6 +206,11 @@ wait)
 		if [ "$remaining" -gt 5 ]; then /bin/sleep 5; else /bin/sleep "$remaining"; fi
 	done
 	late=$((now - target))
+	if [ "$skill" != "-" ]; then
+		run_item
+		wait
+		exit 0
+	fi
 	sentence="${text}を実施する時間です"
 	[ "$late" -gt 60 ] && sentence="遅れました。${sentence}"
 	(/usr/bin/say -v Kyoko "$sentence" || /usr/bin/say "$sentence") >/dev/null 2>&1 &
@@ -183,11 +238,56 @@ add)
 		echo "error: too many todos ($max_items). delete some first"
 		exit 0
 	fi
-	/usr/bin/nohup /bin/sh "$self" wait "$epoch" "$text" >/dev/null 2>&1 </dev/null &
+	/usr/bin/nohup /bin/sh "$self" wait "$epoch" - "$text" >/dev/null 2>&1 </dev/null &
 	/bin/sleep 0.3   # 待機プロセスが、一覧に出るまで、少し待つ
 	panel=""
 	show_panel || panel=" (no panel: vc not found) todos: $(summary)"
 	echo "ok: added $(/bin/date -r "$epoch" +%H:%M) $text$panel"
+	;;
+run)
+	text=$(clean "${3:-}")
+	if ! time_text=$(parse_time "${2:-}"); then
+		echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時)"
+		exit 0
+	fi
+	if [ -z "$text" ]; then
+		echo "error: the request is empty"
+		exit 0
+	fi
+	epoch=$(/bin/date -j -f "%Y-%m-%d %H:%M:%S" "$(/bin/date +%Y-%m-%d) $time_text:00" +%s)
+	if [ "$epoch" -le "$(/bin/date +%s)" ]; then
+		echo "error: $time_text has already passed today (only today's times can be set)"
+		exit 0
+	fi
+	if [ "$(pending | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -ge "$max_items" ]; then
+		echo "error: too many todos ($max_items). delete some first"
+		exit 0
+	fi
+	if ! vc=$(find_vc); then
+		echo "error: vc was not found, so the request cannot be checked or scheduled"
+		exit 0
+	fi
+	# 登録のとき、先に確かめる：どのスキルが、選ばれるか（dry-run：実行しない）
+	dry=$(/usr/bin/perl -e 'alarm shift; exec @ARGV' 90 "$vc" run "$text" --dry-run --no-plan </dev/null 2>&1)
+	skill=$(printf '%s\n' "$dry" | /usr/bin/sed -n -E 's/^ *Tiny-Jev +([a-z0-9][a-z0-9-]*) +[0-9.]+%.*/\1/p' | /usr/bin/head -1)
+	if [ -z "$skill" ]; then
+		echo "error: that request does not match a specific skill, so it cannot be scheduled (only requests that match a skill can be scheduled)"
+		exit 0
+	fi
+	if [ "$skill" = "todo-remind" ]; then
+		echo "error: that request is about the todo list itself, so it cannot be scheduled"
+		exit 0
+	fi
+	if /usr/bin/awk '/^---/ { n++; next } n == 1 && /^confirm: *true/ { found = 1 } END { exit !found }' "$dir/../$skill/SKILL.md" 2>/dev/null; then
+		echo "error: the skill $skill asks for confirmation, so it cannot run unattended and cannot be scheduled"
+		exit 0
+	fi
+	planned=$(printf '%s\n' "$dry" | /usr/bin/sed -n -E 's/^ +\$ //p' | /usr/bin/sed -E 's|[^ ]*/skills/[a-z0-9-]+/||g' | /usr/bin/head -3 | /usr/bin/awk 'NR > 1 { printf " ; " } { printf "%s", $0 } END { print "" }')
+	/usr/bin/nohup /bin/sh "$self" wait "$epoch" "$skill" "$text" >/dev/null 2>&1 </dev/null &
+	/bin/sleep 0.3
+	panel=""
+	show_panel || panel=" (no panel: vc not found)"
+	echo "ok: scheduled $(/bin/date -r "$epoch" +%H:%M) run [$skill] $text (will run: $planned). ${confirm_seconds} seconds before, a notice appears; closing it cancels$panel"
 	;;
 list)
 	count=$(pending | /usr/bin/wc -l | /usr/bin/tr -d ' ')
@@ -232,7 +332,7 @@ delete)
 	echo "ok: deleted $(describe "$removed")"
 	;;
 *)
-	echo "error: unknown action. use add <HH:MM> \"<text>\" | list | delete \"<word>\" | delete all"
+	echo "error: unknown action. use add <time> \"<text>\" | run <time> \"<request>\" | list | delete \"<word>\" | delete all"
 	;;
 esac
 exit 0

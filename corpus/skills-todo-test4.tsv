@@ -1,12 +1,12 @@
 # todo-remind の、4 つ目の取っておいた文（作り物。2026-11-26）。時刻の読み方の指示（午前・午後・夜を、そのまま写す）を足したあとの、最後の確認用。調整には使わない。
 # 形：スキル<TAB>照合<TAB>期待<TAB>発話
-todo-remind	has	^osascript todo\.applescript add (17:00|午後5時|夕方5時|夕方の5時|夜の5時) "資料	夕方の5時に資料を印刷するのでTodoに追加して
+todo-remind	has	^osascript todo\.applescript add (17:00|午後5時|夕方5時|夕方の5時|夜の5時|17|17時|17時0分) "資料	夕方の5時に資料を印刷するのでTodoに追加して
 todo-remind	has	^osascript todo\.applescript add (11:45|11時45分|午前11時45分) "会議	午前11時45分に会議室を予約するのでTodoに入れて
-todo-remind	has	^osascript todo\.applescript add (20:30|夜8時半|夜の8時半|午後8時半) "電話	夜の8時半に実家へ電話するのでTodoに登録して
-todo-remind	has	^osascript todo\.applescript add (06:15|6:15|朝6時15分|午前6時15分) "ランニング	朝6時15分にランニングをするのでTodo追加して
-todo-remind	has	^osascript todo\.applescript add (13:00|午後1時|昼の1時|昼1時) "ミーティング	午後1時にミーティングに出るのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add (20:30|夜8時半|夜の8時半|午後8時半|20時30分|20時半) "電話	夜の8時半に実家へ電話するのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (06:15|6:15|朝6時15分|午前6時15分|6時15分) "ランニング	朝6時15分にランニングをするのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add (13:00|午後1時|昼の1時|昼1時|13|13時|13時0分) "ミーティング	午後1時にミーティングに出るのでTodoに入れて
 todo-remind	has	^osascript todo\.applescript add (22:10|22時10分) "戸棚	22時10分に戸棚の整理をするのでTodoに追加して
-todo-remind	has	^osascript todo\.applescript add (07:00|7:00|7時|朝7時|午前7時) "ゴミ	7時にゴミを出すのでTodoに登録して
+todo-remind	has	^osascript todo\.applescript add (07:00|7:00|7時|朝7時|午前7時|07時|7|7時0分) "ゴミ	7時にゴミを出すのでTodoに登録して
 todo-remind	exact	osascript todo.applescript list	今日のTodoを一覧表示して
 todo-remind	exact	osascript todo.applescript delete "ランニング"	ランニングのTodoを削除して
 todo-remind	exact	osascript todo.applescript delete "電話"	電話のTodoを消して
