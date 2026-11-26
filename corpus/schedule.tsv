@@ -1,5 +1,5 @@
-# 「時刻に実行する予約」の言い方（yes）か、そうでない（no）か。`ScheduledRequest.matches`（SPEC F77）の規則の確認用。作り物の文（2026-11-26）。
-# dev：規則を決めるときに見た文。test：規則を決めたあとで、1 度だけ測る取っておいた文（`ScheduledRequestTests` が読む）。
+# 「時刻に実行する予約」の言い方（yes）か、そうでない（no）か。`todo-remind` の SKILL.md の `triggers`（SPEC F77・F78）の確認用。作り物の文（2026-11-26）。
+# dev：規則を決めるときに見た文。test：規則を決めたあとで、1 度だけ測る取っておいた文（`SkillTriggersTests` が読む）。
 # 形：組<TAB>正解<TAB>発話
 dev	yes	10時に音楽をかけるよう予約して
 dev	yes	15時にSpotifyを再生するようにスケジュールして

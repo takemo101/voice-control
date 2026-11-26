@@ -96,6 +96,7 @@ struct SkillsCommand: Command {
         case .any: kv(tr("画像"), tr("撮ったスクリーンショットか、コピーした画像があるときだけ、選ばれる"), width: colWidth(ja: 6, en: 12))
         case nil: break
         }
+        if !s.triggers.isEmpty { kv(tr("言い方の規則"), tr("この言い方に当たる依頼は、Tiny-Jev を通さず、このスキルへ回る（\(s.triggers.count) 件。内容は、SKILL.md の triggers）"), width: colWidth(ja: 6, en: 12)) }
         if s.commandTimeout != CommandRunner.defaultTimeout { kv(tr("時間"), tr("コマンド 1 つあたり \(Int(s.commandTimeout)) 秒まで"), width: colWidth(ja: 6, en: 12)) }
         kv(tr("置き場所"), Self.scopeName(s.scope) + (s.scope == .project && catalog.loaded.overridden.contains(s.name) ? Style.dim(tr("（同名のグローバルを上書き）")) : ""), width: colWidth(ja: 6, en: 12))
         if s.scope != .builtin { kv(tr("場所"), s.file.path, width: colWidth(ja: 6, en: 12)) }

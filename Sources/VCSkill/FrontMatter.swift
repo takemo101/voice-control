@@ -53,6 +53,11 @@ extension SkillStore {
             guard let source = ImageSource.parse(value) else { return .failure(ParseError(reason: tr("image「\(value.prefix(20))」は、true・screenshot（撮ったスクリーンショット）・clipboard（コピーした画像）・any（どちらでも）のどれかです"))) }
             skill.imageSource = source
         }
+        // 言い方の規則：リスト（`- 正規表現`）。上限・読めるかを、読み込みで検査する
+        let triggerField = fields["triggers"]
+        let triggers = triggerField?.list ?? triggerField?.scalar.map { [$0] } ?? []
+        if let why = SkillTriggers.validate(triggers) { return .failure(ParseError(reason: why)) }
+        skill.triggers = triggers
         skill.commandTimeout = commandTimeout
         skill.acceptsPrevious = (fields["accepts-previous"]?.scalar).map { ["true", "yes", "on"].contains($0.lowercased()) } ?? false
         return .success(skill)
