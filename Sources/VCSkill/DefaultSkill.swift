@@ -90,6 +90,10 @@ public struct SkillResolver: Sendable {
     }
 
     public func resolve(_ request: String) throws -> Outcome {
+        // 「10時に〇〇するよう予約して」：Tiny-Jev は、領域の語で、選んでしまう（すぐ実行される）ので、コードの規則で、予約のスキルへ回す（入っていて、有効なときだけ）。実行の安全は、そのスキルが持つ（登録の確かめ・予告・確認なし）
+        if ScheduledRequest.matches(request), let scheduler = skills.first(where: { $0.name == ScheduledRequest.skillName }) {
+            return .resolved(Resolution(skill: scheduler, kind: .matched, probability: 1, risk: nil, confirmReason: nil))
+        }
         let candidates = skills.filter { $0.name != DefaultSkill.name }
         var usable = candidates
         // 画像がない（撮っていない・古い・コピーしていない）：その画像のスキルを、選択肢から外す。ただし、**すべての中から選んで、外したスキルが選ばれるなら、画像の出し忘れ**：
