@@ -29,6 +29,21 @@ public struct CaptureApp: Sendable, Equatable {
     public init(bundleID: String, name: String) { self.bundleID = bundleID; self.name = name }
 }
 
+/// システム音声を取り込んでいるか（プロセス全体の 1 つの旗）。**取り込んでいる間は、録音中の「ほかの音を消す」を、しない**：出力を消すと、取り込む音も、消える（`OutputMuter.engage` が見る）。
+public enum SystemAudioActivity {
+    private static let state = LockedCount()
+    public static var isActive: Bool { state.value > 0 }
+    static func begin() { state.add(1) }
+    static func end() { state.add(-1) }
+
+    private final class LockedCount: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+        var value: Int { lock.withLock { count } }
+        func add(_ delta: Int) { lock.withLock { count = max(0, count + delta) } }
+    }
+}
+
 /// どの音を取り込むか。
 public enum SystemAudioTarget: Sendable, Equatable {
     /// Mac から出ている音すべて。
@@ -41,6 +56,8 @@ public final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private var stream: SCStream?
     private var continuation: AsyncStream<AVAudioPCMBuffer>.Continuation?
     private let queue = DispatchQueue(label: "voice-control.system-audio")
+    private let activeLock = NSLock()
+    private var counted = false
 
     public override init() { super.init() }
 
@@ -94,6 +111,7 @@ public final class SystemAudioCapture: NSObject, @unchecked Sendable {
         }
         self.stream = stream
         self.continuation = continuation
+        markActive(true)
         return audio
     }
 
@@ -103,6 +121,15 @@ public final class SystemAudioCapture: NSObject, @unchecked Sendable {
         try? await stream?.stopCapture()   // try?: 止まっているものを、止めようとして、失敗しても、よい
         continuation?.finish()
         continuation = nil
+        markActive(false)
+    }
+
+    /// `SystemAudioActivity` を、この取り込みの分だけ、数える（始まりと終わりを、1 回ずつ）。
+    private func markActive(_ on: Bool) {
+        activeLock.lock(); defer { activeLock.unlock() }
+        guard on != counted else { return }
+        counted = on
+        if on { SystemAudioActivity.begin() } else { SystemAudioActivity.end() }
     }
 }
 
@@ -114,6 +141,7 @@ extension SystemAudioCapture: SCStreamOutput, SCStreamDelegate {
 
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
         continuation?.finish()
+        markActive(false)
     }
 
     private static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {

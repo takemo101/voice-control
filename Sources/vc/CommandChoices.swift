@@ -18,6 +18,7 @@ struct ResolvedKeys {
     let shot: HotKeySpec?
     let pasteLast: HotKeySpec?
     let cycleSend: HotKeySpec?
+    let transcribe: HotKeySpec?
 }
 
 /// 設定・引数から決まる、**使うもの**（スキルを実行するモデル・音声認識・会話のエージェント・キー）。書き間違いは、ここで一度だけ検査して、型にする。

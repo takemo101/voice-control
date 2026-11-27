@@ -6,13 +6,21 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, keys, voice, dictation, chat, models, skills
+    case general, keys, voice, dictation, transcribe, history, chat, models, skills
     var id: String { rawValue }
+
+    /// サイドバーの区切り（見出し・ページ）。上から：全体・声の入力・会話と実行。
+    static var sections: [(title: String?, pages: [SettingsPage])] {
+        [(nil, [.general]), (tr("入力"), [.keys, .voice, .dictation, .transcribe, .history]), (tr("会話と実行"), [.chat, .models, .skills])]
+    }
+
     var title: String {
         switch self {
         case .keys: return tr("キー")
         case .voice: return tr("音声")
         case .dictation: return tr("音声入力")
+        case .transcribe: return tr("文字起こし")
+        case .history: return tr("履歴")
         case .chat: return tr("会話")
         case .models: return L10n.shared.language == .ja ? "モデル" : tr(verbatim: "Models")   // l10n-skip：行の「モデル」（Model）と、訳が違う。日本語以外は、英語の文を鍵にして引く（表の「Models」）
         case .skills: return tr("スキル")
@@ -24,6 +32,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .keys: return "keyboard"
         case .voice: return "waveform"
         case .dictation: return "text.cursor"
+        case .transcribe: return "captions.bubble.fill"
+        case .history: return "clock.arrow.circlepath"
         case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"

@@ -59,18 +59,16 @@ struct GeneralPage: View {
                 }
             }
         }
-        Card(tr("起動"), footer: tr("オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。")) {
+        Card(tr("基本"), footer: tr("表示言語は、設定ウィンドウとダイアログの言葉です（音声認識の言語は、設定 > 音声）。文字の大きさは、会話・Markdown・上のパネル・画像の窓に効きます（標準は 13。この設定ウィンドウは、変わりません）。")) {
             LoginRow(model: model)
-        }
-        Card("Language / 言語", footer: tr("設定ウィンドウとダイアログの言葉です。音声認識の言語は、設定 > 音声 で決めます。")) {   // l10n-skip
+            RowDivider()
             Row(tr("表示言語"), detail: tr("設定ウィンドウとダイアログ")) {
                 Picker("", selection: Binding(get: { model.uiLanguage }, set: { model.setUILanguage($0) })) {
                     ForEach(AppLanguage.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden().frame(width: 150)
             }
-        }
-        Card(tr("表示"), footer: tr("会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。")) {
+            RowDivider()
             Row(tr("文字の大きさ"), detail: "10 〜 24") {
                 HStack(spacing: 10) {
                     if (model.settings.fontSize ?? UIScale.standard) != UIScale.standard {
@@ -85,10 +83,9 @@ struct GeneralPage: View {
             RowDivider()
             UpdateRow()
         }
-        Card(tr("ターミナル")) {
+        Card(tr("ツール・情報")) {
             CommandLineRow(model: model)
-        }
-        Card(tr("情報")) {
+            RowDivider()
             Row(tr("診断"), detail: tr("必要なものが、そろっているかを、くわしく確かめます")) { Button(tr("開く")) { AppActions.showDoctor() }.controlSize(.small) }
             RowDivider()
             Row(tr("画面収録の許可"), detail: tr("画面撮影・画面を見るスキルを使うときだけ必要です")) {

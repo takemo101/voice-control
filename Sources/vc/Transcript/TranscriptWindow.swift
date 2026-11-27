@@ -42,12 +42,34 @@ import VCSpeech
         window = frame
     }
 
-    /// 開始・停止。**取り込みの開始は、利用者の操作**（許可の確認が出うる）。
+    /// 開始・停止（ウィンドウのボタン）。**取り込みの開始は、利用者の操作**（許可の確認が出うる）。
     private func toggle() {
         Task { @MainActor in
-            if session.isActive { await session.stop(); return }
-            let settings = Settings.loadOrDefault().settings
-            await session.start(settings: settings, engine: Self.engine(for: settings))
+            if session.isActive { await session.stop() } else { await start() }
+        }
+    }
+
+    private func start() async {
+        let settings = Settings.loadOrDefault().settings
+        await session.start(settings: settings, engine: Self.engine(for: settings))
+    }
+
+    /// ショートカット（設定 `transcribeHotkey`）：開始・停止。ほかのアプリの前面を、奪わない（ウィンドウは、前に出すだけ）。結果は、画面の上のパネルに出す（失敗の理由も）。
+    func toggleFromShortcut() {
+        if window == nil { build() }
+        Task { @MainActor in
+            if session.isActive {
+                await session.stop()
+                HUD.shared.show(HUDContent(phase: .info, title: tr("文字起こしを止めました"), hint: tr("\(session.log.entries.count) 件")), hideAfter: 2)
+                return
+            }
+            window?.orderFrontRegardless()
+            await start()
+            if case let .failed(why) = session.state {
+                HUD.shared.show(HUDContent(phase: .failure, title: tr("文字起こしを始められません"), hint: why), hideAfter: 5)
+            } else {
+                HUD.shared.show(HUDContent(phase: .info, title: tr("文字起こしを始めました"), hint: tr("もう一度押すと、止めます")), hideAfter: 2)
+            }
         }
     }
 

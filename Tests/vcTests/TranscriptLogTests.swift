@@ -47,3 +47,26 @@ import VCSpeech
         #expect(markdown.hasPrefix("# 文字起こし\n") && markdown.contains("**相手**") && markdown.contains("こんにちは。") && markdown.contains("**自分**") && markdown.contains("はじめまして。"))
     }
 }
+
+/// 整理は、相手（システム音声）と自分で、別々に決める（F79・F80）。
+@Suite struct TranscriptTidySwitchTests {
+    @Test func theOtherPartyAndMyOwnVoiceAreTidiedIndependently() {
+        var settings = Settings()
+        #expect(!TranscriptSession.tidies(.others, settings: settings) && !TranscriptSession.tidies(.me, settings: settings))
+        settings.tidySystem = true
+        #expect(TranscriptSession.tidies(.others, settings: settings) && !TranscriptSession.tidies(.me, settings: settings))
+        settings.tidySystem = nil; settings.tidy = true
+        #expect(!TranscriptSession.tidies(.others, settings: settings) && TranscriptSession.tidies(.me, settings: settings))
+    }
+}
+
+/// 履歴の絞り込み：音声入力（source なし）と文字起こし（source あり）。
+@Suite struct HistoryFilterTests {
+    @Test func dictationAndTranscriptEntriesAreToldApartBySource() {
+        let typed = HistoryEntry(date: Date(), text: "入力した文字")
+        let heard = HistoryEntry(date: Date(), text: "相手の文字", source: .others)
+        #expect(HistoryFilter.dictation.matches(typed) && !HistoryFilter.dictation.matches(heard))
+        #expect(!HistoryFilter.transcript.matches(typed) && HistoryFilter.transcript.matches(heard))
+        #expect(HistoryFilter.all.matches(typed) && HistoryFilter.all.matches(heard))
+    }
+}

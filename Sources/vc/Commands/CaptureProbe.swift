@@ -26,6 +26,7 @@ struct CaptureProbeCommand: Command {
         let capture = SystemAudioCapture()
         let audio: AsyncStream<AVAudioPCMBuffer>
         do { audio = try await capture.start(target: .allApps) } catch { fail("\(error)") }
+        print("  取り込み中（録音中に、ほかの音を消さない旗）：\(SystemAudioActivity.isActive ? "on" : "off")")
 
         var peak: Float = 0
         var buffers = 0
@@ -44,6 +45,7 @@ struct CaptureProbeCommand: Command {
         }
         try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         await capture.stop()
+        print("  停止後の旗：\(SystemAudioActivity.isActive ? "on" : "off")")
         await reader.value
         await transcriber.finish()
         print("  取り込んだ音の塊：\(buffers)・最大の音量：\(String(format: "%.3f", peak))")

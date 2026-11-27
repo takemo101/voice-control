@@ -4,7 +4,7 @@ import VCCore
 import VCSkill
 import VCSpeech
 
-/// 文字起こしの 1 回（SPEC F80）：システム音声（相手）と、設定によっては、マイク（自分）を、文にして、記録（メモリ）に足し、整理（F79）して、履歴（設定 `history`）に残す。
+/// 文字起こしの 1 回（SPEC F80）：システム音声（相手）と、設定によっては、マイク（自分）を、文にして、記録（メモリ）に足し、整理（F79。相手と自分は、別々の設定）して、履歴（設定 `history`）に残す。
 /// **文字起こし専用**：文は、画面に出し、履歴に残すだけ。スキル・会話・コマンドへは、回さない（N2）。音声は、残さない。
 /// 失敗（許可がない・モデルがない）は、`state` に出す（黙って、何もしない、をしない）。
 @MainActor final class TranscriptSession: ObservableObject {
@@ -96,9 +96,17 @@ import VCSpeech
         }
     }
 
+    /// その話し手の文を、整理するか（設定：相手＝`tidySystem`・自分＝`tidy`。別々に決める）。
+    nonisolated static func tidies(_ speaker: HistoryEntry.Source, settings: Settings) -> Bool {
+        switch speaker {
+        case .others: return settings.tidySystem ?? false
+        case .me: return settings.tidy ?? false
+        }
+    }
+
     private func finalize(_ entry: TranscriptLog.Entry) async {
         var text = entry.text, raw: String?
-        if settings.tidy ?? false {
+        if Self.tidies(entry.speaker, settings: settings) {
             let result = await Tidier(engine: engine, instructionsSetting: settings.tidyInstructions).tidy(entry.text)
             if case let .tidied(tidied) = result {
                 log.replace(id: entry.id, tidied: tidied)

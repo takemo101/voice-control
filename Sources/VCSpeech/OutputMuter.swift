@@ -17,6 +17,8 @@ public final class OutputMuter: @unchecked Sendable {
 
     private let backend: OutputSilencing?
     private let schedule: Schedule
+    /// いま消してはいけないか（システム音声を取り込んでいる間：出力を消すと、取り込む音も、消える）。消す直前に、見る。
+    private let isSuppressed: @Sendable () -> Bool
     private let lock = NSLock()
     /// 消す・戻すの、デバイスの操作を、1 つずつにする。再入できる（`silence()` の中から `restore()` が呼ばれても、止まらない）。
     private let deviceLock = NSRecursiveLock()
@@ -24,9 +26,11 @@ public final class OutputMuter: @unchecked Sendable {
     private var undo: (@Sendable () -> Void)?
 
     /// `backend` が `nil` なら、何もしない（`--no-mute`）。
-    public init(backend: OutputSilencing?, schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) }) {
+    public init(backend: OutputSilencing?, schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) },
+                isSuppressed: @escaping @Sendable () -> Bool = { SystemAudioActivity.isActive }) {
         self.backend = backend
         self.schedule = schedule
+        self.isSuppressed = isSuppressed
     }
 
     /// 実際の出力（CoreAudio）を消す。終了時（`exit`）にも、戻す。
@@ -50,7 +54,7 @@ public final class OutputMuter: @unchecked Sendable {
             self.lock.lock()
             let stale = self.generation != mine || self.undo != nil
             self.lock.unlock()
-            if stale { return }
+            if stale || self.isSuppressed() { return }
             let undo = backend.silence()
             self.lock.lock()
             if self.generation == mine, self.undo == nil { self.undo = undo; self.lock.unlock() } else { self.lock.unlock(); undo?() }

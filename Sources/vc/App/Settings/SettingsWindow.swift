@@ -88,6 +88,8 @@ struct SettingsView: View {
                         case .keys: KeysPage(model: model)
                         case .voice: VoicePage(model: model)
                         case .dictation: DictationPage(model: model)
+                        case .transcribe: TranscribePage(model: model)
+                        case .history: HistoryPage(model: model)
                         case .chat: ChatPage(model: model)
                         case .models: ModelsPage(model: model)
                         case .skills: SkillsPage(model: model)
@@ -118,19 +120,25 @@ private struct Sidebar: View {
                 }
             }
             .padding(.horizontal, 16).padding(.top, 38).padding(.bottom, 18)
-            VStack(spacing: 2) {
-                ForEach(SettingsPage.allCases) { page in
-                    Button { model.page = page } label: {
-                        HStack(spacing: 10) {
-                            SettingsBadge(symbol: page.symbol, colors: page.colors)
-                            Text(page.title).font(.system(size: 13, weight: model.page == page ? .semibold : .regular))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(model.page == page ? Color.primary.opacity(0.10) : Color.clear))
-                        .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(SettingsPage.sections.enumerated()), id: \.offset) { index, section in
+                    if let title = section.title {
+                        Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                            .padding(.horizontal, 10).padding(.top, index == 0 ? 0 : 14).padding(.bottom, 4)
                     }
-                    .buttonStyle(.plain)
+                    ForEach(section.pages) { page in
+                        Button { model.page = page } label: {
+                            HStack(spacing: 10) {
+                                SettingsBadge(symbol: page.symbol, colors: page.colors)
+                                Text(page.title).font(.system(size: 13, weight: model.page == page ? .semibold : .regular))
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(model.page == page ? Color.primary.opacity(0.10) : Color.clear))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(.horizontal, 10)
