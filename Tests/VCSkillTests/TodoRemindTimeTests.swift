@@ -52,4 +52,22 @@ import Testing
             #expect(got == "error", "\(words) -> \(got)")
         }
     }
+
+    /// 文から、時刻の言い方を、コードが取り出す（言語モデルは、「5分後」を「5時」に書き換えるので、文全体を、写させる）。
+    @Test func theTimeIsReadFromTheUsersOwnSentence() throws {
+        let table: [(String, String)] = [
+            ("5分後に音楽をかけるよう予約して", "5分後"), ("1時間半後にSafariを開くよう予約して", "1時間半後"), ("1時間30分後に曲を止めて", "1時間30分後"), ("30秒後に音を鳴らして", "30秒後"),
+            ("15時に資料を送るTodoを追加して", "15時"), ("午後3時半に歯医者へ行くのでTodoに入れて", "午後3時半"), ("夜の8時に画面を撮る予約をして", "夜の8時"), ("9時15分に薬を飲むのでTodoに入れて", "9時15分"),
+            ("正午にメモ帳を開くよう予約して", "正午"), ("１８：３０に電話するのでTodo", "18:30"), ("3時間後に5分休むのでTodoに入れて", "3時間後"),
+        ]
+        for (sentence, expected) in table {
+            let got = try read(sentence, "extract")
+            #expect(got == expected, "\(sentence) -> \(got)")
+        }
+        // 時刻でない文・長さ（後がない）は、取り出さない（このときは、言語モデルが渡した時刻を使う）
+        for sentence in ["1時間かけて資料を作る予約をして", "今日のTodoを見せて", ""] {
+            let got = try read(sentence, "extract")
+            #expect(got == "error", "\(sentence) -> \(got)")
+        }
+    }
 }

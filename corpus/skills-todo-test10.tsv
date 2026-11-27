@@ -1,0 +1,10 @@
+# todo-remind：いまからの長さ＋予約の言い方（「5分後に〇〇するよう予約して」）。取っておいた文（作り物。2026-11-27）。調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript run (5分後|5分) "音楽|曲	5分後に音楽をかけるよう予約して
+todo-remind	has	^osascript todo\.applescript run (30分後|30分) "画面|スクリーンショット	30分後に画面を撮る予約をして
+todo-remind	has	^osascript todo\.applescript run (1時間後|1時間|60分後|60分) "曲|音楽	1時間後に曲を止めるようスケジュールして
+todo-remind	has	^osascript todo\.applescript run (10分後|10分) "音量	10分後に音量を下げる予約をして
+todo-remind	has	^osascript todo\.applescript run (2時間後|2時間|120分後|120分) "ブラウザ|ニュース	2時間後にブラウザでニュースを検索するのを予約して
+todo-remind	has	^osascript todo\.applescript run (20分後|20分) "Safari	20分後にSafariを開くよう予約して
+todo-remind	has	^osascript todo\.applescript run (45分後|45分) "音楽|曲	45分後に音楽を流す予約をして
+todo-remind	has	^osascript todo\.applescript run (15分後|15分) "スクリーンショット|画面	15分後にスクリーンショットを撮るようスケジュールして

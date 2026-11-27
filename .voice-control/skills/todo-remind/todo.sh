@@ -1,6 +1,6 @@
 #!/bin/sh
 # 今日の Todo と、時間になったら、読み上げて、パネルを出す（`todo-remind` スキルの本体。`todo.applescript` から呼ばれる）。
-# 使い方：/bin/sh todo.sh add <時刻> "<内容>" | run <時刻> "<依頼>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時・5分後・1時間半後 など）。内部用：wait <epoch> <スキル|-> "<内容>"・time "<時刻>"・relative "<5分後 など>"
+# 使い方：/bin/sh todo.sh add <時刻> "<内容>" "<元の文>" | run <時刻> "<依頼>" "<元の文>" | list | delete "<語>" | delete all（<時刻>：15:00・15時半・午後3時・5分後・1時間半後 など）。内部用：wait <epoch> <スキル|-> "<内容>"・time "<時刻>"・relative "<5分後 など>"
 #
 # `run`：**時刻に、スキルを実行する予約**（`vc run`）。安全のために：①登録のとき、`vc run --dry-run` で、**特定のスキルに当たる**ときだけ受ける（既定スキル・このスキル自身・確認が要るスキルは、断る）②時刻になったら、**10 秒の予告**（読み上げ＋パネル。パネルを閉じると、取りやめ）③実行は、選ばれたスキルを指定して、`--yes` なしで（確認が要る操作は、無人だと「いいえ」になり、実行されない）④時刻から 2 分以上遅れたら（スリープなど）、実行しない。
 #
@@ -191,6 +191,19 @@ parse_relative() {
 	printf '%s' "$total"
 }
 
+# **利用者の文から、時刻の言い方を、取り出す**（コード）：言語モデルは、「5分後」を「5時」「15時」に書き換え（測定：予約の言い方で 4/24）、写す指示では、直らなかった。**文全体を、そのまま写す**ほうが、確実なので、時刻は、文から、コードが読む（言語モデルが渡した時刻は、文に時刻がないときの代わり）。
+# 見つけるのは、相対（「5分後」「1時間半後」「1時間30分後」「30秒後」）→ 絶対（「午後3時半」「18:30」「9時15分」「正午」）の順。「1時間かけて」（長さ。後がない）は、時刻としない。見つからなければ、何も出さずに、戻り値 1。
+extract_time() {
+	text=$(nfc "$1" | /usr/bin/sed 's/０/0/g; s/１/1/g; s/２/2/g; s/３/3/g; s/４/4/g; s/５/5/g; s/６/6/g; s/７/7/g; s/８/8/g; s/９/9/g; s/：/:/g; s/ //g; s/　//g')
+	found=$(printf '%s' "$text" | /usr/bin/grep -o -E '[0-9]{1,3}(時間半|時間[0-9]{1,2}分|時間|分|秒)後' | /usr/bin/head -1)
+	if [ -z "$found" ]; then
+		stripped=$(printf '%s' "$text" | /usr/bin/sed -E 's/[0-9]{1,3}時間(半|[0-9]{1,2}分)?//g')
+		found=$(printf '%s' "$stripped" | /usr/bin/grep -o -E '(午前|午後|朝|昼|夕方|夜|晩|ごご|あさ|よる)?の?[0-9]{1,2}(時半|時[0-9]{1,2}分|時|:[0-9]{2})|正午' | /usr/bin/head -1)
+	fi
+	[ -n "$found" ] || return 1
+	printf '%s' "$found"
+}
+
 # 時刻（「15時」「5分後」）→ 目標の時刻（epoch）。**今日の中だけ**（日をまたぐ・過ぎた時刻は、断る）。読めなければ、戻り値 1・過ぎた／明日なら、戻り値 2。
 resolve_epoch() {
 	if offset=$(parse_relative "$1"); then
@@ -238,6 +251,10 @@ relative)
 	# 内部用（テスト）：「5分後」などを、秒数に
 	parse_relative "${2:-}" || echo "error"
 	;;
+extract)
+	# 内部用（テスト）：文から、時刻の言い方を取り出す
+	extract_time "${2:-}" || echo "error"
+	;;
 wait)
 	# 内部用：時刻まで、壁時計で待つ（`sleep` だけだと、スリープの間が数えられない）→ 読み上げ → パネル
 	target=${2:-0}
@@ -265,9 +282,10 @@ wait)
 	;;
 add)
 	text=$(clean "${3:-}")
-	resolve_epoch "${2:-}"
+	when=$(extract_time "${4:-}") || when=${2:-}   # 文（4 つ目）から、読む。なければ、言語モデルが渡した時刻
+	resolve_epoch "$when"
 	case $? in
-	1) echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
+	1) echo "error: could not read the time \"$when\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
 	2) echo "error: that time has already passed or is not today (only times later today can be set)"; exit 0 ;;
 	esac
 	if [ -z "$text" ]; then
@@ -286,9 +304,10 @@ add)
 	;;
 run)
 	text=$(clean "${3:-}")
-	resolve_epoch "${2:-}"
+	when=$(extract_time "${4:-}") || when=${2:-}
+	resolve_epoch "$when"
 	case $? in
-	1) echo "error: could not read the time \"${2:-}\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
+	1) echo "error: could not read the time \"$when\" (use e.g. 15:00, 15時半, 午後3時, 5分後)"; exit 0 ;;
 	2) echo "error: that time has already passed or is not today (only times later today can be set)"; exit 0 ;;
 	esac
 	if [ -z "$text" ]; then

@@ -84,6 +84,6 @@ import VCDecision
             counts[cells[0], default: 0] += 1
             #expect(todo.isTriggered(by: cells[2]) == (cells[1] == "yes"), "\(cells[0]): \(cells[2])")
         }
-        #expect(counts["dev"] ?? 0 >= 20 && counts["test"] ?? 0 >= 14 && counts["test3"] ?? 0 >= 10)
+        #expect(counts["dev"] ?? 0 >= 20 && counts["test"] ?? 0 >= 14 && counts["test3"] ?? 0 >= 10 && counts["test4"] ?? 0 >= 10)
     }
 }
