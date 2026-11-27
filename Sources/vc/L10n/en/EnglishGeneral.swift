@@ -190,7 +190,6 @@ extension EnglishTables {
         "貼り直す入力が、まだありません": "Nothing to paste yet",
         "送らない": "Don't send",
         "送るキーを切り替える": "Switch send key",
-        "音声入力の履歴を残す": "Keep dictation history",
         "音声入力をすると、直前の入力を、ここから貼り直せます": "After dictating, you can paste the last input again from here",
         "「自動」は、話した音声から、言語を判定します（短い言葉では、外れることがあります）。": "“Auto” detects the language from what you say (it may miss on very short phrases).",
         "いまの認識は Apple のものなので、「自動」は、この Mac の言語になります。音声から判定するには、モデルのページで、ダウンロードしたモデルを選びます。": "The current recognizer is Apple's, so “Auto” uses this Mac's language. To detect from speech, choose a downloaded model on the Models page.",

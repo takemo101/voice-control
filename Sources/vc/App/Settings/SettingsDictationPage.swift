@@ -44,6 +44,7 @@ struct DictationPage: View {
         sendKeysCard
         shapingCard
         tidyCard
+        transcribeCard
         historyCard
         EmptyView().onAppear { list.open(days: DictationHistory.days(setting: model.settings.historyDays)) }.onChange(of: model.revision) { _, _ in list.reload() }
     }
@@ -136,6 +137,33 @@ struct DictationPage: View {
         }
     }
 
+    // MARK: 文字起こし（相手の音声）
+
+    /// システム音声の文字起こし（F80）：ウィンドウを開く・取り込むアプリ・自分（マイク）も文字にするか。
+    private var transcribeCard: some View {
+        let selected = model.settings.transcribeApps?.first ?? ""
+        var apps = model.captureApps
+        if !selected.isEmpty, !apps.contains(where: { $0.bundleID == selected }) { apps.insert(CaptureApp(bundleID: selected, name: selected), at: 0) }
+        return Card(tr("文字起こし（相手の音声）"), footer: tr("Mac から出ている音（会議・動画など）を、文字にします。画面収録の許可が要ります。音は、残しません。文字は、画面に出し、下の履歴をオンにしたときだけ、残します。スキルの実行・会話には、使いません。録音・文字起こしには、相手の同意が要る場合があります。")) {
+            Row(tr("文字起こしのウィンドウ"), detail: tr("開始と停止は、ウィンドウの中のボタンです（メニューバーからも開けます）")) {
+                Button(tr("開く")) { TranscriptWindow.shared.show() }.controlSize(.small)
+            }
+            RowDivider()
+            Row(tr("取り込む音"), detail: model.captureAppsMessage ?? tr("既定は、Mac から出ている音すべて。アプリを選ぶには、「一覧を読む」")) {
+                HStack(spacing: 8) {
+                    Picker("", selection: Binding(get: { selected }, set: { id in model.update(restart: false) { $0.transcribeApps = id.isEmpty ? nil : [id] } })) {
+                        Text(tr("すべての音")).tag("")
+                        ForEach(apps, id: \.bundleID) { Text($0.name).tag($0.bundleID) }
+                    }
+                    .labelsHidden().frame(width: 170)
+                    Button(tr("一覧を読む")) { model.loadCaptureApps() }.controlSize(.small)
+                }
+            }
+            RowDivider()
+            SwitchRow(model: model, title: tr("自分（マイク）も文字にする"), detail: tr("ヘッドホンを使ってください（スピーカーだと、マイクが、相手の声を拾います）"), value: model.settings.transcribeMic ?? false, restart: false) { $0.transcribeMic = $1 ? true : nil }
+        }
+    }
+
     // MARK: 履歴
 
     private var historyCard: some View {
@@ -143,7 +171,7 @@ struct DictationPage: View {
         let days = DictationHistory.days(setting: model.settings.historyDays)
         return VStack(alignment: .leading, spacing: 18) {
             Card(tr("履歴"), footer: on ? tr("古いものは、自動で消えます。1 件ずつ、すべて、消せます。") : tr("オフのあいだは、何も残しません（直前の入力だけは、アプリを終えるまで、メモリに持ちます）。")) {
-                SwitchRow(model: model, title: tr("音声入力の履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは、送りません"), value: on, restart: false) { $0.history = $1 ? true : nil }
+                SwitchRow(model: model, title: tr("音声入力・文字起こしの履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは、送りません"), value: on, restart: false) { $0.history = $1 ? true : nil }
                 if on {
                     RowDivider()
                     Row(tr("残す日数"), detail: nil) {
@@ -195,7 +223,8 @@ private struct HistoryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))).font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))
+                     + (entry.source.map { " · " + ($0 == .others ? tr("相手") : tr("自分")) } ?? "")).font(.system(size: 11)).foregroundStyle(.secondary)
                 Text(entry.text).font(.system(size: 13)).lineLimit(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)

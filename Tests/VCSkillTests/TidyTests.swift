@@ -12,6 +12,14 @@ import Testing
         #expect(TidyGuard.extract("<tidied_text>閉じていない") == nil && TidyGuard.extract("タグなしの答え") == nil && TidyGuard.extract("<tidied_text>  </tidied_text>") == nil)
     }
 
+    @Test func anAnswerWithoutTagsIsAcceptedOnlyWhenItIsOneLineThatOverlapsTheOriginalAndNeverWhenItDriftsToAnotherLanguage() {
+        let original = "あの、その、昨日送った資料なんですけど確認してもらえましたか"
+        #expect(TidyGuard.untagged("昨日送った資料なんですけど、確認してもらえましたか。", original: original) == "昨日送った資料なんですけど、確認してもらえましたか。")
+        #expect(TidyGuard.untagged("Затем, пожалуйста, отправьте данные в заранее.", original: original) == nil)   // 別の言語へ、それた
+        #expect(TidyGuard.untagged("はい、こちらが整えた文章です。\n昨日送った資料なんですけど確認してもらえましたか", original: original) == nil)   // 前置き・複数行
+        #expect(TidyGuard.untagged("<tidied_text>昨日送った資料なんですけど確認してもらえましたか", original: original) == nil)   // タグの残骸
+    }
+
     // MARK: 検査
 
     @Test func aNumberThatWasNotSpokenIsRefusedButASelfCorrectedNumberMayDisappear() {
@@ -39,7 +47,8 @@ import Testing
     @Test func theDecisionKeepsTheOriginalWhenTheOutputCannotBeReadOrFailsTheChecks() {
         let original = "えーと明日の会議は3時、いや4時からです"
         #expect(Tidier.decide(output: "<tidied_text>明日の会議は4時からです。</tidied_text>", original: original) == .tidied("明日の会議は4時からです。"))
-        #expect(Tidier.decide(output: "明日の会議は4時からです。", original: original) == .kept(original, reason: .unreadable))
+        #expect(Tidier.decide(output: "明日の会議は4時からです。", original: original) == .tidied("明日の会議は4時からです。"))   // タグなし：重なるので、受ける
+        #expect(Tidier.decide(output: "Затем, пожалуйста, отправьте данные.", original: original) == .kept(original, reason: .unreadable))   // 別の言語へそれた
         #expect(Tidier.decide(output: "<tidied_text>明日の会議は9時からです。</tidied_text>", original: original) == .kept(original, reason: .newNumber))
         #expect(Tidier.decide(output: "<think>考え中</think><tidied_text>明日の会議は4時からです。</tidied_text>", original: original) == .tidied("明日の会議は4時からです。"))   // 考える部分は、捨てる
     }

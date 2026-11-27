@@ -81,6 +81,7 @@ import VCCore
         sendItem.submenu = sendMenu
         menu.addItem(sendItem)
         menu.addItem(.separator())
+        menu.addItem(action(tr("文字起こし（相手の音声）を開く"), #selector(openTranscript)))
         menu.addItem(action(tr("会話を開く"), #selector(openChat)))
         menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
         menu.addItem(action(tr("診断…"), #selector(showDoctor)))
@@ -158,6 +159,7 @@ import VCCore
     @objc private func chooseSendMode(_ sender: NSMenuItem) { DictationActions.setSendMode(sender.tag) }
 
     @objc private func openChat() { ChatWindow.shared.show(activate: true) }
+    @objc private func openTranscript() { TranscriptWindow.shared.show() }
 
     @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
 

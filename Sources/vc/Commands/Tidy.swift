@@ -18,6 +18,7 @@ struct TidyCommand: Command {
         let started = Date()
         let result = await Tidier(engine: context.engine, instructionsSetting: instructions).tidy(text)
         heading("整理")
+        kv("エンジン", context.engine.server == nil ? "Apple のモデル" : "ローカルのサーバー", width: 6)
         kv("元", text, width: 6)
         switch result {
         case let .tidied(tidied): kv("結果", Style.green(tidied), width: 6)
@@ -64,6 +65,7 @@ struct EvalTidyCommand: Command {
             }
         }
         heading("整理（\(total) 件）")
+        kv("エンジン", context.engine.server == nil ? "Apple のモデル" : "ローカルのサーバー", width: 10)   // どのモデルを測ったかを、残す（設定の既定は、利用者の設定）
         kv("直せた", "\(fixed)/\(total)（\(Int((Double(fixed) / Double(max(total, 1)) * 100).rounded()))%）", width: 10)
         if !kept.isEmpty { kv("元のまま", kept.sorted { $0.value > $1.value }.map { "\($0.key)：\($0.value)" }.joined(separator: "・"), width: 10) }
         kv("平均", String(format: "%.1f 秒/件", seconds / Double(max(total, 1))), width: 10)

@@ -45,6 +45,27 @@ public enum TidyGuard {
         return text.isEmpty ? nil : text
     }
 
+    /// タグがない出力の、取り出し：Apple の小さなモデルは、タグを付け忘れて、整えた文字だけを返すことがある。**元の文字と、文字の並びが、十分に重なる 1 行**だけ、整えた文字として受ける（ほかの言語へそれた出力・前置きのある出力・タグの残骸は、元の文字のまま）。
+    /// 重なり：出力の 2 文字の並びの、`minimumOverlap` 以上が、元の文字にもある（つなぎ言葉を抜いた継ぎ目の分だけ、新しい並びができる）。
+    public static func untagged(_ response: String, original: String) -> String? {
+        let text = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !text.contains("<"), !text.contains(">"), !text.contains("\n") else { return nil }
+        let have = bigrams(original)
+        let mine = bigrams(text)
+        guard !mine.isEmpty else { return nil }
+        let shared = mine.filter { have.contains($0) }.count
+        return Double(shared) / Double(mine.count) >= minimumOverlap ? text : nil
+    }
+
+    public static let minimumOverlap = 0.6
+
+    /// 句読点・空白を除いた、2 文字の並び。
+    private static func bigrams(_ text: String) -> Set<String> {
+        let letters = Array(text.filter { !$0.isWhitespace && !$0.isPunctuation })
+        guard letters.count >= 2 else { return [] }
+        return Set((0..<(letters.count - 1)).map { String(letters[$0...($0 + 1)]) })
+    }
+
     /// 検査。通れば nil、通らなければ、その理由。
     public static func check(original: String, tidied: String) -> TidyRejection? {
         // 数字：整理後の数字は、元にあったものだけ（言い直しで、減るのは、よい。新しい数字は、内容を変えた）

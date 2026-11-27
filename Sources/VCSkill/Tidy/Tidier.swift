@@ -44,7 +44,8 @@ public struct Tidier: Sendable {
 
     /// モデルの出力 → 結果（**純粋**：取り出し・検査）。
     static func decide(output: String, original: String) -> TidyResult {
-        guard let tidied = TidyGuard.extract(ToolLoopAgent.withoutThinking(output)) else { return .kept(original, reason: .unreadable) }
+        let reply = ToolLoopAgent.withoutThinking(output)
+        guard let tidied = TidyGuard.extract(reply) ?? TidyGuard.untagged(reply, original: original) else { return .kept(original, reason: .unreadable) }
         if let why = TidyGuard.check(original: original, tidied: tidied) { return .kept(original, reason: why) }
         return .tidied(tidied)
     }

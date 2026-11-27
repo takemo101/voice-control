@@ -61,6 +61,9 @@ enum DownloadState: Equatable {
     @Published var fillersText = ""
     /// 整理の整え方の編集中の文字（設定になければ、既定を、出す）。
     @Published var tidyInstructionsText = ""
+    /// 文字起こしで選べるアプリ（「一覧を読む」で、はじめて読む：画面収録の許可の確認が、出うる）と、読めなかった理由。
+    @Published var captureApps: [CaptureApp] = []
+    @Published var captureAppsMessage: String?
     /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
     @Published private(set) var modelLists: [String: ModelListState] = [:]
     /// 許可の状態などを、画面を開くたびに読み直すための印。
@@ -551,6 +554,13 @@ enum DownloadState: Equatable {
         let value = text.isEmpty || text == TidyPrompt.defaultInstructions ? nil : String(text.prefix(TidyPrompt.maxInstructionLength))
         update(restart: false) { $0.tidyInstructions = value }
         tidyInstructionsText = TidyPrompt.instructions(setting: value)
+    }
+
+    func loadCaptureApps() {
+        Task { @MainActor in
+            do { captureApps = try await SystemAudioCapture.availableApps(); captureAppsMessage = captureApps.isEmpty ? tr("取り込めるアプリが、ありません") : nil }
+            catch { captureAppsMessage = "\(error)" }
+        }
     }
 
     func resetTidyInstructions() {

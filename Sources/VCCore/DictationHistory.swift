@@ -2,10 +2,17 @@ import Foundation
 
 /// 音声入力の**履歴**の 1 件（入力した文字と、時刻）。
 public struct HistoryEntry: Codable, Identifiable, Equatable, Sendable {
+    /// システム音声の文字起こし（F80）の話し手。`others`＝相手（システム音声）・`me`＝自分（マイク）。音声入力の履歴は、なし。
+    public enum Source: String, Codable, Sendable { case others, me }
+
     public let id: UUID
     public let date: Date
     public let text: String
-    public init(id: UUID = UUID(), date: Date, text: String) { self.id = id; self.date = date; self.text = text }
+    /// 文字起こしの話し手（音声入力は、nil。古い履歴にも、ない）。
+    public let source: Source?
+    /// 整理（F79）する前の、元の文字（整理しなかった・整理が通らなかったときは、nil）。
+    public let raw: String?
+    public init(id: UUID = UUID(), date: Date, text: String, source: Source? = nil, raw: String? = nil) { self.id = id; self.date = date; self.text = text; self.source = source; self.raw = raw }
 }
 
 /// 音声入力の履歴の、ファイル（`~/.voice-control/history.jsonl`：1 行に 1 件の JSON）。**設定 `history` がオンのときだけ、書く**（既定オフ）。
@@ -40,8 +47,8 @@ public final class DictationHistory: @unchecked Sendable {
 
     /// 1 件、足す。足すときに、古いもの（`days` 日より前）と、上限を超えたものを、消す。
     @discardableResult
-    public func append(_ text: String, days: Int) throws -> HistoryEntry {
-        let entry = HistoryEntry(date: now(), text: text)
+    public func append(_ text: String, days: Int, source: HistoryEntry.Source? = nil, raw: String? = nil, date: Date? = nil) throws -> HistoryEntry {
+        let entry = HistoryEntry(date: date ?? now(), text: text, source: source, raw: raw)
         try lock.withLock {
             var all = load()
             all.append(entry)

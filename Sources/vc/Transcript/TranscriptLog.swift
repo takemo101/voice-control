@@ -1,0 +1,57 @@
+import Foundation
+import VCCore
+import VCSpeech
+
+/// 文字起こしの記録（メモリ）：確定した文の並びと、話し手ごとの確定前の文字（SPEC F80）。**純粋**（画面・音声・モデルを、持たない）：更新の適用・整理後の置き換え・Markdown の書き出し。
+struct TranscriptLog: Equatable {
+    struct Entry: Identifiable, Equatable {
+        let id: UUID
+        let date: Date
+        let speaker: HistoryEntry.Source
+        /// 表示する文字（整理が通れば、整理後）。
+        var text: String
+        /// 整理する前の、元の文字（整理しなかった・通らなかったときは、nil）。
+        var raw: String?
+    }
+
+    private(set) var entries: [Entry] = []
+    /// 話し手ごとの、確定前の文字（あとで変わる）。
+    private(set) var tentative: [HistoryEntry.Source: String] = [:]
+
+    /// 認識の更新を、適用する。確定した文が、新しい 1 件になったら、その件を返す（空白だけの文は、足さない）。
+    @discardableResult
+    mutating func apply(_ update: SegmentTranscriber.Update, speaker: HistoryEntry.Source) -> Entry? {
+        let text = Self.normalized(update.text)
+        guard update.isFinal else {
+            tentative[speaker] = text.isEmpty ? nil : text
+            return nil
+        }
+        tentative[speaker] = nil
+        guard !text.isEmpty else { return nil }
+        let entry = Entry(id: UUID(), date: update.date, speaker: speaker, text: text, raw: nil)
+        entries.append(entry)
+        return entry
+    }
+
+    /// 整理が通ったとき：表示を、整理後に替える（元は、残す）。
+    mutating func replace(id: UUID, tidied: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }), entries[index].text != tidied else { return }
+        entries[index].raw = entries[index].text
+        entries[index].text = tidied
+    }
+
+    /// 空白を整える（認識が、「午後 4時」のように、数字の前後に空白を入れる）：行頭・行末の空白と、連続する空白だけ。文中の 1 つの空白は、そのまま（英語の単語の間）。
+    static func normalized(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+    }
+
+    /// Markdown（コピー・書き出し用）。`title` の見出しのあと、1 件 1 行：「- **相手** 10:02 本文」。
+    func markdown(title: String, locale: Locale = Locale(identifier: "ja_JP")) -> String {
+        let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
+        var lines = ["# \(title)", ""]
+        for entry in entries {
+            lines.append("- **\(entry.speaker == .others ? tr("相手") : tr("自分"))** \(time.string(from: entry.date)) \(entry.text)")
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+}
