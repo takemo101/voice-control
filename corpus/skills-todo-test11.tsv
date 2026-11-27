@@ -1,0 +1,14 @@
+# todo-remind：時刻を、文から、コードが読む形（文全体を、最後の引数に写す）の、取っておいた文（作り物。2026-11-27）。期待：種類（add／run）・内容の語・最後の引数が、文と一字一句同じ。時刻の読み取りは、コード（TodoRemindTimeTests）。調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(音楽|曲)[^"]*" "8分後に音楽を流す予約をして"$	8分後に音楽を流す予約をして
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(画面|スクリーンショット)[^"]*" "25分後に画面のスクリーンショットを撮るよう予約して"$	25分後に画面のスクリーンショットを撮るよう予約して
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(ブラウザ|ニュース)[^"]*" "3時間後にブラウザでニュースを検索するのを予約して"$	3時間後にブラウザでニュースを検索するのを予約して
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(音量)[^"]*" "午後4時に音量を下げる予約をして"$	午後4時に音量を下げる予約をして
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(Safari)[^"]*" "夜の9時にSafariを開くようスケジュールして"$	夜の9時にSafariを開くようスケジュールして
+todo-remind	has	^osascript todo\.applescript run \S+ "[^"]*(曲|音楽)[^"]*" "12時半に曲を止めるよう予約して"$	12時半に曲を止めるよう予約して
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(レポート)[^"]*" "7分後にレポートを見直すTodoを追加して"$	7分後にレポートを見直すTodoを追加して
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(洗濯)[^"]*" "40分後に洗濯物を取り込むのでTodoに入れて"$	40分後に洗濯物を取り込むのでTodoに入れて
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(電話)[^"]*" "1時間半後に電話するTodoを追加して"$	1時間半後に電話するTodoを追加して
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(資料)[^"]*" "15時に資料を送るのでTodo追加して"$	15時に資料を送るのでTodo追加して
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(歯医者)[^"]*" "午後3時半に歯医者へ行くTodoに入れて"$	午後3時半に歯医者へ行くTodoに入れて
+todo-remind	has	^osascript todo\.applescript add \S+ "[^"]*(宿題)[^"]*" "夜の7時に宿題を始めるのでTodoに登録して"$	夜の7時に宿題を始めるのでTodoに登録して

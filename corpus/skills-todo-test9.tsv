@@ -1,0 +1,11 @@
+# todo-remind：「〜するTodoを追加して」「〜する予約をして」の言い方（利用者の報告の言い方。作り物の文。2026-11-27）。取っておいた文：調整には使わない。
+# 形：スキル<TAB>照合<TAB>期待<TAB>発話
+todo-remind	has	^osascript todo\.applescript add (5分後|5分) "レポート	5分後にレポートを見直すTodoを追加して
+todo-remind	has	^osascript todo\.applescript add (10分後|10分) "洗濯	10分後に洗濯物を取り込むTodoを追加して
+todo-remind	has	^osascript todo\.applescript add (30分後|30分) "電話	30分後に電話するTodoを追加して
+todo-remind	has	^osascript todo\.applescript add (1時間後|1時間|60分後|60分) "宿題	1時間後に宿題を始めるTodoを追加して
+todo-remind	has	^osascript todo\.applescript add (15:00|15時|15|午後3時) "資料	15時に資料を送るTodoを追加して
+todo-remind	has	^osascript todo\.applescript run (10:00|10時|10) "音楽	10時に音楽をかける予約をして
+todo-remind	has	^osascript todo\.applescript run (15:00|午後3時|15時|15) "曲|音楽	午後3時に曲を止める予約をして
+todo-remind	has	^osascript todo\.applescript run (18:00|18時|18) "画面|スクリーンショット	18時に画面を撮る予約をして
+todo-remind	has	^osascript todo\.applescript run (21:00|21時|21) "Spotify|曲|音楽	21時にSpotifyを再生する予約をして

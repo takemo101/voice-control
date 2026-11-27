@@ -90,10 +90,6 @@ public struct SkillResolver: Sendable {
     }
 
     public func resolve(_ request: String) throws -> Outcome {
-        // 「10時に〇〇するよう予約して」：Tiny-Jev は、領域の語で、選んでしまう（すぐ実行される）ので、コードの規則で、予約のスキルへ回す（入っていて、有効なときだけ）。実行の安全は、そのスキルが持つ（登録の確かめ・予告・確認なし）
-        if ScheduledRequest.matches(request), let scheduler = skills.first(where: { $0.name == ScheduledRequest.skillName }) {
-            return .resolved(Resolution(skill: scheduler, kind: .matched, probability: 1, risk: nil, confirmReason: nil))
-        }
         let candidates = skills.filter { $0.name != DefaultSkill.name }
         var usable = candidates
         // 画像がない（撮っていない・古い・コピーしていない）：その画像のスキルを、選択肢から外す。ただし、**すべての中から選んで、外したスキルが選ばれるなら、画像の出し忘れ**：
@@ -105,6 +101,12 @@ public struct SkillResolver: Sendable {
             if let skill = all.skill, let source = skill.imageSource, let why = unavailable[source], all.probability >= gate.floor { return .declined(reason: "\(why)", fallbackAvailable: false) }
             usable = candidates.filter { $0.imageSource.map { unavailable[$0] == nil } ?? true }
         }
+        // 言い方の規則（`triggers`）：当たるスキルが 1 つなら、それ（Tiny-Jev を通さない）。複数なら、その中から、Tiny-Jev が選ぶ（`SkillTriggers`）
+        let triggered = usable.filter { $0.isTriggered(by: request) }
+        if triggered.count == 1, let skill = triggered.first {
+            return .resolved(Resolution(skill: skill, kind: .matched, probability: 1, risk: nil, confirmReason: skill.confirm ? Self.confirmReason(for: skill) : nil))
+        }
+        if triggered.count > 1 { usable = triggered }
         let routed = try SkillRouter(scorer: scorer, skills: usable).route(request)
         if let skill = routed.skill, routed.probability >= gate.floor {
             let reason = skill.confirm ? Self.confirmReason(for: skill) : (routed.probability < gate.execute ? tr("確信度が高くないので、確認します") : nil)

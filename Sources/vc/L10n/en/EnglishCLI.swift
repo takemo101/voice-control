@@ -43,6 +43,8 @@ extension EnglishTables {
         "コピーした画像（クリップボード）があるときだけ、選ばれる": "Chosen only when an image is on the clipboard",
         "撮ったスクリーンショットか、コピーした画像があるときだけ、選ばれる": "Chosen only when a screenshot was taken or an image was copied",
         "時間": "Timeout",
+        "言い方の規則": "Triggers",
+        "この言い方に当たる依頼は、Tiny-Jev を通さず、このスキルへ回る（%@ 件。内容は、SKILL.md の triggers）": "Requests matching these phrasings go to this skill without Tiny-Jev (%@ trigger(s); see triggers in SKILL.md)",
         "コマンド 1 つあたり %@ 秒まで": "up to %@ s per command",
         "（同名のグローバルを上書き）": " (overrides the global skill with the same name)",
         "場所": "File",
