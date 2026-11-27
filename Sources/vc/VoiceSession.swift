@@ -37,9 +37,9 @@ import VCSpeech
         let dictateSpec = context.resolveDictateHotKey()?.spec
         let shotSpec = context.resolveShotHotKey()
         let chatSpec = context.resolveChatHotKey()
-        let pasteLastSpec = context.resolvePasteLastHotKey(), cycleSpec = context.resolveCycleSendHotKey(), transcribeSpec = context.resolveTranscribeHotKey()
+        let pasteLastSpec = context.resolvePasteLastHotKey(), cycleSpec = context.resolveCycleSendHotKey(), transcribeSpec = context.resolveTranscribeHotKey(), transcribeMicSpec = context.resolveTranscribeMicHotKey()
         // キーの重なり：何も変える前に、起動の問題として返す（アプリは、終わらない）
-        let actionSpecs: [(name: String, spec: HotKeySpec)] = [pasteLastSpec.map { (KeyKind.pasteLast.title, $0) }, cycleSpec.map { (KeyKind.cycleSend.title, $0) }, transcribeSpec.map { (KeyKind.transcribe.title, $0) }].compactMap { $0 }
+        let actionSpecs: [(name: String, spec: HotKeySpec)] = [pasteLastSpec.map { (KeyKind.pasteLast.title, $0) }, cycleSpec.map { (KeyKind.cycleSend.title, $0) }, transcribeSpec.map { (KeyKind.transcribe.title, $0) }, transcribeMicSpec.map { (KeyKind.transcribeMic.title, $0) }].compactMap { $0 }
         if let message = KeyConflicts.message(listen: spec, dictate: dictateSpec, shot: shotSpec, chat: chatSpec, actions: actionSpecs) { throw StartupProblem(message, page: .keys) }
         // 会話の設定（エージェント・道具）：会話のキーがなくても、入力欄・メニューから、会話できる
         let chatAgent = context.resolveChatAgent()
@@ -73,7 +73,7 @@ import VCSpeech
         let chips = [VoiceMode.listen: chip, VoiceMode.dictate: dictateSpec?.displayName ?? chip, VoiceMode.chat: chatSpec?.displayName ?? chip]
         let paste = ClipboardPaste()
         // 操作のショートカット：直前の入力の貼り直し・送るキーの切り替え（このループの間、保持する）
-        let actionTriggers = try DictationActions.install(pasteLast: pasteLastSpec, cycleSend: cycleSpec, transcribe: transcribeSpec, paste: paste, settings: { context.currentSettings() })
+        let actionTriggers = try DictationActions.install(pasteLast: pasteLastSpec, cycleSend: cycleSpec, transcribe: transcribeSpec, transcribeMic: transcribeMicSpec, paste: paste, settings: { context.currentSettings() })
         let session = RecordingSession()
         session.setLevelHandler { HUD.shared.pushLevel($0); handsFree.pushLevel($0) }   // 録音中の波形・手放しの録音の「黙った」
         LiveCaption.shared.use(language: context.sttLanguage)

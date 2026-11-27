@@ -11,13 +11,12 @@ struct TranscribePage: View {
         let selected = model.settings.transcribeApps?.first ?? ""
         var apps = model.captureApps
         if !selected.isEmpty, !apps.contains(where: { $0.bundleID == selected }) { apps.insert(CaptureApp(bundleID: selected, name: selected), at: 0) }
-        let key = KeyKind.transcribe.value(in: model.settings)
-        return Card(tr("文字起こし（相手の音声）"), footer: tr("Mac から出ている音（会議・動画など）を、文字にします。画面収録の許可が要ります。音は、残しません。文字は、画面に出し、履歴をオンにしたときだけ、残します。スキルの実行・会話には、使いません。録音・文字起こしには、相手の同意が要る場合があります。")) {
-            Row(tr("文字起こしのウィンドウ"), detail: tr("開始と停止は、ウィンドウのボタンか、ショートカットです")) {
+        return Card(tr("文字起こし（相手の音声）"), footer: tr("相手の音声は、Mac から出ている音（会議・動画など）を、文字にします（画面収録の許可が要ります）。自分の声は、マイクを、文字にします（マイクの許可が要ります）。2 つは、別々の経路で、片方だけ・両方を動かせます。音は、残しません。文字は、画面に出し、履歴をオンにしたときだけ、残します。スキルの実行・会話には、使いません。録音・文字起こしには、相手の同意が要る場合があります。両方を同時に使うときは、ヘッドホンを使ってください。")) {
+            Row(tr("文字起こしのウィンドウ"), detail: tr("相手の音声と自分の声は、別々に、始め・止められます（ウィンドウのボタンか、ショートカット）")) {
                 Button(tr("開く")) { TranscriptWindow.shared.show() }.controlSize(.small)
             }
             RowDivider()
-            Row(tr("開始・停止のショートカット"), detail: key.flatMap { value in HotKeySpec.parse(value).successValue }.map { KeyRow.label(of: $0) } ?? tr("未設定（キーのページで決めます。音声入力のキーとは、別です）")) {
+            Row(tr("開始・停止のショートカット"), detail: Self.keySummary(model.settings)) {
                 Button(tr("キーを設定")) { model.page = .keys }.controlSize(.small)
             }
             RowDivider()
@@ -31,8 +30,6 @@ struct TranscribePage: View {
                     Button(tr("一覧を読む")) { model.loadCaptureApps() }.controlSize(.small)
                 }
             }
-            RowDivider()
-            SwitchRow(model: model, title: tr("自分（マイク）も文字にする"), detail: tr("ヘッドホンを使ってください（スピーカーだと、マイクが、相手の声を拾います）"), value: model.settings.transcribeMic ?? false, restart: false) { $0.transcribeMic = $1 ? true : nil }
         }
         Card(tr("整理と履歴"), footer: tr("整理は、「相手」と「自分」を、別々に決めます（設定 > 音声入力）。")) {
             Row(tr("整理"), detail: Self.tidySummary(model.settings)) {
@@ -43,6 +40,12 @@ struct TranscribePage: View {
                 Button(tr("履歴を開く")) { model.page = .history }.controlSize(.small)
             }
         }
+    }
+
+    /// 相手の音声・自分の声の、ショートカット（別々）。
+    private static func keySummary(_ settings: VCCore.Settings) -> String {
+        func label(_ text: String?) -> String { text.flatMap { HotKeySpec.parse($0).successValue }.map { KeyRow.label(of: $0) } ?? tr("未設定") }
+        return tr("相手の音声：\(label(settings.transcribeHotkey))・自分の声：\(label(settings.transcribeMicHotkey))")
     }
 
     private static func tidySummary(_ settings: VCCore.Settings) -> String {

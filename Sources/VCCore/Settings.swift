@@ -30,8 +30,8 @@ import Foundation
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
-/// - `transcribeApps`・`transcribeMic`：**システム音声の文字起こし**（F80）。`transcribeApps`：取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。`transcribeMic`：自分（マイク）も、文字にするか（なければ、しない）。
-/// - `transcribeHotkey`：**文字起こし（システム音声。F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：メニュー・ウィンドウのボタンから）。音声入力のキーとは、別。
+/// - `transcribeApps`：**システム音声の文字起こし**（F80）で取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。
+/// - `transcribeHotkey`・`transcribeMicHotkey`：**文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。`transcribeHotkey`＝相手の音声（システム音声）・`transcribeMicHotkey`＝自分の声（マイク）：**別々の経路で、別々に動かせる**。音声入力のキーとは、別。
 /// - `tidySystem`：整理（F79）を、**システム音声の文字起こし（相手）に**効かせるか（なければ、効かせない）。`tidy` は、自分の声（音声入力・文字起こしの自分）。整え方の指示（`tidyInstructions`）は、共通。
 /// - `tidy`・`tidyInstructions`：**整理モード**（認識した文字を、言語モデルで整えて、入力する。F79）。`tidy`：オンか（なければ、オフ）。`tidyInstructions`：整え方の指示（なければ、既定。解釈は VCSkill）。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
@@ -76,7 +76,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var voice: String?
     public var mute: Bool?
     public var transcribeApps: [String]?
-    public var transcribeMic: Bool?
+    public var transcribeMicHotkey: String?
     public var transcribeHotkey: String?
     public var tidySystem: Bool?
     public var tidy: Bool?
@@ -127,7 +127,7 @@ public struct Settings: Codable, Sendable, Equatable {
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         transcribeApps = try c.decodeIfPresent([String].self, forKey: .transcribeApps)
-        transcribeMic = try c.decodeIfPresent(Bool.self, forKey: .transcribeMic)
+        transcribeMicHotkey = try c.decodeIfPresent(String.self, forKey: .transcribeMicHotkey)
         transcribeHotkey = try c.decodeIfPresent(String.self, forKey: .transcribeHotkey)
         tidySystem = try c.decodeIfPresent(Bool.self, forKey: .tidySystem)
         tidy = try c.decodeIfPresent(Bool.self, forKey: .tidy)

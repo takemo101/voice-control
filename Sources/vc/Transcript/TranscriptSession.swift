@@ -4,9 +4,10 @@ import VCCore
 import VCSkill
 import VCSpeech
 
-/// 文字起こしの 1 回（SPEC F80）：システム音声（相手）と、設定によっては、マイク（自分）を、文にして、記録（メモリ）に足し、整理（F79。相手と自分は、別々の設定）して、履歴（設定 `history`）に残す。
+/// 文字起こし（SPEC F80）：**相手の音声（システム音声）と自分の声（マイク）は、別々の経路**。それぞれ、自分の開始・停止・状態・ショートカットを持ち、片方だけ・両方を、動かせる（片方を止めても、もう片方は続く）。
+/// 文にして、記録（メモリ・両方が時系列に並ぶ）に足し、整理（F79。相手と自分は、別々の設定）して、履歴（設定 `history`）に残す。
 /// **文字起こし専用**：文は、画面に出し、履歴に残すだけ。スキル・会話・コマンドへは、回さない（N2）。音声は、残さない。
-/// 失敗（許可がない・モデルがない）は、`state` に出す（黙って、何もしない、をしない）。
+/// 失敗（許可がない・モデルがない）は、その経路の `states` に出す（黙って、何もしない、をしない）。
 @MainActor final class TranscriptSession: ObservableObject {
     enum State: Equatable {
         case idle
@@ -15,74 +16,74 @@ import VCSpeech
         case failed(String)
     }
 
-    @Published private(set) var state = State.idle
+    /// 経路（相手＝システム音声・自分＝マイク）ごとの状態。
+    @Published private(set) var states: [HistoryEntry.Source: State] = [.others: .idle, .me: .idle]
     @Published private(set) var log = TranscriptLog()
     /// 履歴に書けなかったなどの、知らせ（記録は、続ける）。
     @Published private(set) var notice: String?
 
-    private var capture: SystemAudioCapture?
-    private var mic: MicStream?
-    private var transcribers: [SegmentTranscriber] = []
-    private var readers: [Task<Void, Never>] = []
+    /// 動いている 1 つの経路：認識・音の読み取り・取り込みを止める手続き。
+    private struct Channel {
+        let transcriber: SegmentTranscriber
+        let reader: Task<Void, Never>
+        let stopSource: () async -> Void
+    }
+
+    private var channels: [HistoryEntry.Source: Channel] = [:]
     private var tidyTail: Task<Void, Never>?
     private var settings = Settings()
     private var engine: Engine = .apple
 
-    var isActive: Bool { state == .starting || state == .running }
+    func state(_ source: HistoryEntry.Source) -> State { states[source] ?? .idle }
+    func isActive(_ source: HistoryEntry.Source) -> Bool { state(source) == .starting || state(source) == .running }
+    var isAnyActive: Bool { isActive(.others) || isActive(.me) }
 
-    /// 始める（利用者の操作の中で、呼ぶ：画面収録・マイクの許可の確認が、出うる）。`settings`・`engine` は、この回の間、使う。
-    func start(settings: Settings, engine: Engine) async {
-        guard !isActive else { return }
-        state = .starting
+    /// その経路を始める（利用者の操作の中で、呼ぶ：画面収録・マイクの許可の確認が、出うる）。`settings`・`engine` は、動いている間、使う。
+    func start(_ source: HistoryEntry.Source, settings: Settings, engine: Engine) async {
+        guard !isActive(source) else { return }
+        states[source] = .starting
         notice = nil
         self.settings = settings
         self.engine = engine
         let language = (try? settings.recognitionLanguage.get()) ?? .ja
-        let locale = Locale(identifier: language.resolved.bcp47)
+        let transcriber = SegmentTranscriber(locale: Locale(identifier: language.resolved.bcp47)) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: source) } }
         do {
-            let others = SegmentTranscriber(locale: locale) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: .others) } }
-            try await others.start()
-            transcribers = [others]
-            let capture = SystemAudioCapture()
-            let target: SystemAudioTarget = (settings.transcribeApps ?? []).isEmpty ? .allApps : .apps(settings.transcribeApps ?? [])
-            let audio = try await capture.start(target: target)
-            self.capture = capture
-            readers = [Task.detached { for await buffer in audio { others.feed(buffer) } }]
-            if settings.transcribeMic ?? false {
-                let me = SegmentTranscriber(locale: locale) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: .me) } }
-                try await me.start()
-                transcribers.append(me)
+            try await transcriber.start()
+            switch source {
+            case .others:
+                let capture = SystemAudioCapture()
+                let target: SystemAudioTarget = (settings.transcribeApps ?? []).isEmpty ? .allApps : .apps(settings.transcribeApps ?? [])
+                let audio: AsyncStream<AVAudioPCMBuffer>
+                do { audio = try await capture.start(target: target) } catch { await transcriber.finish(); throw error }
+                channels[source] = Channel(transcriber: transcriber, reader: Task.detached { for await buffer in audio { transcriber.feed(buffer) } }, stopSource: { await capture.stop() })
+            case .me:
                 let mic = MicStream()
-                let micAudio = try mic.start()
-                self.mic = mic
-                readers.append(Task.detached { for await buffer in micAudio { me.feed(buffer) } })
+                let audio: AsyncStream<AVAudioPCMBuffer>
+                do { audio = try mic.start() } catch { await transcriber.finish(); throw error }
+                channels[source] = Channel(transcriber: transcriber, reader: Task.detached { for await buffer in audio { transcriber.feed(buffer) } }, stopSource: { mic.stop() })
             }
-            state = .running
+            states[source] = .running
         } catch {
-            await teardown()
-            state = .failed("\(error)")
+            states[source] = .failed("\(error)")
         }
     }
 
-    /// 止める：残りの認識を、確定させ、整理の最後まで、待つ。
-    func stop() async {
-        guard isActive else { return }
-        await teardown()
+    /// その経路を止める：残りの認識を、確定させ、整理の最後まで、待つ。もう片方は、続ける。
+    func stop(_ source: HistoryEntry.Source) async {
+        guard isActive(source), let channel = channels.removeValue(forKey: source) else { states[source] = .idle; return }
+        await channel.stopSource()
+        await channel.reader.value
+        await channel.transcriber.finish()
         await tidyTail?.value
-        state = .idle
+        states[source] = .idle
+    }
+
+    func stopAll() async {
+        await stop(.others)
+        await stop(.me)
     }
 
     func clear() { log = TranscriptLog() }
-
-    private func teardown() async {
-        await capture?.stop()
-        mic?.stop()
-        capture = nil; mic = nil
-        for reader in readers { await reader.value }
-        readers = []
-        for transcriber in transcribers { await transcriber.finish() }
-        transcribers = []
-    }
 
     // MARK: 文の処理
 

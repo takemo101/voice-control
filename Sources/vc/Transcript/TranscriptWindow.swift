@@ -31,7 +31,7 @@ import VCSpeech
         frame.minSize = NSSize(width: 380, height: 320)
         frame.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let root = TranscriptView(session: session, state: state,
-                                  toggle: { [weak self] in self?.toggle() },
+                                  toggle: { [weak self] in self?.toggle($0) },
                                   copy: { [weak self] in self?.copyMarkdown() },
                                   clear: { [weak self] in self?.session.clear() },
                                   close: { [weak self] in self?.window?.close() })
@@ -42,33 +42,36 @@ import VCSpeech
         window = frame
     }
 
-    /// 開始・停止（ウィンドウのボタン）。**取り込みの開始は、利用者の操作**（許可の確認が出うる）。
-    private func toggle() {
+    /// 開始・停止（ウィンドウのボタン）：相手の音声と自分の声は、別々。**取り込みの開始は、利用者の操作**（許可の確認が出うる）。
+    private func toggle(_ source: HistoryEntry.Source) {
         Task { @MainActor in
-            if session.isActive { await session.stop() } else { await start() }
+            if session.isActive(source) { await session.stop(source) } else { await start(source) }
         }
     }
 
-    private func start() async {
+    private func start(_ source: HistoryEntry.Source) async {
         let settings = Settings.loadOrDefault().settings
-        await session.start(settings: settings, engine: Self.engine(for: settings))
+        await session.start(source, settings: settings, engine: Self.engine(for: settings))
     }
 
-    /// ショートカット（設定 `transcribeHotkey`）：開始・停止。ほかのアプリの前面を、奪わない（ウィンドウは、前に出すだけ）。結果は、画面の上のパネルに出す（失敗の理由も）。
-    func toggleFromShortcut() {
+    /// ショートカット（相手＝`transcribeHotkey`・自分＝`transcribeMicHotkey`）：その経路の開始・停止。もう片方は、そのまま。ほかのアプリの前面を、奪わない（ウィンドウは、前に出すだけ）。結果は、画面の上のパネルに出す（失敗の理由も）。
+    func toggleFromShortcut(_ source: HistoryEntry.Source) {
         if window == nil { build() }
+        let (stopped, started, cannot) = source == .others
+            ? (tr("文字起こし（相手の音声）を止めました"), tr("文字起こし（相手の音声）を始めました"), tr("文字起こし（相手の音声）を始められません"))
+            : (tr("文字起こし（自分の声）を止めました"), tr("文字起こし（自分の声）を始めました"), tr("文字起こし（自分の声）を始められません"))
         Task { @MainActor in
-            if session.isActive {
-                await session.stop()
-                HUD.shared.show(HUDContent(phase: .info, title: tr("文字起こしを止めました"), hint: tr("\(session.log.entries.count) 件")), hideAfter: 2)
+            if session.isActive(source) {
+                await session.stop(source)
+                HUD.shared.show(HUDContent(phase: .info, title: stopped, hint: tr("\(session.log.entries.count) 件")), hideAfter: 2)
                 return
             }
             window?.orderFrontRegardless()
-            await start()
-            if case let .failed(why) = session.state {
-                HUD.shared.show(HUDContent(phase: .failure, title: tr("文字起こしを始められません"), hint: why), hideAfter: 5)
+            await start(source)
+            if case let .failed(why) = session.state(source) {
+                HUD.shared.show(HUDContent(phase: .failure, title: cannot, hint: why), hideAfter: 5)
             } else {
-                HUD.shared.show(HUDContent(phase: .info, title: tr("文字起こしを始めました"), hint: tr("もう一度押すと、止めます")), hideAfter: 2)
+                HUD.shared.show(HUDContent(phase: .info, title: started, hint: tr("もう一度押すと、止めます")), hideAfter: 2)
             }
         }
     }
@@ -90,14 +93,14 @@ import VCSpeech
 
     /// 閉じたら、止める（止め忘れて、取り込みが、続かないように）。`close()`（Esc・⌘W）でも、呼ばれる。
     func windowWillClose(_ notification: Notification) {
-        if session.isActive { Task { @MainActor in await session.stop() } }
+        if session.isAnyActive { Task { @MainActor in await session.stopAll() } }
     }
 }
 
 private struct TranscriptView: View {
     @ObservedObject var session: TranscriptSession
     @ObservedObject var state: DocumentState
-    let toggle: () -> Void
+    let toggle: (HistoryEntry.Source) -> Void
     let copy: () -> Void
     let clear: () -> Void
     let close: () -> Void
@@ -116,8 +119,8 @@ private struct TranscriptView: View {
         .clipShape(shape)
     }
 
-    private var statusText: String {
-        switch session.state {
+    private func statusText(_ source: HistoryEntry.Source) -> String {
+        switch session.state(source) {
         case .idle: return tr("止まっています")
         case .starting: return tr("始めています…")
         case .running: return tr("文字にしています")
@@ -125,20 +128,35 @@ private struct TranscriptView: View {
         }
     }
 
+    private func sourceRow(_ source: HistoryEntry.Source) -> some View {
+        let active = session.isActive(source)
+        let failed: Bool = { if case .failed = session.state(source) { return true } else { return false } }()
+        return HStack(spacing: 10) {
+            Image(systemName: session.state(source) == .running ? "waveform" : "waveform.slash").vcFont(12, weight: .semibold)
+                .foregroundStyle(source == .others ? DocumentPalette.accent : Color.orange).frame(width: 18)
+            Text(source == .others ? tr("相手の音声") : tr("自分の声")).vcFont(13, weight: .semibold).foregroundStyle(.white)
+            Text(statusText(source)).vcFont(11, weight: .medium).foregroundStyle(failed ? Color.orange : .white.opacity(0.6)).lineLimit(2)
+            Spacer(minLength: 8)
+            PillButton(title: active ? tr("停止") : tr("開始"), symbol: active ? "stop.fill" : "record.circle", flashed: false) { toggle(source) }
+        }
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 ZStack {
                     Circle().fill(DocumentPalette.accent.opacity(0.2)).frame(width: 28, height: 28)
-                    Image(systemName: session.state == .running ? "waveform" : "waveform.slash").vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
+                    Image(systemName: "captions.bubble.fill").vcFont(13, weight: .semibold).foregroundStyle(DocumentPalette.accent)
                 }
                 Text(tr("文字起こし")).vcFont(15, weight: .semibold).foregroundStyle(.white)
-                Text(statusText).vcFont(11, weight: .medium).foregroundStyle({ if case .failed = session.state { return Color.orange }; return .white.opacity(0.6) }()).lineLimit(2)
                 Spacer(minLength: 8)
                 Button(action: close) { Image(systemName: "xmark.circle.fill").vcFont(20).foregroundStyle(.white.opacity(0.45)) }.buttonStyle(.plain).accessibilityLabel(tr("閉じる"))
             }
+            // 相手の音声（Mac から出ている音）と自分の声（マイク）：別々に、始め・止める
+            sourceRow(.others)
+            sourceRow(.me)
             // 同意・ヘッドホンの注意（いつも出す）
-            Text(tr("Mac から出ている音を、文字にします。録音・文字起こしには、相手の同意が要る場合があります。自分のマイクも文字にするときは、ヘッドホンを使ってください（スピーカーだと、マイクが相手の声を拾います）。"))
+            Text(tr("録音・文字起こしには、相手の同意が要る場合があります。自分の声と相手の音声を、同時に文字にするときは、ヘッドホンを使ってください（スピーカーだと、マイクが相手の声を拾います）。"))
                 .vcFont(10.5).foregroundStyle(.white.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
@@ -150,7 +168,7 @@ private struct TranscriptView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     if session.log.entries.isEmpty && session.log.tentative.isEmpty {
-                        Text(session.state == .running ? tr("音が出るのを、待っています…") : tr("「開始」を押すと、Mac から出ている音を、文字にします。"))
+                        Text(session.isAnyActive ? tr("音が出るのを、待っています…") : tr("「開始」を押すと、文字にします（相手の音声は、Mac から出ている音）。"))
                             .vcFont(13).foregroundStyle(.white.opacity(0.5)).padding(.top, 24).frame(maxWidth: .infinity)
                     }
                     ForEach(session.log.entries) { entry in EntryRow(entry: entry) }
@@ -170,7 +188,6 @@ private struct TranscriptView: View {
         VStack(alignment: .leading, spacing: 6) {
             if let notice = session.notice { Text(notice).vcFont(11).foregroundStyle(.orange) }
             HStack(spacing: 10) {
-                PillButton(title: session.isActive ? tr("停止") : tr("開始"), symbol: session.isActive ? "stop.fill" : "record.circle", flashed: false, action: toggle)
                 PillButton(title: tr("Markdown をコピー"), symbol: "doc.on.doc", flashed: state.copied == .markdown, action: copy)
                 PillButton(title: tr("消す"), symbol: "trash", flashed: false, action: clear)
                 Spacer(minLength: 8)
