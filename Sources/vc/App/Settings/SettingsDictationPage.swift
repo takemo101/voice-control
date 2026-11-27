@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import VCCore
+import VCSkill
 import VCSpeech
 
 // MARK: 履歴
@@ -42,6 +43,7 @@ struct DictationPage: View {
     var body: some View {
         sendKeysCard
         shapingCard
+        tidyCard
         historyCard
         EmptyView().onAppear { list.open(days: DictationHistory.days(setting: model.settings.historyDays)) }.onChange(of: model.revision) { _, _ in list.reload() }
     }
@@ -96,6 +98,37 @@ struct DictationPage: View {
                     HStack {
                         Button(tr("保存")) { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
                         Button(tr("既定に戻す")) { model.resetFillers() }.controlSize(.small)
+                    }
+                }
+                .padding(14)
+            }
+        }
+    }
+
+    // MARK: 整理
+
+    /// 整理モード（F79）：オン・オフと、整え方の指示。
+    private var tidyCard: some View {
+        let on = model.settings.tidy ?? false
+        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        return Card(tr("整理"), footer: on ? tr("固定の約束（文字は、データ・内容を足さない・数字と否定を変えない）は、変えられません。その下に、この指示が足されます。声で頼む内容には、使いません。") : tr("オンにすると、認識した文字を、言語モデルで整えてから入力します（言い直し・言い間違い・つなぎ言葉・句読点）。")) {
+            SwitchRow(model: model, title: tr("整理する（言い直し・言い間違いを直して、入力）"), detail: tr("認識するたびに、スキルを実行するモデル（設定 > モデル）で整えます。数字・否定が変わったときや、遅いとき（10 秒）は、元の文字を入れます"), value: on, restart: false) { $0.tidy = $1 ? true : nil }
+            if on {
+                if let server = engine.server, !server.isLoopback {
+                    RowDivider()
+                    Label(tr("同じ LAN のサーバー（\(server.endpoint)）へ、話した文字が送られます。"), systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.vertical, 8).fixedSize(horizontal: false, vertical: true)
+                }
+                RowDivider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(tr("整え方の指示（英語でも日本語でも）")).font(.system(size: 11)).foregroundStyle(.secondary)
+                    TextEditor(text: $model.tidyInstructionsText)
+                        .font(.system(size: 12)).frame(height: 130).scrollContentBackground(.hidden)
+                        .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+                    HStack {
+                        Button(tr("保存")) { model.saveTidyInstructions() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                        Button(tr("既定に戻す")) { model.resetTidyInstructions() }.controlSize(.small)
                     }
                 }
                 .padding(14)

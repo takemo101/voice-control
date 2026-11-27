@@ -30,6 +30,7 @@ import Foundation
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `tidy`・`tidyInstructions`：**整理モード**（認識した文字を、言語モデルで整えて、入力する。F79）。`tidy`：オンか（なければ、オフ）。`tidyInstructions`：整え方の指示（なければ、既定。解釈は VCSkill）。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
 /// - `fillers`：消すつなぎ言葉の辞書（利用者が足し引きする）。なければ、既定の辞書（解釈は Speech 層）。
 /// - `multiStep`：1 つの依頼を、複数のステップに分けて実行するか。なければ、分ける（設定ウィンドウ > モデル で、1 依頼 = 1 スキル）。
@@ -71,6 +72,8 @@ public struct Settings: Codable, Sendable, Equatable {
     public var chatAuto: Bool?
     public var voice: String?
     public var mute: Bool?
+    public var tidy: Bool?
+    public var tidyInstructions: String?
     public var removeFillers: Bool?
     public var multiStep: Bool?
     public var fillers: [String]?
@@ -116,6 +119,8 @@ public struct Settings: Codable, Sendable, Equatable {
         chatAuto = try c.decodeIfPresent(Bool.self, forKey: .chatAuto)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
+        tidy = try c.decodeIfPresent(Bool.self, forKey: .tidy)
+        tidyInstructions = try c.decodeIfPresent(String.self, forKey: .tidyInstructions)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)
         multiStep = try c.decodeIfPresent(Bool.self, forKey: .multiStep)
         fillers = try c.decodeIfPresent([String].self, forKey: .fillers)

@@ -59,6 +59,8 @@ enum DownloadState: Equatable {
     @Published private(set) var engineDraft = EngineDraft(settings: Settings())
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
+    /// 整理の整え方の編集中の文字（設定になければ、既定を、出す）。
+    @Published var tidyInstructionsText = ""
     /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
     @Published private(set) var modelLists: [String: ModelListState] = [:]
     /// 許可の状態などを、画面を開くたびに読み直すための印。
@@ -120,6 +122,7 @@ enum DownloadState: Equatable {
         keyProblems = [:]
         engineDraft = EngineDraft(settings: settings)
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
+        tidyInstructionsText = TidyPrompt.instructions(setting: settings.tidyInstructions)
     }
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
@@ -540,6 +543,19 @@ enum DownloadState: Equatable {
     func saveFillers() {
         let lines = fillersText.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         update { $0.fillers = lines.isEmpty ? nil : lines }
+    }
+
+    /// 整理の整え方を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
+    func saveTidyInstructions() {
+        let text = tidyInstructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = text.isEmpty || text == TidyPrompt.defaultInstructions ? nil : String(text.prefix(TidyPrompt.maxInstructionLength))
+        update(restart: false) { $0.tidyInstructions = value }
+        tidyInstructionsText = TidyPrompt.instructions(setting: value)
+    }
+
+    func resetTidyInstructions() {
+        update(restart: false) { $0.tidyInstructions = nil }
+        tidyInstructionsText = TidyPrompt.defaultInstructions
     }
 
     func resetFillers() {
