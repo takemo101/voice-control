@@ -53,6 +53,9 @@ import VCSpeech
         window = frame
     }
 
+    /// 見た目の確認用（`vc transcript-preview --demo --summary`）：要約の面を開く。
+    func openSummaryTabForPreview() { panel.tab = .summary }
+
     /// 空の画面の案内（ショートカット）と、取り込む音の名前を、いまの設定から。
     private func refreshHints() {
         let settings = Settings.loadOrDefault().settings
@@ -113,7 +116,7 @@ import VCSpeech
     private func summarize(_ scope: MeetingSummary.Scope, _ ids: Set<UUID>?) {
         let settings = Settings.loadOrDefault().settings
         Task { @MainActor in
-            panel.summaryOpen = true   // 結果が、見えるように
+            panel.tab = .summary   // 結果が、見えるように
             await session.summarize(scope, entryIDs: ids, settings: settings, engine: Self.engine(for: settings))
             if ids != nil { panel.stopSelecting() }
         }

@@ -19,8 +19,9 @@ import VCCore
     /// 発話を選んでいる（選んだ発話だけを、要約する）。
     @Published var selecting = false
     @Published var selected: Set<UUID> = []
-    /// 「要約」のカードを、開いている。
-    @Published var summaryOpen = false
+    /// いま開いている面：会話（吹き出し）・要約。
+    enum Tab { case chat, summary }
+    @Published var tab = Tab.chat
     /// テーマ（例「予算の話」）の入力。
     @Published var focusText = ""
 
@@ -65,23 +66,24 @@ struct TranscriptPanelView: View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
         VStack(spacing: 0) {
             header
+            TabBar(session: session, panel: panel)
             Rule()
             if let notice = session.notice {
                 Label(notice, systemImage: "exclamationmark.triangle.fill").vcFont(11).foregroundStyle(TranscriptPalette.orange).lineLimit(2)
                     .padding(.horizontal, 18).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading).background(TranscriptPalette.orange.opacity(0.10))
             }
             WrapUpBanner(wrapUp: session.wrapUp, reveal: actions.reveal)
-            if panel.summaryOpen || !session.summaries.isEmpty || session.summaryState != .idle {
-                SummaryCard(session: session, panel: panel, actions: actions)
-                Rule()
-            }
-            conversation
-            if panel.selecting {
-                Rule()
-                SelectionBar(session: session, panel: panel, actions: actions)
-            } else if !session.log.entries.isEmpty {
-                Rule()
-                searchBar
+            if panel.tab == .summary {
+                SummaryTab(session: session, panel: panel, actions: actions)
+            } else {
+                conversation
+                if panel.selecting {
+                    Rule()
+                    SelectionBar(session: session, panel: panel, actions: actions)
+                } else if !session.log.entries.isEmpty {
+                    Rule()
+                    searchBar
+                }
             }
         }
         .glassEffect(.regular.tint(DocumentPalette.accent.opacity(0.06)), in: shape)
@@ -119,8 +121,8 @@ struct TranscriptPanelView: View {
     private var moreMenu: some View {
         let empty = session.log.entries.isEmpty
         return Menu {
-            Button { panel.summaryOpen.toggle() } label: { Label(panel.summaryOpen ? tr("要約を閉じる") : tr("要約…"), systemImage: "text.badge.star") }.disabled(empty && session.summaries.isEmpty)
-            Button { panel.selecting ? panel.stopSelecting() : { panel.selecting = true; panel.summaryOpen = true }() } label: { Label(panel.selecting ? tr("選ぶのをやめる") : tr("発話を選んで、要約…"), systemImage: "checkmark.circle") }.disabled(empty)
+            Button { panel.tab = .summary } label: { Label(tr("要約…"), systemImage: "text.badge.star") }.disabled(empty && session.summaries.isEmpty)
+            Button { if panel.selecting { panel.stopSelecting() } else { panel.tab = .chat; panel.selecting = true } } label: { Label(panel.selecting ? tr("選ぶのをやめる") : tr("発話を選んで、要約…"), systemImage: "checkmark.circle") }.disabled(empty)
             Divider()
             Button(action: actions.copyMarkdown) { Label(tr("Markdown をコピー"), systemImage: "doc.on.doc") }.disabled(empty)
             Button(action: actions.copyText) { Label(tr("テキストをコピー"), systemImage: "text.alignleft") }.disabled(empty)
