@@ -70,16 +70,4 @@ import VCCore
         KeyKind.transcribe.set(nil, in: &settings)
         #expect(settings.transcribeHotkey == nil)
     }
-
-    /// 自分の声の文字起こしのキーは、相手の音声のキーとも別：別々に書け、重なれば断る。
-    @Test func theTranscribeKeysForTheOtherPartyAndForMyVoiceAreIndependentAndMayNotClash() {
-        var settings = Settings()
-        KeyKind.transcribe.set("ctrl+opt+t", in: &settings)
-        KeyKind.transcribeMic.set("ctrl+opt+m", in: &settings)
-        #expect(settings.transcribeHotkey == "ctrl+opt+t" && settings.transcribeMicHotkey == "ctrl+opt+m")
-        #expect(SettingsRules.keyProblem(.transcribeMic, text: "ctrl+opt+t", in: settings) != nil)     // 相手の音声のキーと、重なる
-        #expect(SettingsRules.keyProblem(.transcribeMic, text: "shift", in: settings) != nil)          // 長押しは、使えない
-        KeyKind.transcribeMic.set(nil, in: &settings)
-        #expect(settings.transcribeHotkey == "ctrl+opt+t" && settings.transcribeMicHotkey == nil)
-    }
 }

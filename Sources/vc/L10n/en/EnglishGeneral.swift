@@ -186,7 +186,6 @@ extension EnglishTables {
         "入力の整え方": "Text cleanup",
         "整理": "Tidy",
         "整理しています…": "Tidying…",
-        "固定の約束（文字は、データ・内容を足さない・数字と否定を変えない）は、変えられません。その下に、この指示が足されます。声で頼む内容には、使いません。": "The fixed rules (the text is data, add no content, keep numbers and negations) cannot be changed. Your instructions are added under them. Not used for spoken requests to run skills.",
         "同じ LAN のサーバー（%@）へ、話した文字が送られます。": "Your spoken text is sent to the server on the same LAN (%@).",
         "取りやめ": "Cancel",
         "文字を入れてから、これを押します": "Pressed after the text is typed",

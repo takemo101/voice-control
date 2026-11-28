@@ -33,7 +33,6 @@ extension CommandContext {
     func resolvePasteLastHotKey() -> HotKeySpec? { choices?.keys.pasteLast ?? (try? resolveKeys(settings: currentSettings()))?.pasteLast }
     /// 文字起こし（システム音声）の開始・停止のショートカット。なければ nil。
     func resolveTranscribeHotKey() -> HotKeySpec? { choices?.keys.transcribe ?? (try? resolveKeys(settings: currentSettings()))?.transcribe }
-    func resolveTranscribeMicHotKey() -> HotKeySpec? { choices?.keys.transcribeMic ?? (try? resolveKeys(settings: currentSettings()))?.transcribeMic }
     func resolveCycleSendHotKey() -> HotKeySpec? { choices?.keys.cycleSend ?? (try? resolveKeys(settings: currentSettings()))?.cycleSend }
 
     /// 設定のキーを、検査して、型にする。
@@ -55,8 +54,7 @@ extension CommandContext {
                             shot: try settings.shotHotkey.map { try parse($0, tr("スクリーンショット")) },
                             pasteLast: try settings.pasteLastHotkey.map { try parse($0, tr("直前の入力を貼り直す")) },
                             cycleSend: try settings.dictateCycleHotkey.map { try parse($0, tr("送るキーを切り替える")) },
-                            transcribe: try settings.transcribeHotkey.map { try parse($0, KeyKind.transcribe.title) },
-                            transcribeMic: try settings.transcribeMicHotkey.map { try parse($0, KeyKind.transcribeMic.title) })
+                            transcribe: try settings.transcribeHotkey.map { try parse($0, KeyKind.transcribe.title) })
     }
 }
 

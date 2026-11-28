@@ -12,15 +12,13 @@ enum KeyKind: Hashable {
     case pasteLast, cycleSend
     /// 文字起こし（システム音声）の開始・停止（キーの組み合わせだけ）。
     case transcribe
-    /// 文字起こし（自分の声・マイク）の開始・停止（キーの組み合わせだけ。相手の音声とは、別の経路）。
-    case transcribeMic
 
     /// 設定ウィンドウの欄が 1 つずつある、固定のキー（送るキーは、一覧で、足し引きする）。
-    static var fixed: [KeyKind] { [.listen, .dictate, .chat, .shot, .pasteLast, .cycleSend, .transcribe, .transcribeMic] }
+    static var fixed: [KeyKind] { [.listen, .dictate, .chat, .shot, .pasteLast, .cycleSend, .transcribe] }
     /// 押している間だけ話すキー。
     static var holdKeys: [KeyKind] { [.listen, .dictate, .chat] }
     /// ショートカット（キーの組み合わせだけ）。
-    static var shortcuts: [KeyKind] { [.shot, .pasteLast, .cycleSend, .transcribe, .transcribeMic] }
+    static var shortcuts: [KeyKind] { [.shot, .pasteLast, .cycleSend, .transcribe] }
 
     var title: String {
         switch self {
@@ -32,7 +30,6 @@ enum KeyKind: Hashable {
         case .pasteLast: return tr("直前の入力を貼り直す")
         case .cycleSend: return tr("送るキーを切り替える")
         case .transcribe: return tr("文字起こし（相手の音声）の開始・停止")
-        case .transcribeMic: return tr("文字起こし（自分の声）の開始・停止")
         }
     }
 
@@ -41,7 +38,7 @@ enum KeyKind: Hashable {
     /// `HotKeySpec` の書き方のキー（押している間だけ話すキー・画面撮影・操作のショートカット）。
     var isTrigger: Bool { !isStroke }
     /// キーの組み合わせだけ使える、操作のショートカットか（長押しは、使えない）。
-    var isAction: Bool { self == .shot || self == .pasteLast || self == .cycleSend || self == .transcribe || self == .transcribeMic }
+    var isAction: Bool { self == .shot || self == .pasteLast || self == .cycleSend || self == .transcribe }
 
     var help: String? {
         switch self {
@@ -53,7 +50,6 @@ enum KeyKind: Hashable {
         case .pasteLast: return tr("直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）")
         case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます")
         case .transcribe: return tr("Mac から出ている音（相手の音声）の文字起こしを、始め・止めます（キーの組み合わせだけ。音声入力のキーとは、別です）")
-        case .transcribeMic: return tr("自分の声（マイク）の文字起こしを、始め・止めます（キーの組み合わせだけ。相手の音声とは、別々に動きます。音声入力のキーとも、別です）")
         }
     }
 
@@ -74,7 +70,6 @@ enum KeyKind: Hashable {
         case .pasteLast: return settings.pasteLastHotkey
         case .cycleSend: return settings.dictateCycleHotkey
         case .transcribe: return settings.transcribeHotkey
-        case .transcribeMic: return settings.transcribeMicHotkey
         }
     }
 
@@ -96,7 +91,6 @@ enum KeyKind: Hashable {
         case .pasteLast: settings.pasteLastHotkey = value
         case .cycleSend: settings.dictateCycleHotkey = value
         case .transcribe: settings.transcribeHotkey = value
-        case .transcribeMic: settings.transcribeMicHotkey = value
         }
     }
 
@@ -107,7 +101,6 @@ enum KeyKind: Hashable {
         case .pasteLast: return ["opt+shift+v", "ctrl+opt+v", "f6"]
         case .cycleSend: return ["opt+shift+e", "ctrl+opt+e", "f7"]
         case .transcribe: return ["opt+shift+t", "ctrl+opt+t", "f8"]
-        case .transcribeMic: return ["opt+shift+m", "ctrl+opt+m", "f9"]
         case .sendKey: return ["return", "cmd+return", "shift+return", "opt+return", "ctrl+return", "tab"]
         default: return ["shift", "ctrl", "rshift", "rcmd", "ropt", "ctrl+opt+space", "f5"]
         }
@@ -132,6 +125,6 @@ enum SettingsRules {
         guard case let .success(listen) = candidate.hotkeySpec else { return nil }   // すでに書かれている声で頼むキーが壊れている：その直しは、そのキーの欄で
         func spec(_ text: String?) -> HotKeySpec? { text.flatMap { try? HotKeySpec.parse($0).get() } }
         return KeyConflicts.message(listen: listen, dictate: spec(candidate.dictateHotkey), shot: spec(candidate.shotHotkey), chat: spec(candidate.chatHotkey),
-                                    actions: [(KeyKind.pasteLast.title, spec(candidate.pasteLastHotkey)), (KeyKind.cycleSend.title, spec(candidate.dictateCycleHotkey)), (KeyKind.transcribe.title, spec(candidate.transcribeHotkey)), (KeyKind.transcribeMic.title, spec(candidate.transcribeMicHotkey))].compactMap { name, spec in spec.map { (name, $0) } })
+                                    actions: [(KeyKind.pasteLast.title, spec(candidate.pasteLastHotkey)), (KeyKind.cycleSend.title, spec(candidate.dictateCycleHotkey)), (KeyKind.transcribe.title, spec(candidate.transcribeHotkey))].compactMap { name, spec in spec.map { (name, $0) } })
     }
 }

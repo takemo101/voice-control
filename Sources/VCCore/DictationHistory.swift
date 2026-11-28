@@ -2,13 +2,13 @@ import Foundation
 
 /// 音声入力の**履歴**の 1 件（入力した文字と、時刻）。
 public struct HistoryEntry: Codable, Identifiable, Equatable, Sendable {
-    /// システム音声の文字起こし（F80）の話し手。`others`＝相手（システム音声）・`me`＝自分（マイク）。音声入力の履歴は、なし。
-    public enum Source: String, Codable, Sendable { case others, me }
+    /// 文字の出どころ：`others`＝システム音声の文字起こし（F80。相手の音声）。音声入力（自分の声）の履歴は、なし（nil）。
+    public enum Source: String, Codable, Sendable { case others }
 
     public let id: UUID
     public let date: Date
     public let text: String
-    /// 文字起こしの話し手（音声入力は、nil。古い履歴にも、ない）。
+    /// 文字の出どころ（音声入力は、nil。古い履歴にも、ない）。
     public let source: Source?
     /// 整理（F79）する前の、元の文字（整理しなかった・整理が通らなかったときは、nil）。
     public let raw: String?

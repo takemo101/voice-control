@@ -121,7 +121,7 @@ private struct HistoryRow: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))
-                     + (entry.source.map { " · " + ($0 == .others ? tr("相手") : tr("自分")) } ?? "")).font(.system(size: 11)).foregroundStyle(.secondary)
+                     + (entry.source == nil ? "" : " · " + tr("相手の音声"))).font(.system(size: 11)).foregroundStyle(.secondary)
                 Text(entry.text).font(.system(size: 13)).lineLimit(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 if let raw = entry.raw { Text(tr("元：\(raw)")).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(3).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
             }

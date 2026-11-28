@@ -23,7 +23,7 @@ import VCSpeech
     }
 
     /// ショートカット（直前の入力の貼り直し・送るキーの切り替え・文字起こしの開始と停止）を登録する（なければ、何も登録しない）。返したトリガーは、聞いている間、保持する。
-    static func install(pasteLast: HotKeySpec?, cycleSend: HotKeySpec?, transcribe: HotKeySpec?, transcribeMic: HotKeySpec?, paste: ClipboardPaste, settings: @escaping @MainActor () -> Settings) throws -> [any PushToTalkTrigger] {
+    static func install(pasteLast: HotKeySpec?, cycleSend: HotKeySpec?, transcribe: HotKeySpec?, paste: ClipboardPaste, settings: @escaping @MainActor () -> Settings) throws -> [any PushToTalkTrigger] {
         var triggers: [any PushToTalkTrigger] = []
         if let pasteLast {
             let key = try makeTrigger(pasteLast)
@@ -35,15 +35,9 @@ import VCSpeech
             key.onPress = { Task { @MainActor in Self.cycleSendMode() } }
             triggers.append(key)
         }
-        // 文字起こしの開始・停止：相手の音声（システム音声）と自分の声（マイク）は、別々のキー・別々の経路。音声入力のキーとも、別
-        if let transcribe {
+        if let transcribe {   // システム音声（相手の音声）の文字起こしの開始・停止：音声入力のキー（自分の声）とは、別
             let key = try makeTrigger(transcribe)
-            key.onPress = { Task { @MainActor in TranscriptWindow.shared.toggleFromShortcut(.others) } }
-            triggers.append(key)
-        }
-        if let transcribeMic {
-            let key = try makeTrigger(transcribeMic)
-            key.onPress = { Task { @MainActor in TranscriptWindow.shared.toggleFromShortcut(.me) } }
+            key.onPress = { Task { @MainActor in TranscriptWindow.shared.toggleFromShortcut() } }
             triggers.append(key)
         }
         return triggers
