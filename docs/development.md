@@ -46,6 +46,7 @@ macOS 26 以降・Apple silicon・Swift 6.2 以降（Xcode または Command Lin
 | `just eval` | 「操作の依頼か」の判定（当てはまるスキルがないとき、既定スキルに回すか）の当たり率（`vc eval-gate corpus/gate.tsv`。Tiny-Jev のモデルが要る。実機は操作しない） |
 | `vc tidy` / `vc eval-tidy corpus/tidy.tsv [--set dev\|test]` | 整理モード（F79）の、1 文の確認と、当たり率（タグ・数字・否定・長さの検査を通るか）。言語モデルは、設定のスキルを実行するモデル（Apple 以外を使うときは、`--engine`）。Apple で測るときは、空の `VC_HOME` に `{"engine":"apple"}` |
 | `vc summary <会議の.txt> [--focus <テーマ>]` / `vc eval-summary corpus/summary` | 会議の要約（F82）の、1 件の確認と、作り物の会議 5 件での当たり率（`# expect:` の条件）。長い会議の分け方・テーマの絞り込みも通る |
+| `vc menu-preview [--state listening\|starting\|stopped] [--submenu]` | メニューバーのメニューを、自作の状態で開いて見せる（見た目の確認。画面には、メニューバーの項目が、一時的に出る。撮るときは、メニューのウィンドウだけを、ウィンドウ番号で撮る）。直近の入力は、作り物の文 |
 | `vc capture-probe` | 画面収録の許可・取り込める音・音量を、短く確かめる（実機。許可が要る。自分で鳴らした音で試す） |
 | `vc transcript-preview [--say <文>] [--seconds N] [--demo [--summary]]` | 会議の文字起こしの画面を、実際の経路（ショートカットと同じ）で動かす。`--demo` は、作り物の文を並べて、見た目だけを見る（取り込まない）。`--say` は、`say` で自分の音を鳴らす |
 | `vc eval-route corpus/hybrid.tsv` | 発話を、スキルで実行するか・会話で答えるかに、振り分けられるかの当たり率（会話とスキルを混ぜる機能の土台の測定。`just` には入れていない。取っておいた文 `corpus/hybrid-test.tsv` は、調整に使わない。Tiny-Jev のモデルが要る。実行はしない） |

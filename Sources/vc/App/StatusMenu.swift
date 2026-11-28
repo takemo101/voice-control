@@ -56,63 +56,78 @@ import VCCore
 
     // MARK: メニュー
 
+    /// 見た目の確認用（`vc menu-preview`）：メニューに出す状態を、決め打ちにする（なければ、実際の状態）。
+    var previewState: AppRuntime.State?
+
+    /// 開くたびに、状態から作り直す。**よく使うものだけ**を、上に：状態・（あれば）更新・会話・会議・音声入力・設定・終了。診断・データのフォルダ・コマンド vc・更新の確認・会話のリセットは、設定ウィンドウ・会話のウィンドウにある（ここには置かない）。
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.autoenablesItems = false
         refreshIcon()   // 表示の言語を切り替えたあとの、アイコンの読み上げ・ヒントも、開くたびに合わせる
         menu.removeAllItems()
-        menu.addItem(label("voice-control \(AppInfo.version)"))
-        switch runtime.state {
-        case .starting: menu.addItem(label(tr("状態: 準備中")))
-        case let .listening(hint): menu.addItem(label(tr("状態: 聞いています"))); menu.addItem(label(hint))
-        case let .stopped(reason):
-            menu.addItem(label(tr("状態: 停止中")))
-            menu.addItem(label(String(reason.prefix(60)) + (reason.count > 60 ? "…" : "")))
-            menu.addItem(action(tr("もう一度、始める"), #selector(retry)))
-        }
+        let state = previewState ?? runtime.state
+        menu.addItem(statusItem(for: state))
+        if case .stopped = state { menu.addItem(action(tr("もう一度、始める"), #selector(retry))) }
         switch UpdateModel.shared.phase {
         case let .available(release): menu.addItem(action(tr("新しいバージョン \(release.version) に更新…"), #selector(installUpdate)))
         case .checking: menu.addItem(label(tr("更新を確認しています…")))
         case .preparing: menu.addItem(label(tr("更新を準備しています…")))
-        default: menu.addItem(action(tr("更新を確認"), #selector(checkUpdate)))
+        default: break
         }
         menu.addItem(.separator())
         if SaySpeaker.shared.isSpeaking() { menu.addItem(action(tr("読み上げを止める"), #selector(stopSpeaking))) }
-        // 音声入力：直前の入力の貼り直し・直近の入力のコピー・入力のあとに送るキーの切り替え
+        menu.addItem(action(tr("会話を開く"), #selector(openChat)))
+        if TranscriptWindow.shared.session.isActive {
+            menu.addItem(action(tr("会議の文字起こしを止める"), #selector(stopTranscript)))
+        } else {
+            menu.addItem(action(tr("音声入力（会議）を開く"), #selector(openTranscript)))
+        }
+        let dictation = NSMenuItem(title: tr("音声入力（マイク）"), action: nil, keyEquivalent: "")
+        dictation.submenu = dictationMenu()
+        menu.addItem(dictation)
+        menu.addItem(.separator())
+        menu.addItem(action(tr("設定…"), #selector(openSettings), key: ","))
+        menu.addItem(NSMenuItem(title: tr("終了"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// 状態の 1 行（題と補足）。補足：聞いているときは、キーの案内・止まっているときは、理由。
+    private func statusItem(for state: AppRuntime.State) -> NSMenuItem {
+        let (title, detail): (String, String?)
+        switch state {
+        case .starting: (title, detail) = (tr("準備中"), nil)
+        case let .listening(hint): (title, detail) = (tr("聞いています"), hint)
+        case let .stopped(reason): (title, detail) = (tr("停止中"), String(reason.prefix(60)) + (reason.count > 60 ? "…" : ""))
+        }
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")   // 行き先なし・有効のまま：文字が薄くならない
+        item.subtitle = detail
+        item.toolTip = "voice-control \(AppInfo.version)"
+        return item
+    }
+
+    /// 音声入力（マイク）の操作：直前の入力の貼り直し・直近の入力のコピー・入力のあとに送るキーの切り替え。
+    private func dictationMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
         let recent = RecentDictations.shared.recent
         let pasteItem = action(tr("直前の入力を貼り直す"), #selector(pasteLastDictation))
         pasteItem.isEnabled = !recent.isEmpty
         menu.addItem(pasteItem)
-        let copyItem = NSMenuItem(title: tr("最近の入力をコピー"), action: nil, keyEquivalent: "")
-        let copyMenu = NSMenu()
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem.sectionHeader(title: tr("最近の入力（選ぶとコピー）")))
         for text in recent {
             let item = NSMenuItem(title: Self.excerpt(text), action: #selector(copyDictation(_:)), keyEquivalent: "")
             item.target = self; item.representedObject = text
-            copyMenu.addItem(item)
+            menu.addItem(item)
         }
-        if recent.isEmpty { copyMenu.addItem(label(tr("まだ入力がありません"))) }
-        copyItem.submenu = copyMenu
-        menu.addItem(copyItem)
-        let sendItem = NSMenuItem(title: tr("入力のあとに送るキー"), action: nil, keyEquivalent: "")
-        let sendMenu = NSMenu()
+        if recent.isEmpty { menu.addItem(label(tr("まだ入力がありません"))) }
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem.sectionHeader(title: tr("入力のあとに送るキー")))
         let send = Settings.loadOrDefault().settings.dictateSend
         for (index, mode) in send.modes.enumerated() {
             let item = NSMenuItem(title: mode.title, action: #selector(chooseSendMode(_:)), keyEquivalent: "")
             item.target = self; item.tag = index; item.state = index == send.active ? .on : .off
-            sendMenu.addItem(item)
+            menu.addItem(item)
         }
-        sendItem.submenu = sendMenu
-        menu.addItem(sendItem)
-        menu.addItem(.separator())
-        if TranscriptWindow.shared.session.isActive { menu.addItem(action(tr("会議の文字起こしを止める"), #selector(stopTranscript))) }
-        menu.addItem(action(tr("音声入力（会議）を開く"), #selector(openTranscript)))
-        menu.addItem(action(tr("会話を開く"), #selector(openChat)))
-        menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
-        menu.addItem(action(tr("診断…"), #selector(showDoctor)))
-        menu.addItem(action(tr("設定…"), #selector(openSettings), key: ","))
-        menu.addItem(action(tr("データのフォルダを開く（スキル・設定）"), #selector(openDataFolder)))
-        menu.addItem(commandItem())
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: tr("終了"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        return menu
     }
 
     private func label(_ title: String) -> NSMenuItem {
@@ -127,41 +142,11 @@ import VCCore
         return item
     }
 
-    /// コマンド `vc`（`/usr/local/bin` へのリンク）を、入れる・外す。入っていれば、チェック。
-    private func commandItem() -> NSMenuItem {
-        let tool = CommandLineTool()
-        switch tool.state {
-        case .unavailable: return label(tr("コマンド「vc」: アプリを「アプリケーション」へ移すと入れられます"))
-        case let .other(path): return label(tr("コマンド「vc」: \(path) に、別のものがあります"))
-        case .installed:
-            let item = action(tr("コマンド「vc」をインストール（/usr/local/bin）"), #selector(toggleCommand))
-            item.state = .on
-            return item
-        case .stale: return action(tr("コマンド「vc」を、このアプリへ付け替える"), #selector(toggleCommand))
-        case .notInstalled: return action(tr("コマンド「vc」をインストール（/usr/local/bin）"), #selector(toggleCommand))
-        }
-    }
-
     // MARK: 操作
 
     @objc private func retry() { runtime.start() }
 
     @objc private func installUpdate() { UpdateModel.shared.confirmAndInstall() }
-
-    /// 手で確認する：結果を、上のパネルで知らせる（新しい版があれば、次にメニューを開いたとき、更新の項目が出る）。
-    @objc private func checkUpdate() {
-        Task {
-            await UpdateModel.shared.check(manual: true)
-            let model = UpdateModel.shared
-            switch model.phase {
-            case let .available(release): HUD.shared.show(HUDContent(phase: .info, title: tr("新しいバージョン \(release.version) があります"), hint: tr("メニューバーの「更新」から、入れられます"), chip: tr("更新")), hideAfter: 5)
-            case let .failed(why): AppAlerts.show(title: tr("更新を確認できません"), message: why, style: .warning)
-            default: HUD.shared.show(HUDContent(phase: .success, title: tr("最新の版です"), hint: "voice-control \(model.currentVersion)", chip: tr("更新")), hideAfter: 2.5)
-            }
-        }
-    }
-
-    @objc private func resetConversation() { AppActions.resetConversation() }
 
     /// メニューの題に出す、入力の抜粋（1 行・短く）。
     private static func excerpt(_ text: String) -> String {
@@ -187,13 +172,11 @@ import VCCore
 
     @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
 
-    @objc private func showDoctor() { AppActions.showDoctor() }
-
     @objc private func openSettings() { SettingsWindow.shared.show() }
 
-    @objc private func openDataFolder() { AppActions.openDataFolder() }
+    /// 見た目の確認用：メニューを、開く。
+    func openForPreview() { item.button?.performClick(nil) }
 
-    @objc private func toggleCommand() {
-        if let problem = AppActions.toggleCommandLine() { AppAlerts.show(title: tr("コマンドを変えられません"), message: problem, style: .warning) }
-    }
+    /// 見た目の確認用：「音声入力（マイク）」の中身だけを、画面の中ほどに、開く。
+    func openDictationForPreview() { dictationMenu().popUp(positioning: nil, at: NSPoint(x: 400, y: 600), in: nil) }
 }

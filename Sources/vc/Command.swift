@@ -39,7 +39,7 @@ protocol Command {
 enum Commands {
     static let all: [any Command.Type] = [
         SkillsCommand.self, AdapterCommand.self, RunCommand.self, ShowCommand.self, PreviewCommand.self, FindCommand.self, PickCommand.self, DoctorCommand.self,
-        ChatCommand.self, TranscribeCommand.self, HotkeyCheckCommand.self, HudPreviewCommand.self, ChatPreviewCommand.self, ChatCheckCommand.self, ChatModelsCommand.self, UpdateCommand.self, SettingsPreviewCommand.self, EvalGateCommand.self, TidyCommand.self, EvalTidyCommand.self, CaptureProbeCommand.self, TranscriptPreviewCommand.self, SummaryCommand.self, EvalSummaryCommand.self, EvalRouteCommand.self, EvalJudgeCommand.self, EvalPlanCommand.self,
+        ChatCommand.self, TranscribeCommand.self, HotkeyCheckCommand.self, HudPreviewCommand.self, ChatPreviewCommand.self, ChatCheckCommand.self, ChatModelsCommand.self, UpdateCommand.self, SettingsPreviewCommand.self, EvalGateCommand.self, TidyCommand.self, EvalTidyCommand.self, CaptureProbeCommand.self, TranscriptPreviewCommand.self, MenuPreviewCommand.self, SummaryCommand.self, EvalSummaryCommand.self, EvalRouteCommand.self, EvalJudgeCommand.self, EvalPlanCommand.self,
     ]
 
     static func find(_ name: String) -> (any Command.Type)? { all.first { $0.info.name == name } }
