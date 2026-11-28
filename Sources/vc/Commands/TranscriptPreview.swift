@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import VCCore
+import VCSpeech
 
 /// `vc transcript-preview`：文字起こしのウィンドウを、**自作の音**（`say`）で、動かして見せる（見た目・動作の確認用。開発用。履歴は、設定どおり：テストでは、一時の `VC_HOME` を使う）。
 struct TranscriptPreviewCommand: Command {
@@ -8,7 +9,7 @@ struct TranscriptPreviewCommand: Command {
         name: "transcript-preview", group: .evaluation, summary: "文字起こしのウィンドウを、自作の音（say）で動かして見せる（見た目・動作の確認用）",
         usage: ["vc transcript-preview [--say <文>] [--seconds <秒>] [--demo [--summary]]"],
         details: ["本物の文字起こしのウィンドウを出し、すぐ開始して、--say の文を鳴らす（自分の音で試す）。--seconds のあと、止めて、終わる。画面収録の許可が、まだなら、OS の確認が出る。"],
-        options: [("--say <文>", "鳴らす文"), ("--seconds <秒>", "動かす長さ（既定 20）"), ("--demo", "取り込まず、作り物の文を並べて、パネルの見た目だけを見る"), ("--summary", "（--demo と）要約の面を開く")],
+        options: [("--say <文>", "鳴らす文"), ("--seconds <秒>", "動かす長さ（既定 20）"), ("--demo", "取り込まず、作り物の文を並べて、パネルの見た目だけを見る"), ("--summary", "（--demo と）要約の面を開く"), ("--hud", "（--demo と）上のパネルに、作り物の波形と文字も出す")],
         examples: ["vc transcript-preview --say \"今日はいい天気ですね。明日の会議は午後4時からです。\""])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -23,7 +24,6 @@ struct TranscriptPreviewCommand: Command {
             TranscriptWindow.shared.session.seed(TranscriptLog(entries: [
                 entry(0, "それでは、来週のリリースについて、確認します。"),
                 entry(7, "テストは、水曜日までに終わる予定です。"),
-                entry(12, "ただ、一つだけ、気になる点があります。"),
                 entry(20, "はい、お願いします。", me: true),
                 entry(26, "テストの結果は、いつ共有できますか。", me: true),
                 entry(420, "明日の会議は午後4時からです。", raw: "えーと明日の会議はあの午後4時からです"),
@@ -34,6 +34,7 @@ struct TranscriptPreviewCommand: Command {
                 MeetingSummary(date: Date(), scope: .focus("日程"), text: "- テストは水曜まで\n- 会議は午後 4 時から"),
             ])
             if arguments.flag("--summary") { TranscriptWindow.shared.openSummaryTabForPreview() }
+            if arguments.flag("--hud") { Self.showDemoHUD() }   // 上のパネル（波形と文字）も、作り物で出す
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { exit(0) }
             NSApplication.shared.run()
             return
@@ -66,5 +67,20 @@ struct TranscriptPreviewCommand: Command {
             }
         }
         NSApplication.shared.run()
+    }
+
+    /// 見た目の確認用：上のパネルに、作り物の音量と文字を出す（取り込まない）。
+    @MainActor private static func showDemoHUD() {
+        let chip = Settings.loadOrDefault().settings.transcribeHotkey.flatMap { try? HotKeySpec.parse($0).get() }?.displayName
+        var content = HUDContent(phase: .recording, title: tr("音声入力（会議）"), hint: tr("会議の音を、文字にしています"), chip: chip)
+        content.captionSlot = true
+        HUD.shared.beginTranscript(content)
+        Task.detached {
+            for step in 0..<400 {
+                let level = Float(0.3 + 0.5 * abs(sin(Double(step) / 3)))
+                HUD.shared.pushTranscript(level: level, text: step > 8 ? LiveCaptionText(confirmed: "それでは、来週のリリースについて、確認します。", tentative: "テストは、水曜日までに") : nil)
+                try? await Task.sleep(for: .milliseconds(60))
+            }
+        }
     }
 }

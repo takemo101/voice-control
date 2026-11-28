@@ -11,8 +11,17 @@
 | Ask by voice | Hold a key (default: Shift), speak, release | Tiny-Jev (an on-device 0.6B model) picks a matching skill; only the commands that skill allows are run |
 | Dictation | Another key | Your speech is typed into the frontmost app |
 | Chat | A chat key, or the Chat window | Questions are answered by Apple's on-device model or an agent you choose (agy, opencode, grok, pi, Claude, Codex…), with optional tools |
+| Meeting transcription | A dedicated shortcut (toggle) | Sound playing from your Mac (and, optionally, your microphone) is transcribed into a chat-shaped panel — tidy, save (Markdown, subtitles) and summarize. Transcription only |
 
 Audio and screen contents never leave your Mac, except where you explicitly choose an external agent (the settings window says so).
+
+## Meeting transcription (experimental)
+
+- **Start / stop** with a dedicated shortcut (Settings > Keys, “Voice input (meeting)”) or the panel button. Needs the Screen Recording permission (audio only; this app's own sound is excluded). A red dot appears in the menu bar while it runs.
+- **The other side vs. you**: sound from your Mac is “Other”; turn on your microphone (off by default; headphones recommended) to add “Me”. Copy, export and history keep the two apart. The panel is chat-shaped, ordered by when things were said, with search, per-line copy and delete.
+- **Tidy** (per side, off by default), **export** (Markdown, plain text, SRT/VTT subtitles), **auto-save** to a folder you choose (off by default), and **summaries** in their own tab: whole meeting, a topic or comment, or selected lines. A summary that contains a number not in the conversation is not shown.
+- **Privacy**: audio is never saved. Text is saved only if you turn history on or choose a folder (files are readable only by you). Tidy and summaries use the model that runs skills (on-device Apple model by default; never the cloud; a LAN server only at a place you approved).
+- **Limits**: Apple's recognizer finalizes a sentence only after a pause, so bubbles hold several sentences and appear a few seconds late; summaries can mix up who owns a task. Real-microphone and long-meeting checks are still pending a human.
 
 ## Chat
 

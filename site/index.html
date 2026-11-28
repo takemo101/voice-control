@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>voice-control — 押しながら話すと、Mac が動く。</title>
-<meta name="description" content="声や文章でお願いするだけで、Mac の操作を代わりにやってくれて、聞きたいことには会話で答えてくれる、メニューバーのアプリ。音声認識も AI モデルも、初期設定では Mac の中だけで動きます。インストール方法・使い方・注意点をまとめています。">
+<meta name="description" content="声や文章でお願いするだけで、Mac の操作を代わりにやってくれて、聞きたいことには会話で答えてくれる、会議や動画の音を文字にしてまとめてもくれる、メニューバーのアプリ。音声認識も AI モデルも、初期設定では Mac の中だけで動きます。インストール方法・使い方・注意点をまとめています。">
 <meta name="theme-color" content="#0d1020">
 <meta property="og:type" content="website">
 <meta property="og:title" content="voice-control — 押しながら話すと、Mac が動く。">
@@ -36,7 +36,7 @@
   <div class="wrap bar">
     <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>voice-control</a>
     <nav class="nav-links" aria-label="ページ内の移動">
-      <a href="#how">しくみ</a><a href="#try">使い方の例</a><a href="#chat">会話</a><a href="#features">できること</a><a href="#settings">設定</a><a href="#safe">安全</a><a href="#install">はじめかた</a><a href="#notes">注意点</a><a href="#faq">よくある質問</a>
+      <a href="#how">しくみ</a><a href="#try">使い方の例</a><a href="#chat">会話</a><a href="#meeting">会議</a><a href="#features">できること</a><a href="#settings">設定</a><a href="#safe">安全</a><a href="#install">はじめかた</a><a href="#notes">注意点</a><a href="#faq">よくある質問</a>
     </nav>
     <a class="btn btn-small" href="https://github.com/takemo101/voice-control" rel="noopener">GitHub</a>
   </div>
@@ -51,7 +51,7 @@
     <div class="hero-copy">
       <p class="pill"><i aria-hidden="true"></i><b>試作版</b><span>v0.6.0</span><span>macOS 26 以降 / Apple シリコン</span></p>
       <h1><span class="line"><span class="nb">押しながら</span><span class="nb">話すと、</span></span><span class="line"><em class="hl">Mac が動く。</em></span></h1>
-      <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章で頼むと Mac を操作してくれる、メニューバーのアプリです。質問には会話で答えます。音声認識も AI も初期設定では Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
+      <p class="lead"><strong>voice-control</strong>（コマンド名は <code>vc</code>）は、声や文章で頼むと Mac を操作してくれる、メニューバーのアプリです。質問には会話で答え、会議や動画の音は、文字にして、まとめます。音声認識も AI も初期設定では Mac の中だけで動くので、<strong>話した内容は外に出ません。</strong></p>
       <p class="lead sub">実行してよいコマンドは、AI ではなく<strong>許可リスト</strong>で決めます。</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#install">インストールする</a>
@@ -168,12 +168,48 @@
   </div>
 </section>
 
+<!-- ───────── 会議の文字起こし ───────── -->
+<section class="section" id="meeting">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <h2>会議・動画の音を、文字にして、まとめる</h2>
+      <p>Mac から出ている音を文字にして、チャットの形で並べます。整理・保存・要約まで、Mac の中で。<b>実験</b>の機能です。</p>
+    </header>
+    <div class="chat-grid">
+      <figure class="reveal">
+        <div class="frame glow"><img src="assets/img/meeting-panel.png" width="800" height="985" alt="会議の文字起こしのパネル。相手（左）と自分（右）の吹き出しが、時刻つきで、話した順に並ぶ。整理した文には「整理済み」の札が付く" loading="lazy"></div>
+        <figcaption>相手（左）と自分（右）。整理した文には「整理済み」の札が付き、元の文字も見られます（中身は見本）。</figcaption>
+      </figure>
+      <div>
+        <ul class="rules">
+          <li class="rule spotlight reveal"><svg aria-hidden="true"><use href="#i-hand"/></svg><div><h3>ショートカットで、開始・停止</h3><p>設定 &gt; キー に決めたキーを、押すたびに切り替わります。<strong>画面収録の許可</strong>が要ります（音だけを取り込み、画面は使いません）。動いている間、メニューバーのアイコンが<strong>赤い丸</strong>になります。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:60ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>相手と自分を、分けて並べる</h3><p>Mac から出ている音が「相手」。マイクをオンにすると「自分」も並びます（初期設定はオフ・ヘッドホン推奨）。コピー・書き出し・履歴でも、区別します。探す・1 文のコピー・1 行の削除もできます。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:120ms"><svg aria-hidden="true"><use href="#i-term"/></svg><div><h3>整理・書き出し・自動保存</h3><p>言い直しやつなぎ言葉を、言語モデルで整えます（相手と自分で別のスイッチ。初期設定はオフ）。<strong>Markdown・テキスト・字幕（SRT・VTT）</strong>で書き出せ、保存先を選ぶと、止めたときに自動で書きます。</p></div></li>
+          <li class="rule spotlight reveal" style="--d:180ms"><svg aria-hidden="true"><use href="#i-puzzle"/></svg><div><h3>要約：全体・テーマ・選んだ発話</h3><p>「要約」の面で、会議全体や、「決まったこと」「やること」などのテーマ（コメントも書けます）、選んだ発話だけを、まとめます。<strong>話にない数字が出た要約は、出しません。</strong></p></div></li>
+        </ul>
+        <details class="more">
+          <summary>音と文字の扱い・限界</summary>
+          <div class="body"><ul class="rules">
+          <li class="rule spotlight"  style="--d:172ms"><svg aria-hidden="true"><use href="#i-lock"/></svg><div><h3>音は残さない・外へ送らない</h3><p>音声は保存しません。文字は、<strong>履歴をオンにしたとき</strong>と、<strong>保存先を選んだとき</strong>だけ、自分だけが読めるファイルに残ります。整理・要約は、設定 &gt; モデル の「スキルを実行するモデル」（初期設定は Mac の中の Apple のモデル。クラウドは使いません）。</p></div></li>
+          <li class="rule spotlight"  style="--d:150ms"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>文字起こし専用</h3><p>ここの文は、スキル・会話・コマンドには回しません。相手の声を、命令として実行しません。</p></div></li>
+          <li class="rule spotlight"  style="--d:165ms"><svg aria-hidden="true"><use href="#i-eye"/></svg><div><h3>限界</h3><p>認識は、間が空いてから文を確定するので、表示が数秒遅れます。要約は、誰がやるかを取り違えることがあります。実マイク・長い実会議の確認は、まだです。</p></div></li>
+          </ul></div>
+        </details>
+      </div>
+    </div>
+    <div class="gallery" style="margin-top: var(--space-8)">
+      <figure class="reveal"><div class="frame"><img src="assets/img/meeting-summary.png" width="800" height="985" alt="要約の面。会議全体を要約・テーマで絞る・選んだ発話だけを要約。結果は、見出しと箇条書き" loading="lazy"></div><figcaption><b>要約の面</b>　会議全体・テーマ（コメント）・選んだ発話。結果はコピーできます（中身は見本）。</figcaption></figure>
+      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/hud-meeting.png" width="1056" height="380" alt="上のパネル。会議の音の波形と、聞こえている文字（確定前は薄い）" loading="lazy"></div><figcaption><b>上のパネル</b>　声に合わせた波形と、聞こえている文字（確定前は薄い）。画面の上に、動いている間だけ出ます。</figcaption></figure>
+    </div>
+  </div>
+</section>
+
 <!-- ───────── できること ───────── -->
 <section class="section" id="features">
   <div class="wrap">
     <header class="section-head reveal">
       <h2>できること</h2>
-      <p>声で頼む・声で入力する・画面を撮って頼む、が使えます。</p>
+      <p>声で頼む・声で入力する・会議の音を文字にする・画面を撮って頼む、が使えます。</p>
     </header>
     <div class="bento">
       <article class="card spotlight b-wide reveal">
@@ -197,7 +233,12 @@
         <p>話した言葉を、いま使っているアプリに入力します。送るキー（Enter など）は複数登録でき、「えーと」の削除や、直前の入力の貼り直しもできます。履歴は、オンにしたときだけ残ります。</p>
         <code class="mini">設定 &gt; キー ／ 設定 &gt; 音声入力</code>
       </article>
-      <article class="card spotlight b-third reveal" style="--d:80ms">
+            <article class="card spotlight b-third reveal">
+        <h3>会議の音を、文字にしてまとめる</h3>
+        <p>通話・会議・動画の音を文字にして、整理・書き出し・要約までできます。音は残さず、Mac の中で処理します（実験）。</p>
+        <code class="mini">設定 &gt; 音声入力（会議）</code>
+      </article>
+<article class="card spotlight b-third reveal" style="--d:80ms">
         <h3>続けて頼む</h3>
         <p>「Claude で調べて、そのあと Spotify で次の曲」のように、続けて頼めます。1 つずつ実行し、失敗したらそこで止まります。</p>
         <div class="mini-row"><code class="mini">設定 &gt; モデル</code><span class="mini-note">で無効にできます</span></div>
@@ -277,7 +318,9 @@
       <figure class="reveal"><div class="frame"><img src="assets/img/settings-general.png" width="1200" height="984" alt="設定の「一般」。準備状況、許可、ログイン時に起動、コマンド vc、診断" loading="lazy"></div><figcaption><b>一般</b>　準備状況・起動・コマンド vc・診断</figcaption></figure>
       <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-keys.png" width="1200" height="984" alt="設定の「キー」。声で頼む、音声入力、会話、画面撮影、直前の入力の貼り直しのキー" loading="lazy"></div><figcaption><b>キー</b>　声で頼む・音声入力・会話・画面撮影のキー</figcaption></figure>
       <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-voice.png" width="1200" height="984" alt="設定の「音声」。認識の言語、録音中の音、文字の表示、読み上げ" loading="lazy"></div><figcaption><b>音声</b>　認識の言語・録音中の音・読み上げ</figcaption></figure>
-      <figure class="reveal"><div class="frame"><img src="assets/img/settings-dictation.png" width="1200" height="984" alt="設定の「音声入力」。入力のあとに送るキー、入力の整え方、履歴" loading="lazy"></div><figcaption><b>音声入力</b>　送るキー・つなぎ言葉・英語の空白・履歴</figcaption></figure>
+      <figure class="reveal"><div class="frame"><img src="assets/img/settings-dictation.png" width="1200" height="984" alt="設定の「音声入力（マイク）」。入力のあとに送るキー、入力の整え方、整理" loading="lazy"></div><figcaption><b>音声入力</b>　送るキー・つなぎ言葉・英語の空白・履歴</figcaption></figure>
+      <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-transcribe.png" width="1200" height="984" alt="設定の「音声入力（会議）」。会議の文字起こし、整理と要約、保存と履歴" loading="lazy"></div><figcaption><b>音声入力（会議）</b>　会議の文字起こし・整理と要約・保存と履歴</figcaption></figure>
+      <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-history.png" width="1200" height="984" alt="設定の「履歴」。音声入力と文字起こしの記録を、種類で絞る・探す・消す" loading="lazy"></div><figcaption><b>履歴</b>　音声入力・会議の記録（種類で絞る・探す・消す）</figcaption></figure>
       <figure class="reveal"><div class="frame"><img src="assets/img/settings-chat.png" width="1200" height="984" alt="設定の「会話」。エージェント、道具、作業フォルダ、会話の記録" loading="lazy"></div><figcaption><b>会話</b>　エージェント・道具・作業フォルダ</figcaption></figure>
       <figure class="reveal" style="--d:60ms"><div class="frame"><img src="assets/img/settings-models.png" width="1200" height="984" alt="設定の「モデル」。エンジン、音声認識、モデルの取得" loading="lazy"></div><figcaption><b>モデル</b>　実行するモデル・音声認識・取得</figcaption></figure>
       <figure class="reveal" style="--d:120ms"><div class="frame"><img src="assets/img/settings-skills.png" width="1200" height="984" alt="設定の「スキル」。有効と無効の切り替え、インストール" loading="lazy"></div><figcaption><b>スキル</b>　有効・無効・インストール</figcaption></figure>
@@ -442,8 +485,9 @@ Open the app the user names with: open -a "&lt;exact app name&gt;". Reply: done:
       <details class="reveal"><summary>会話の記録は残りますか？</summary><div class="body"><p>メモリだけです。ファイルにもログにも残しません。「会話を終わって」と言う・「新しい会話を始める」・5 分間話さない・アプリを終える、のどれかで消えます。長くなったら、古いやり取りを要約します。</p></div></details>
       <details class="reveal"><summary>会話で、考えている間に、続けて質問できますか？</summary><div class="body"><p>できます。順番待ちに入り、いまの答えのあとに送られます。待っている文字は、まとめて 1 回の質問になります（声は 1 件ずつ）。答えの途中に差し込む機能（Zed の Steer のようなもの）は、ありません。</p></div></details>
       <details class="reveal"><summary>claude や codex が、選択肢に出ません</summary><div class="body"><p>設定 &gt; 会話 には、<strong>この Mac に入っているエージェントだけ</strong>が出ます（<code>PATH</code> と <code>~/.local/bin</code>・<code>~/.bun/bin</code>・<code>/opt/homebrew/bin</code> などを探します）。選んだあとで消したら、Apple のモデルで答えます。</p></div></details>
-      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>文字・画面の内容・入力した文字は、ファイルにもログにも残しません。<strong>例外は、設定 &gt; 音声入力 の「履歴」をオンにしたとき</strong>（初期設定はオフ）。入力した文字と時刻だけを、自分だけが読める <code>~/.voice-control/history.jsonl</code> に、決めた日数（初期設定は 7 日）だけ残します。探す・1 件削除・すべて消す、ができます。</p></div></details>
-      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声入力」で「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面で足し引きできます（声で入力するときだけ働きます）。</p></div></details>
+      <details class="reveal"><summary>話した内容は記録されますか？</summary><div class="body"><p>文字・画面の内容・入力した文字は、ファイルにもログにも残しません。<strong>例外は 2 つ</strong>。①設定 &gt; 履歴 の「履歴」をオンにしたとき（初期設定はオフ）：入力した文字（会議の文字起こしは、相手と自分の区別と、整理前の文字も）と時刻を、自分だけが読める <code>~/.voice-control/history.jsonl</code> に、決めた日数（初期設定は 7 日）だけ残します。探す・1 件削除・すべて消す、ができます。②会議の文字起こしで、保存先のフォルダを選んだとき（または書き出しの場所を選んだとき）：その場所に、Markdown や字幕を書きます（自分だけが読めます）。音声は、どちらも残しません。</p></div></details>
+      <details class="reveal"><summary>会議の文字起こしを使うには？</summary><div class="body"><p>設定 &gt; キー の「音声入力（会議）」にショートカットを決め、押すたびに開始・停止します（画面収録の許可が要ります）。相手の音声が文字になり、自分のマイクも並べたいときは、設定 &gt; 音声入力（会議）でオンにします（ヘッドホン推奨）。要約は、パネルの「要約」の面です。</p></div></details>
+      <details class="reveal"><summary>「えーと」などを消すには、どうしますか？</summary><div class="body"><p>設定の「音声入力（マイク）」で「つなぎ言葉を消す」をオンにします。消す言葉は、同じ画面で足し引きできます（声で入力するときだけ働きます）。</p></div></details>
       <details class="reveal"><summary>撮った画面は、どこに保存されますか？</summary><div class="body"><p><code>~/.voice-control/shot</code> に 1 枚だけ置きます（自分だけが読めます）。3 分で使えなくなり、終了すると消えます。「パスをコピー」「Finder」を押したときだけ、<code>~/Pictures/voice-control</code> に保存します。画像は、Mac の中のモデルにだけ渡します。</p></div></details>
       <details class="reveal"><summary>画像の文字だけが欲しいときは？</summary><div class="body"><p>撮ったあとのパネルで<strong>「文字起こし」</strong>を押すと、macOS の文字認識で読み取って、そのまま出します。AI を通さないので、写し間違いがありません（最初の 1 回だけ、準備に 30 秒ほどかかります）。</p></div></details>
       <details class="reveal"><summary>途中でやめたいときは？</summary><div class="body"><p><span class="kbd">Esc</span> で、録音・認識・実行中のコマンドを取り消せます。会話では、送信ボタンが<strong>停止</strong>になり、押すと、いまの質問と順番待ちを止めます。「止めて」と話しても止まります。アプリの削除は、<code>just uninstall</code>（またはゴミ箱へ）です。</p></div></details>
