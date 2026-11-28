@@ -58,7 +58,7 @@ struct DictationPage: View {
     private var shapingCard: some View {
         let fillers = model.settings.removeFillers ?? false
         let tidy = model.settings.tidy ?? false
-        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        let engine = model.savedEngine
         return Card(tr("入力の整え方")) {
             SwitchRow(model: model, title: tr("英語の前に、空白を足す"), detail: tr("英語を入れるとき、空白を 1 つ足す"), info: tr("英語を、単語のすぐあとに入れるとき、空白を 1 つ足します（日本語には、足しません）"), value: model.settings.smartSpacing ?? true, restart: false) { $0.smartSpacing = $1 ? nil : false }
             RowDivider()
@@ -89,29 +89,9 @@ struct DictationPage: View {
                         .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.vertical, 8).fixedSize(horizontal: false, vertical: true)
                 }
                 RowDivider()
-                Collapsible(tr("整え方の指示"), summary: tr("音声入力（会議）と共通")) { TidyInstructionsEditor(model: model) }
+                Collapsible(tr("整え方の指示"), summary: tr("音声入力（会議）と共通")) { InstructionsEditor(model: model, kind: .tidy, title: tr("整え方の指示（英語でも日本語でも）")) }
             }
         }
-    }
-}
-
-/// 整え方の指示の欄（音声入力〔マイク〕の整理と、音声入力〔システム〕の整理で、共通）。
-struct TidyInstructionsEditor: View {
-    @ObservedObject var model: SettingsModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(tr("整え方の指示（英語でも日本語でも）")).font(.system(size: 11)).foregroundStyle(.secondary)
-            TextEditor(text: $model.tidyInstructionsText)
-                .font(.system(size: 12)).frame(height: 130).scrollContentBackground(.hidden)
-                .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-            HStack {
-                Button(tr("保存")) { model.saveTidyInstructions() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
-                Button(tr("既定に戻す")) { model.resetTidyInstructions() }.controlSize(.small)
-            }
-        }
-        .padding(14)
     }
 }
 

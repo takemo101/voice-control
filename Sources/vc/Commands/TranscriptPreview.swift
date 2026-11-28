@@ -34,7 +34,7 @@ struct TranscriptPreviewCommand: Command {
                 MeetingSummary(date: Date(), scope: .focus("日程"), text: "- テストは水曜まで\n- 会議は午後 4 時から"),
             ])
             if arguments.flag("--summary") { TranscriptWindow.shared.openSummaryTabForPreview() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + (arguments.option("--seconds").flatMap(Double.init) ?? 20)) { exit(0) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { exit(0) }
             NSApplication.shared.run()
             return
         }
@@ -42,7 +42,7 @@ struct TranscriptPreviewCommand: Command {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainActor.assumeIsolated {
                 _ = Task { @MainActor in
-                    TranscriptWindow.shared.toggleFromShortcut()   // ショートカットと、同じ道（上のパネル・Markdown のパネル）
+                    TranscriptWindow.shared.toggleFromShortcut()   // ショートカットと、同じ道（上のパネル・真ん中のチャットのパネル）
                     while !TranscriptWindow.shared.session.isActive { try? await Task.sleep(for: .milliseconds(100)) }
                     if let spoken {
                         let say = Process()

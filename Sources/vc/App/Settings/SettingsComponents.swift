@@ -194,21 +194,6 @@ struct Row<Trailing: View>: View {
     }
 }
 
-/// キーの見た目（キーボードのキーのように）。
-struct KeyCap: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 12, weight: .semibold, design: .rounded))
-            .padding(.horizontal, 10)
-            .frame(minWidth: 34, minHeight: 26)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.18)))
-            .shadow(color: .black.opacity(0.18), radius: 0, y: 2)
-    }
-}
-
 /// 状態の小さな札（許可済み・取得済み など）。
 struct SettingsPill: View {
     let text: String
@@ -275,5 +260,29 @@ struct PageHeader: View {
             }
         }
         .padding(.bottom, 4)
+    }
+}
+
+/// 指示（整理の整え方・要約のまとめ方）の編集欄：編集・保存・既定に戻す。
+struct InstructionsEditor: View {
+    @ObservedObject var model: SettingsModel
+    let kind: InstructionKind
+    let title: String
+    var info: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 11)).foregroundStyle(.secondary)
+            TextEditor(text: Binding(get: { model.instructionTexts[kind] ?? "" }, set: { model.instructionTexts[kind] = $0 }))
+                .font(.system(size: 12)).frame(height: 130).scrollContentBackground(.hidden)
+                .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+            HStack {
+                Button(tr("保存")) { model.saveInstructions(kind) }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                Button(tr("既定に戻す")) { model.resetInstructions(kind) }.controlSize(.small)
+                if let info { InfoButton(text: info) }
+            }
+        }
+        .padding(14)
     }
 }

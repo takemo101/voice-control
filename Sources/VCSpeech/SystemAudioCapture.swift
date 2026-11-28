@@ -52,7 +52,9 @@ public enum SystemAudioTarget: Sendable, Equatable {
     case apps([String])
 }
 
+/// `@unchecked Sendable`：`stream`・`continuation` は、`lock` の下だけで読み書きする（音の塊は、OS のキューで届き、`start`・`stop` は、別のスレッドから呼ばれる）。`counted` は、`activeLock` の下。
 public final class SystemAudioCapture: NSObject, @unchecked Sendable {
+    private let lock = NSLock()
     private var stream: SCStream?
     private var continuation: AsyncStream<AVAudioPCMBuffer>.Continuation?
     private let queue = DispatchQueue(label: "voice-control.system-audio")
@@ -102,25 +104,28 @@ public final class SystemAudioCapture: NSObject, @unchecked Sendable {
 
         let (audio, continuation) = AsyncStream<AVAudioPCMBuffer>.makeStream(bufferingPolicy: .unbounded)
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
+        // 受け口は、始める前に、置く（始まってすぐに届く音を、取りこぼさない）
+        lock.withLock { self.continuation = continuation }
         do {
             try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
             try await stream.startCapture()
         } catch {
+            lock.withLock { self.continuation = nil }
             continuation.finish()
             throw SystemAudioError.failed(error.localizedDescription)
         }
-        self.stream = stream
-        self.continuation = continuation
+        lock.withLock { self.stream = stream }
         markActive(true)
         return audio
     }
 
     public func stop() async {
-        let stream = self.stream
-        self.stream = nil
+        let (stream, continuation) = lock.withLock { () -> (SCStream?, AsyncStream<AVAudioPCMBuffer>.Continuation?) in
+            defer { self.stream = nil; self.continuation = nil }
+            return (self.stream, self.continuation)
+        }
         try? await stream?.stopCapture()   // try?: 止まっているものを、止めようとして、失敗しても、よい
         continuation?.finish()
-        continuation = nil
         markActive(false)
     }
 
@@ -136,11 +141,11 @@ public final class SystemAudioCapture: NSObject, @unchecked Sendable {
 extension SystemAudioCapture: SCStreamOutput, SCStreamDelegate {
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .audio, sampleBuffer.isValid, let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
-        continuation?.yield(buffer)
+        lock.withLock { continuation }?.yield(buffer)
     }
 
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
-        continuation?.finish()
+        lock.withLock { continuation }?.finish()
         markActive(false)
     }
 

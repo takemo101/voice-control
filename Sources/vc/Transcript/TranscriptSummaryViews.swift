@@ -76,7 +76,7 @@ struct SummaryTab: View {
     let actions: TranscriptPanelActions
 
     /// テーマの候補（押すだけで、そのテーマで要約する）。
-    private static let topics = [tr("決まったこと"), tr("やること"), tr("質問・確認事項"), tr("数字・日程")]
+    private static var topics: [String] { [tr("決まったこと"), tr("やること"), tr("質問・確認事項"), tr("数字・日程")] }
 
     private var busy: Bool { if case .working = session.summaryState { return true } else { return false } }
     private var hasText: Bool { !session.log.entries.isEmpty }

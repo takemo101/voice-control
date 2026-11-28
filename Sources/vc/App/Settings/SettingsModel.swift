@@ -69,9 +69,8 @@ enum DownloadState: Equatable {
     @Published private(set) var engineDraft = EngineDraft(settings: Settings())
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
-    /// 整理の整え方の編集中の文字（設定になければ、既定を、出す）。
-    @Published var tidyInstructionsText = ""
-    @Published var summaryInstructionsText = ""
+    /// 指示（整理の整え方・要約のまとめ方）の編集中の文字（設定になければ、既定を、出す）。
+    @Published var instructionTexts: [InstructionKind: String] = [:]
     /// 文字起こしで選べるアプリ（「一覧を読む」で、はじめて読む：画面収録の許可の確認が、出うる）と、読めなかった理由。
     @Published var captureApps: [CaptureApp] = []
     @Published var captureAppsMessage: String?
@@ -136,8 +135,7 @@ enum DownloadState: Equatable {
         keyProblems = [:]
         engineDraft = EngineDraft(settings: settings)
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
-        tidyInstructionsText = TidyPrompt.instructions(setting: settings.tidyInstructions)
-        summaryInstructionsText = SummaryPrompt.instructions(setting: settings.summaryInstructions)
+        for kind in InstructionKind.allCases { instructionTexts[kind] = kind.text(in: settings) }
     }
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
@@ -273,6 +271,8 @@ enum DownloadState: Equatable {
 
     // MARK: エンジン
 
+    /// 保存してある、スキルを実行するモデル（読めなければ、Apple）。ページの表示が、使う。
+    var savedEngine: Engine { (try? Engine.parse(settings.engine ?? "apple")) ?? .apple }
     /// Ollama・OpenAI 互換のサーバーの場所（書き方が正しいとき。Ollama は、省くと既定）。
     var engineServer: ServerAddress? { engineDraft.server }
     /// その場所を、通信してよいか（この Mac は、いつも。LAN は、利用者が、その場所を許可しているときだけ）。
@@ -560,12 +560,16 @@ enum DownloadState: Equatable {
         update { $0.fillers = lines.isEmpty ? nil : lines }
     }
 
-    /// 整理の整え方を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
-    func saveTidyInstructions() {
-        let text = tidyInstructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = text.isEmpty || text == TidyPrompt.defaultInstructions ? nil : String(text.prefix(TidyPrompt.maxInstructionLength))
-        update(restart: false) { $0.tidyInstructions = value }
-        tidyInstructionsText = TidyPrompt.instructions(setting: value)
+    /// 指示を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
+    func saveInstructions(_ kind: InstructionKind) {
+        let value = PromptInstructions.setting(from: instructionTexts[kind] ?? "", default: kind.defaultText, maxLength: kind.maxLength)
+        update(restart: false) { $0[keyPath: kind.key] = value }
+        instructionTexts[kind] = PromptInstructions.resolve(setting: value, default: kind.defaultText, maxLength: kind.maxLength)
+    }
+
+    func resetInstructions(_ kind: InstructionKind) {
+        update(restart: false) { $0[keyPath: kind.key] = nil }
+        instructionTexts[kind] = kind.defaultText
     }
 
     func loadCaptureApps() {
@@ -573,19 +577,6 @@ enum DownloadState: Equatable {
             do { captureApps = try await SystemAudioCapture.availableApps(); captureAppsMessage = captureApps.isEmpty ? tr("取り込めるアプリが、ありません") : nil }
             catch { captureAppsMessage = "\(error)" }
         }
-    }
-
-    /// 要約のまとめ方を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
-    func saveSummaryInstructions() {
-        let text = summaryInstructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = text.isEmpty || text == SummaryPrompt.defaultInstructions ? nil : String(text.prefix(SummaryPrompt.maxInstructionLength))
-        update(restart: false) { $0.summaryInstructions = value }
-        summaryInstructionsText = SummaryPrompt.instructions(setting: value)
-    }
-
-    func resetSummaryInstructions() {
-        update(restart: false) { $0.summaryInstructions = nil }
-        summaryInstructionsText = SummaryPrompt.defaultInstructions
     }
 
     /// 会議の Markdown の保存先フォルダを、選ぶ（フォルダを選ぶパネル）。
@@ -601,11 +592,6 @@ enum DownloadState: Equatable {
     }
 
     func clearMeetingFolder() { update(restart: false) { $0.meetingFolder = nil } }
-
-    func resetTidyInstructions() {
-        update(restart: false) { $0.tidyInstructions = nil }
-        tidyInstructionsText = TidyPrompt.defaultInstructions
-    }
 
     func resetFillers() {
         update { $0.fillers = nil }

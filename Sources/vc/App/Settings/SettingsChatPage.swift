@@ -107,7 +107,7 @@ struct ChatServerNote: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        let engine = model.savedEngine
         if let server = engine.server {
             Label(server.isLoopback ? tr("この Mac のサーバー（\(server.endpoint)）で答えます。道具はなく、会話だけです。") : tr("同じ LAN のサーバー（\(server.endpoint)）へ、発話と、使った画像・文章の内容が送られます。道具はなく、会話だけです。"), systemImage: server.isLoopback ? "info.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(server.isLoopback ? Color.secondary : Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)

@@ -85,12 +85,10 @@ public struct Summarizer: Sendable {
         var picked: [SummaryLine] = []
         for chunk in SummaryChunker.chunks(lines, budget: chunkBudget) {
             let output: String
-            let complete = self.complete
-            let system = SummaryPrompt.selectSystem(focus: focus), user = SummaryPrompt.numberedUser(lines: chunk)
-            do { output = try await ModelCall.withTimeout(timeout) { try await complete(system, user) } }
-            catch is ModelCall.TimeoutError { return .failure(.timedOut) }
-            catch is CancellationError { return .failure(.failed(tr("取りやめ"))) }
-            catch { return .failure(.failed("\(error)")) }
+            switch await ask(system: SummaryPrompt.selectSystem(focus: focus), user: SummaryPrompt.numberedUser(lines: chunk)) {
+            case let .success(text): output = text
+            case let .failure(why): return .failure(why)
+            }
             guard let numbers = SummaryGuard.extractLines(ToolLoopAgent.withoutThinking(output), count: chunk.count) else { return .failure(.unreadable) }
             picked += numbers.map { chunk[$0 - 1] }
         }
@@ -100,13 +98,19 @@ public struct Summarizer: Sendable {
     enum Step: Equatable { case summary(String), nothing, failed(SummaryFailure) }
 
     private func call(system: String, user: String, source: String) async -> Step {
-        let output: String
+        switch await ask(system: system, user: user) {
+        case let .success(output): return Self.decide(output: output, source: source)
+        case let .failure(why): return .failed(why)
+        }
+    }
+
+    /// 言語モデルへの 1 回の呼び出し（時間の上限つき）。失敗は、要約の失敗の種類に直す。
+    private func ask(system: String, user: String) async -> Result<String, SummaryFailure> {
         let complete = self.complete
-        do { output = try await ModelCall.withTimeout(timeout) { try await complete(system, user) } }
-        catch is ModelCall.TimeoutError { return .failed(.timedOut) }
-        catch is CancellationError { return .failed(.failed(tr("取りやめ"))) }
-        catch { return .failed(.failed("\(error)")) }
-        return Self.decide(output: output, source: source)
+        do { return .success(try await ModelCall.withTimeout(timeout) { try await complete(system, user) }) }
+        catch is ModelCall.TimeoutError { return .failure(.timedOut) }
+        catch is CancellationError { return .failure(.failed(tr("取りやめ"))) }
+        catch { return .failure(.failed("\(error)")) }
     }
 
     /// モデルの出力 → 1 回の結果（**純粋**：取り出し・検査）。

@@ -13,7 +13,7 @@ struct TranscribePage: View {
         let selected = model.settings.transcribeApps?.first ?? ""
         let apps = Self.choices(model.captureApps, selected: selected)
         let tidy = model.settings.tidySystem ?? false, summary = model.settings.summaryAuto ?? false
-        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        let engine = model.savedEngine
         Card(tr("会議の文字起こし"), info: tr("Mac から出ている音（会議・動画など）を、文字にします。画面収録の許可が要ります。音は、残しません。文字は、画面に出し、履歴をオンにしたときだけ、残します。スキルの実行・会話には、使いません。録音・文字起こしには、相手の同意が要る場合があります。")) {
             KeyRow(model: model, kind: .transcribe)
             RowDivider()
@@ -44,9 +44,9 @@ struct TranscribePage: View {
                     .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.vertical, 8).fixedSize(horizontal: false, vertical: true)
             }
             RowDivider()
-            Collapsible(tr("整え方の指示"), summary: tr("マイクと共通")) { TidyInstructionsEditor(model: model) }
+            Collapsible(tr("整え方の指示"), summary: tr("マイクと共通")) { InstructionsEditor(model: model, kind: .tidy, title: tr("整え方の指示（英語でも日本語でも）")) }
             RowDivider()
-            Collapsible(tr("要約のまとめ方の指示"), summary: tr("編集できます")) { SummaryInstructionsEditor(model: model) }
+            Collapsible(tr("要約のまとめ方の指示"), summary: tr("編集できます")) { InstructionsEditor(model: model, kind: .summary, title: tr("要約のまとめ方の指示（英語でも日本語でも）"), info: tr("固定の約束（話にないことを足さない・名前と数字を変えない）は、変えられません。その下に、この指示が足されます。要約は、スキルを実行するモデル（設定 > モデル）で作ります（クラウドへは、送りません）。話にない数字が出た要約は、出しません。パネルの「要約」タブで、いつでも作れます（テーマ・コメントや、選んだ発話だけの要約もできます）。")) }
         }
         meetingRecordCard
     }
@@ -75,26 +75,5 @@ struct TranscribePage: View {
     private static func choices(_ apps: [CaptureApp], selected: String) -> [CaptureApp] {
         guard !selected.isEmpty, !apps.contains(where: { $0.bundleID == selected }) else { return apps }
         return [CaptureApp(bundleID: selected, name: selected)] + apps
-    }
-}
-
-/// 要約のまとめ方の指示の欄（編集・保存・既定に戻す）。
-struct SummaryInstructionsEditor: View {
-    @ObservedObject var model: SettingsModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(tr("要約のまとめ方の指示（英語でも日本語でも）")).font(.system(size: 11)).foregroundStyle(.secondary)
-            TextEditor(text: $model.summaryInstructionsText)
-                .font(.system(size: 12)).frame(height: 130).scrollContentBackground(.hidden)
-                .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-            HStack {
-                Button(tr("保存")) { model.saveSummaryInstructions() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
-                Button(tr("既定に戻す")) { model.resetSummaryInstructions() }.controlSize(.small)
-                InfoButton(text: tr("固定の約束（話にないことを足さない・名前と数字を変えない）は、変えられません。その下に、この指示が足されます。要約は、スキルを実行するモデル（設定 > モデル）で作ります（クラウドへは、送りません）。話にない数字が出た要約は、出しません。パネルの「…」> 要約…で、いつでも作れます。テーマや、選んだ発話だけの要約もできます。"))
-            }
-        }
-        .padding(14)
     }
 }

@@ -18,9 +18,17 @@ import VCCore
         item.menu = menu
         token = runtime.observe { [weak self] in self?.refreshIcon() }
         // 記録中の目印：会議の文字起こしが動いている間は、アイコンが変わる（止め忘れの防止。F81）
-        sessionSink = TranscriptWindow.shared.session.$state.sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshIcon() } }
+        // `$state` は、値が変わる**前**に届く：`session.isActive` を読むと、ひとつ前の状態になる（止めても、赤いままになる）。届いた値を、使う
+        let session = TranscriptWindow.shared.session
+        recording = session.isActive
+        sessionSink = session.$state.sink { [weak self] state in
+            MainActor.assumeIsolated { self?.recording = (state == .starting || state == .running); self?.refreshIcon() }
+        }
         refreshIcon()
     }
+
+    /// 会議の文字起こしが動いているか（アイコンを赤くする）。
+    private var recording = false
 
     private func refreshIcon() {
         guard let button = item.button else { return }
@@ -30,7 +38,7 @@ import VCCore
         case .listening: (symbol, label) = ("mic.fill", tr("聞いています"))
         case .stopped: (symbol, label) = ("mic.slash", tr("停止中"))
         }
-        if TranscriptWindow.shared.session.isActive {
+        if recording {
             // 文字起こし中：赤い丸（テンプレートでは、色が付かない）
             let recording = tr("会議を文字にしています")
             let configuration = NSImage.SymbolConfiguration(paletteColors: [.systemRed])

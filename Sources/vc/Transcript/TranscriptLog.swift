@@ -110,27 +110,9 @@ struct TranscriptLog: Equatable {
         return rows
     }
 
-    /// パネルに出す Markdown（Markdown のパネル）：1 件ごとに、時刻と本文。`showOriginal` なら、整理したものに、元の文字を添える。
-    func panelMarkdown(showOriginal: Bool = true, locale: Locale = Locale(identifier: "ja_JP")) -> String {
-        let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
-        return entries.map { entry in
-            var block = "`\(time.string(from: entry.date))` **\(Self.name(entry.speaker))** \(entry.text)"
-            if showOriginal, let raw = entry.raw { block += "  \n*\(tr("元：\(raw)"))*" }
-            return block
-        }.joined(separator: "\n\n")
-    }
-
     /// テキスト（コピー用）：1 件 1 行「09:31:33 相手: 本文」（整理後の文字だけ。話し手が、分かる）。
     func plainText(locale: Locale = Locale(identifier: "ja_JP")) -> String {
         let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
         return entries.map { "\(time.string(from: $0.date)) \(Self.name($0.speaker)): \($0.text)" }.joined(separator: "\n") + (entries.isEmpty ? "" : "\n")
-    }
-
-    /// Markdown（コピー・書き出し用）：見出し＋ 1 件 1 行「- 10:02:11 本文」（整理後の文字だけ）。
-    func markdown(title: String, locale: Locale = Locale(identifier: "ja_JP")) -> String {
-        let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
-        var lines = ["# \(title)", ""]
-        for entry in entries { lines.append("- **\(Self.name(entry.speaker))** \(time.string(from: entry.date)) \(entry.text)") }
-        return lines.joined(separator: "\n") + "\n"
     }
 }

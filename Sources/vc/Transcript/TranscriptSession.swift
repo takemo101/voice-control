@@ -40,8 +40,6 @@ import VCSpeech
     @Published private(set) var log = TranscriptLog()
     /// 履歴に書けなかったなどの、知らせ（記録は、続ける）。
     @Published private(set) var notice: String?
-    /// 取り込みを始めた時刻（動いている間だけ）。
-    @Published private(set) var startedAt: Date?
     /// 自分のマイクの状態（設定 `transcribeMic` がオフなら、idle のまま）。
     @Published private(set) var micState = State.idle
     /// 作った要約（会議全体は、最新の 1 つ・ピックアップは、全部）。
@@ -65,67 +63,102 @@ import VCSpeech
     private var meetingFile: URL?
     /// 最後に止めた時刻（Markdown の「終わり」）。
     private var endedAt: Date?
+    /// 始める・止めるたびに進む番号（始めている最中の `await` のあと、止められていないかを見る）。マイクは、別。
+    private var generation = 0
+    private var micGeneration = 0
+    private var isStopping = false
 
     var isActive: Bool { state == .starting || state == .running }
 
     // MARK: 始める・止める
 
     /// 始める（利用者の操作の中で、呼ぶ：画面収録の許可の確認が、出うる）。`settings`・`engine` は、動いている間、使う。
+    /// 始めている最中に、止められたら（`generation` が変わる）、作りかけのものを片付けて、戻る。
     func start(settings: Settings, engine: Engine, chip: String? = nil) async {
         guard !isActive else { return }
         await wrapUpTask?.value   // 前の止めたあとの後始末が、終わってから
+        guard !isActive else { return }   // 待っている間に、別の開始が入った
+        generation += 1
+        let mine = generation
         state = .starting
         notice = nil
         self.settings = settings
         self.engine = engine
         let began = Date()
         log.begin(at: began)
-        let language = (try? settings.recognitionLanguage.get()) ?? .ja
-        let transcriber = SegmentTranscriber(locale: Locale(identifier: language.resolved.bcp47)) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: .others) } }
+        let locale = Locale(identifier: settings.recognitionLanguageOrDefault.resolved.bcp47)
+        let transcriber = makeTranscriber(locale: locale, speaker: .others)
         do {
             try await transcriber.start()
+            guard generation == mine else { await transcriber.finish(); return }
             let capture = SystemAudioCapture()
             let target: SystemAudioTarget = (settings.transcribeApps ?? []).isEmpty ? .allApps : .apps(settings.transcribeApps ?? [])
             let audio: AsyncStream<AVAudioPCMBuffer>
             do { audio = try await capture.start(target: target) } catch { await transcriber.finish(); throw error }
+            guard generation == mine else { await capture.stop(); await transcriber.finish(); return }
             self.capture = capture
             self.transcriber = transcriber
             origins[.others] = Date().timeIntervalSince(log.meetingStart ?? began)
             // 音量は、上のパネルの波形へ（音声入力と同じカプセル。文字は、確定前・確定後を、そこへ出す）
-            reader = Task.detached { for await buffer in audio { transcriber.feed(buffer); HUD.shared.pushTranscript(level: AudioLevel.level(of: buffer), text: nil) } }
+            reader = readAudio(audio, into: transcriber) { [weak self] in Task { @MainActor in await self?.captureEnded() } }
             var content = HUDContent(phase: .recording, title: tr("音声入力（会議）"), hint: tr("会議の音を、文字にしています"), chip: chip)
             content.captionSlot = true
             HUD.shared.beginTranscript(content)
-            startedAt = Date()
             state = .running
-            if settings.transcribeMic ?? false { await startMic(locale: Locale(identifier: language.resolved.bcp47)) }
+            if settings.transcribeMic ?? false { await startMic(locale: locale) }
         } catch {
+            guard generation == mine else { return }
             HUD.shared.endTranscript()
             state = .failed("\(error)")
         }
     }
 
-    /// 自分のマイクを、始める（失敗しても、システム音声は、続ける：理由は `micState` に出す）。
+    /// 認識の器（確定した文は、`apply` へ）。
+    private func makeTranscriber(locale: Locale, speaker: HistoryEntry.Source) -> SegmentTranscriber {
+        SegmentTranscriber(locale: locale) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: speaker) } }
+    }
+
+    /// 音の塊を、認識へ渡し、音量を波形へ出す（主スレッドの外で）。音が尽きたら、`onEnd`（止めたときも、OS が止めたときも、呼ばれる）。
+    private func readAudio(_ audio: AsyncStream<AVAudioPCMBuffer>, into transcriber: SegmentTranscriber, onEnd: (@Sendable () -> Void)? = nil) -> Task<Void, Never> {
+        Task.detached {
+            for await buffer in audio { transcriber.feed(buffer); HUD.shared.pushTranscript(level: AudioLevel.level(of: buffer), text: nil) }
+            onEnd?()
+        }
+    }
+
+    /// 音が尽きたとき、まだ動いていて、止めている最中でもなければ、OS が取り込みを止めた（画面収録の停止・許可が外れた など）：会議を、止める。
+    private func captureEnded() async {
+        guard state == .running, !isStopping else { return }
+        await stop()
+        notice = tr("システム音声の取り込みが、止まりました（OS が止めました）。もう一度、始められます")
+    }
+
+    /// 自分のマイクを、始める（失敗しても、システム音声は、続ける：理由は `micState` に出す）。始めている最中に、外されたら、片付けて戻る。
     private func startMic(locale: Locale) async {
+        micGeneration += 1
+        let mine = micGeneration
         micState = .starting
-        let transcriber = SegmentTranscriber(locale: locale) { [weak self] update in Task { @MainActor in self?.apply(update, speaker: .me) } }
+        let transcriber = makeTranscriber(locale: locale, speaker: .me)
         do {
             try await transcriber.start()
+            guard micGeneration == mine else { await transcriber.finish(); return }
             let mic = MicStream()
             let audio: AsyncStream<AVAudioPCMBuffer>
             do { audio = try mic.start() } catch { await transcriber.finish(); throw error }
             self.mic = mic
             micTranscriber = transcriber
             origins[.me] = Date().timeIntervalSince(log.meetingStart ?? Date())
-            micReader = Task.detached { for await buffer in audio { transcriber.feed(buffer); HUD.shared.pushTranscript(level: AudioLevel.level(of: buffer), text: nil) } }
+            micReader = readAudio(audio, into: transcriber)
             micState = .running
         } catch {
+            guard micGeneration == mine else { return }
             micState = .failed("\(error)")
         }
     }
 
     /// 自分のマイクだけを、止める（残りの認識を、確定させる）。
     private func stopMic() async {
+        micGeneration += 1   // 始めている最中なら、そちらが、片付けて戻る
         mic?.stop()
         mic = nil
         await micReader?.value
@@ -140,18 +173,21 @@ import VCSpeech
         self.settings = settings   // 整理・履歴も、最新の設定で
         guard isActive else { return }
         if on {
-            if micState == .idle { await startMic(locale: Locale(identifier: ((try? settings.recognitionLanguage.get()) ?? .ja).resolved.bcp47)) }
-            else if case .failed = micState { await startMic(locale: Locale(identifier: ((try? settings.recognitionLanguage.get()) ?? .ja).resolved.bcp47)) }   // もう一度
-        } else if mic != nil {
+            switch micState {
+            case .idle, .failed: await startMic(locale: Locale(identifier: settings.recognitionLanguageOrDefault.resolved.bcp47))   // 失敗したあとは、もう一度
+            case .starting, .running: break
+            }
+        } else if micState != .idle {
             await stopMic()
-        } else {
-            micState = .idle
         }
     }
 
     /// 止める：残りの認識を、確定させ、整理の最後まで、待つ。そのあと、**後始末**（自動の要約・Markdown の保存）は、別に走る（止めたことは、すぐ、返る）。
     func stop() async {
-        guard isActive else { return }
+        guard isActive, !isStopping else { return }
+        isStopping = true
+        defer { isStopping = false }
+        generation += 1   // 始めている最中なら、そちらが、片付けて戻る
         await stopMic()
         await capture?.stop()
         capture = nil
@@ -161,7 +197,6 @@ import VCSpeech
         transcriber = nil
         HUD.shared.endTranscript()
         await tidyTail?.value
-        startedAt = nil
         endedAt = Date()
         state = .idle
         let settings = self.settings, engine = self.engine

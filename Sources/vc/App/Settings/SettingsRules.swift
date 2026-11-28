@@ -143,3 +143,17 @@ enum SettingsRules {
                                     actions: [(KeyKind.pasteLast.title, spec(candidate.pasteLastHotkey)), (KeyKind.cycleSend.title, spec(candidate.dictateCycleHotkey)), (KeyKind.transcribe.title, spec(candidate.transcribeHotkey))].compactMap { name, spec in spec.map { (name, $0) } })
     }
 }
+
+/// 設定画面で編集できる「指示」の 2 種類（整理の整え方・要約のまとめ方）。既定・上限・設定の場所を、1 か所に持つ。
+enum InstructionKind: CaseIterable {
+    case tidy, summary
+
+    var defaultText: String { self == .tidy ? TidyPrompt.defaultInstructions : SummaryPrompt.defaultInstructions }
+    var maxLength: Int { self == .tidy ? TidyPrompt.maxInstructionLength : SummaryPrompt.maxInstructionLength }
+    var key: WritableKeyPath<Settings, String?> { self == .tidy ? \.tidyInstructions : \.summaryInstructions }
+
+    /// 編集欄に出す文字（設定になければ、既定）。
+    func text(in settings: Settings) -> String {
+        PromptInstructions.resolve(setting: settings[keyPath: key], default: defaultText, maxLength: maxLength)
+    }
+}

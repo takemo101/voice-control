@@ -33,8 +33,7 @@ public enum SummaryPrompt {
 
     /// 設定 `summaryInstructions`（なければ、既定。空白だけなら、既定。長すぎれば、切る）。
     public static func instructions(setting: String?) -> String {
-        let text = (setting ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? defaultInstructions : String(text.prefix(maxInstructionLength))
+        PromptInstructions.resolve(setting: setting, default: defaultInstructions, maxLength: maxInstructionLength)
     }
 
     /// 固定の指示＋利用者のまとめ方（＋テーマ）。`reducing`：いくつかの途中の要約を、1 つにまとめる呼び出し。

@@ -40,16 +40,6 @@ import VCSpeech
         #expect(log.entries[1].raw == nil)
     }
 
-    @Test func thePanelShowsEachSentenceWithItsTimeAndTheOriginalOnlyWhenItWasTidied() throws {
-        var log = TranscriptLog()
-        let first = log.apply(update("えーと明日は3時、いや4時です", final: true), speaker: .others)
-        log.apply(update("そのままです", final: true), speaker: .others)
-        log.replace(id: try #require(first).id, tidied: "明日は4時です。")
-        let panel = log.panelMarkdown()
-        #expect(panel.contains("明日は4時です。") && panel.contains("えーと明日は3時、いや4時です") && panel.contains("そのままです"))
-        #expect(!log.panelMarkdown(showOriginal: false).contains("えーと"))   // コピー・書き出しには、元を出さない
-    }
-
     /// チャットの並び：続けて話した文はまとめ（先頭だけ名前・時刻）・間が空いたら、時刻の区切り・探すと、含む文だけ。
     @Test func rowsGroupSentencesSpokenCloseTogetherAndSeparateLongPauses() {
         var log = TranscriptLog()
@@ -77,18 +67,13 @@ import VCSpeech
         #expect(log.rows(matching: "3時").count == 2)   // 元の文字にだけある語でも、見つかる
     }
 
-    /// コピー・書き出しで、相手と自分が、区別できる（Markdown・テキスト・パネル）。
-    @Test func exportsTellTheOtherPartyFromMe() {
+    /// コピーで、相手と自分が、区別できる（テキスト）。
+    @Test func plainTextTellsTheOtherPartyFromMe() {
         var log = TranscriptLog()
         log.apply(update("こんにちは。", final: true, at: 0), speaker: .others)
         log.apply(update("はじめまして。", final: true, at: 5), speaker: .me)
-        let markdown = log.markdown(title: "会議")
-        #expect(markdown.hasPrefix("# 会議\n") && markdown.contains("**相手**") && markdown.contains("**自分**"))
-        let lines = markdown.split(separator: "\n").filter { $0.hasPrefix("- ") }
-        #expect(lines.count == 2 && lines[0].contains("相手") && lines[0].contains("こんにちは。") && lines[1].contains("自分") && lines[1].contains("はじめまして。"))
         let text = log.plainText().split(separator: "\n").map(String.init)
         #expect(text.count == 2 && text[0].contains("相手: こんにちは。") && text[1].contains("自分: はじめまして。"))
-        #expect(log.panelMarkdown().contains("**相手**") && log.panelMarkdown().contains("**自分**"))
     }
 
     /// 並びは、話した順（確定が届いた順ではない）：相手の確定は、間が空くまで遅れるので、あとに話した自分が、先に確定することがある。

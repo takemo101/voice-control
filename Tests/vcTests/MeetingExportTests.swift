@@ -55,6 +55,17 @@ import VCCore
         #expect(two.contains("新しい") && !two.contains("古い"))
     }
 
+    /// 書けなかったとき、会議の文字を入れた一時ファイルが、残らない。
+    @Test func aFailedWriteLeavesNoTemporaryFileBehind() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vc-meeting-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: folder.appendingPathComponent("会議.md").path, withDestinationPath: "/nonexistent/先")   // 書く先が、先のない別名：移せない
+        #expect(throws: MeetingWriter.Failure.self) { try MeetingWriter.writeFile("秘密の文", to: folder.appendingPathComponent("会議.md")) }
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasSuffix(".tmp") }
+        #expect(leftovers.isEmpty)
+    }
+
     @Test func writingKeepsOwnerOnlyPermissionsAvoidsNameClashesAndRewritesTheSameMeeting() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vc-meeting-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: folder) }

@@ -19,8 +19,7 @@ public enum TidyPrompt {
 
     /// 設定 `tidyInstructions`（なければ、既定。空白だけなら、既定。長すぎれば、切る）。
     public static func instructions(setting: String?) -> String {
-        let text = (setting ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? defaultInstructions : String(text.prefix(maxInstructionLength))
+        PromptInstructions.resolve(setting: setting, default: defaultInstructions, maxLength: maxInstructionLength)
     }
 
     /// 固定の指示＋利用者の整え方。

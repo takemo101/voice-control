@@ -45,7 +45,7 @@ extension EnglishTables {
         "全部": "All",
         "同じ LAN のサーバー（%@）へ、会議の文字が送られます。": "The meeting text is sent to the server on the same LAN (%@).",
         "要約": "Summary",
-        "固定の約束（話にないことを足さない・名前と数字を変えない）は、変えられません。その下に、この指示が足されます。要約は、スキルを実行するモデル（設定 > モデル）で作ります（クラウドへは、送りません）。話にない数字が出た要約は、出しません。パネルの「…」> 要約…で、いつでも作れます。テーマや、選んだ発話だけの要約もできます。": "The fixed rules (add nothing not in the conversation; keep names and numbers) can't be changed; your instructions are added below them. Summaries are made by the model that runs skills (Settings > Models); nothing is sent to the cloud. A summary with a number that isn't in the conversation is not shown. You can always make one from “…” > Summary…, also for a topic or for selected sentences only.",
+        "固定の約束（話にないことを足さない・名前と数字を変えない）は、変えられません。その下に、この指示が足されます。要約は、スキルを実行するモデル（設定 > モデル）で作ります（クラウドへは、送りません）。話にない数字が出た要約は、出しません。パネルの「要約」タブで、いつでも作れます（テーマ・コメントや、選んだ発話だけの要約もできます）。": "The fixed rules (add nothing not in the conversation; keep names and numbers) can't be changed; your instructions are added below them. Summaries are made by the model that runs skills (Settings > Models); nothing is sent to the cloud. A summary with a number that isn't in the conversation is not shown. You can always make one from the panel’s Summary tab, also for a topic or comment, or for selected sentences only.",
         "字幕（SRT）を保存…": "Save subtitles (SRT)…",
         "字幕（VTT）を保存…": "Save subtitles (VTT)…",
         "履歴から消せませんでした：%@": "Couldn't remove it from the history: %@",
@@ -120,5 +120,6 @@ extension EnglishTables {
         "音楽・通話を、マイクが拾わないように": "So the mic doesn't pick up music or calls",
         "テーマ・コメントで絞って要約": "Summarize by topic or comment",
         "テーマやコメント（⇧Return で改行）": "Topic or comment (⇧Return for a new line)",
+        "システム音声の取り込みが、止まりました（OS が止めました）。もう一度、始められます": "System audio capture stopped (the OS stopped it). You can start again.",
     ]
 }

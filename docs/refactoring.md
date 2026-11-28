@@ -48,6 +48,8 @@ wc -l Sources/vc/*.swift Sources/vc/Commands/*.swift | sort -rn | head -5   # vc
 
 **2026-11-18 の見直し**（ACP・自動モード・アダプター・モデル選択を足したあと）：`ACPCommandPolicy` を 3 つ（`ShellWords`・`ACPCommandPolicy`・`ACPAutoPolicy`）に分け、`ChatMode` の設定の組み立てを `ChatSetup` にまとめた。**残っているもの**：`ChatMode.ask` の規則の移動（先にテスト）・`SettingsModel` の分離・`MarkdownRenderer` の分割・`ACPChatBackend` の接続の組み立ての重複・`try?` の理由・`nonisolated(unsafe)`。**方針の決定が要るもの**は、[検証記録](verification.md#リファクタリングの見直し2026-11-18利用者の依頼docs-を元にポイントを分析して進める)の「見送ったもの」。
 
+**2026-11-28 の見直し**（会議の文字起こし・整理・要約・設定ページを足したあと）：コードを直接読んだ 3 つの調査（画面と音声／整理・要約と設定／文書の整合）。**直したもの**：ステータスバーの印が止めても消えない（`@Published` の通知は、変わる前に届く）・`SystemAudioCapture` のデータ競合・始める最中の停止・保存失敗時の一時ファイル／指示の設定との行き来（`PromptInstructions`）・設定画面の編集欄の複製・`Summarizer` の呼び出しの複製・使われないコード／文書の整合。**残っているもの**：`TranscriptSession` の分割・`SettingsModel` から会議の部分の分離・認識の失敗の伝え方。詳細と見送った理由は、[検証記録](verification.md#リファクタリングの見直し2026-11-28利用者の依頼docs-を元にポイントを分析して進める範囲会議の文字起こし整理要約設定ページ)。
+
 ## やらないこと
 
 - **スコアや件数を、目標にしない**。警告を抑える・テストを通すためだけの変更は、直したことにならない。

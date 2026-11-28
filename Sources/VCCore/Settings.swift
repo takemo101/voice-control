@@ -33,7 +33,7 @@ import Foundation
 /// - `meetingFolder`・`summaryAuto`・`summaryInstructions`：**会議の記録**（F81・F82）。`meetingFolder`：止めたとき、会議の Markdown を書くフォルダ（なければ、書かない：**既定はオフ**）。`summaryAuto`：止めたとき、会議を要約して、Markdown に入れるか（なければ、しない）。`summaryInstructions`：要約のまとめ方の指示（なければ既定）。要約は、スキルを実行するモデルで行う。
 /// - `transcribeMic`：システム音声の文字起こしに、**自分のマイクも、並べる**か（常時。なければ、並べない。スピーカーだと、マイクが相手の声を拾うので、ヘッドホンを勧める）。自分の声の整理は `tidy`・相手は `tidySystem`（別々）。
 /// - `transcribeApps`：**システム音声の文字起こし**（F80）で取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。
-/// - `transcribeHotkey`：**システム音声（相手の音声）の文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。**自分の声は、音声入力（`dictateHotkey`）をそのまま使う**：音声入力のキーとは、別。
+/// - `transcribeHotkey`：**システム音声（相手の音声）の文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。自分の声（マイク）は、`transcribeMic` で並べる：音声入力（`dictateHotkey`）のキーとは、別。
 /// - `tidySystem`：整理（F79）を、**システム音声の文字起こし（相手）に**効かせるか（なければ、効かせない）。`tidy` は、自分の声（音声入力）。整え方の指示（`tidyInstructions`）は、共通。
 /// - `tidy`・`tidyInstructions`：**整理モード**（認識した文字を、言語モデルで整えて、入力する。F79）。`tidy`：オンか（なければ、オフ）。`tidyInstructions`：整え方の指示（なければ、既定。解釈は VCSkill）。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。

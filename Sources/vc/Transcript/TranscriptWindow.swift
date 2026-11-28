@@ -7,7 +7,7 @@ import VCSkill
 import VCSpeech
 
 /// システム音声（相手の音声）の文字起こし（SPEC F80）の画面：**上のパネル（HUD）**に、波形と、聞こえている文字（音声入力と同じカプセル）。**真ん中のパネル**は、**チャットの形**（`TranscriptPanelView`）：相手の吹き出しが、時刻つきで並ぶ。
-/// 開始・停止は、ショートカット（`transcribeHotkey`）か、パネルのボタン。自分の声は、ここではなく、音声入力（別のキー）。**文字起こし専用**：ここの文は、スキルを実行しない。
+/// 開始・停止は、ショートカット（`transcribeHotkey`）か、パネルのボタン。自分の声は、設定 `transcribeMic` がオンのときだけ、マイクを常時、並べる（音声入力〔マイク〕のキーとは、別）。**文字起こし専用**：ここの文は、スキルを実行しない。
 @MainActor final class TranscriptWindow: NSObject, NSWindowDelegate {
     static let shared = TranscriptWindow()
     let session = TranscriptSession()
@@ -156,7 +156,7 @@ import VCSpeech
         await session.start(settings: settings, engine: Self.engine(for: settings), chip: chip)
     }
 
-    /// ショートカット（設定 `transcribeHotkey`）：開始・停止。ほかのアプリの前面を、奪わない（Markdown のパネルは、前に出すだけ）。上のパネルに、波形と文字（止めたとき・始められないときは、その旨）。自分の声は、音声入力のキー（別）。
+    /// ショートカット（設定 `transcribeHotkey`）：開始・停止。ほかのアプリの前面を、奪わない（チャットのパネルは、前に出すだけ）。上のパネルに、波形と文字（止めたとき・始められないときは、その旨）。自分の声は、音声入力のキー（別）。
     func toggleFromShortcut() {
         if window == nil { build() }
         Task { @MainActor in

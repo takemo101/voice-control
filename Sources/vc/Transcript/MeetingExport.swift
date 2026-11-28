@@ -108,29 +108,23 @@ enum MeetingWriter {
 
     /// `existing`（この会議が、すでに書いたファイル）があれば、そこへ。なければ、`fileName` で、同じ名前を避けて作る。書いた場所を返す。
     static func write(_ markdown: String, fileName: String, in folder: URL, existing: URL?) throws -> URL {
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let target = existing ?? uniqueURL(fileName, in: folder)
-            let temporary = folder.appendingPathComponent(".meeting-\(UUID().uuidString).tmp")
-            guard FileManager.default.createFile(atPath: temporary.path, contents: Data(markdown.utf8), attributes: [.posixPermissions: 0o600]) else {
-                throw Failure.cannotWrite(tr("ファイルを作れません"))
-            }
-            if FileManager.default.fileExists(atPath: target.path) { _ = try FileManager.default.replaceItemAt(target, withItemAt: temporary) } else { try FileManager.default.moveItem(at: temporary, to: target) }
-            return target
-        } catch let failure as Failure {
-            throw failure
-        } catch {
-            throw Failure.cannotWrite(error.localizedDescription)
-        }
+        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch { throw Failure.cannotWrite(error.localizedDescription) }
+        let target = existing ?? uniqueURL(fileName, in: folder)
+        try writeFile(markdown, to: target)
+        return target
     }
 
-    /// 利用者が選んだ場所（保存のパネル）へ、書く（0600。同じ場所なら、置き換える）。
+    /// 利用者が選んだ場所（保存のパネル）へ、書く（0600。同じ場所なら、置き換える）。**一時ファイルに書いてから移す**：失敗したら、一時ファイルを、消す（会議の文字が、残らない）。
     static func writeFile(_ text: String, to url: URL) throws {
+        let manager = FileManager.default
+        let temporary = url.deletingLastPathComponent().appendingPathComponent(".meeting-\(UUID().uuidString).tmp")
+        guard manager.createFile(atPath: temporary.path, contents: Data(text.utf8), attributes: [.posixPermissions: 0o600]) else { throw Failure.cannotWrite(tr("ファイルを作れません")) }
         do {
-            let temporary = url.deletingLastPathComponent().appendingPathComponent(".meeting-\(UUID().uuidString).tmp")
-            guard FileManager.default.createFile(atPath: temporary.path, contents: Data(text.utf8), attributes: [.posixPermissions: 0o600]) else { throw Failure.cannotWrite(tr("ファイルを作れません")) }
-            if FileManager.default.fileExists(atPath: url.path) { _ = try FileManager.default.replaceItemAt(url, withItemAt: temporary) } else { try FileManager.default.moveItem(at: temporary, to: url) }
-        } catch let failure as Failure { throw failure } catch { throw Failure.cannotWrite(error.localizedDescription) }
+            if manager.fileExists(atPath: url.path) { _ = try manager.replaceItemAt(url, withItemAt: temporary) } else { try manager.moveItem(at: temporary, to: url) }
+        } catch {
+            try? manager.removeItem(at: temporary)   // try?: 片付け（消せなくても、書けなかった失敗を、先に伝える）
+            throw Failure.cannotWrite(error.localizedDescription)
+        }
     }
 
     /// 同じ名前があれば、`-2`・`-3` …を付ける。
