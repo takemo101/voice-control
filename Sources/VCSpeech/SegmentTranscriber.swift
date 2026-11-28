@@ -12,7 +12,9 @@ public final class SegmentTranscriber: @unchecked Sendable {
         public let text: String
         public let isFinal: Bool
         public let date: Date
-        public init(text: String, isFinal: Bool, date: Date) { self.text = text; self.isFinal = isFinal; self.date = date }
+        /// 認識した音の位置（認識を始めてからの秒。字幕の時刻に使う）。分からなければ nil。
+        public let range: ClosedRange<TimeInterval>?
+        public init(text: String, isFinal: Bool, date: Date, range: ClosedRange<TimeInterval>? = nil) { self.text = text; self.isFinal = isFinal; self.date = date; self.range = range }
     }
 
     public enum Failure: Error, CustomStringConvertible {
@@ -55,7 +57,9 @@ public final class SegmentTranscriber: @unchecked Sendable {
         let reader = Task { [onUpdate] in
             do {
                 for try await result in transcriber.results {
-                    onUpdate(Update(text: String(result.text.characters), isFinal: result.isFinal, date: Date()))
+                    let start = result.range.start.seconds, end = result.range.end.seconds
+                    let range: ClosedRange<TimeInterval>? = start.isFinite && end.isFinite && end >= start && start >= 0 ? start...end : nil
+                    onUpdate(Update(text: String(result.text.characters), isFinal: result.isFinal, date: Date(), range: range))
                 }
             } catch {}   // 認識が止まったら、更新が止まるだけ（終わり方は、`finish` が決める）
         }

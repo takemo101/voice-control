@@ -30,6 +30,7 @@ import Foundation
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `meetingFolder`・`summaryAuto`・`summaryInstructions`：**会議の記録**（F81・F82）。`meetingFolder`：止めたとき、会議の Markdown を書くフォルダ（なければ、書かない：**既定はオフ**）。`summaryAuto`：止めたとき、会議を要約して、Markdown に入れるか（なければ、しない）。`summaryInstructions`：要約のまとめ方の指示（なければ既定）。要約は、スキルを実行するモデルで行う。
 /// - `transcribeMic`：システム音声の文字起こしに、**自分のマイクも、並べる**か（常時。なければ、並べない。スピーカーだと、マイクが相手の声を拾うので、ヘッドホンを勧める）。自分の声の整理は `tidy`・相手は `tidySystem`（別々）。
 /// - `transcribeApps`：**システム音声の文字起こし**（F80）で取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。
 /// - `transcribeHotkey`：**システム音声（相手の音声）の文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。**自分の声は、音声入力（`dictateHotkey`）をそのまま使う**：音声入力のキーとは、別。
@@ -78,6 +79,9 @@ public struct Settings: Codable, Sendable, Equatable {
     public var mute: Bool?
     public var transcribeApps: [String]?
     public var transcribeMic: Bool?
+    public var meetingFolder: String?
+    public var summaryAuto: Bool?
+    public var summaryInstructions: String?
     public var transcribeHotkey: String?
     public var tidySystem: Bool?
     public var tidy: Bool?
@@ -129,6 +133,9 @@ public struct Settings: Codable, Sendable, Equatable {
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         transcribeApps = try c.decodeIfPresent([String].self, forKey: .transcribeApps)
         transcribeMic = try c.decodeIfPresent(Bool.self, forKey: .transcribeMic)
+        meetingFolder = try c.decodeIfPresent(String.self, forKey: .meetingFolder)
+        summaryAuto = try c.decodeIfPresent(Bool.self, forKey: .summaryAuto)
+        summaryInstructions = try c.decodeIfPresent(String.self, forKey: .summaryInstructions)
         transcribeHotkey = try c.decodeIfPresent(String.self, forKey: .transcribeHotkey)
         tidySystem = try c.decodeIfPresent(Bool.self, forKey: .tidySystem)
         tidy = try c.decodeIfPresent(Bool.self, forKey: .tidy)

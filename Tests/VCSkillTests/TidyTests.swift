@@ -72,9 +72,9 @@ import Testing
     // MARK: 時間
 
     @Test func workThatTakesTooLongIsGivenUpAndFastWorkIsReturned() async throws {
-        #expect(try await Tidier.withTimeout(2) { 7 } == 7)
-        do { _ = try await Tidier.withTimeout(0.05) { try await Task.sleep(nanoseconds: 5_000_000_000); return 1 }; Issue.record("時間切れのはず") }
-        catch is Tidier.TimeoutError {}
+        #expect(try await ModelCall.withTimeout(2) { 7 } == 7)
+        do { _ = try await ModelCall.withTimeout(0.05) { try await Task.sleep(nanoseconds: 5_000_000_000); return 1 }; Issue.record("時間切れのはず") }
+        catch is ModelCall.TimeoutError {}
     }
 
     @Test func aTextTooShortToTidyIsKeptWithoutAnyReason() async {

@@ -71,6 +71,7 @@ enum DownloadState: Equatable {
     @Published var fillersText = ""
     /// 整理の整え方の編集中の文字（設定になければ、既定を、出す）。
     @Published var tidyInstructionsText = ""
+    @Published var summaryInstructionsText = ""
     /// 文字起こしで選べるアプリ（「一覧を読む」で、はじめて読む：画面収録の許可の確認が、出うる）と、読めなかった理由。
     @Published var captureApps: [CaptureApp] = []
     @Published var captureAppsMessage: String?
@@ -136,6 +137,7 @@ enum DownloadState: Equatable {
         engineDraft = EngineDraft(settings: settings)
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
         tidyInstructionsText = TidyPrompt.instructions(setting: settings.tidyInstructions)
+        summaryInstructionsText = SummaryPrompt.instructions(setting: settings.summaryInstructions)
     }
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
@@ -572,6 +574,33 @@ enum DownloadState: Equatable {
             catch { captureAppsMessage = "\(error)" }
         }
     }
+
+    /// 要約のまとめ方を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
+    func saveSummaryInstructions() {
+        let text = summaryInstructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = text.isEmpty || text == SummaryPrompt.defaultInstructions ? nil : String(text.prefix(SummaryPrompt.maxInstructionLength))
+        update(restart: false) { $0.summaryInstructions = value }
+        summaryInstructionsText = SummaryPrompt.instructions(setting: value)
+    }
+
+    func resetSummaryInstructions() {
+        update(restart: false) { $0.summaryInstructions = nil }
+        summaryInstructionsText = SummaryPrompt.defaultInstructions
+    }
+
+    /// 会議の Markdown の保存先フォルダを、選ぶ（フォルダを選ぶパネル）。
+    func chooseMeetingFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = tr("選ぶ")
+        panel.message = tr("会議の記録（Markdown）を、書くフォルダを選んでください")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        update(restart: false) { $0.meetingFolder = url.path }
+    }
+
+    func clearMeetingFolder() { update(restart: false) { $0.meetingFolder = nil } }
 
     func resetTidyInstructions() {
         update(restart: false) { $0.tidyInstructions = nil }

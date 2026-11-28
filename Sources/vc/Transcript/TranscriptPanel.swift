@@ -14,9 +14,33 @@ import VCCore
     @Published var keyHint: String?
     /// 取り込む音の名前（全体なら nil）。
     @Published var targetName: String?
+    /// 発話を選んでいる（選んだ発話だけを、要約する）。
+    @Published var selecting = false
+    @Published var selected: Set<UUID> = []
+    /// 「要約」のカードを、開いている。
+    @Published var summaryOpen = false
+    /// テーマ（例「予算の話」）の入力。
+    @Published var focusText = ""
+
+    func stopSelecting() { selecting = false; selected = [] }
 }
 
-private enum TranscriptPalette {
+/// パネルの操作（窓の管理が、渡す）。
+struct TranscriptPanelActions {
+    let toggle: () -> Void
+    let copyMarkdown: () -> Void
+    let copyText: () -> Void
+    let copyOne: (String) -> Void
+    let saveMarkdown: () -> Void
+    let saveSubtitles: (Bool) -> Void   // true: VTT・false: SRT
+    let newMeeting: () -> Void
+    let summarize: (MeetingSummary.Scope, Set<UUID>?) -> Void
+    let delete: (UUID) -> Void
+    let reveal: (URL) -> Void
+    let close: () -> Void
+}
+
+enum TranscriptPalette {
     static let teal = Color(red: 0.30, green: 0.85, blue: 0.80)
     static let blue = Color(red: 0.30, green: 0.62, blue: 1.0)
     static let orange = Color(red: 1.0, green: 0.62, blue: 0.25)
@@ -32,12 +56,7 @@ private enum TranscriptPalette {
 struct TranscriptPanelView: View {
     @ObservedObject var session: TranscriptSession
     @ObservedObject var panel: TranscriptPanelState
-    let toggle: () -> Void
-    let copyMarkdown: () -> Void
-    let copyText: () -> Void
-    let copyOne: (String) -> Void
-    let clear: () -> Void
-    let close: () -> Void
+    let actions: TranscriptPanelActions
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -48,8 +67,16 @@ struct TranscriptPanelView: View {
                 Label(notice, systemImage: "exclamationmark.triangle.fill").vcFont(11).foregroundStyle(TranscriptPalette.orange).lineLimit(2)
                     .padding(.horizontal, 18).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading).background(TranscriptPalette.orange.opacity(0.10))
             }
+            WrapUpBanner(wrapUp: session.wrapUp, reveal: actions.reveal)
+            if panel.summaryOpen || !session.summaries.isEmpty || session.summaryState != .idle {
+                SummaryCard(session: session, panel: panel, actions: actions)
+                Rule()
+            }
             conversation
-            if !session.log.entries.isEmpty {
+            if panel.selecting {
+                Rule()
+                SelectionBar(session: session, panel: panel, actions: actions)
+            } else if !session.log.entries.isEmpty {
                 Rule()
                 searchBar
             }
@@ -78,25 +105,32 @@ struct TranscriptPanelView: View {
                 }
             }
             Spacer(minLength: 8)
-            PillButton(title: session.isActive ? tr("停止") : tr("開始"), symbol: session.isActive ? "stop.fill" : "record.circle", flashed: false, action: toggle)
+            PillButton(title: session.isActive ? tr("停止") : tr("開始"), symbol: session.isActive ? "stop.fill" : "record.circle", flashed: false, action: actions.toggle)
             moreMenu
-            HeaderIconButton(symbol: "xmark", help: tr("閉じる（Esc）"), cancel: true, action: close)
+            HeaderIconButton(symbol: "xmark", help: tr("閉じる（Esc）"), cancel: true, action: actions.close)
         }
         .padding(.horizontal, 18).padding(.vertical, 13)
         .background(DragArea())
     }
 
     private var moreMenu: some View {
-        Menu {
-            Button(action: copyMarkdown) { Label(tr("Markdown をコピー"), systemImage: "doc.on.doc") }.disabled(session.log.entries.isEmpty)
-            Button(action: copyText) { Label(tr("テキストをコピー"), systemImage: "text.alignleft") }.disabled(session.log.entries.isEmpty)
+        let empty = session.log.entries.isEmpty
+        return Menu {
+            Button { panel.summaryOpen.toggle() } label: { Label(panel.summaryOpen ? tr("要約を閉じる") : tr("要約…"), systemImage: "text.badge.star") }.disabled(empty && session.summaries.isEmpty)
+            Button { panel.selecting ? panel.stopSelecting() : { panel.selecting = true; panel.summaryOpen = true }() } label: { Label(panel.selecting ? tr("選ぶのをやめる") : tr("発話を選んで、要約…"), systemImage: "checkmark.circle") }.disabled(empty)
             Divider()
-            Button(role: .destructive, action: clear) { Label(tr("画面の記録を消す（履歴は、残ります）"), systemImage: "trash") }.disabled(session.log.entries.isEmpty)
+            Button(action: actions.copyMarkdown) { Label(tr("Markdown をコピー"), systemImage: "doc.on.doc") }.disabled(empty)
+            Button(action: actions.copyText) { Label(tr("テキストをコピー"), systemImage: "text.alignleft") }.disabled(empty)
+            Button(action: actions.saveMarkdown) { Label(tr("Markdown を保存…"), systemImage: "square.and.arrow.down") }.disabled(empty)
+            Button { actions.saveSubtitles(false) } label: { Label(tr("字幕（SRT）を保存…"), systemImage: "captions.bubble") }.disabled(empty)
+            Button { actions.saveSubtitles(true) } label: { Label(tr("字幕（VTT）を保存…"), systemImage: "captions.bubble") }.disabled(empty)
+            Divider()
+            Button(role: .destructive, action: actions.newMeeting) { Label(tr("新しい会議にする（画面の記録を消す・履歴と書いたファイルは、残ります）"), systemImage: "plus.bubble") }.disabled((empty && session.summaries.isEmpty) || session.isActive)
         } label: {
             HeaderCircle(symbol: "ellipsis", flashed: panel.copiedAll)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help(tr("コピー・画面の記録を消す"))
+        .help(tr("要約・コピー・保存・新しい会議"))
         .accessibilityLabel(tr("そのほかの操作"))
     }
 
@@ -116,7 +150,7 @@ struct TranscriptPanelView: View {
                         switch row {
                         case let .separator(date): TimeSeparator(date: date).padding(.vertical, 8)
                         case let .message(entry, startsGroup):
-                            Bubble(entry: entry, startsGroup: startsGroup, panel: panel, copy: { copyOne(entry.text) })
+                            Bubble(entry: entry, startsGroup: startsGroup, panel: panel, copy: { actions.copyOne(entry.text) }, delete: { actions.delete(entry.id) })
                                 .padding(.top, startsGroup ? 8 : 0)
                         }
                     }
@@ -257,8 +291,10 @@ private struct Bubble: View {
     let startsGroup: Bool
     @ObservedObject var panel: TranscriptPanelState
     let copy: () -> Void
+    let delete: () -> Void
     @StateObject private var hover = HoverState()
 
+    private var chosen: Bool { panel.selected.contains(entry.id) }
     private var mine: Bool { entry.speaker == .me }
 
     private var shape: UnevenRoundedRectangle {
@@ -267,6 +303,18 @@ private struct Bubble: View {
     }
 
     var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if panel.selecting {
+                Image(systemName: chosen ? "checkmark.circle.fill" : "circle").vcFont(16).foregroundStyle(chosen ? TranscriptPalette.teal : .white.opacity(0.35)).padding(.top, startsGroup ? 24 : 10)
+            }
+            bubbleRow
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if panel.selecting { if chosen { panel.selected.remove(entry.id) } else { panel.selected.insert(entry.id) } } }
+        .onHover { hover.on = $0 }
+    }
+
+    private var bubbleRow: some View {
         HStack(alignment: .top, spacing: 8) {
             if mine { Spacer(minLength: 40) } else { Avatar(visible: startsGroup, speaker: entry.speaker) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
@@ -277,14 +325,14 @@ private struct Bubble: View {
                     }
                 }
                 HStack(alignment: .center, spacing: 6) {
-                    if mine { copyButton }
+                    if mine { actionButtons }
                     Text(entry.text)
                         .vcFont(14, weight: .medium).foregroundStyle(.white.opacity(0.95))
                         .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .background(mine ? AnyShapeStyle(TranscriptPalette.mine) : AnyShapeStyle(.white.opacity(0.08)), in: shape)
                         .overlay(shape.strokeBorder(.white.opacity(mine ? 0.0 : 0.10), lineWidth: 0.7))
-                    if !mine { copyButton }
+                    if !mine { actionButtons }
                 }
                 if let raw = entry.raw {
                     let open = panel.openOriginals.contains(entry.id)
@@ -302,14 +350,16 @@ private struct Bubble: View {
             }
             if mine { Avatar(visible: startsGroup, speaker: entry.speaker) } else { Spacer(minLength: 40) }
         }
-        .contentShape(Rectangle())
-        .onHover { hover.on = $0 }
     }
 
-    private var copyButton: some View {
-        Button(action: copy) { Image(systemName: "doc.on.doc").vcFont(11) }
-            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("この文をコピー"))
-            .opacity(hover.on ? 1 : 0)
+    /// 触れると出る：コピー・この 1 行を消す。
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            Button(action: copy) { Image(systemName: "doc.on.doc").vcFont(11) }.buttonStyle(.plain).help(tr("この文をコピー"))
+            Button(action: delete) { Image(systemName: "trash").vcFont(11) }.buttonStyle(.plain).help(tr("この文を消す"))
+        }
+        .foregroundStyle(.white.opacity(0.55))
+        .opacity(hover.on && !panel.selecting ? 1 : 0)
     }
 }
 

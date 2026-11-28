@@ -5,5 +5,5 @@ import VCCore
 /// 鍵は、コードの `tr("…")` の文と、同じ形（補間は `%@`）。足りない鍵は、日本語のまま出る（`scripts/check-l10n.py` が、抜けを見つける）。
 enum EnglishTables {
     /// 全部の表。**同じ鍵に、違う訳があれば、あとの表が勝つ**（`scripts/check-l10n.py` が、そういう鍵を、問題として報告する：置き方で、訳が変わらないように）。
-    static let all: [String: String] = [general, chat, models, dialogs, shared, system, chatui, panels, cli, transcript].reduce(into: [:]) { $0.merge($1) { _, new in new } }
+    static let all: [String: String] = [general, chat, models, dialogs, shared, system, chatui, panels, cli, transcript, meeting].reduce(into: [:]) { $0.merge($1) { _, new in new } }
 }

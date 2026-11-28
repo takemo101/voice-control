@@ -19,7 +19,7 @@ struct TranscriptPreviewCommand: Command {
         TranscriptWindow.shared.show()
         if arguments.flag("--demo") {
             let base = Date().addingTimeInterval(-900)
-            func entry(_ seconds: Double, _ text: String, me: Bool = false, raw: String? = nil) -> TranscriptLog.Entry { .init(id: UUID(), date: base.addingTimeInterval(seconds), speaker: me ? .me : .others, text: text, raw: raw) }
+            func entry(_ seconds: Double, _ text: String, me: Bool = false, raw: String? = nil) -> TranscriptLog.Entry { .init(id: UUID(), date: base.addingTimeInterval(seconds), speaker: me ? .me : .others, start: seconds, end: seconds + 4, text: text, raw: raw) }
             TranscriptWindow.shared.session.seed(TranscriptLog(entries: [
                 entry(0, "それでは、来週のリリースについて、確認します。"),
                 entry(7, "テストは、水曜日までに終わる予定です。"),
@@ -29,7 +29,10 @@ struct TranscriptPreviewCommand: Command {
                 entry(420, "明日の会議は午後4時からです。", raw: "えーと明日の会議はあの午後4時からです"),
                 entry(431, "資料は、事前に送ってください。"),
                 entry(440, "質問があれば、チャットに書いてください。"),
-            ], tentative: [.others: "それから、来週の予定も", .me: "了解です"]))
+            ], tentative: [.others: "それから、来週の予定も", .me: "了解です"], meetingStart: base), summaries: [
+                MeetingSummary(date: Date(), scope: .all, text: "【要点】\n- 来週のリリースの確認。テストは水曜までに終わる予定。\n【決まったこと】\n- 資料は、事前に送る。\n【確認事項】\n- テスト結果を、いつ共有できるか。"),
+                MeetingSummary(date: Date(), scope: .focus("日程"), text: "- テストは水曜まで\n- 会議は午後 4 時から"),
+            ])
             DispatchQueue.main.asyncAfter(deadline: .now() + (arguments.option("--seconds").flatMap(Double.init) ?? 20)) { exit(0) }
             NSApplication.shared.run()
             return
@@ -53,6 +56,10 @@ struct TranscriptPreviewCommand: Command {
             MainActor.assumeIsolated {
                 _ = Task { @MainActor in
                     await TranscriptWindow.shared.session.stop()
+                    // 止めたあとの後始末（要約・保存）が、終わるまで待つ（確認用）
+                    for _ in 0..<600 { if case .working = TranscriptWindow.shared.session.wrapUp { try? await Task.sleep(for: .milliseconds(100)) } else { break } }
+                    let session = TranscriptWindow.shared.session
+                    print("  後始末：\(session.wrapUp)・要約：\(session.summaries.map { $0.text.count })・要約の状態：\(session.summaryState)")
                     exit(0)
                 }
             }

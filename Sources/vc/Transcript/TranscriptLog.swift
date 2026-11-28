@@ -9,6 +9,9 @@ struct TranscriptLog: Equatable {
         let date: Date
         /// 話し手：相手（システム音声）・自分（マイク）。
         let speaker: HistoryEntry.Source
+        /// 会議の始まりからの、発話の開始・終わり（秒。字幕の時刻）。
+        let start: TimeInterval
+        let end: TimeInterval
         /// 表示する文字（整理が通れば、整理後）。
         var text: String
         /// 整理する前の、元の文字（整理しなかった・通らなかったときは、nil）。
@@ -16,17 +19,23 @@ struct TranscriptLog: Equatable {
     }
 
     private(set) var entries: [Entry] = []
+    /// 会議の始まり（最初に始めた時刻。止めて、また始めても、同じ会議の続き）。字幕の時刻の、基準。
+    private(set) var meetingStart: Date?
 
     /// 話し手ごとの、確定前の文字（あとで変わる）。
     private(set) var tentative: [HistoryEntry.Source: String] = [:]
 
     init() {}
     /// 見た目の確認用（`vc transcript-preview --demo`）：作り物の文を、並べて始める。
-    init(entries: [Entry], tentative: [HistoryEntry.Source: String] = [:]) { self.entries = entries; self.tentative = tentative }
+    init(entries: [Entry], tentative: [HistoryEntry.Source: String] = [:], meetingStart: Date? = nil) { self.entries = entries; self.tentative = tentative; self.meetingStart = meetingStart }
+
+    /// 会議を始める（すでに始まっていれば、そのまま：続き）。
+    mutating func begin(at date: Date) { if meetingStart == nil { meetingStart = date } }
 
     /// 認識の更新を、適用する。確定した文が、新しい 1 件になったら、その件を返す（空白だけの文は、足さない）。
     @discardableResult
-    mutating func apply(_ update: SegmentTranscriber.Update, speaker: HistoryEntry.Source) -> Entry? {
+    /// - `origin`：その話し手の認識の「0 秒」が、会議の始まりから、何秒あとか（止めて、また始めたとき、ずれる）。
+    mutating func apply(_ update: SegmentTranscriber.Update, speaker: HistoryEntry.Source, origin: TimeInterval = 0) -> Entry? {
         let text = Self.normalized(update.text)
         guard update.isFinal else {
             tentative[speaker] = text.isEmpty ? nil : text
@@ -34,10 +43,19 @@ struct TranscriptLog: Equatable {
         }
         tentative[speaker] = nil
         guard !text.isEmpty else { return nil }
-        let entry = Entry(id: UUID(), date: update.date, speaker: speaker, text: text, raw: nil)
+        // 時刻：認識した音の位置があれば、それ。なければ、確定した時刻から、文字数で見積もる（字幕の目安）
+        let end: TimeInterval, start: TimeInterval
+        if let range = update.range { start = origin + range.lowerBound; end = origin + range.upperBound } else {
+            end = max(0, update.date.timeIntervalSince(meetingStart ?? update.date))
+            start = max(0, end - min(20, max(1, Double(text.count) * 0.2)))
+        }
+        let entry = Entry(id: UUID(), date: update.date, speaker: speaker, start: start, end: end, text: text, raw: nil)
         entries.append(entry)
         return entry
     }
+
+    /// 1 件、消す（発話の 1 行削除）。
+    mutating func remove(id: UUID) { entries.removeAll { $0.id == id } }
 
     /// 整理が通ったとき：表示を、整理後に替える（元は、残す）。
     mutating func replace(id: UUID, tidied: String) {

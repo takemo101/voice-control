@@ -82,7 +82,7 @@ public enum TidyGuard {
     // MARK: 部品
 
     /// 数（0〜9 のつながり）の集まり。全角は、半角にそろえる。
-    static func numbers(in text: String) -> Set<String> {
+    public static func numbers(in text: String) -> Set<String> {
         let normalized = text.precomposedStringWithCompatibilityMapping
         let regex = try! NSRegularExpression(pattern: "[0-9]+")   // 固定の正規表現
         let range = NSRange(normalized.startIndex..., in: normalized)

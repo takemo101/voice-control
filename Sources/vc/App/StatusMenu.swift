@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import VCCore
 
 /// メニューバーの項目。メニューは、開くたびに、状態から作り直す。
@@ -6,6 +7,7 @@ import VCCore
     private let item: NSStatusItem
     private let runtime: AppRuntime
     private var token: AnyObject?
+    private var sessionSink: AnyCancellable?
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -15,6 +17,8 @@ import VCCore
         menu.delegate = self
         item.menu = menu
         token = runtime.observe { [weak self] in self?.refreshIcon() }
+        // 記録中の目印：会議の文字起こしが動いている間は、アイコンが変わる（止め忘れの防止。F81）
+        sessionSink = TranscriptWindow.shared.session.$state.sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshIcon() } }
         refreshIcon()
     }
 
@@ -25,6 +29,16 @@ import VCCore
         case .starting: (symbol, label) = ("ellipsis.circle", tr("準備中"))
         case .listening: (symbol, label) = ("mic.fill", tr("聞いています"))
         case .stopped: (symbol, label) = ("mic.slash", tr("停止中"))
+        }
+        if TranscriptWindow.shared.session.isActive {
+            // 文字起こし中：赤い丸（テンプレートでは、色が付かない）
+            let recording = tr("会議を文字にしています")
+            let configuration = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
+            let image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "vc: \(recording)")?.withSymbolConfiguration(configuration)
+            image?.isTemplate = false
+            button.image = image
+            button.toolTip = "vc: \(recording)"
+            return
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "vc: \(label)")
         image?.isTemplate = true
@@ -81,6 +95,7 @@ import VCCore
         sendItem.submenu = sendMenu
         menu.addItem(sendItem)
         menu.addItem(.separator())
+        if TranscriptWindow.shared.session.isActive { menu.addItem(action(tr("会議の文字起こしを止める"), #selector(stopTranscript))) }
         menu.addItem(action(tr("音声入力（会議）を開く"), #selector(openTranscript)))
         menu.addItem(action(tr("会話を開く"), #selector(openChat)))
         menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
@@ -160,6 +175,7 @@ import VCCore
 
     @objc private func openChat() { ChatWindow.shared.show(activate: true) }
     @objc private func openTranscript() { TranscriptWindow.shared.show() }
+    @objc private func stopTranscript() { TranscriptWindow.shared.toggleFromShortcut() }
 
     @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
 

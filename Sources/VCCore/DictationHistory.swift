@@ -47,8 +47,8 @@ public final class DictationHistory: @unchecked Sendable {
 
     /// 1 件、足す。足すときに、古いもの（`days` 日より前）と、上限を超えたものを、消す。
     @discardableResult
-    public func append(_ text: String, days: Int, source: HistoryEntry.Source? = nil, raw: String? = nil, date: Date? = nil) throws -> HistoryEntry {
-        let entry = HistoryEntry(date: date ?? now(), text: text, source: source, raw: raw)
+    public func append(_ text: String, days: Int, source: HistoryEntry.Source? = nil, raw: String? = nil, date: Date? = nil, id: UUID = UUID()) throws -> HistoryEntry {
+        let entry = HistoryEntry(id: id, date: date ?? now(), text: text, source: source, raw: raw)
         try lock.withLock {
             var all = load()
             all.append(entry)
