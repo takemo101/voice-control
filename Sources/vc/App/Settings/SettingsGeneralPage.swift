@@ -41,7 +41,7 @@ struct GeneralPage: View {
         let _ = model.revision
         let steps = steps()
         let pending = steps.filter { !$0.done }.count
-        Card(tr("準備状況"), footer: tr("許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、右上の「もう一度、確かめる」。")) {
+        Card(tr("準備状況"), info: tr("許可は、このアプリ自身に付きます（ターミナルには、よりません）。変えたら、右上の「もう一度、確かめる」。")) {
             Row(pending == 0 ? tr("準備ができています") : tr("あと \(pending) 件で、使えます"), detail: pending == 0 ? tr("声の入力を使えます") : tr("下の項目を、上から順に、片づけてください")) {
                 HStack(spacing: 10) {
                     SettingsPill(text: pending == 0 ? "OK" : tr("要設定"), color: pending == 0 ? Brand.ok : Brand.warn)
@@ -59,18 +59,16 @@ struct GeneralPage: View {
                 }
             }
         }
-        Card(tr("起動"), footer: tr("オンにすると、Mac にログインしたときに、voice-control が、メニューバーで、自動で起動します。")) {
+        Card(tr("基本"), info: tr("表示言語は、設定ウィンドウとダイアログの言葉です（音声認識の言語は、設定 > 音声）。文字の大きさは、会話・Markdown・上のパネル・画像の窓に効きます（標準は 13。この設定ウィンドウは、変わりません）。")) {
             LoginRow(model: model)
-        }
-        Card("Language / 言語", footer: tr("設定ウィンドウとダイアログの言葉です。音声認識の言語は、設定 > 音声 で決めます。")) {   // l10n-skip
+            RowDivider()
             Row(tr("表示言語"), detail: tr("設定ウィンドウとダイアログ")) {
                 Picker("", selection: Binding(get: { model.uiLanguage }, set: { model.setUILanguage($0) })) {
                     ForEach(AppLanguage.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden().frame(width: 150)
             }
-        }
-        Card(tr("表示"), footer: tr("会話・Markdown のウィンドウ・上のパネル・画像の窓の、文字の大きさです（標準は 13）。この設定ウィンドウは、変わりません。開いている画面も、すぐ変わります。")) {
+            RowDivider()
             Row(tr("文字の大きさ"), detail: "10 〜 24") {
                 HStack(spacing: 10) {
                     if (model.settings.fontSize ?? UIScale.standard) != UIScale.standard {
@@ -80,15 +78,14 @@ struct GeneralPage: View {
                 }
             }
         }
-        Card(tr("アップデート"), footer: tr("確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。")) {
+        Card(tr("アップデート"), info: tr("確認は、起動時と 1 日ごとに、GitHub の公開情報（最新のリリース）を取りに行くだけで、あなたのデータは、送りません。入れるのは、あなたが選んだときだけです（取得したファイルは、SHA-256 と署名を確かめてから、入れ替えます）。")) {
             SwitchRow(model: model, title: tr("新しい版を、自動で確認する"), detail: tr("見つけたら、上のパネルとメニューで、知らせます"), value: model.settings.updateCheck ?? true) { $0.updateCheck = $1 }
             RowDivider()
             UpdateRow()
         }
-        Card(tr("ターミナル")) {
+        Card(tr("ツール・情報")) {
             CommandLineRow(model: model)
-        }
-        Card(tr("情報")) {
+            RowDivider()
             Row(tr("診断"), detail: tr("必要なものが、そろっているかを、くわしく確かめます")) { Button(tr("開く")) { AppActions.showDoctor() }.controlSize(.small) }
             RowDivider()
             Row(tr("画面収録の許可"), detail: tr("画面撮影・画面を見るスキルを使うときだけ必要です")) {
@@ -212,7 +209,7 @@ struct CommandLineRow: View {
     var body: some View {
         let tool = CommandLineTool()
         let installed = tool.state == .installed
-        Row(tr("ターミナルのコマンド「vc」"), detail: tr("スキルが使うコマンド（vc show・vc skills など）を、ターミナルから使えます。/usr/local/bin にリンクを置きます（管理者のパスワードを求められることがあります）")) {
+        Row(tr("ターミナルのコマンド「vc」"), detail: tr("ターミナルから vc を使えます"), info: tr("スキルが使うコマンド（vc show・vc skills など）を、ターミナルから使えます。/usr/local/bin にリンクを置きます（管理者のパスワードを求められることがあります）")) {
             switch tool.state {
             case .unavailable: Text(tr("アプリを「アプリケーション」へ移すと入れられます")).font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.trailing).frame(width: 150)
             case let .other(path): Text(tr("\(path) に、別のものがあります")).font(.system(size: 11)).foregroundStyle(Brand.warn).multilineTextAlignment(.trailing).frame(width: 150)

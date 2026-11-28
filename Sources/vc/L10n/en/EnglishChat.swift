@@ -3,7 +3,6 @@ import Foundation
 extension EnglishTables {
     /// 設定ウィンドウ（会話）と、その行が使う VCSkill の文。
     static let chat: [String: String] = [
-        "会話のキーを押している間話すか、メニューバー > 会話を開く、で、文字で質問できます。": "Hold the chat key and speak, or open Chat from the menu bar to type your question.",
         "エージェントと道具": "Agent and tools",
         "画像は、外のエージェントへ送るたびに、確認します。": "Each time an image is sent to an external agent, you are asked to confirm.",
         "会話に使うエージェント": "Chat agent",

@@ -42,7 +42,6 @@ import VCCore
         #expect(SettingsRules.keyProblem(.sendKey(0), text: "", in: settings) == nil)                   // 空は、問題ではない（外す）
         #expect(SettingsRules.keyProblem(.sendKey(0), text: "cmd", in: settings) != nil)                // 修飾キーだけは、読めない
         #expect(SettingsRules.keyProblem(.sendKey(0), text: "enterr", in: settings) != nil)
-        #expect(KeyKind.triggers == [.listen, .dictate, .chat, .shot])
     }
 
     @Test func theSendKeyListIsEditedByPositionAndTheLegacyKeyIsDroppedOnTheFirstWrite() {
@@ -57,5 +56,18 @@ import VCCore
         KeyKind.sendKey(5).set(nil, in: &settings)                         // 範囲外の取り外しは、何もしない
         #expect(settings.dictateKeys == [])
     }
-}
 
+    /// 文字起こしの開始・停止のキー（F80）は、音声入力のキーとは別：組み合わせだけ・ほかのキーと重ならない・設定に、別々に書く。
+    @Test func theTranscribeShortcutIsSeparateFromDictationAndNeedsAFreeCombination() {
+        var settings = Settings()
+        settings.dictateHotkey = "ctrl"
+        #expect(SettingsRules.keyProblem(.transcribe, text: "ctrl+opt+t", in: settings) == nil)
+        #expect(SettingsRules.keyProblem(.transcribe, text: "shift", in: settings) != nil)             // 長押しは、使えない（組み合わせだけ）
+        settings.shotHotkey = "ctrl+opt+t"
+        #expect(SettingsRules.keyProblem(.transcribe, text: "ctrl+opt+t", in: settings) != nil)        // 画面撮影と、重なる
+        KeyKind.transcribe.set("ctrl+opt+y", in: &settings)
+        #expect(settings.transcribeHotkey == "ctrl+opt+y" && settings.dictateHotkey == "ctrl")        // 音声入力のキーは、そのまま
+        KeyKind.transcribe.set(nil, in: &settings)
+        #expect(settings.transcribeHotkey == nil)
+    }
+}

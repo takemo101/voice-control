@@ -170,7 +170,7 @@ struct ChatView: View {
 }
 
 /// 上へ戻って読んでいるときに出る、「最新へ」のボタン（押すと、いちばん下の、最新の会話へ戻る）。
-private struct JumpToLatestButton: View {
+struct JumpToLatestButton: View {
     let action: () -> Void
     @StateObject private var hover = HoverState()
 
@@ -773,7 +773,7 @@ private struct Pending: View {
 }
 
 /// 整形した文章（`NSTextView`）：文字の選択・⌘C・日本語の組みは、標準のまま。幅に合わせて、高さを決める。
-private struct RichText: NSViewRepresentable {
+struct RichText: NSViewRepresentable {
     let attributed: NSAttributedString
 
     func makeNSView(context: Context) -> NSTextView {

@@ -31,9 +31,11 @@ extension CommandContext {
 
     /// 直前の入力の貼り直し・送るキーの切り替えのショートカット。なければ nil。
     func resolvePasteLastHotKey() -> HotKeySpec? { choices?.keys.pasteLast ?? (try? resolveKeys(settings: currentSettings()))?.pasteLast }
+    /// 文字起こし（システム音声）の開始・停止のショートカット。なければ nil。
+    func resolveTranscribeHotKey() -> HotKeySpec? { choices?.keys.transcribe ?? (try? resolveKeys(settings: currentSettings()))?.transcribe }
     func resolveCycleSendHotKey() -> HotKeySpec? { choices?.keys.cycleSend ?? (try? resolveKeys(settings: currentSettings()))?.cycleSend }
 
-    /// 6 つのキーを、検査して、型にする。
+    /// 設定のキーを、検査して、型にする。
     func resolveKeys(settings: Settings) throws -> ResolvedKeys {
         func parse(_ text: String, _ name: String) throws -> HotKeySpec {
             switch HotKeySpec.parse(text) {
@@ -51,7 +53,8 @@ extension CommandContext {
                             chat: try settings.chatHotkey.map { try parse($0, tr("会話")) },
                             shot: try settings.shotHotkey.map { try parse($0, tr("スクリーンショット")) },
                             pasteLast: try settings.pasteLastHotkey.map { try parse($0, tr("直前の入力を貼り直す")) },
-                            cycleSend: try settings.dictateCycleHotkey.map { try parse($0, tr("送るキーを切り替える")) })
+                            cycleSend: try settings.dictateCycleHotkey.map { try parse($0, tr("送るキーを切り替える")) },
+                            transcribe: try settings.transcribeHotkey.map { try parse($0, KeyKind.transcribe.title) })
     }
 }
 

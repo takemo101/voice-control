@@ -9,7 +9,7 @@ struct ChatPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Callout(symbol: "bubble.left.and.bubble.right.fill", text: tr("会話のキーを押している間話すか、メニューバー > 会話を開く、で、文字で質問できます。"))
+        Callout(symbol: "bubble.left.and.bubble.right.fill", text: tr("会話のキーで話すか、メニューバー > 会話を開く から、文字で質問できます。"))
         Card(tr("エージェントと道具"), footer: tr("画像は、外のエージェントへ送るたびに、確認します。")) {
             // 選べるのは、この Mac に入っているエージェントだけ。選んだものが、なくなっていたら（アンインストールなど）、見つからない印つきで残し、Apple のモデルで答える
             let installed = AgentLocator.available()
@@ -107,7 +107,7 @@ struct ChatServerNote: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
+        let engine = model.savedEngine
         if let server = engine.server {
             Label(server.isLoopback ? tr("この Mac のサーバー（\(server.endpoint)）で答えます。道具はなく、会話だけです。") : tr("同じ LAN のサーバー（\(server.endpoint)）へ、発話と、使った画像・文章の内容が送られます。道具はなく、会話だけです。"), systemImage: server.isLoopback ? "info.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(server.isLoopback ? Color.secondary : Brand.warn).padding(.horizontal, 14).padding(.bottom, 10).fixedSize(horizontal: false, vertical: true)

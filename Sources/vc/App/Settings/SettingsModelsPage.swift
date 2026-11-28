@@ -11,7 +11,7 @@ struct ModelsPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Card(tr("スキルを実行するモデル"), footer: tr("この Mac と、同じ LAN のサーバーだけ使えます。インターネットのクラウドのモデルは、使えません。")) {
+        Card(tr("スキルを実行するモデル"), info: tr("この Mac と、同じ LAN のサーバーだけ使えます。インターネットのクラウドのモデルは、使えません。")) {
             Row(tr("エンジン"), detail: nil) {
                 Picker("", selection: Binding(get: { model.engineDraft.kind }, set: { model.switchEngineKind($0) })) {
                     Text("Apple").tag(EngineKind.apple)
@@ -84,7 +84,7 @@ struct ModelsPage: View {
                 .labelsHidden().frame(width: 250)
             }
         }
-        Card(tr("モデルの取得"), footer: tr("取得だけが、外部との通信です。音声・画面は、送りません。取得したファイルは、SHA-256 で検証します（途中から再開できます）。")) {
+        Card(tr("モデルの取得"), info: tr("取得だけが、外部との通信です。音声・画面は、送りません。取得したファイルは、SHA-256 で検証します（途中から再開できます）。")) {
             ModelRow(model: model, id: TinyJevModel.spec.name, title: "Tiny-Jev 0.6B", detail: tr("スキルを選ぶモデル（必須）"), spec: TinyJevModel.spec, deletable: false)
             ForEach(SpeechModelCatalog.all, id: \.id) { entry in
                 RowDivider()

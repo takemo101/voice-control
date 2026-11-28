@@ -6,13 +6,21 @@ import VCSkill
 import VCSpeech
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, keys, voice, dictation, chat, models, skills
+    case general, keys, voice, dictation, transcribe, history, chat, models, skills
     var id: String { rawValue }
+
+    /// サイドバーの区切り（見出し・ページ）。上から：全体・声の入力・会話と実行。
+    static var sections: [(title: String?, pages: [SettingsPage])] {
+        [(nil, [.general]), (tr("入力"), [.keys, .voice, .dictation, .transcribe, .history]), (tr("会話と実行"), [.chat, .models, .skills])]
+    }
+
     var title: String {
         switch self {
         case .keys: return tr("キー")
         case .voice: return tr("音声")
-        case .dictation: return tr("音声入力")
+        case .dictation: return tr("音声入力（マイク）")
+        case .transcribe: return tr("音声入力（会議）")
+        case .history: return tr("履歴")
         case .chat: return tr("会話")
         case .models: return L10n.shared.language == .ja ? "モデル" : tr(verbatim: "Models")   // l10n-skip：行の「モデル」（Model）と、訳が違う。日本語以外は、英語の文を鍵にして引く（表の「Models」）
         case .skills: return tr("スキル")
@@ -24,6 +32,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .keys: return "keyboard"
         case .voice: return "waveform"
         case .dictation: return "text.cursor"
+        case .transcribe: return "captions.bubble.fill"
+        case .history: return "clock.arrow.circlepath"
         case .chat: return "bubble.left.and.bubble.right.fill"
         case .models: return "cpu"
         case .skills: return "puzzlepiece.extension"
@@ -59,6 +69,11 @@ enum DownloadState: Equatable {
     @Published private(set) var engineDraft = EngineDraft(settings: Settings())
     @Published private(set) var downloads: [String: DownloadState] = [:]
     @Published var fillersText = ""
+    /// 指示（整理の整え方・要約のまとめ方）の編集中の文字（設定になければ、既定を、出す）。
+    @Published var instructionTexts: [InstructionKind: String] = [:]
+    /// 文字起こしで選べるアプリ（「一覧を読む」で、はじめて読む：画面収録の許可の確認が、出うる）と、読めなかった理由。
+    @Published var captureApps: [CaptureApp] = []
+    @Published var captureAppsMessage: String?
     /// 会話のエージェントごとの、モデルの一覧（取ったもの。メモリだけ）。
     @Published private(set) var modelLists: [String: ModelListState] = [:]
     /// 許可の状態などを、画面を開くたびに読み直すための印。
@@ -120,6 +135,7 @@ enum DownloadState: Equatable {
         keyProblems = [:]
         engineDraft = EngineDraft(settings: settings)
         fillersText = (settings.fillers ?? []).joined(separator: "\n")
+        for kind in InstructionKind.allCases { instructionTexts[kind] = kind.text(in: settings) }
     }
 
     /// 表示言語（設定ウィンドウとダイアログ）と、音声認識の言語。どちらも、ja・en。なければ日本語。
@@ -255,6 +271,8 @@ enum DownloadState: Equatable {
 
     // MARK: エンジン
 
+    /// 保存してある、スキルを実行するモデル（読めなければ、Apple）。ページの表示が、使う。
+    var savedEngine: Engine { (try? Engine.parse(settings.engine ?? "apple")) ?? .apple }
     /// Ollama・OpenAI 互換のサーバーの場所（書き方が正しいとき。Ollama は、省くと既定）。
     var engineServer: ServerAddress? { engineDraft.server }
     /// その場所を、通信してよいか（この Mac は、いつも。LAN は、利用者が、その場所を許可しているときだけ）。
@@ -541,6 +559,39 @@ enum DownloadState: Equatable {
         let lines = fillersText.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         update { $0.fillers = lines.isEmpty ? nil : lines }
     }
+
+    /// 指示を、保存する（既定と同じ・空なら、設定から外す：既定が、更新されたとき、追いつく）。
+    func saveInstructions(_ kind: InstructionKind) {
+        let value = PromptInstructions.setting(from: instructionTexts[kind] ?? "", default: kind.defaultText, maxLength: kind.maxLength)
+        update(restart: false) { $0[keyPath: kind.key] = value }
+        instructionTexts[kind] = PromptInstructions.resolve(setting: value, default: kind.defaultText, maxLength: kind.maxLength)
+    }
+
+    func resetInstructions(_ kind: InstructionKind) {
+        update(restart: false) { $0[keyPath: kind.key] = nil }
+        instructionTexts[kind] = kind.defaultText
+    }
+
+    func loadCaptureApps() {
+        Task { @MainActor in
+            do { captureApps = try await SystemAudioCapture.availableApps(); captureAppsMessage = captureApps.isEmpty ? tr("取り込めるアプリが、ありません") : nil }
+            catch { captureAppsMessage = "\(error)" }
+        }
+    }
+
+    /// 会議の Markdown の保存先フォルダを、選ぶ（フォルダを選ぶパネル）。
+    func chooseMeetingFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = tr("選ぶ")
+        panel.message = tr("会議の記録（Markdown）を、書くフォルダを選んでください")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        update(restart: false) { $0.meetingFolder = url.path }
+    }
+
+    func clearMeetingFolder() { update(restart: false) { $0.meetingFolder = nil } }
 
     func resetFillers() {
         update { $0.fillers = nil }

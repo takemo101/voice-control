@@ -12,7 +12,7 @@ struct SkillsPage: View {
 
     var body: some View {
         let loaded = model.loadedSkills()
-        Card(tr("スキル"), footer: tr("有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。")) {
+        Card(tr("スキル"), info: tr("有効・無効は、すぐに効きます（再起動は要りません）。スキルの取得は、下の「スキルをインストール」か、ターミナルの vc skills install。作成は、ターミナルの vc skills（コマンド vc は、「一般」から入れられます）。")) {
             if loaded.skills.isEmpty {
                 Row(tr("スキルが、まだありません"), detail: tr("下の「スキルをインストール」から入れるか、フォルダに置いてください")) { EmptyView() }
             }
@@ -37,7 +37,7 @@ struct CatalogCard: View {
     @ObservedObject var catalog: SkillCatalog
 
     var body: some View {
-        Card(tr("スキルをインストール"), footer: tr("GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。許可するコマンドと、外へ送るかは、各行に出ています。")) {
+        Card(tr("スキルをインストール"), info: tr("GitHub（takemo101/voice-control）の公開リポジトリから取ります。一覧を取るときと、入れるときだけ、通信します。許可するコマンドと、外へ送るかは、各行に出ています。")) {
             switch catalog.state {
             case .idle:
                 Row(tr("インストールできるスキル"), detail: tr("一覧を、GitHub から取ります")) {

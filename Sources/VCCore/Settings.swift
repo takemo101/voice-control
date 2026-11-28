@@ -30,6 +30,12 @@ import Foundation
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `meetingFolder`・`summaryAuto`・`summaryInstructions`：**会議の記録**（F81・F82）。`meetingFolder`：止めたとき、会議の Markdown を書くフォルダ（なければ、書かない：**既定はオフ**）。`summaryAuto`：止めたとき、会議を要約して、Markdown に入れるか（なければ、しない）。`summaryInstructions`：要約のまとめ方の指示（なければ既定）。要約は、スキルを実行するモデルで行う。
+/// - `transcribeMic`：システム音声の文字起こしに、**自分のマイクも、並べる**か（常時。なければ、並べない。スピーカーだと、マイクが相手の声を拾うので、ヘッドホンを勧める）。自分の声の整理は `tidy`・相手は `tidySystem`（別々）。
+/// - `transcribeApps`：**システム音声の文字起こし**（F80）で取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。
+/// - `transcribeHotkey`：**システム音声（相手の音声）の文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。自分の声（マイク）は、`transcribeMic` で並べる：音声入力（`dictateHotkey`）のキーとは、別。
+/// - `tidySystem`：整理（F79）を、**システム音声の文字起こし（相手）に**効かせるか（なければ、効かせない）。`tidy` は、自分の声（音声入力）。整え方の指示（`tidyInstructions`）は、共通。
+/// - `tidy`・`tidyInstructions`：**整理モード**（認識した文字を、言語モデルで整えて、入力する。F79）。`tidy`：オンか（なければ、オフ）。`tidyInstructions`：整え方の指示（なければ、既定。解釈は VCSkill）。
 /// - `removeFillers`：音声入力で、つなぎ言葉（「えーと」など）を消すか。なければ、消さない。
 /// - `fillers`：消すつなぎ言葉の辞書（利用者が足し引きする）。なければ、既定の辞書（解釈は Speech 層）。
 /// - `multiStep`：1 つの依頼を、複数のステップに分けて実行するか。なければ、分ける（設定ウィンドウ > モデル で、1 依頼 = 1 スキル）。
@@ -71,6 +77,15 @@ public struct Settings: Codable, Sendable, Equatable {
     public var chatAuto: Bool?
     public var voice: String?
     public var mute: Bool?
+    public var transcribeApps: [String]?
+    public var transcribeMic: Bool?
+    public var meetingFolder: String?
+    public var summaryAuto: Bool?
+    public var summaryInstructions: String?
+    public var transcribeHotkey: String?
+    public var tidySystem: Bool?
+    public var tidy: Bool?
+    public var tidyInstructions: String?
     public var removeFillers: Bool?
     public var multiStep: Bool?
     public var fillers: [String]?
@@ -116,6 +131,15 @@ public struct Settings: Codable, Sendable, Equatable {
         chatAuto = try c.decodeIfPresent(Bool.self, forKey: .chatAuto)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
+        transcribeApps = try c.decodeIfPresent([String].self, forKey: .transcribeApps)
+        transcribeMic = try c.decodeIfPresent(Bool.self, forKey: .transcribeMic)
+        meetingFolder = try c.decodeIfPresent(String.self, forKey: .meetingFolder)
+        summaryAuto = try c.decodeIfPresent(Bool.self, forKey: .summaryAuto)
+        summaryInstructions = try c.decodeIfPresent(String.self, forKey: .summaryInstructions)
+        transcribeHotkey = try c.decodeIfPresent(String.self, forKey: .transcribeHotkey)
+        tidySystem = try c.decodeIfPresent(Bool.self, forKey: .tidySystem)
+        tidy = try c.decodeIfPresent(Bool.self, forKey: .tidy)
+        tidyInstructions = try c.decodeIfPresent(String.self, forKey: .tidyInstructions)
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers)
         multiStep = try c.decodeIfPresent(Bool.self, forKey: .multiStep)
         fillers = try c.decodeIfPresent([String].self, forKey: .fillers)

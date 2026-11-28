@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import VCCore
 
 /// メニューバーの項目。メニューは、開くたびに、状態から作り直す。
@@ -6,6 +7,7 @@ import VCCore
     private let item: NSStatusItem
     private let runtime: AppRuntime
     private var token: AnyObject?
+    private var sessionSink: AnyCancellable?
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -15,8 +17,18 @@ import VCCore
         menu.delegate = self
         item.menu = menu
         token = runtime.observe { [weak self] in self?.refreshIcon() }
+        // 記録中の目印：会議の文字起こしが動いている間は、アイコンが変わる（止め忘れの防止。F81）
+        // `$state` は、値が変わる**前**に届く：`session.isActive` を読むと、ひとつ前の状態になる（止めても、赤いままになる）。届いた値を、使う
+        let session = TranscriptWindow.shared.session
+        recording = session.isActive
+        sessionSink = session.$state.sink { [weak self] state in
+            MainActor.assumeIsolated { self?.recording = (state == .starting || state == .running); self?.refreshIcon() }
+        }
         refreshIcon()
     }
+
+    /// 会議の文字起こしが動いているか（アイコンを赤くする）。
+    private var recording = false
 
     private func refreshIcon() {
         guard let button = item.button else { return }
@@ -25,6 +37,16 @@ import VCCore
         case .starting: (symbol, label) = ("ellipsis.circle", tr("準備中"))
         case .listening: (symbol, label) = ("mic.fill", tr("聞いています"))
         case .stopped: (symbol, label) = ("mic.slash", tr("停止中"))
+        }
+        if recording {
+            // 文字起こし中：赤い丸（テンプレートでは、色が付かない）
+            let recording = tr("会議を文字にしています")
+            let configuration = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
+            let image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "vc: \(recording)")?.withSymbolConfiguration(configuration)
+            image?.isTemplate = false
+            button.image = image
+            button.toolTip = "vc: \(recording)"
+            return
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "vc: \(label)")
         image?.isTemplate = true
@@ -81,6 +103,8 @@ import VCCore
         sendItem.submenu = sendMenu
         menu.addItem(sendItem)
         menu.addItem(.separator())
+        if TranscriptWindow.shared.session.isActive { menu.addItem(action(tr("会議の文字起こしを止める"), #selector(stopTranscript))) }
+        menu.addItem(action(tr("音声入力（会議）を開く"), #selector(openTranscript)))
         menu.addItem(action(tr("会話を開く"), #selector(openChat)))
         menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
         menu.addItem(action(tr("診断…"), #selector(showDoctor)))
@@ -158,6 +182,8 @@ import VCCore
     @objc private func chooseSendMode(_ sender: NSMenuItem) { DictationActions.setSendMode(sender.tag) }
 
     @objc private func openChat() { ChatWindow.shared.show(activate: true) }
+    @objc private func openTranscript() { TranscriptWindow.shared.show() }
+    @objc private func stopTranscript() { TranscriptWindow.shared.toggleFromShortcut() }
 
     @objc private func stopSpeaking() { SaySpeaker.shared.stop() }
 

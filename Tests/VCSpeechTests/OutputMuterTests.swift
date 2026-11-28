@@ -25,10 +25,29 @@ private final class ManualClock: @unchecked Sendable {   // 偽物：テスト�
     func fireAll() { lock.lock(); let all = pending; pending = []; lock.unlock(); all.forEach { $0() } }
 }
 
+private final class Flag: @unchecked Sendable {   // 偽物：テストの数行。lock で守る
+    private let lock = NSLock()
+    private var _value: Bool
+    init(_ value: Bool) { _value = value }
+    var value: Bool { get { lock.lock(); defer { lock.unlock() }; return _value } set { lock.lock(); _value = newValue; lock.unlock() } }
+}
+
 @Suite struct OutputMuterTests {
     private func make(alreadyMuted: Bool = false) -> (muter: OutputMuter, output: FakeOutput, clock: ManualClock) {
         let output = FakeOutput(alreadyMuted: alreadyMuted), clock = ManualClock()
         return (OutputMuter(backend: output, schedule: clock.schedule), output, clock)
+    }
+
+    /// システム音声を取り込んでいる間は、消さない（出力を消すと、取り込む音も、消える）。取り込みが終われば、また消す。
+    @Test func neverMutesWhileSystemAudioIsBeingCaptured() {
+        let output = FakeOutput(), clock = ManualClock()
+        let capturing = Flag(true)
+        let muter = OutputMuter(backend: output, schedule: clock.schedule, isSuppressed: { capturing.value })
+        muter.engage(); clock.fireAll()
+        #expect(output.silenced == 0)
+        capturing.value = false
+        muter.engage(); clock.fireAll()
+        #expect(output.silenced == 1)
     }
 
     @Test func mutesAfterTheDelayAndRestoresOnce() {

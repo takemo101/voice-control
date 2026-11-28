@@ -23,7 +23,7 @@ SCOPE_ALWAYS = ['Sources/vc/**/*.swift']
 SCOPE_ANY_TARGET = 'Sources/**/*.swift'
 # 翻訳しないもの（開発用のコマンド・検証用の窓・表そのもの・モデルへの指示を持つファイル）。ここにないファイルで、日本語の文字列が `tr(` に包まれていなければ、報告する
 EXCLUDE = [
-    'Sources/VCCore/L10n.swift', 'Sources/vc/L10n/', 'Sources/vc/Commands/ChatCheck.swift', 'Sources/vc/Commands/EvalJudge.swift', 'Sources/vc/Commands/EvalPlan.swift', 'Sources/vc/Commands/EvalGate.swift', 'Sources/vc/Commands/EvalRoute.swift',
+    'Sources/VCCore/L10n.swift', 'Sources/vc/L10n/', 'Sources/vc/Commands/ChatCheck.swift', 'Sources/vc/Commands/EvalJudge.swift', 'Sources/vc/Commands/EvalPlan.swift', 'Sources/vc/Commands/EvalGate.swift', 'Sources/vc/Commands/Tidy.swift', 'Sources/vc/Commands/CaptureProbe.swift', 'Sources/vc/Commands/TranscriptPreview.swift', 'Sources/vc/Commands/Summary.swift', 'Sources/vc/Commands/EvalRoute.swift',
     'Sources/vc/Commands/HudPreview.swift', 'Sources/vc/Commands/ChatPreview.swift', 'Sources/vc/Commands/SettingsPreview.swift', 'Sources/Fixture/',
 ]
 

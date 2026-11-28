@@ -1,175 +1,97 @@
 import AppKit
 import SwiftUI
 import VCCore
+import VCSkill
 import VCSpeech
 
-// MARK: 履歴
-
-/// 音声入力の履歴の一覧（検索・コピー・1 件の削除）。ファイルは、`DictationHistory`。**文字は、この画面に出すだけ**（ほかへ、送らない）。
-@MainActor final class HistoryList: ObservableObject {
-    @Published var query = "" { didSet { reload() } }
-    @Published private(set) var entries: [HistoryEntry] = []
-    @Published private(set) var problem: String?
-    private let history = DictationHistory()
-
-    init() { reload() }
-
-    /// 開いたときに、古いものを消して、読み直す。
-    func open(days: Int) {
-        do { try history.prune(days: days); problem = nil } catch { problem = "\(error)" }
-        reload()
-    }
-
-    func reload() { entries = history.entries(matching: query) }
-
-    func delete(_ entry: HistoryEntry) {
-        do { try history.delete(id: entry.id); problem = nil } catch { problem = "\(error)" }
-        reload()
-    }
-
-    func clearAll() {
-        do { try history.clear(); problem = nil } catch { problem = "\(error)" }
-        reload()
-    }
-}
-
+/// 音声入力のページ：自分の声を、文字にして入力するときの設定（送るキー・整え方・整理）。履歴は「履歴」、文字起こし（システム音声）は「文字起こし」のページ。
 struct DictationPage: View {
     @ObservedObject var model: SettingsModel
-    @StateObject private var list = HistoryList()
-
-    private static let dayChoices = [1, 3, 7, 30, 90, 365]
 
     var body: some View {
-        sendKeysCard
+        inputCard
         shapingCard
-        historyCard
-        EmptyView().onAppear { list.open(days: DictationHistory.days(setting: model.settings.historyDays)) }.onChange(of: model.revision) { _, _ in list.reload() }
     }
 
-    // MARK: 入力のあとに送るキー
+    // MARK: 入力
 
-    private var sendKeysCard: some View {
+    /// キー（押している間だけ話す）と、入力のあとに送るキー（折りたたむ：たまにしか変えない）。
+    private var inputCard: some View {
         let send = model.settings.dictateSend
         let keys = model.settings.sendKeyList
         let adding = model.recording == .sendKey(keys.count)
-        return Card(tr("入力のあとに送るキー"), footer: tr("送るキーを選ぶと、送信ボタンやコマンドの実行まで、声だけでできます。メッセージ・ターミナルでは、そのまま送られます（キーを送る前の 0.8 秒に、Esc で取りやめられます）。")) {
-            Row(tr("いま使うキー"), detail: tr("文字を入れてから、これを押します")) {
-                Picker("", selection: Binding(get: { send.active }, set: { model.setDictateMode($0) })) {
-                    ForEach(Array(send.modes.enumerated()), id: \.offset) { Text($0.element.title).tag($0.offset) }
-                }
-                .labelsHidden().frame(width: 150)
-            }
+        return Card(tr("マイク（自分の声）"), info: tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します。Mac から出ている音（相手の音声）は、「音声入力（会議）」のページです（キーも、整理も、別です）。")) {
+            KeyRow(model: model, kind: .dictate)
             RowDivider()
-            ForEach(Array(keys.enumerated()), id: \.offset) { index, _ in
-                SendKeyRow(model: model, index: index)
-                RowDivider()
-            }
-            if adding {
-                SendKeyRow(model: model, index: keys.count)
-                RowDivider()
-            } else if keys.count < DictateSendModes.maxKeys {
-                Button { model.startRecording(.sendKey(keys.count)) } label: {
-                    Label(tr("キーを追加"), systemImage: "plus.circle.fill").font(.system(size: 13))
+            Collapsible(tr("入力のあとに送るキー"), summary: send.modes.indices.contains(send.active) ? send.modes[send.active].title : nil, startsOpen: adding) {
+                VStack(alignment: .leading, spacing: 0) {
+                    RowDivider()
+                    Row(tr("いま使うキー"), detail: tr("文字を入れてから、これを押します"), info: tr("送るキーを選ぶと、送信ボタンやコマンドの実行まで、声だけでできます。メッセージ・ターミナルでは、そのまま送られます（キーを送る前の 0.8 秒に、Esc で取りやめられます）。")) {
+                        Picker("", selection: Binding(get: { send.active }, set: { model.setDictateMode($0) })) {
+                            ForEach(Array(send.modes.enumerated()), id: \.offset) { Text($0.element.title).tag($0.offset) }
+                        }
+                        .labelsHidden().frame(width: 150)
+                    }
+                    ForEach(Array(keys.enumerated()), id: \.offset) { index, _ in
+                        RowDivider()
+                        SendKeyRow(model: model, index: index)
+                    }
+                    if adding {
+                        RowDivider()
+                        SendKeyRow(model: model, index: keys.count)
+                    } else if keys.count < DictateSendModes.maxKeys {
+                        RowDivider()
+                        Button { model.startRecording(.sendKey(keys.count)) } label: {
+                            Label(tr("キーを追加"), systemImage: "plus.circle.fill").font(.system(size: 13))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(Brand.rec1)
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                    }
                 }
-                .buttonStyle(.plain).foregroundStyle(Brand.rec1)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                RowDivider()
             }
-            KeyRow(model: model, kind: .cycleSend)
         }
     }
 
-    // MARK: 入力の整え方
+    // MARK: 整え方
 
+    /// 英語の空白・つなぎ言葉・整理（F79）。編集欄は、折りたたむ。システム音声（相手）の整理は、「音声入力（会議）」のページで、別に決める。
     private var shapingCard: some View {
-        Card(tr("入力の整え方"), footer: (model.settings.removeFillers ?? false) ? tr("消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。") : tr("オンにすると、消す言葉の一覧を、ここで直せます。音声入力だけに効きます（声で頼む内容には、使いません）。")) {
-            SwitchRow(model: model, title: tr("英語の前に、空白を足す"), detail: tr("英語を、単語のすぐあとに入れるとき、空白を 1 つ足します（日本語には、足しません）"), value: model.settings.smartSpacing ?? true, restart: false) { $0.smartSpacing = $1 ? nil : false }
+        let fillers = model.settings.removeFillers ?? false
+        let tidy = model.settings.tidy ?? false
+        let engine = model.savedEngine
+        return Card(tr("入力の整え方")) {
+            SwitchRow(model: model, title: tr("英語の前に、空白を足す"), detail: tr("英語を入れるとき、空白を 1 つ足す"), info: tr("英語を、単語のすぐあとに入れるとき、空白を 1 つ足します（日本語には、足しません）"), value: model.settings.smartSpacing ?? true, restart: false) { $0.smartSpacing = $1 ? nil : false }
             RowDivider()
-            SwitchRow(model: model, title: tr("つなぎ言葉（えーと・um など）を消す"), detail: nil, value: model.settings.removeFillers ?? false) { $0.removeFillers = $1 }
-            if model.settings.removeFillers ?? false {   // オフのときは、言葉の欄を、出さない（空の大きな欄が、目立つ）
+            SwitchRow(model: model, title: tr("つなぎ言葉（えーと・um など）を消す"), detail: nil, value: fillers) { $0.removeFillers = $1 }
+            if fillers {
                 RowDivider()
-                VStack(alignment: .leading, spacing: 8) {
-                    TextEditor(text: $model.fillersText)
-                        .font(.system(size: 12)).frame(height: 84).scrollContentBackground(.hidden)
-                        .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-                    HStack {
-                        Button(tr("保存")) { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
-                        Button(tr("既定に戻す")) { model.resetFillers() }.controlSize(.small)
-                    }
-                }
-                .padding(14)
-            }
-        }
-    }
-
-    // MARK: 履歴
-
-    private var historyCard: some View {
-        let on = model.settings.history ?? false
-        let days = DictationHistory.days(setting: model.settings.historyDays)
-        return VStack(alignment: .leading, spacing: 18) {
-            Card(tr("履歴"), footer: on ? tr("古いものは、自動で消えます。1 件ずつ、すべて、消せます。") : tr("オフのあいだは、何も残しません（直前の入力だけは、アプリを終えるまで、メモリに持ちます）。")) {
-                SwitchRow(model: model, title: tr("音声入力の履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは、送りません"), value: on, restart: false) { $0.history = $1 ? true : nil }
-                if on {
-                    RowDivider()
-                    Row(tr("残す日数"), detail: nil) {
-                        Picker("", selection: Binding(get: { days }, set: { value in model.update(restart: false) { $0.historyDays = value == DictationHistory.defaultDays ? nil : value }; list.open(days: value) })) {
-                            ForEach(Self.dayChoices.contains(days) ? Self.dayChoices : (Self.dayChoices + [days]).sorted(), id: \.self) { Text(tr("\($0) 日")).tag($0) }
+                Collapsible(tr("消す言葉の一覧"), summary: tr("1 行に 1 つ")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextEditor(text: $model.fillersText)
+                            .font(.system(size: 12)).frame(height: 84).scrollContentBackground(.hidden)
+                            .padding(6).background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+                        HStack {
+                            Button(tr("保存")) { model.saveFillers() }.buttonStyle(.borderedProminent).tint(Brand.rec1).controlSize(.small)
+                            Button(tr("既定に戻す")) { model.resetFillers() }.controlSize(.small)
+                            InfoButton(text: tr("消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。"))
                         }
-                        .labelsHidden().frame(width: 110)
                     }
+                    .padding(.horizontal, 14).padding(.bottom, 12)
                 }
             }
-            if on || !list.entries.isEmpty {
-                Card(tr("入力した文字")) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField(tr("探す"), text: $list.query).textFieldStyle(.plain)
-                        if !list.query.isEmpty { Button { list.query = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary) }
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 10)
+            RowDivider()
+            SwitchRow(model: model, title: tr("整理する（言い直し・言い間違いを直して入力）"), detail: tr("言語モデルで、整えてから入力します"), info: tr("認識するたびに、スキルを実行するモデル（設定 > モデル）で整えます。数字・否定が変わったときや、遅いとき（10 秒）は、元の文字を入れます") + "\n\n" + tr("固定の約束（文字は、データ・内容を足さない・数字と否定を変えない）は、変えられません。その下に、この指示が足されます。声で頼む内容には、使いません。この指示は、音声入力（会議）の整理にも、使います。"), value: tidy, restart: false) { $0.tidy = $1 ? true : nil }
+            if tidy {
+                if let server = engine.server, !server.isLoopback {
                     RowDivider()
-                    if list.entries.isEmpty {
-                        Text(list.query.isEmpty ? tr("まだ、ありません") : tr("見つかりません")).font(.system(size: 12)).foregroundStyle(.secondary).padding(14)
-                    } else {
-                        ForEach(Array(list.entries.prefix(200).enumerated()), id: \.element.id) { index, entry in
-                            if index > 0 { RowDivider() }
-                            HistoryRow(entry: entry, copy: { DictationActions.copy(entry.text) }, delete: { list.delete(entry) })
-                        }
-                        if list.entries.count > 200 { Text(tr("新しい 200 件を表示しています（探すと、絞れます）")).font(.system(size: 11)).foregroundStyle(.secondary).padding(14) }
-                    }
+                    Label(tr("同じ LAN のサーバー（\(server.endpoint)）へ、話した文字が送られます。"), systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11)).foregroundStyle(Brand.warn).padding(.horizontal, 14).padding(.vertical, 8).fixedSize(horizontal: false, vertical: true)
                 }
-                HStack {
-                    Button(role: .destructive) { confirmClear() } label: { Text(tr("履歴をすべて消す")) }.controlSize(.small).disabled(list.entries.isEmpty && list.query.isEmpty)
-                    if let problem = list.problem { Label(problem, systemImage: "exclamationmark.circle.fill").font(.system(size: 11)).foregroundStyle(.red) }
-                }
+                RowDivider()
+                Collapsible(tr("整え方の指示"), summary: tr("音声入力（会議）と共通")) { InstructionsEditor(model: model, kind: .tidy, title: tr("整え方の指示（英語でも日本語でも）")) }
             }
         }
-    }
-
-    private func confirmClear() {
-        guard AppAlerts.confirm(title: tr("履歴をすべて消しますか？"), message: tr("消した履歴は、戻せません。"), confirm: tr("すべて消す"), style: .warning) else { return }
-        list.clearAll()
-    }
-}
-
-private struct HistoryRow: View {
-    let entry: HistoryEntry
-    let copy: () -> Void
-    let delete: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))).font(.system(size: 11)).foregroundStyle(.secondary)
-                Text(entry.text).font(.system(size: 13)).lineLimit(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 8)
-            Button(action: copy) { Image(systemName: "doc.on.doc") }.buttonStyle(.plain).help(tr("コピー"))
-            Button(action: delete) { Image(systemName: "trash") }.buttonStyle(.plain).foregroundStyle(.secondary).help(tr("この 1 件を消す"))
-        }
-        .padding(.horizontal, 14).padding(.vertical, 10)
     }
 }
 

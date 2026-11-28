@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import VCCore
+import VCSkill
 import VCSpeech
 
 /// 音声入力の、発話ごとの処理（認識した文字を、前面のアプリへ入力する）。`VoiceSession` が使う。
@@ -36,6 +37,17 @@ enum DictationFlow {
                 HUD.shared.show(HUDContent(phase: .info, title: tr("つなぎ言葉だけでした"), hint: tr("入力しません"), chip: chip), hideAfter: 2)
                 return
             }
+        }
+        // 整理モード（設定が on のとき。F79）：言語モデルで整える。**通らない・遅い・失敗は、元の文字**（整理のために、入力は、止まらない）
+        if settings.tidy ?? false {
+            HUD.shared.show(HUDContent(phase: .working, title: tr("整理しています…"), chip: chip))
+            let result = await Tidier(engine: context.engine, instructionsSetting: settings.tidyInstructions).tidy(utterance)
+            if token.isCancelled { return }
+            if case let .kept(_, reason?) = result {
+                notice("\(reason)")
+                HUD.shared.show(HUDContent(phase: .info, title: "\(reason)", chip: chip), hideAfter: 1.6)
+            }
+            utterance = result.text
         }
         if context.options.dryRun {
             print("  " + Style.yellow(tr("入力しません（--dry-run）")) + tr("（\(utterance.count) 文字）"))

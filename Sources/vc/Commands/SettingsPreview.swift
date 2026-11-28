@@ -6,7 +6,7 @@ import VCSkill
 struct SettingsPreviewCommand: Command {
     static let info = CommandInfo(
         name: "settings-preview", group: .evaluation, summary: "設定ウィンドウの見本を、画像（PNG）に書き出す（見た目の確認用。画面は撮らない）",
-        usage: ["vc settings-preview <出力のフォルダ> [--page general|keys|voice|dictation|chat|models|skills] [--height <数>]"],
+        usage: ["vc settings-preview <出力のフォルダ> [--page general|keys|voice|dictation|transcribe|history|chat|models|skills] [--height <数>]"],
         details: [
             "設定ウィンドウ（メニューバーのアプリの「設定…」）の、各ページを、画像にする。画面を撮らない（ビューを、そのまま、描く）ので、画面収録の許可は要らない。",
             "設定は、いつもの設定ファイル（~/.voice-control/settings.json）を読む：自分の設定を写したくなければ、VC_HOME に、空のフォルダを渡す。",
