@@ -74,7 +74,7 @@ struct MeetingDocument {
         let minutes = max(1, Int((end.timeIntervalSince(start) / 60).rounded()))
         out.append("- \(tr("日時"))：\(format("yyyy-MM-dd HH:mm", start))–\(format("HH:mm", end))（\(tr("\(minutes) 分"))）")
         let others = entries.filter { $0.speaker == .others }.count, mine = entries.filter { $0.speaker == .me }.count
-        out.append("- \(tr("発話"))：\(TranscriptLog.name(.others)) \(tr("\(others) 件"))・\(TranscriptLog.name(.me)) \(tr("\(mine) 件"))")
+        out.append("- \(tr("発話"))：\(TranscriptLog.name(.others)) \(tr("\(others) 件"))・\(TranscriptLog.name(.me)) \(tr("\(mine) 件"))")   // l10n-skip：書き出す文書の区切り（画面の文言ではない）
         out.append("")
         // 要約：会議全体（最新の 1 つ）→ ピックアップ（選んだ発話・テーマ）
         if let overall = summaries.last(where: { $0.scope == .all }) {
