@@ -29,7 +29,7 @@ enum KeyKind: Hashable {
         case let .sendKey(index): return tr("キー \(index + 1)")
         case .pasteLast: return tr("直前の入力を貼り直す")
         case .cycleSend: return tr("送るキーを切り替える")
-        case .transcribe: return tr("音声入力（システム）")
+        case .transcribe: return tr("音声入力（会議）")
         }
     }
 
@@ -49,7 +49,7 @@ enum KeyKind: Hashable {
         case .sendKey: return nil
         case .pasteLast: return tr("直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）")
         case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます")
-        case .transcribe: return tr("押すたびに、Mac から出ている音（相手の音声）の文字起こしを、始め・止めます（キーの組み合わせだけ）。上のパネルに波形と文字、Markdown のパネルに内容が出ます")
+        case .transcribe: return tr("押すたびに、会議の文字起こしを、始め・止めます（Mac から出ている音＝相手。設定で、自分のマイクも）。キーの組み合わせだけ。上のパネルに波形と文字、真ん中のパネルにチャットが出ます")
         }
     }
 

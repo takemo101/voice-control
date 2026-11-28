@@ -19,15 +19,17 @@ struct TranscriptPreviewCommand: Command {
         TranscriptWindow.shared.show()
         if arguments.flag("--demo") {
             let base = Date().addingTimeInterval(-900)
-            func entry(_ seconds: Double, _ text: String, raw: String? = nil) -> TranscriptLog.Entry { .init(id: UUID(), date: base.addingTimeInterval(seconds), text: text, raw: raw) }
+            func entry(_ seconds: Double, _ text: String, me: Bool = false, raw: String? = nil) -> TranscriptLog.Entry { .init(id: UUID(), date: base.addingTimeInterval(seconds), speaker: me ? .me : .others, text: text, raw: raw) }
             TranscriptWindow.shared.session.seed(TranscriptLog(entries: [
                 entry(0, "それでは、来週のリリースについて、確認します。"),
                 entry(7, "テストは、水曜日までに終わる予定です。"),
                 entry(12, "ただ、一つだけ、気になる点があります。"),
+                entry(20, "はい、お願いします。", me: true),
+                entry(26, "テストの結果は、いつ共有できますか。", me: true),
                 entry(420, "明日の会議は午後4時からです。", raw: "えーと明日の会議はあの午後4時からです"),
                 entry(431, "資料は、事前に送ってください。"),
                 entry(440, "質問があれば、チャットに書いてください。"),
-            ], tentative: "それから、来週の予定も"))
+            ], tentative: [.others: "それから、来週の予定も", .me: "了解です"]))
             DispatchQueue.main.asyncAfter(deadline: .now() + (arguments.option("--seconds").flatMap(Double.init) ?? 20)) { exit(0) }
             NSApplication.shared.run()
             return

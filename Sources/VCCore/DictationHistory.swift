@@ -2,8 +2,8 @@ import Foundation
 
 /// 音声入力の**履歴**の 1 件（入力した文字と、時刻）。
 public struct HistoryEntry: Codable, Identifiable, Equatable, Sendable {
-    /// 文字の出どころ：`others`＝システム音声の文字起こし（F80。相手の音声）。音声入力（自分の声）の履歴は、なし（nil）。
-    public enum Source: String, Codable, Sendable { case others }
+    /// 文字の出どころ：`others`＝システム音声の文字起こし（F80。相手の音声）・`me`＝同じ文字起こしの、自分のマイク（設定 `transcribeMic`）。音声入力（キーを押して話す）の履歴は、なし（nil）。
+    public enum Source: String, Codable, Sendable { case others, me }
 
     public let id: UUID
     public let date: Date

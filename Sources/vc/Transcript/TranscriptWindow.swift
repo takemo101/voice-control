@@ -60,7 +60,7 @@ import VCSpeech
     }
 
     private func copy(markdown: Bool) {
-        Self.put(markdown ? session.log.markdown(title: tr("音声入力（システム）")) : MarkdownRenderer.plainText(session.log.panelMarkdown(showOriginal: false)))
+        Self.put(markdown ? session.log.markdown(title: tr("音声入力（会議）")) : session.log.plainText())
         panel.copiedAll = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in self?.panel.copiedAll = false }
     }
@@ -85,13 +85,13 @@ import VCSpeech
         Task { @MainActor in
             if session.isActive {
                 await session.stop()
-                HUD.shared.show(HUDContent(phase: .info, title: tr("音声入力（システム）を止めました"), hint: tr("\(session.log.entries.count) 件")), hideAfter: 2)
+                HUD.shared.show(HUDContent(phase: .info, title: tr("音声入力（会議）を止めました"), hint: tr("\(session.log.entries.count) 件")), hideAfter: 2)
                 return
             }
             window?.orderFrontRegardless()
             await start()
             if case let .failed(why) = session.state {
-                HUD.shared.show(HUDContent(phase: .failure, title: tr("音声入力（システム）を始められません"), hint: why), hideAfter: 5)
+                HUD.shared.show(HUDContent(phase: .failure, title: tr("音声入力（会議）を始められません"), hint: why), hideAfter: 5)
             }
         }
     }

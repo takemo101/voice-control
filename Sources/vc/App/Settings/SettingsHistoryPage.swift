@@ -10,7 +10,7 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return tr("すべて")
         case .dictation: return tr("マイク")
-        case .transcript: return tr("システム")
+        case .transcript: return tr("会議")
         }
     }
 
@@ -52,7 +52,7 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// 履歴のページ：音声入力（マイク・システム）の履歴の、オン・オフ・残す日数・一覧。
+/// 履歴のページ：音声入力（マイク・会議）の履歴の、オン・オフ・残す日数・一覧。
 struct HistoryPage: View {
     @ObservedObject var model: SettingsModel
     @StateObject private var list = HistoryList()
@@ -63,7 +63,7 @@ struct HistoryPage: View {
         let on = model.settings.history ?? false
         let days = DictationHistory.days(setting: model.settings.historyDays)
         Card(tr("履歴"), footer: on ? tr("古いものは、自動で消えます。1 件ずつ、すべて、消せます。") : tr("オフのあいだは、何も残しません（直前の入力だけは、アプリを終えるまで、メモリに持ちます）。")) {
-            SwitchRow(model: model, title: tr("音声入力（マイク・システム）の履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは送りません。音声・画面は、残しません。文字起こしでは、整理したときの元の文字も、残します"), value: on, restart: false) { $0.history = $1 ? true : nil }
+            SwitchRow(model: model, title: tr("音声入力（マイク・会議）の履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは送りません。音声・画面は、残しません。文字起こしでは、整理したときの元の文字も、残します"), value: on, restart: false) { $0.history = $1 ? true : nil }
             if on {
                 RowDivider()
                 Row(tr("残す日数"), detail: nil) {
@@ -107,7 +107,7 @@ struct HistoryPage: View {
     }
 
     private func confirmClear() {
-        guard AppAlerts.confirm(title: tr("履歴をすべて消しますか？"), message: tr("マイクとシステムの音声入力の履歴が、すべて消えます。消した履歴は、戻せません。"), confirm: tr("すべて消す"), style: .warning) else { return }
+        guard AppAlerts.confirm(title: tr("履歴をすべて消しますか？"), message: tr("マイクと会議の音声入力の履歴が、すべて消えます。消した履歴は、戻せません。"), confirm: tr("すべて消す"), style: .warning) else { return }
         list.clearAll()
     }
 }
@@ -121,7 +121,7 @@ private struct HistoryRow: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.date.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: L10n.shared.language.bcp47)))
-                     + (entry.source == nil ? "" : " · " + tr("相手の音声"))).font(.system(size: 11)).foregroundStyle(.secondary)
+                     + (entry.source.map { " · " + TranscriptLog.name($0) } ?? "")).font(.system(size: 11)).foregroundStyle(.secondary)
                 Text(entry.text).font(.system(size: 13)).lineLimit(4).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 if let raw = entry.raw { Text(tr("元：\(raw)")).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(3).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
             }

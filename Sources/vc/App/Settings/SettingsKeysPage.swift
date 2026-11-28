@@ -12,7 +12,7 @@ struct KeysPage: View {
 
     var body: some View {
         Callout(symbol: "hand.tap.fill", text: tr("キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。"))
-        Card(tr("話すキー"), footer: tr("修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。音声入力（システム）だけは、押すたびに、開始・停止します（キーの組み合わせだけ）。マイクとシステムは、別々に動かせます。")) {
+        Card(tr("話すキー"), footer: tr("修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。音声入力（会議）だけは、押すたびに、開始・停止します（キーの組み合わせだけ）。マイクと会議は、別々に動かせます。")) {
             ForEach(Array(KeyKind.holdKeys.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)

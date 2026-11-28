@@ -2,11 +2,13 @@ import Foundation
 import VCCore
 import VCSpeech
 
-/// 文字起こしの記録（メモリ）：確定した文の並びと、確定前の文字（SPEC F80。システム音声＝相手の音声）。**純粋**（画面・音声・モデルを、持たない）：更新の適用・整理後の置き換え・Markdown の書き出し。
+/// 文字起こしの記録（メモリ）：確定した文の並びと、話し手ごとの確定前の文字（SPEC F80。相手＝システム音声・自分＝マイク）。**純粋**（画面・音声・モデルを、持たない）：更新の適用・整理後の置き換え・Markdown の書き出し。
 struct TranscriptLog: Equatable {
     struct Entry: Identifiable, Equatable {
         let id: UUID
         let date: Date
+        /// 話し手：相手（システム音声）・自分（マイク）。
+        let speaker: HistoryEntry.Source
         /// 表示する文字（整理が通れば、整理後）。
         var text: String
         /// 整理する前の、元の文字（整理しなかった・通らなかったときは、nil）。
@@ -15,23 +17,24 @@ struct TranscriptLog: Equatable {
 
     private(set) var entries: [Entry] = []
 
+    /// 話し手ごとの、確定前の文字（あとで変わる）。
+    private(set) var tentative: [HistoryEntry.Source: String] = [:]
+
     init() {}
     /// 見た目の確認用（`vc transcript-preview --demo`）：作り物の文を、並べて始める。
-    init(entries: [Entry], tentative: String?) { self.entries = entries; self.tentative = tentative }
-    /// 確定前の文字（あとで変わる）。
-    private(set) var tentative: String?
+    init(entries: [Entry], tentative: [HistoryEntry.Source: String] = [:]) { self.entries = entries; self.tentative = tentative }
 
     /// 認識の更新を、適用する。確定した文が、新しい 1 件になったら、その件を返す（空白だけの文は、足さない）。
     @discardableResult
-    mutating func apply(_ update: SegmentTranscriber.Update) -> Entry? {
+    mutating func apply(_ update: SegmentTranscriber.Update, speaker: HistoryEntry.Source) -> Entry? {
         let text = Self.normalized(update.text)
         guard update.isFinal else {
-            tentative = text.isEmpty ? nil : text
+            tentative[speaker] = text.isEmpty ? nil : text
             return nil
         }
-        tentative = nil
+        tentative[speaker] = nil
         guard !text.isEmpty else { return nil }
-        let entry = Entry(id: UUID(), date: update.date, text: text, raw: nil)
+        let entry = Entry(id: UUID(), date: update.date, speaker: speaker, text: text, raw: nil)
         entries.append(entry)
         return entry
     }
@@ -43,6 +46,9 @@ struct TranscriptLog: Equatable {
         entries[index].text = tidied
     }
 
+    /// 話し手の表示名。
+    static func name(_ speaker: HistoryEntry.Source) -> String { speaker == .others ? tr("相手") : tr("自分") }
+
     /// 空白を整える（認識が、「午後 4時」のように、数字の前後に空白を入れる）：行頭・行末の空白と、連続する空白だけ。文中の 1 つの空白は、そのまま（英語の単語の間）。
     static func normalized(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
@@ -52,7 +58,7 @@ struct TranscriptLog: Equatable {
     enum Row: Identifiable, Equatable {
         /// 時刻の区切り（前の文から、間が空いた）。
         case separator(Date)
-        /// 1 つの吹き出し。`startsGroup`：続けて話した文の、先頭（名前と時刻を出す）。
+        /// 1 つの吹き出し。`startsGroup`：続けて話した文（同じ話し手）の、先頭（名前と時刻を出す）。
         case message(Entry, startsGroup: Bool)
 
         var id: String {
@@ -70,12 +76,13 @@ struct TranscriptLog: Equatable {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let shown = needle.isEmpty ? entries : entries.filter { $0.text.localizedCaseInsensitiveContains(needle) || ($0.raw?.localizedCaseInsensitiveContains(needle) ?? false) }
         var rows: [Row] = []
-        var previous: Date?
+        var previous: Entry?
         for entry in shown {
-            let gap = previous.map { entry.date.timeIntervalSince($0) }
+            let gap = previous.map { entry.date.timeIntervalSince($0.date) }
             if gap == nil || gap! > separatorGap { rows.append(.separator(entry.date)) }
-            rows.append(.message(entry, startsGroup: gap == nil || gap! > groupGap))
-            previous = entry.date
+            // 話し手が替わったら、続きではない（名前と時刻を、出し直す）
+            rows.append(.message(entry, startsGroup: gap == nil || gap! > groupGap || previous?.speaker != entry.speaker))
+            previous = entry
         }
         return rows
     }
@@ -84,17 +91,23 @@ struct TranscriptLog: Equatable {
     func panelMarkdown(showOriginal: Bool = true, locale: Locale = Locale(identifier: "ja_JP")) -> String {
         let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
         return entries.map { entry in
-            var block = "`\(time.string(from: entry.date))` \(entry.text)"
+            var block = "`\(time.string(from: entry.date))` **\(Self.name(entry.speaker))** \(entry.text)"
             if showOriginal, let raw = entry.raw { block += "  \n*\(tr("元：\(raw)"))*" }
             return block
         }.joined(separator: "\n\n")
+    }
+
+    /// テキスト（コピー用）：1 件 1 行「09:31:33 相手: 本文」（整理後の文字だけ。話し手が、分かる）。
+    func plainText(locale: Locale = Locale(identifier: "ja_JP")) -> String {
+        let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
+        return entries.map { "\(time.string(from: $0.date)) \(Self.name($0.speaker)): \($0.text)" }.joined(separator: "\n") + (entries.isEmpty ? "" : "\n")
     }
 
     /// Markdown（コピー・書き出し用）：見出し＋ 1 件 1 行「- 10:02:11 本文」（整理後の文字だけ）。
     func markdown(title: String, locale: Locale = Locale(identifier: "ja_JP")) -> String {
         let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
         var lines = ["# \(title)", ""]
-        for entry in entries { lines.append("- \(time.string(from: entry.date)) \(entry.text)") }
+        for entry in entries { lines.append("- **\(Self.name(entry.speaker))** \(time.string(from: entry.date)) \(entry.text)") }
         return lines.joined(separator: "\n") + "\n"
     }
 }

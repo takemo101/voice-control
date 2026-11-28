@@ -81,7 +81,7 @@ import VCCore
         sendItem.submenu = sendMenu
         menu.addItem(sendItem)
         menu.addItem(.separator())
-        menu.addItem(action(tr("音声入力（システム）を開く"), #selector(openTranscript)))
+        menu.addItem(action(tr("音声入力（会議）を開く"), #selector(openTranscript)))
         menu.addItem(action(tr("会話を開く"), #selector(openChat)))
         menu.addItem(action(tr("会話をリセット"), #selector(resetConversation)))
         menu.addItem(action(tr("診断…"), #selector(showDoctor)))

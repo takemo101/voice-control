@@ -10,30 +10,31 @@ import VCSpeech
         SegmentTranscriber.Update(text: text, isFinal: final, date: Date(timeIntervalSince1970: 1_800_000_000 + seconds))
     }
 
-    @Test func tentativeTextIsReplacedAndAFinalSentenceBecomesOneEntryAndClearsIt() {
+    @Test func tentativeTextIsKeptPerSpeakerAndAFinalSentenceBecomesOneEntryAndClearsOnlyThatSpeakers() {
         var log = TranscriptLog()
-        #expect(log.apply(update("今日は", final: false)) == nil)
-        log.apply(update("今日はいい", final: false))
-        #expect(log.tentative == "今日はいい" && log.entries.isEmpty)   // 確定前は、置き換わる（足されない）
-        let entry = log.apply(update("今日はいい天気ですね。", final: true))
-        #expect(entry?.text == "今日はいい天気ですね。" && entry?.raw == nil)
-        #expect(log.entries.count == 1 && log.tentative == nil)
+        #expect(log.apply(update("今日は", final: false), speaker: .others) == nil)
+        log.apply(update("今日はいい", final: false), speaker: .others)
+        log.apply(update("了解です", final: false), speaker: .me)
+        #expect(log.tentative == [.others: "今日はいい", .me: "了解です"] && log.entries.isEmpty)   // 確定前は、置き換わる・話し手ごと
+        let entry = log.apply(update("今日はいい天気ですね。", final: true), speaker: .others)
+        #expect(entry?.text == "今日はいい天気ですね。" && entry?.speaker == .others && entry?.raw == nil)
+        #expect(log.entries.count == 1 && log.tentative == [.me: "了解です"])   // 自分の確定前は、そのまま
     }
 
     @Test func blankFinalsAreIgnoredAndSpacesAreTidiedButASingleSpaceInsideStays() {
         var log = TranscriptLog()
-        #expect(log.apply(update("  \n ", final: true)) == nil && log.entries.isEmpty)
-        let entry = log.apply(update("  午後  4時からです  ", final: true))
+        #expect(log.apply(update("  \n ", final: true), speaker: .others) == nil && log.entries.isEmpty)
+        let entry = log.apply(update("  午後  4時からです  ", final: true), speaker: .others)
         #expect(entry?.text == "午後 4時からです")
     }
 
     @Test func aTidiedTextReplacesTheDisplayedOneAndKeepsTheOriginalOnlyWhenItChanged() throws {
         var log = TranscriptLog()
-        let first = log.apply(update("えーと明日は3時、いや4時です", final: true))
+        let first = log.apply(update("えーと明日は3時、いや4時です", final: true), speaker: .others)
         let entry = try #require(first)
         log.replace(id: entry.id, tidied: "明日は4時です。")
         #expect(log.entries[0].text == "明日は4時です。" && log.entries[0].raw == "えーと明日は3時、いや4時です")
-        let second = log.apply(update("そのままです", final: true))
+        let second = log.apply(update("そのままです", final: true), speaker: .others)
         let same = try #require(second)
         log.replace(id: same.id, tidied: "そのままです")   // 変わらなければ、元は、残さない
         #expect(log.entries[1].raw == nil)
@@ -41,8 +42,8 @@ import VCSpeech
 
     @Test func thePanelShowsEachSentenceWithItsTimeAndTheOriginalOnlyWhenItWasTidied() throws {
         var log = TranscriptLog()
-        let first = log.apply(update("えーと明日は3時、いや4時です", final: true))
-        log.apply(update("そのままです", final: true))
+        let first = log.apply(update("えーと明日は3時、いや4時です", final: true), speaker: .others)
+        log.apply(update("そのままです", final: true), speaker: .others)
         log.replace(id: try #require(first).id, tidied: "明日は4時です。")
         let panel = log.panelMarkdown()
         #expect(panel.contains("明日は4時です。") && panel.contains("えーと明日は3時、いや4時です") && panel.contains("そのままです"))
@@ -52,10 +53,10 @@ import VCSpeech
     /// チャットの並び：続けて話した文はまとめ（先頭だけ名前・時刻）・間が空いたら、時刻の区切り・探すと、含む文だけ。
     @Test func rowsGroupSentencesSpokenCloseTogetherAndSeparateLongPauses() {
         var log = TranscriptLog()
-        log.apply(update("一つ目です。", final: true, at: 0))
-        log.apply(update("二つ目です。", final: true, at: 10))     // 10 秒後：同じ話の続き
-        log.apply(update("三つ目です。", final: true, at: 40))     // 30 秒後：新しい話（区切りは、なし）
-        log.apply(update("四つ目です。", final: true, at: 1000))   // 16 分後：時刻の区切り
+        log.apply(update("一つ目です。", final: true, at: 0), speaker: .others)
+        log.apply(update("二つ目です。", final: true, at: 10), speaker: .others)     // 10 秒後：同じ話の続き
+        log.apply(update("三つ目です。", final: true, at: 40), speaker: .others)     // 30 秒後：新しい話（区切りは、なし）
+        log.apply(update("四つ目です。", final: true, at: 1000), speaker: .others)   // 16 分後：時刻の区切り
         let rows = log.rows()
         let shape = rows.map { row -> String in
             switch row {
@@ -71,29 +72,44 @@ import VCSpeech
 
     @Test func searchAlsoFindsTheOriginalTextOfATidiedSentence() throws {
         var log = TranscriptLog()
-        let entry = log.apply(update("えーと明日は3時、いや4時です", final: true))
+        let entry = log.apply(update("えーと明日は3時、いや4時です", final: true), speaker: .others)
         log.replace(id: try #require(entry).id, tidied: "明日は4時です。")
         #expect(log.rows(matching: "3時").count == 2)   // 元の文字にだけある語でも、見つかる
     }
 
-    @Test func theMarkdownListsEachEntryWithItsTime() {
+    /// コピー・書き出しで、相手と自分が、区別できる（Markdown・テキスト・パネル）。
+    @Test func exportsTellTheOtherPartyFromMe() {
         var log = TranscriptLog()
-        log.apply(update("こんにちは。", final: true, at: 0))
-        log.apply(update("はじめまして。", final: true, at: 5))
-        let markdown = log.markdown(title: "文字起こし")
-        #expect(markdown.hasPrefix("# 文字起こし\n") && markdown.contains("こんにちは。") && markdown.contains("はじめまして。"))
+        log.apply(update("こんにちは。", final: true, at: 0), speaker: .others)
+        log.apply(update("はじめまして。", final: true, at: 5), speaker: .me)
+        let markdown = log.markdown(title: "会議")
+        #expect(markdown.hasPrefix("# 会議\n") && markdown.contains("**相手**") && markdown.contains("**自分**"))
+        let lines = markdown.split(separator: "\n").filter { $0.hasPrefix("- ") }
+        #expect(lines.count == 2 && lines[0].contains("相手") && lines[0].contains("こんにちは。") && lines[1].contains("自分") && lines[1].contains("はじめまして。"))
+        let text = log.plainText().split(separator: "\n").map(String.init)
+        #expect(text.count == 2 && text[0].contains("相手: こんにちは。") && text[1].contains("自分: はじめまして。"))
+        #expect(log.panelMarkdown().contains("**相手**") && log.panelMarkdown().contains("**自分**"))
+    }
+
+    @Test func aChangeOfSpeakerStartsANewGroupEvenWhenTheyAnswerQuickly() {
+        var log = TranscriptLog()
+        log.apply(update("質問です。", final: true, at: 0), speaker: .others)
+        log.apply(update("はい。", final: true, at: 2), speaker: .me)        // 2 秒後でも、話し手が替わった：先頭
+        log.apply(update("続けます。", final: true, at: 4), speaker: .me)    // 同じ話し手が続く：まとめる
+        let groups = log.rows().compactMap { row -> Bool? in if case let .message(_, start) = row { return start } else { return nil } }
+        #expect(groups == [true, true, false])
     }
 }
 
-/// システム音声（相手の音声）の整理は、自分の声（音声入力）の整理とは、別の設定（F79・F80）。
+/// 相手（会議の音）の整理は `tidySystem`・自分の声の整理は `tidy`：別々のスイッチ（F79・F80）。
 @Suite struct TranscriptTidySwitchTests {
-    @Test func theOtherPartysAudioIsTidiedOnlyByItsOwnSwitchNotByTheDictationOne() {
+    @Test func theOtherPartyAndMyOwnVoiceAreTidiedIndependently() {
         var settings = Settings()
-        #expect(!TranscriptSession.tidies(settings: settings))
-        settings.tidy = true   // 自分の声の整理：相手の音声には、効かない
-        #expect(!TranscriptSession.tidies(settings: settings))
+        #expect(!TranscriptSession.tidies(.others, settings: settings) && !TranscriptSession.tidies(.me, settings: settings))
         settings.tidySystem = true
-        #expect(TranscriptSession.tidies(settings: settings))
+        #expect(TranscriptSession.tidies(.others, settings: settings) && !TranscriptSession.tidies(.me, settings: settings))
+        settings.tidySystem = nil; settings.tidy = true
+        #expect(!TranscriptSession.tidies(.others, settings: settings) && TranscriptSession.tidies(.me, settings: settings))
     }
 }
 

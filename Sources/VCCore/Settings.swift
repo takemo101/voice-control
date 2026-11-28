@@ -30,6 +30,7 @@ import Foundation
 /// - `smartSpacing`：英語の文字を、**単語のすぐあとに入れるとき、空白を 1 つ足す**か。なければ、足す（日本語には、働かない）。
 /// - `stt`：使う音声認識（`apple`、またはダウンロードしたモデルの ID。解釈は Speech 層）。なければ、Apple の `SpeechTranscriber`。
 /// - `mute`：録音中に、ほかの音（出力）を消すか。`true` が既定（なければ、消す）。`false` なら、流したまま。
+/// - `transcribeMic`：システム音声の文字起こしに、**自分のマイクも、並べる**か（常時。なければ、並べない。スピーカーだと、マイクが相手の声を拾うので、ヘッドホンを勧める）。自分の声の整理は `tidy`・相手は `tidySystem`（別々）。
 /// - `transcribeApps`：**システム音声の文字起こし**（F80）で取り込むアプリの bundle ID（なければ、Mac から出ている音すべて）。
 /// - `transcribeHotkey`：**システム音声（相手の音声）の文字起こし（F80）の開始・停止**のショートカット（キーの組み合わせ。なければ、ショートカットなし：ウィンドウのボタンから）。**自分の声は、音声入力（`dictateHotkey`）をそのまま使う**：音声入力のキーとは、別。
 /// - `tidySystem`：整理（F79）を、**システム音声の文字起こし（相手）に**効かせるか（なければ、効かせない）。`tidy` は、自分の声（音声入力）。整え方の指示（`tidyInstructions`）は、共通。
@@ -76,6 +77,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var voice: String?
     public var mute: Bool?
     public var transcribeApps: [String]?
+    public var transcribeMic: Bool?
     public var transcribeHotkey: String?
     public var tidySystem: Bool?
     public var tidy: Bool?
@@ -126,6 +128,7 @@ public struct Settings: Codable, Sendable, Equatable {
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         mute = try c.decodeIfPresent(Bool.self, forKey: .mute)
         transcribeApps = try c.decodeIfPresent([String].self, forKey: .transcribeApps)
+        transcribeMic = try c.decodeIfPresent(Bool.self, forKey: .transcribeMic)
         transcribeHotkey = try c.decodeIfPresent(String.self, forKey: .transcribeHotkey)
         tidySystem = try c.decodeIfPresent(Bool.self, forKey: .tidySystem)
         tidy = try c.decodeIfPresent(Bool.self, forKey: .tidy)

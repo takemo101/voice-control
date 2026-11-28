@@ -20,6 +20,9 @@ private enum TranscriptPalette {
     static let teal = Color(red: 0.30, green: 0.85, blue: 0.80)
     static let blue = Color(red: 0.30, green: 0.62, blue: 1.0)
     static let orange = Color(red: 1.0, green: 0.62, blue: 0.25)
+    static let purple = Color(red: 0.58, green: 0.40, blue: 0.96)
+    /// 自分の吹き出し（会話のウィンドウの、自分の質問と、同じ色）。
+    static var mine: LinearGradient { LinearGradient(colors: [blue.opacity(0.85), purple.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing) }
     static var brand: LinearGradient { LinearGradient(colors: [teal, blue], startPoint: .topLeading, endPoint: .bottomTrailing) }
     static let bottomAnchor = "transcript-bottom"
 }
@@ -41,6 +44,10 @@ struct TranscriptPanelView: View {
         VStack(spacing: 0) {
             header
             Rule()
+            if let notice = session.notice {
+                Label(notice, systemImage: "exclamationmark.triangle.fill").vcFont(11).foregroundStyle(TranscriptPalette.orange).lineLimit(2)
+                    .padding(.horizontal, 18).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading).background(TranscriptPalette.orange.opacity(0.10))
+            }
             conversation
             if !session.log.entries.isEmpty {
                 Rule()
@@ -62,9 +69,10 @@ struct TranscriptPanelView: View {
             }
             .shadow(color: TranscriptPalette.teal.opacity(0.4), radius: 8, y: 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text(tr("音声入力（システム）")).vcFont(16, weight: .semibold).foregroundStyle(.white)
+                Text(tr("音声入力（会議）")).vcFont(16, weight: .semibold).foregroundStyle(.white)
                 HStack(spacing: 8) {
                     StatusDot(state: session.state)
+                    if session.micState != .idle { MicStatus(state: session.micState) }
                     if let target = panel.targetName { Pill(text: target, symbol: "app.badge") }
                     if !session.log.entries.isEmpty { Pill(text: tr("\(session.log.entries.count) 件"), symbol: "text.bubble") }
                 }
@@ -99,7 +107,7 @@ struct TranscriptPanelView: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
-                    if session.log.entries.isEmpty && session.log.tentative == nil {
+                    if session.log.entries.isEmpty && session.log.tentative.isEmpty {
                         EmptyPanel(state: session.state, keyHint: panel.keyHint).frame(maxWidth: .infinity).padding(.top, 70)
                     } else if rows.isEmpty {
                         Text(tr("見つかりません")).vcFont(12).foregroundStyle(.white.opacity(0.5)).frame(maxWidth: .infinity).padding(.top, 40)
@@ -134,7 +142,7 @@ struct TranscriptPanelView: View {
             .scrollEdgeEffectStyle(.soft, for: .vertical)
             // 新しい文が来たら、下へ（読み返している間は、動かさない：「最新へ」で戻る）
             .onChange(of: session.log.entries.count) { follow(proxy) }
-            .onChange(of: session.log.tentative) { follow(proxy) }
+            .onChange(of: session.log.tentative) { follow(proxy) }   // 話し手ごとの確定前の文字
             .onAppear { proxy.scrollTo(TranscriptPalette.bottomAnchor, anchor: .bottom) }
         }
     }
@@ -144,22 +152,12 @@ struct TranscriptPanelView: View {
         withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(TranscriptPalette.bottomAnchor, anchor: .bottom) }
     }
 
-    /// いま聞こえている文（確定前）：点線の吹き出し。何も聞こえていない間は、「聞いています」の表示。
+    /// いま聞こえている文（確定前）：点線の吹き出し（相手は左・自分は右）。何も聞こえていない間は、「聞いています」の表示。
     @ViewBuilder private var liveBubble: some View {
-        if let text = session.log.tentative {
-            HStack(alignment: .bottom, spacing: 8) {
-                Avatar(visible: true)
-                HStack(alignment: .bottom, spacing: 6) {
-                    Text(text).vcFont(14, weight: .medium).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
-                    Image(systemName: "ellipsis").vcFont(12, weight: .bold).foregroundStyle(TranscriptPalette.teal.opacity(0.8)).symbolEffect(.variableColor.iterative)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.035)))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(TranscriptPalette.teal.opacity(0.35), style: StrokeStyle(lineWidth: 0.8, dash: [4, 3])))
-                Spacer(minLength: 40)
-            }
-            .padding(.top, 8)
-        } else if session.state == .running, !session.log.entries.isEmpty {   // 文がまだないときは、空の画面の案内が、その役目をする
+        ForEach([HistoryEntry.Source.others, .me], id: \.self) { speaker in
+            if let text = session.log.tentative[speaker] { LiveBubble(speaker: speaker, text: text).padding(.top, 8) }
+        }
+        if session.log.tentative.isEmpty, session.state == .running, !session.log.entries.isEmpty {   // 文がまだないときは、空の画面の案内が、その役目をする
             HStack(spacing: 8) {
                 Image(systemName: "waveform").vcFont(12, weight: .semibold).foregroundStyle(TranscriptPalette.teal).symbolEffect(.variableColor.iterative.reversing)
                 Text(tr("聞いています…")).vcFont(11, weight: .medium).foregroundStyle(.white.opacity(0.45))
@@ -237,18 +235,23 @@ private struct TimeSeparator: View {
 /// 相手のアイコン（続けて話した文では、場所だけ空ける）。
 private struct Avatar: View {
     let visible: Bool
+    var speaker: HistoryEntry.Source = .others
     var body: some View {
         ZStack {
             if visible {
                 Circle().fill(.white.opacity(0.10))
-                Image(systemName: "person.wave.2.fill").vcFont(11, weight: .semibold).foregroundStyle(TranscriptPalette.brand)
+                if speaker == .others {
+                    Image(systemName: "person.wave.2.fill").vcFont(11, weight: .semibold).foregroundStyle(TranscriptPalette.brand)
+                } else {
+                    Image(systemName: "mic.fill").vcFont(11, weight: .semibold).foregroundStyle(TranscriptPalette.mine)
+                }
             }
         }
         .frame(width: 28, height: 28)
     }
 }
 
-/// 確定した 1 文の吹き出し。整理したときは、「整理済み」を出し、押すと、元の文字が開く。触れると、コピーのボタン。
+/// 確定した 1 文の吹き出し。相手は左（薄い面）・自分は右（会話のウィンドウの、自分の質問と同じ色）。整理したときは、「整理済み」を出し、押すと、元の文字が開く。触れると、コピーのボタン。
 private struct Bubble: View {
     let entry: TranscriptLog.Entry
     let startsGroup: Bool
@@ -256,26 +259,32 @@ private struct Bubble: View {
     let copy: () -> Void
     @StateObject private var hover = HoverState()
 
+    private var mine: Bool { entry.speaker == .me }
+
+    private var shape: UnevenRoundedRectangle {
+        // 話の先頭の吹き出しは、アイコン側の角を、小さく（しっぽ）
+        UnevenRoundedRectangle(topLeadingRadius: !mine && startsGroup ? 5 : 18, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: mine && startsGroup ? 5 : 18, style: .continuous)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Avatar(visible: startsGroup)
-            VStack(alignment: .leading, spacing: 4) {
+            if mine { Spacer(minLength: 40) } else { Avatar(visible: startsGroup, speaker: entry.speaker) }
+            VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if startsGroup {
                     HStack(spacing: 6) {
-                        Text(tr("相手")).vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
+                        Text(TranscriptLog.name(entry.speaker)).vcFont(11, weight: .semibold).foregroundStyle(.white.opacity(0.6))
                         Text(entry.date, format: .dateTime.hour().minute().second()).vcFont(10).foregroundStyle(.white.opacity(0.32))
                     }
                 }
                 HStack(alignment: .center, spacing: 6) {
+                    if mine { copyButton }
                     Text(entry.text)
                         .vcFont(14, weight: .medium).foregroundStyle(.white.opacity(0.95))
                         .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 14).padding(.vertical, 10)
-                        .background(UnevenRoundedRectangle(topLeadingRadius: startsGroup ? 5 : 18, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous).fill(.white.opacity(0.08)))
-                        .overlay(UnevenRoundedRectangle(topLeadingRadius: startsGroup ? 5 : 18, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.7))
-                    Button(action: copy) { Image(systemName: "doc.on.doc").vcFont(11) }
-                        .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("この文をコピー"))
-                        .opacity(hover.on ? 1 : 0)
+                        .background(mine ? AnyShapeStyle(TranscriptPalette.mine) : AnyShapeStyle(.white.opacity(0.08)), in: shape)
+                        .overlay(shape.strokeBorder(.white.opacity(mine ? 0.0 : 0.10), lineWidth: 0.7))
+                    if !mine { copyButton }
                 }
                 if let raw = entry.raw {
                     let open = panel.openOriginals.contains(entry.id)
@@ -291,10 +300,51 @@ private struct Bubble: View {
                     }
                 }
             }
-            Spacer(minLength: 40)
+            if mine { Avatar(visible: startsGroup, speaker: entry.speaker) } else { Spacer(minLength: 40) }
         }
         .contentShape(Rectangle())
         .onHover { hover.on = $0 }
+    }
+
+    private var copyButton: some View {
+        Button(action: copy) { Image(systemName: "doc.on.doc").vcFont(11) }
+            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55)).help(tr("この文をコピー"))
+            .opacity(hover.on ? 1 : 0)
+    }
+}
+
+/// いま聞こえている文（確定前）の、点線の吹き出し。
+private struct LiveBubble: View {
+    let speaker: HistoryEntry.Source
+    let text: String
+
+    var body: some View {
+        let mine = speaker == .me
+        HStack(alignment: .bottom, spacing: 8) {
+            if mine { Spacer(minLength: 40) } else { Avatar(visible: true, speaker: speaker) }
+            HStack(alignment: .bottom, spacing: 6) {
+                Text(text).vcFont(14, weight: .medium).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "ellipsis").vcFont(12, weight: .bold).foregroundStyle((mine ? TranscriptPalette.blue : TranscriptPalette.teal).opacity(0.8)).symbolEffect(.variableColor.iterative)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.035)))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder((mine ? TranscriptPalette.blue : TranscriptPalette.teal).opacity(0.35), style: StrokeStyle(lineWidth: 0.8, dash: [4, 3])))
+            if mine { Avatar(visible: true, speaker: speaker) } else { Spacer(minLength: 40) }
+        }
+    }
+}
+
+/// 自分のマイクの状態（設定 `transcribeMic` がオンのとき）。
+private struct MicStatus: View {
+    let state: TranscriptSession.State
+
+    var body: some View {
+        switch state {
+        case .running: Pill(text: tr("自分：聞いています"), symbol: "mic.fill")
+        case .starting: Pill(text: tr("自分：始めています…"), symbol: "mic")
+        case let .failed(why): Label(tr("自分：\(why)"), systemImage: "mic.slash.fill").vcFont(10.5, weight: .medium, maxScale: 1.15).foregroundStyle(TranscriptPalette.orange).lineLimit(2)
+        case .idle: EmptyView()
+        }
     }
 }
 
@@ -310,7 +360,7 @@ private struct EmptyPanel: View {
                 Image(systemName: state == .running ? "waveform" : "captions.bubble").vcFont(26, weight: .semibold).foregroundStyle(TranscriptPalette.brand)
                     .symbolEffect(.variableColor.iterative.reversing, isActive: state == .running)
             }
-            Text(state == .running ? tr("音が出るのを、待っています") : tr("相手の音声を、文字にします")).vcFont(16, weight: .semibold).foregroundStyle(.white.opacity(0.9))
+            Text(state == .running ? tr("音が出るのを、待っています") : tr("会議の音を、文字にします")).vcFont(16, weight: .semibold).foregroundStyle(.white.opacity(0.9))
             if state == .running {
                 Text(tr("会議や動画の音が出ると、ここに、チャットのように並びます。")).vcFont(12).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.5))
             } else {
