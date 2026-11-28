@@ -70,6 +70,7 @@ struct TabBar: View {
 
 /// 要約の面：上に「要約を作る」（会議全体・テーマ・選んだ発話）・その下に、できた要約（新しい順の、大きなカード）。**言語モデルによる言い換え**であることを、明示する。
 struct SummaryTab: View {
+    @Environment(\.fontScale) private var scale
     @ObservedObject var session: TranscriptSession
     @ObservedObject var panel: TranscriptPanelState
     let actions: TranscriptPanelActions
@@ -116,7 +117,7 @@ struct SummaryTab: View {
             .buttonStyle(.plain).disabled(busy || !hasText)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(tr("テーマで絞って要約")).vcFont(12, weight: .semibold).foregroundStyle(.white.opacity(0.7))
+                Text(tr("テーマ・コメントで絞って要約")).vcFont(12, weight: .semibold).foregroundStyle(.white.opacity(0.7))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(Self.topics, id: \.self) { topic in
                         Button { run(topic) } label: {
@@ -126,12 +127,19 @@ struct SummaryTab: View {
                         .buttonStyle(.plain).disabled(busy || !hasText)
                     }
                 }
-                HStack(spacing: 8) {
-                    TextField(tr("ほかのテーマを入力（例：予算）"), text: $panel.focusText).textFieldStyle(.plain).vcFont(13).foregroundStyle(.white).onSubmit { run(panel.focusText) }
-                    Button { run(panel.focusText) } label: { Image(systemName: "arrow.up.circle.fill").vcFont(22).foregroundStyle(canRunFocus ? TranscriptPalette.teal : .white.opacity(0.25)) }
+                // テーマ・コメント：会話の入力欄と同じ（複数行：Return で要約・⇧Return で改行）
+                HStack(alignment: .bottom, spacing: 8) {
+                    ZStack(alignment: .topLeading) {
+                        if panel.focusText.isEmpty {
+                            Text(tr("テーマやコメント（⇧Return で改行）")).vcFont(13).foregroundStyle(.white.opacity(0.42)).lineLimit(1).allowsHitTesting(false)
+                        }
+                        ComposerField(text: $panel.focusText, fontSize: 13 * scale, onSend: { run(panel.focusText) })
+                    }
+                    Button { run(panel.focusText) } label: { Image(systemName: "arrow.up.circle.fill").vcFont(24).foregroundStyle(canRunFocus ? TranscriptPalette.teal : .white.opacity(0.25)) }
                         .buttonStyle(.plain).disabled(!canRunFocus)
                 }
-                .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 5).background(Capsule().fill(.white.opacity(0.07)))
+                .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.07)))
             }
 
             Button { panel.tab = .chat; panel.selecting = true } label: {
@@ -217,7 +225,7 @@ private struct SummaryItemView: View {
         switch item.scope {
         case .all: return tr("会議全体")
         case let .selected(count): return tr("選んだ \(count) 件")
-        case let .focus(topic): return tr("テーマ：\(topic)")
+        case let .focus(topic): return tr("テーマ：\(topic.split(whereSeparator: \.isNewline).first.map(String.init) ?? topic)")
         }
     }
 

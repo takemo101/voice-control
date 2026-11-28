@@ -83,7 +83,7 @@ struct MeetingDocument {
         for pick in summaries where pick.scope != .all {
             let heading: String
             switch pick.scope {
-            case let .focus(topic): heading = tr("ピックアップ：\(topic)")
+            case let .focus(topic): heading = tr("ピックアップ：\(topic.split(whereSeparator: \.isNewline).joined(separator: " "))")
             case let .selected(count): heading = tr("ピックアップ：選んだ \(count) 件")
             case .all: heading = ""
             }

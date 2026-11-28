@@ -65,13 +65,11 @@ extension EnglishTables {
         "解除": "Clear",
         "言語モデルによる要約です（言い換え）。正確さは、文字起こしで確かめてください。": "This is a language-model summary (a paraphrase). Check accuracy against the transcript.",
         "選んだ %@ 件": "%@ selected",
-        "テーマで絞って要約": "Summarize by topic",
         "自分のマイクを、外す": "Remove my microphone",
         "自分のマイクも、文字にする（ヘッドホンを使ってください）": "Also transcribe my microphone (use headphones)",
         "自分：次から入ります": "Me: from the next start",
         "自分のマイク：オフ": "My microphone: off",
         "設定を保存できませんでした": "Couldn't save the setting",
-        "ほかのテーマを入力（例：予算）": "Enter another topic (e.g. the budget)",
         "まだ、要約がありません": "No summary yet",
         "話が出てから、要約できます": "You can summarize once there is something said",
         "決まったこと": "Decisions",
@@ -120,5 +118,7 @@ extension EnglishTables {
         "開始・停止も、ここから": "You can also start/stop here",
         "音声入力（会議）と共通": "Shared with Voice input (meeting)",
         "音楽・通話を、マイクが拾わないように": "So the mic doesn't pick up music or calls",
+        "テーマ・コメントで絞って要約": "Summarize by topic or comment",
+        "テーマやコメント（⇧Return で改行）": "Topic or comment (⇧Return for a new line)",
     ]
 }

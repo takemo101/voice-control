@@ -74,9 +74,7 @@ extension EnglishTables {
         "自分：始めています…": "Me: starting…",
         "自分：聞いています": "Me: listening",
         "マイクの入力が、ありません": "No microphone input",
-        "相手と自分が、チャットの形で、時刻つきで並ぶ": "The other party and you line up as a chat, with timestamps",
         "会議のパネル": "Meeting panel",
-        "会議のチャットが出ます。開始と停止も、ここのボタンで、できます": "The meeting chat appears here. You can also start and stop with this button",
         "会議の履歴": "Meeting history",
     ]
 }

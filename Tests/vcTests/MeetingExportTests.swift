@@ -41,6 +41,12 @@ import VCCore
         #expect(summaryAt.lowerBound < transcriptAt.lowerBound)   // 要約が、先
     }
 
+    @Test func aMultiLineTopicStaysOnOneLineInTheHeading() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let md = MeetingDocument(start: start, end: start, entries: [], summaries: [MeetingSummary(date: start, scope: .focus("予算の話\n担当者ごとに"), text: "- 500 万円")]).markdown()
+        #expect(md.contains("## ピックアップ：予算の話 担当者ごとに\n"))
+    }
+
     @Test func withoutASummaryThereIsNoSummarySectionAndTheLatestOverallOneWins() {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         let none = MeetingDocument(start: start, end: start, entries: [], summaries: []).markdown()
