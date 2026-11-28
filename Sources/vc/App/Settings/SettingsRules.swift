@@ -40,7 +40,8 @@ enum KeyKind: Hashable {
     /// キーの組み合わせだけ使える、操作のショートカットか（長押しは、使えない）。
     var isAction: Bool { self == .shot || self == .pasteLast || self == .cycleSend || self == .transcribe }
 
-    var help: String? {
+    /// 長い説明（ⓘ のポップオーバー）。
+    var info: String? {
         switch self {
         case .listen: return tr("押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）")
         case .dictate: return tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（自分の声。スキルは使いません）")
@@ -50,6 +51,20 @@ enum KeyKind: Hashable {
         case .pasteLast: return tr("直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）")
         case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます")
         case .transcribe: return tr("押すたびに、会議の文字起こしを、始め・止めます（Mac から出ている音＝相手。設定で、自分のマイクも）。キーの組み合わせだけ。上のパネルに波形と文字、真ん中のパネルにチャットが出ます")
+        }
+    }
+
+    /// 行に出す、短い説明（1 行）。
+    var help: String? {
+        switch self {
+        case .listen: return tr("押している間だけ話し、離すとスキルを実行")
+        case .dictate: return tr("押している間だけ話し、文字を入力（自分の声）")
+        case .chat: return tr("押している間だけ話し、会話で質問")
+        case .shot: return tr("範囲を選んで、声で頼む（組み合わせのキー）")
+        case .sendKey: return nil
+        case .pasteLast: return tr("直前の入力を、もう一度入れる")
+        case .cycleSend: return tr("送るキーを、順に切り替える")
+        case .transcribe: return tr("押すたびに、会議の文字起こしを始め・止め")
         }
     }
 

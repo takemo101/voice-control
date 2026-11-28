@@ -63,7 +63,7 @@ struct HistoryPage: View {
         let on = model.settings.history ?? false
         let days = DictationHistory.days(setting: model.settings.historyDays)
         Card(tr("履歴"), footer: on ? tr("古いものは、自動で消えます。1 件ずつ、すべて、消せます。") : tr("オフのあいだは、何も残しません（直前の入力だけは、アプリを終えるまで、メモリに持ちます）。")) {
-            SwitchRow(model: model, title: tr("音声入力（マイク・会議）の履歴を残す"), detail: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは送りません。音声・画面は、残しません。文字起こしでは、整理したときの元の文字も、残します"), value: on, restart: false) { $0.history = $1 ? true : nil }
+            SwitchRow(model: model, title: tr("音声入力（マイク・会議）の履歴を残す"), detail: tr("文字と時刻だけを、この Mac に残す"), info: tr("入力した文字と時刻だけを、この Mac の中に、あなただけが読める形で残します。外へは送りません。音声・画面は、残しません。文字起こしでは、整理したときの元の文字も、残します"), value: on, restart: false) { $0.history = $1 ? true : nil }
             if on {
                 RowDivider()
                 Row(tr("残す日数"), detail: nil) {

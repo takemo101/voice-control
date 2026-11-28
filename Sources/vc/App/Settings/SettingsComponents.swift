@@ -81,19 +81,79 @@ struct Callout: View {
     }
 }
 
-/// 角丸のカード。題名（小さく）・中身・補足。
+/// 「ⓘ」を押すと、説明が、ポップオーバーで開く（長い説明を、画面に、常に出さない）。
+struct InfoButton: View {
+    let text: String
+    @StateObject private var state = PopoverState()
+
+    var body: some View {
+        Button { state.shown.toggle() } label: {
+            Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(state.shown ? Brand.rec1 : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tr("説明"))
+        .popover(isPresented: Binding(get: { state.shown }, set: { state.shown = $0 }), arrowEdge: .bottom) {
+            Text(text).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true).frame(width: 300, alignment: .leading).padding(14)
+        }
+    }
+}
+
+@MainActor final class PopoverState: ObservableObject { @Published var shown = false }
+
+/// 折りたたむ部分（たまにしか使わない設定：指示の編集など）。題名の行を押すと、開く・閉じる。`summary`：閉じているときの、右の短い説明。
+struct Collapsible<Content: View>: View {
+    let title: String
+    let summary: String?
+    @StateObject private var state: OpenState
+    @ViewBuilder var content: Content
+
+    init(_ title: String, summary: String? = nil, startsOpen: Bool = false, @ViewBuilder content: () -> Content) {
+        self.title = title; self.summary = summary; self.content = content()
+        _state = StateObject(wrappedValue: OpenState(startsOpen))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button { withAnimation(.easeOut(duration: 0.15)) { state.open.toggle() } } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).rotationEffect(.degrees(state.open ? 90 : 0))
+                    Text(title).font(.system(size: 13))
+                    Spacer(minLength: 8)
+                    if !state.open, let summary { Text(summary).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if state.open { content }
+        }
+    }
+}
+
+@MainActor final class OpenState: ObservableObject {
+    @Published var open: Bool
+    init(_ open: Bool) { self.open = open }
+}
+
+/// 角丸のカード。題名（小さく。`info` があれば、ⓘ）・中身・短い補足（1 行）。長い説明は、`info` へ。
 struct Card<Content: View>: View {
     let title: String?
     let footer: String?
+    let info: String?
     @ViewBuilder var content: Content
 
-    init(_ title: String? = nil, footer: String? = nil, @ViewBuilder content: () -> Content) {
-        self.title = title; self.footer = footer; self.content = content()
+    init(_ title: String? = nil, footer: String? = nil, info: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title; self.footer = footer; self.info = info; self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let title { Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).padding(.leading, 6) }
+            if let title {
+                HStack(spacing: 5) {
+                    Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    if let info { InfoButton(text: info) }
+                }
+                .padding(.leading, 6)
+            }
             VStack(alignment: .leading, spacing: 0) { content }
                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
@@ -106,20 +166,24 @@ struct RowDivider: View {
     var body: some View { Divider().padding(.leading, 14).opacity(0.7) }
 }
 
-/// 1 行：左に題名と説明、右に部品。
+/// 1 行：左に題名と短い説明（`detail`。1 行）、右に部品。長い説明は、`info`（ⓘ）へ。
 struct Row<Trailing: View>: View {
     let title: String
     let detail: String?
+    let info: String?
     @ViewBuilder var trailing: Trailing
 
-    init(_ title: String, detail: String? = nil, @ViewBuilder trailing: () -> Trailing) {
-        self.title = title; self.detail = detail; self.trailing = trailing()
+    init(_ title: String, detail: String? = nil, info: String? = nil, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title; self.detail = detail; self.info = info; self.trailing = trailing()
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13))
+                HStack(spacing: 5) {
+                    Text(title).font(.system(size: 13))
+                    if let info { InfoButton(text: info) }
+                }
                 if let detail { Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             }
             Spacer(minLength: 12)
@@ -186,12 +250,14 @@ struct SwitchRow: View {
     /// 声の入力を、作り直す（再起動する）設定か。入力のたびに読む設定は、false。
     var restart = true
 
-    init(model: SettingsModel, title: String, detail: String?, value: Bool, restart: Bool = true, set: @escaping (inout VCCore.Settings, Bool) -> Void) {
-        self.model = model; self.title = title; self.detail = detail; self.value = value; self.restart = restart; self.set = set
+    var info: String?
+
+    init(model: SettingsModel, title: String, detail: String?, info: String? = nil, value: Bool, restart: Bool = true, set: @escaping (inout VCCore.Settings, Bool) -> Void) {
+        self.model = model; self.title = title; self.detail = detail; self.info = info; self.value = value; self.restart = restart; self.set = set
     }
 
     var body: some View {
-        Row(title, detail: detail) {
+        Row(title, detail: detail, info: info) {
             BrandSwitch(isOn: Binding(get: { value }, set: { newValue in model.update(restart: restart) { set(&$0, newValue) } }))
         }
     }

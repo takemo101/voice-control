@@ -9,7 +9,7 @@ struct ChatPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Callout(symbol: "bubble.left.and.bubble.right.fill", text: tr("会話のキーを押している間話すか、メニューバー > 会話を開く、で、文字で質問できます。"))
+        Callout(symbol: "bubble.left.and.bubble.right.fill", text: tr("会話のキーで話すか、メニューバー > 会話を開く から、文字で質問できます。"))
         Card(tr("エージェントと道具"), footer: tr("画像は、外のエージェントへ送るたびに、確認します。")) {
             // 選べるのは、この Mac に入っているエージェントだけ。選んだものが、なくなっていたら（アンインストールなど）、見つからない印つきで残し、Apple のモデルで答える
             let installed = AgentLocator.available()

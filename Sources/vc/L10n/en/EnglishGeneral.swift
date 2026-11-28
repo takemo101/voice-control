@@ -97,7 +97,6 @@ extension EnglishTables {
         "スキル・設定・モデル": "Skills, settings, models",
         "バージョン": "Version",
         // キー
-        "キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。": "You speak only while a key is held. For example, hold Shift, say “Open Calculator”, and release to run it. Click a key field, then press the key you want to use.",
         "手放し（ダブルタップ）": "Hands-free (double-tap)",
         "キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）": "Tap the key twice to record until you stop talking (holding the key still works)",
         "未設定": "Not set",
@@ -136,7 +135,6 @@ extension EnglishTables {
         "音声入力": "Dictation",
         "送るキーを選ぶと、送信ボタンやコマンドの実行まで、声だけでできます。メッセージ・ターミナルでは、そのまま送られます（キーを送る前の 0.8 秒に、Esc で取りやめられます）。": "Once a key is chosen, you can even press send buttons and run commands by voice. In Messages and Terminal, the text is sent as is (press Esc during the 0.8 s before the key is sent to cancel).",
         "消す言葉は、1 行に 1 つ。空にすると、既定の辞書を使います。声で頼む内容には、使いません。": "One word to remove per line. If empty, the default dictionary is used. Not applied to voice commands.",
-        "オンにすると、消す言葉の一覧を、ここで直せます。音声入力だけに効きます（声で頼む内容には、使いません）。": "When on, you can edit the list of words to remove here. Applies to dictation only, not voice commands.",
         "つなぎ言葉（えーと・um など）を消す": "Remove filler words (um, uh, etc.)",
         "保存": "Save",
         "既定に戻す": "Reset to default",
@@ -182,7 +180,6 @@ extension EnglishTables {
         "キー %@": "Key %@",
         "キーを追加": "Add a key",
         "入力の整え方": "Text cleanup",
-        "整理": "Tidy",
         "整理しています…": "Tidying…",
         "同じ LAN のサーバー（%@）へ、話した文字が送られます。": "Your spoken text is sent to the server on the same LAN (%@).",
         "取りやめ": "Cancel",
