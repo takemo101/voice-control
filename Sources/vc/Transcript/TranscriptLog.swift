@@ -14,6 +14,10 @@ struct TranscriptLog: Equatable {
     }
 
     private(set) var entries: [Entry] = []
+
+    init() {}
+    /// 見た目の確認用（`vc transcript-preview --demo`）：作り物の文を、並べて始める。
+    init(entries: [Entry], tentative: String?) { self.entries = entries; self.tentative = tentative }
     /// 確定前の文字（あとで変わる）。
     private(set) var tentative: String?
 
@@ -42,6 +46,38 @@ struct TranscriptLog: Equatable {
     /// 空白を整える（認識が、「午後 4時」のように、数字の前後に空白を入れる）：行頭・行末の空白と、連続する空白だけ。文中の 1 つの空白は、そのまま（英語の単語の間）。
     static func normalized(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+    }
+
+    /// 吹き出しの並び（チャットの形）：1 件ずつの文と、間が空いたところの時刻の区切り。
+    enum Row: Identifiable, Equatable {
+        /// 時刻の区切り（前の文から、間が空いた）。
+        case separator(Date)
+        /// 1 つの吹き出し。`startsGroup`：続けて話した文の、先頭（名前と時刻を出す）。
+        case message(Entry, startsGroup: Bool)
+
+        var id: String {
+            switch self {
+            case let .separator(date): return "sep-\(date.timeIntervalSince1970)"
+            case let .message(entry, _): return entry.id.uuidString
+            }
+        }
+    }
+
+    /// 吹き出しの並び。`query` が空でなければ、その文字を含む文だけ（大文字小文字は、区別しない。元の文字も、探す）。
+    /// - `groupGap`：これ以内に続いた文は、同じ話の続き（名前・時刻を、繰り返さない）。
+    /// - `separatorGap`：これより空いたら、時刻の区切りを入れる。最初の文の前にも、入れる。
+    func rows(matching query: String = "", groupGap: TimeInterval = 20, separatorGap: TimeInterval = 300) -> [Row] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shown = needle.isEmpty ? entries : entries.filter { $0.text.localizedCaseInsensitiveContains(needle) || ($0.raw?.localizedCaseInsensitiveContains(needle) ?? false) }
+        var rows: [Row] = []
+        var previous: Date?
+        for entry in shown {
+            let gap = previous.map { entry.date.timeIntervalSince($0) }
+            if gap == nil || gap! > separatorGap { rows.append(.separator(entry.date)) }
+            rows.append(.message(entry, startsGroup: gap == nil || gap! > groupGap))
+            previous = entry.date
+        }
+        return rows
     }
 
     /// パネルに出す Markdown（Markdown のパネル）：1 件ごとに、時刻と本文。`showOriginal` なら、整理したものに、元の文字を添える。

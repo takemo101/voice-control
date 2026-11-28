@@ -6,9 +6,9 @@ import VCCore
 struct TranscriptPreviewCommand: Command {
     static let info = CommandInfo(
         name: "transcript-preview", group: .evaluation, summary: "文字起こしのウィンドウを、自作の音（say）で動かして見せる（見た目・動作の確認用）",
-        usage: ["vc transcript-preview [--say <文>] [--seconds <秒>]"],
+        usage: ["vc transcript-preview [--say <文>] [--seconds <秒>] [--demo]"],
         details: ["本物の文字起こしのウィンドウを出し、すぐ開始して、--say の文を鳴らす（自分の音で試す）。--seconds のあと、止めて、終わる。画面収録の許可が、まだなら、OS の確認が出る。"],
-        options: [("--say <文>", "鳴らす文"), ("--seconds <秒>", "動かす長さ（既定 20）")],
+        options: [("--say <文>", "鳴らす文"), ("--seconds <秒>", "動かす長さ（既定 20）"), ("--demo", "取り込まず、作り物の文を並べて、パネルの見た目だけを見る")],
         examples: ["vc transcript-preview --say \"今日はいい天気ですね。明日の会議は午後4時からです。\""])
 
     func run(_ arguments: Arguments, _ context: CommandContext) async throws {
@@ -17,6 +17,21 @@ struct TranscriptPreviewCommand: Command {
         let seconds = arguments.option("--seconds").flatMap(Double.init) ?? 20
         NSApplication.shared.setActivationPolicy(.accessory)
         TranscriptWindow.shared.show()
+        if arguments.flag("--demo") {
+            let base = Date().addingTimeInterval(-900)
+            func entry(_ seconds: Double, _ text: String, raw: String? = nil) -> TranscriptLog.Entry { .init(id: UUID(), date: base.addingTimeInterval(seconds), text: text, raw: raw) }
+            TranscriptWindow.shared.session.seed(TranscriptLog(entries: [
+                entry(0, "それでは、来週のリリースについて、確認します。"),
+                entry(7, "テストは、水曜日までに終わる予定です。"),
+                entry(12, "ただ、一つだけ、気になる点があります。"),
+                entry(420, "明日の会議は午後4時からです。", raw: "えーと明日の会議はあの午後4時からです"),
+                entry(431, "資料は、事前に送ってください。"),
+                entry(440, "質問があれば、チャットに書いてください。"),
+            ], tentative: "それから、来週の予定も"))
+            DispatchQueue.main.asyncAfter(deadline: .now() + (arguments.option("--seconds").flatMap(Double.init) ?? 20)) { exit(0) }
+            NSApplication.shared.run()
+            return
+        }
         // 画面のループの中で動かす（ここは、ループを回す前：ここで、`await` する仕事は、ループが回るまで、進まない）
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainActor.assumeIsolated {

@@ -18,6 +18,8 @@ import VCSpeech
 
     @Published private(set) var state = State.idle
     @Published private(set) var log = TranscriptLog()
+    /// 取り込みを始めた時刻（動いている間だけ）。
+    @Published private(set) var startedAt: Date?
     /// 履歴に書けなかったなどの、知らせ（記録は、続ける）。
     @Published private(set) var notice: String?
 
@@ -52,6 +54,7 @@ import VCSpeech
             var content = HUDContent(phase: .recording, title: tr("音声入力（システム）"), hint: tr("相手の音声を、文字にしています"), chip: chip)
             content.captionSlot = true
             HUD.shared.beginTranscript(content)
+            startedAt = Date()
             state = .running
         } catch {
             HUD.shared.endTranscript()
@@ -70,10 +73,14 @@ import VCSpeech
         transcriber = nil
         HUD.shared.endTranscript()
         await tidyTail?.value
+        startedAt = nil
         state = .idle
     }
 
     func clear() { log = TranscriptLog() }
+
+    /// 見た目の確認用（`vc transcript-preview --demo`）：作り物の記録を、差し込む（取り込みは、しない）。
+    func seed(_ log: TranscriptLog) { self.log = log }
 
     // MARK: 文の処理
 

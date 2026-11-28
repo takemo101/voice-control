@@ -49,6 +49,33 @@ import VCSpeech
         #expect(!log.panelMarkdown(showOriginal: false).contains("えーと"))   // コピー・書き出しには、元を出さない
     }
 
+    /// チャットの並び：続けて話した文はまとめ（先頭だけ名前・時刻）・間が空いたら、時刻の区切り・探すと、含む文だけ。
+    @Test func rowsGroupSentencesSpokenCloseTogetherAndSeparateLongPauses() {
+        var log = TranscriptLog()
+        log.apply(update("一つ目です。", final: true, at: 0))
+        log.apply(update("二つ目です。", final: true, at: 10))     // 10 秒後：同じ話の続き
+        log.apply(update("三つ目です。", final: true, at: 40))     // 30 秒後：新しい話（区切りは、なし）
+        log.apply(update("四つ目です。", final: true, at: 1000))   // 16 分後：時刻の区切り
+        let rows = log.rows()
+        let shape = rows.map { row -> String in
+            switch row {
+            case .separator: return "—"
+            case let .message(_, startsGroup): return startsGroup ? "先" : "続"
+            }
+        }
+        #expect(shape == ["—", "先", "続", "先", "—", "先"])
+        let found = log.rows(matching: "二つ目")
+        #expect(found.count == 2)   // 区切り＋その 1 文
+        #expect(log.rows(matching: "ありません").isEmpty)
+    }
+
+    @Test func searchAlsoFindsTheOriginalTextOfATidiedSentence() throws {
+        var log = TranscriptLog()
+        let entry = log.apply(update("えーと明日は3時、いや4時です", final: true))
+        log.replace(id: try #require(entry).id, tidied: "明日は4時です。")
+        #expect(log.rows(matching: "3時").count == 2)   // 元の文字にだけある語でも、見つかる
+    }
+
     @Test func theMarkdownListsEachEntryWithItsTime() {
         var log = TranscriptLog()
         log.apply(update("こんにちは。", final: true, at: 0))

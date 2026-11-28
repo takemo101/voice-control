@@ -170,7 +170,7 @@ struct ChatView: View {
 }
 
 /// 上へ戻って読んでいるときに出る、「最新へ」のボタン（押すと、いちばん下の、最新の会話へ戻る）。
-private struct JumpToLatestButton: View {
+struct JumpToLatestButton: View {
     let action: () -> Void
     @StateObject private var hover = HoverState()
 
