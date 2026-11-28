@@ -12,7 +12,7 @@ struct KeysPage: View {
 
     var body: some View {
         Callout(symbol: "hand.tap.fill", text: tr("キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。"))
-        Card(tr("押している間だけ話す"), footer: tr("修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。")) {
+        Card(tr("話すキー"), footer: tr("修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。音声入力（システム）だけは、押すたびに、開始・停止します（キーの組み合わせだけ）。マイクとシステムは、別々に動かせます。")) {
             ForEach(Array(KeyKind.holdKeys.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)
@@ -20,7 +20,7 @@ struct KeysPage: View {
             RowDivider()
             SwitchRow(model: model, title: tr("手放し（ダブルタップ）"), detail: tr("キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）"), value: model.settings.handsFree ?? true) { $0.handsFree = $1 }
         }
-        Card(tr("ショートカット"), footer: tr("キーの組み合わせだけ（⌃⌥ などを含むもの）が使えます。文字起こしのキーは、音声入力のキーとは別です：自分の声と、Mac から出ている音を、別々に操作できます。")) {
+        Card(tr("ショートカット"), footer: tr("キーの組み合わせだけ（⌃⌥ などを含むもの）が使えます。")) {
             ForEach(Array(KeyKind.shortcuts.enumerated()), id: \.element) { index, kind in
                 if index > 0 { RowDivider() }
                 KeyRow(model: model, kind: kind)

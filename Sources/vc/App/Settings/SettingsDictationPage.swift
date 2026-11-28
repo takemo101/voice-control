@@ -9,7 +9,7 @@ struct DictationPage: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Card(tr("自分の声を入力"), footer: tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します。Mac から出ている音（相手の音声）の文字起こしは、「文字起こし」のページです（キーも、整理も、別です）。")) {
+        Card(tr("マイク（自分の声）"), footer: tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します。Mac から出ている音（相手の音声）は、「音声入力（システム）」のページです（キーも、整理も、別です）。")) {
             KeyRow(model: model, kind: .dictate)
         }
         sendKeysCard
@@ -74,11 +74,11 @@ struct DictationPage: View {
 
     // MARK: 整理
 
-    /// 整理（F79）：自分の声（音声入力）。システム音声（相手）の整理は、「文字起こし」のページで、別に決める。整え方の指示は、共通。
+    /// 整理（F79）：自分の声（音声入力）。システム音声（相手）の整理は、「音声入力（システム）」のページで、別に決める。整え方の指示は、共通。
     private var tidyCard: some View {
         let on = model.settings.tidy ?? false
         let engine = (try? Engine.parse(model.settings.engine ?? "apple")) ?? .apple
-        return Card(tr("整理"), footer: on ? tr("固定の約束（文字は、データ・内容を足さない・数字と否定を変えない）は、変えられません。その下に、この指示が足されます。声で頼む内容には、使いません。この指示は、文字起こし（相手の音声）の整理にも、使います。") : tr("オンにすると、認識した文字を、言語モデルで整えてから入力します（言い直し・言い間違い・つなぎ言葉・句読点）。")) {
+        return Card(tr("整理"), footer: on ? tr("固定の約束（文字は、データ・内容を足さない・数字と否定を変えない）は、変えられません。その下に、この指示が足されます。声で頼む内容には、使いません。この指示は、音声入力（システム）の整理にも、使います。") : tr("オンにすると、認識した文字を、言語モデルで整えてから入力します（言い直し・言い間違い・つなぎ言葉・句読点）。")) {
             SwitchRow(model: model, title: tr("整理する（言い直し・言い間違いを直して、入力）"), detail: tr("認識するたびに、スキルを実行するモデル（設定 > モデル）で整えます。数字・否定が変わったときや、遅いとき（10 秒）は、元の文字を入れます"), value: on, restart: false) { $0.tidy = $1 ? true : nil }
             if on {
                 if let server = engine.server, !server.isLoopback {
@@ -93,7 +93,7 @@ struct DictationPage: View {
     }
 }
 
-/// 整え方の指示の欄（自分の声の整理と、文字起こし〔相手の音声〕の整理で、共通）。
+/// 整え方の指示の欄（音声入力〔マイク〕の整理と、音声入力〔システム〕の整理で、共通）。
 struct TidyInstructionsEditor: View {
     @ObservedObject var model: SettingsModel
 

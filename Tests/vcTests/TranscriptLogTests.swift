@@ -39,6 +39,16 @@ import VCSpeech
         #expect(log.entries[1].raw == nil)
     }
 
+    @Test func thePanelShowsEachSentenceWithItsTimeAndTheOriginalOnlyWhenItWasTidied() throws {
+        var log = TranscriptLog()
+        let first = log.apply(update("えーと明日は3時、いや4時です", final: true))
+        log.apply(update("そのままです", final: true))
+        log.replace(id: try #require(first).id, tidied: "明日は4時です。")
+        let panel = log.panelMarkdown()
+        #expect(panel.contains("明日は4時です。") && panel.contains("えーと明日は3時、いや4時です") && panel.contains("そのままです"))
+        #expect(!log.panelMarkdown(showOriginal: false).contains("えーと"))   // コピー・書き出しには、元を出さない
+    }
+
     @Test func theMarkdownListsEachEntryWithItsTime() {
         var log = TranscriptLog()
         log.apply(update("こんにちは。", final: true, at: 0))

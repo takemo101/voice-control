@@ -27,6 +27,8 @@ struct HUDContent: Sendable {
     var steps: [Step] = []
     /// 録音中の文字（途中経過）の欄を、最初から出す（録音中の文字の表示 が on のとき：欄の高さを、決めておく。文字が来るまでは、案内を出す）。
     var captionSlot = false
+    /// システム音声の文字起こしの表示か（`HUD.beginTranscript`。音声入力の表示と、取り違えない）。
+    var transcript = false
     /// 使う画像（画像を使うスキルのとき：サムネイルと、大きさ・外へ送るか）。
     var image: HUDImage?
     /// 言語モデルの返事。

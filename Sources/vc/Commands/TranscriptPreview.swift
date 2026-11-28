@@ -15,15 +15,14 @@ struct TranscriptPreviewCommand: Command {
         var arguments = arguments
         let spoken = arguments.option("--say")
         let seconds = arguments.option("--seconds").flatMap(Double.init) ?? 20
-        let settings = context.currentSettings()
-        let engine = TranscriptWindow.engine(for: settings)
         NSApplication.shared.setActivationPolicy(.accessory)
         TranscriptWindow.shared.show()
         // 画面のループの中で動かす（ここは、ループを回す前：ここで、`await` する仕事は、ループが回るまで、進まない）
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainActor.assumeIsolated {
                 _ = Task { @MainActor in
-                    await TranscriptWindow.shared.session.start(settings: settings, engine: engine)
+                    TranscriptWindow.shared.toggleFromShortcut()   // ショートカットと、同じ道（上のパネル・Markdown のパネル）
+                    while !TranscriptWindow.shared.session.isActive { try? await Task.sleep(for: .milliseconds(100)) }
                     if let spoken {
                         let say = Process()
                         say.executableURL = URL(fileURLWithPath: "/usr/bin/say")

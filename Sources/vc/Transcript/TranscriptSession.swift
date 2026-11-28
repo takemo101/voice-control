@@ -31,7 +31,7 @@ import VCSpeech
     var isActive: Bool { state == .starting || state == .running }
 
     /// 始める（利用者の操作の中で、呼ぶ：画面収録の許可の確認が、出うる）。`settings`・`engine` は、動いている間、使う。
-    func start(settings: Settings, engine: Engine) async {
+    func start(settings: Settings, engine: Engine, chip: String? = nil) async {
         guard !isActive else { return }
         state = .starting
         notice = nil
@@ -47,9 +47,14 @@ import VCSpeech
             do { audio = try await capture.start(target: target) } catch { await transcriber.finish(); throw error }
             self.capture = capture
             self.transcriber = transcriber
-            reader = Task.detached { for await buffer in audio { transcriber.feed(buffer) } }
+            // 音量は、上のパネルの波形へ（音声入力と同じカプセル。文字は、確定前・確定後を、そこへ出す）
+            reader = Task.detached { for await buffer in audio { transcriber.feed(buffer); HUD.shared.pushTranscript(level: AudioLevel.level(of: buffer), text: nil) } }
+            var content = HUDContent(phase: .recording, title: tr("音声入力（システム）"), hint: tr("相手の音声を、文字にしています"), chip: chip)
+            content.captionSlot = true
+            HUD.shared.beginTranscript(content)
             state = .running
         } catch {
+            HUD.shared.endTranscript()
             state = .failed("\(error)")
         }
     }
@@ -63,6 +68,7 @@ import VCSpeech
         reader = nil
         await transcriber?.finish()
         transcriber = nil
+        HUD.shared.endTranscript()
         await tidyTail?.value
         state = .idle
     }
@@ -72,7 +78,10 @@ import VCSpeech
     // MARK: 文の処理
 
     private func apply(_ update: SegmentTranscriber.Update) {
-        guard let entry = log.apply(update) else { return }
+        let entry = log.apply(update)
+        // 上のパネルの文字：直前に確定した文は濃く・いま聞こえている文は薄く
+        HUD.shared.pushTranscript(level: nil, text: LiveCaptionText(confirmed: log.entries.last?.text ?? "", tentative: log.tentative ?? ""))
+        guard let entry else { return }
         // 整理（F79。オンのとき）→ 履歴（F64。オンのとき）。順に処理する（前の文の整理が終わってから）
         let previous = tidyTail
         tidyTail = Task { [weak self] in

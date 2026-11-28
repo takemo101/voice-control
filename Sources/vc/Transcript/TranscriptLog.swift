@@ -44,13 +44,21 @@ struct TranscriptLog: Equatable {
         text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
     }
 
-    /// Markdown（コピー・書き出し用）。`title` の見出しのあと、1 件 1 行：「- 10:02:11 本文」。
+    /// パネルに出す Markdown（Markdown のパネル）：1 件ごとに、時刻と本文。`showOriginal` なら、整理したものに、元の文字を添える。
+    func panelMarkdown(showOriginal: Bool = true, locale: Locale = Locale(identifier: "ja_JP")) -> String {
+        let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
+        return entries.map { entry in
+            var block = "`\(time.string(from: entry.date))` \(entry.text)"
+            if showOriginal, let raw = entry.raw { block += "  \n*\(tr("元：\(raw)"))*" }
+            return block
+        }.joined(separator: "\n\n")
+    }
+
+    /// Markdown（コピー・書き出し用）：見出し＋ 1 件 1 行「- 10:02:11 本文」（整理後の文字だけ）。
     func markdown(title: String, locale: Locale = Locale(identifier: "ja_JP")) -> String {
         let time = DateFormatter(); time.locale = locale; time.dateFormat = "HH:mm:ss"
         var lines = ["# \(title)", ""]
-        for entry in entries {
-            lines.append("- \(time.string(from: entry.date)) \(entry.text)")
-        }
+        for entry in entries { lines.append("- \(time.string(from: entry.date)) \(entry.text)") }
         return lines.joined(separator: "\n") + "\n"
     }
 }

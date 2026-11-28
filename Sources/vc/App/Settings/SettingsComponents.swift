@@ -36,11 +36,11 @@ extension SettingsPage {
 
     var subtitle: String {
         switch self {
-        case .keys: return tr("押している間だけ話すキー・ショートカット")
+        case .keys: return tr("話すキー・ショートカット")
         case .voice: return tr("認識の言語・録音・読み上げ")
-        case .dictation: return tr("自分の声を、文字にして入力：送るキー・整え方・整理")
-        case .transcribe: return tr("Mac から出ている音を、文字にする")
-        case .history: return tr("音声入力・文字起こしの記録")
+        case .dictation: return tr("自分の声を、文字にして入力：キー・送るキー・整え方・整理")
+        case .transcribe: return tr("Mac から出ている音（相手の音声）を、文字にする")
+        case .history: return tr("音声入力（マイク・システム）の記録")
         case .chat: return tr("エージェント・道具・画像・記録")
         case .models: return tr("スキルを動かすモデル・音声認識")
         case .skills: return tr("声で頼めることの、有効・無効・インストール")

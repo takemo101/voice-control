@@ -21,7 +21,7 @@ struct VoicePage: View {
             }
         }
         Card(tr("録音")) {
-            SwitchRow(model: model, title: tr("録音中は、ほかの音を消す"), detail: tr("マイクが、再生中の音楽や通話を拾わないように（文字起こしで Mac の音を取り込んでいる間は、消しません）"), value: model.settings.mute ?? true) { $0.mute = $1 }
+            SwitchRow(model: model, title: tr("録音中は、ほかの音を消す"), detail: tr("マイクが、再生中の音楽や通話を拾わないように（音声入力（システム）で Mac の音を取り込んでいる間は、消しません）"), value: model.settings.mute ?? true) { $0.mute = $1 }
             RowDivider()
             SwitchRow(model: model, title: tr("録音中の文字を、画面の上に出す"), detail: tr("聞こえている文字を、字幕のように（実験）"), value: model.settings.liveCaption ?? true) { $0.liveCaption = $1 }
             RowDivider()

@@ -31,7 +31,6 @@ extension EnglishTables {
         "画面撮影": "Screenshot",
         "入力のあとに送るキー": "Key to send after typing",
         "押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）": "Speak while holding the key; on release, a skill is chosen and run (default: hold shift)",
-        "押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）": "Speak while holding the key; on release, your speech is typed into the frontmost app (no skills are used)",
         "押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）": "Speak while holding the key; on release, your speech is sent as a chat question (no skills are used; you can also type in the Chat window; experimental)",
         "押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）": "Press to select an area, then ask by voice (key combinations only)",
         "モデルの名前を入れてください": "Enter a model name",

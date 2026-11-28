@@ -16,20 +16,20 @@ enum KeyKind: Hashable {
     /// 設定ウィンドウの欄が 1 つずつある、固定のキー（送るキーは、一覧で、足し引きする）。
     static var fixed: [KeyKind] { [.listen, .dictate, .chat, .shot, .pasteLast, .cycleSend, .transcribe] }
     /// 押している間だけ話すキー。
-    static var holdKeys: [KeyKind] { [.listen, .dictate, .chat] }
+    static var holdKeys: [KeyKind] { [.listen, .dictate, .transcribe, .chat] }
     /// ショートカット（キーの組み合わせだけ）。
-    static var shortcuts: [KeyKind] { [.shot, .pasteLast, .cycleSend, .transcribe] }
+    static var shortcuts: [KeyKind] { [.shot, .pasteLast, .cycleSend] }
 
     var title: String {
         switch self {
         case .listen: return tr("声で頼む")
-        case .dictate: return tr("音声入力")
+        case .dictate: return tr("音声入力（マイク）")
         case .chat: return tr("会話")
         case .shot: return tr("画面撮影")
         case let .sendKey(index): return tr("キー \(index + 1)")
         case .pasteLast: return tr("直前の入力を貼り直す")
         case .cycleSend: return tr("送るキーを切り替える")
-        case .transcribe: return tr("文字起こし（相手の音声）の開始・停止")
+        case .transcribe: return tr("音声入力（システム）")
         }
     }
 
@@ -43,13 +43,13 @@ enum KeyKind: Hashable {
     var help: String? {
         switch self {
         case .listen: return tr("押している間だけ話し、離すと、スキルを選んで実行します（既定：shift の長押し）")
-        case .dictate: return tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（スキルは使いません）")
+        case .dictate: return tr("押している間だけ話し、離すと、文字にして、前面のアプリへ入力します（自分の声。スキルは使いません）")
         case .chat: return tr("押している間だけ話し、離すと、会話として質問します（スキルは使いません。会話のウィンドウで、文字でも質問できます。実験）")
         case .shot: return tr("押して範囲を選び、そのあと声で頼みます（キーの組み合わせだけ）")
         case .sendKey: return nil
         case .pasteLast: return tr("直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）")
         case .cycleSend: return tr("送るキーの候補を、順に切り替えます（送らない → キー 1 → 2 …）。キーの組み合わせだけ。メニューからも、できます")
-        case .transcribe: return tr("Mac から出ている音（相手の音声）の文字起こしを、始め・止めます（キーの組み合わせだけ。音声入力のキーとは、別です）")
+        case .transcribe: return tr("押すたびに、Mac から出ている音（相手の音声）の文字起こしを、始め・止めます（キーの組み合わせだけ）。上のパネルに波形と文字、Markdown のパネルに内容が出ます")
         }
     }
 

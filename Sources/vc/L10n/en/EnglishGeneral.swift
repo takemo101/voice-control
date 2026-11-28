@@ -98,8 +98,6 @@ extension EnglishTables {
         "バージョン": "Version",
         // キー
         "キーを押している間だけ、話します。たとえば、Shift を押したまま「電卓を開いて」と言って、離すと、実行されます。キーの欄を押して、使いたいキーを押すと、決まります。": "You speak only while a key is held. For example, hold Shift, say “Open Calculator”, and release to run it. Click a key field, then press the key you want to use.",
-        "押している間だけ話す": "Hold to speak",
-        "修飾キーだけのキー（⇧ ⌃ ⌥ ⌘）の長押しは、アクセシビリティの許可が要ります。右側のキーだけにすると、普段の入力での誤作動が減ります。": "Holding a modifier-only key (⇧ ⌃ ⌥ ⌘) needs the Accessibility permission. Limiting it to the right-side key reduces accidental triggers while typing.",
         "手放し（ダブルタップ）": "Hands-free (double-tap)",
         "キーを短く 2 回押すと、黙るまで録音します（押し続ける使い方も、そのまま使えます）": "Tap the key twice to record until you stop talking (holding the key still works)",
         "未設定": "Not set",

@@ -120,13 +120,15 @@ enum DocumentPalette {
 
 // MARK: SwiftUI の枠
 
-private struct DocumentView: View {
+struct DocumentView: View {
     let title: String
     @ObservedObject var state: DocumentState
     let textView: NSTextView
     let copyMarkdown: () -> Void
     let copyText: () -> Void
     let close: () -> Void
+    /// 下の行の、左に足すもの（文字起こしの「開始・停止」など）。なければ、何も足さない。
+    var extra: AnyView?
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -168,6 +170,7 @@ private struct DocumentView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
+            if let extra { extra }
             PillButton(title: tr("Markdown をコピー"), symbol: "doc.on.doc", flashed: state.copied == .markdown, action: copyMarkdown)
             PillButton(title: tr("テキストをコピー"), symbol: "text.alignleft", flashed: state.copied == .text, action: copyText)
             Spacer(minLength: 8)

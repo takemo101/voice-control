@@ -31,6 +31,9 @@ import SwiftUI
     /// 仮想デスクトップ（Space）を移ったとき、出している間は、パネルを、移動先で出し直す。
     private var spaceObserver: NSObjectProtocol?
     private var previousPhase: Mode?
+    /// システム音声の文字起こし（F80）の表示：動いている間、上のパネルに、波形と文字を出す。音声入力など、ほかの表示が出ている間は、そちらを優先する（消えたら、出し直す）。
+    private var transcriptContent: HUDContent?
+    private var showsTranscript = false
 
     /// 1 行だけの簡単な表示。
     nonisolated func show(_ text: String, mode: Mode, hideAfter: TimeInterval? = nil) {
@@ -52,6 +55,36 @@ import SwiftUI
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { if previousPhase == .recording || text == nil { model.liveText = text } } }
     }
 
+    /// 文字起こしの表示を始める（`content.transcript` を立てて、録音のカプセルで出す）。
+    nonisolated func beginTranscript(_ content: HUDContent) {
+        var content = content
+        content.transcript = true
+        DispatchQueue.main.async { [self] in MainActor.assumeIsolated { transcriptContent = content; render(content, hideAfter: nil) } }
+    }
+
+    /// 文字起こしの音量・文字（途中経過）を、出す。**文字起こしの表示のときだけ**（音声入力が出ている間は、何もしない）。パネルが消えていれば、出し直す。`beginTranscript` の前・`endTranscript` の後は、何もしない。
+    nonisolated func pushTranscript(level: Float?, text: LiveCaptionText?) {
+        DispatchQueue.main.async { [self] in
+            MainActor.assumeIsolated {
+                guard let content = transcriptContent else { return }
+                if !visible { render(content, hideAfter: nil) }
+                guard showsTranscript, previousPhase == .recording else { return }
+                if let level { model.waveform.push(level) }
+                if let text { model.liveText = text }
+            }
+        }
+    }
+
+    /// 文字起こしの表示を終える（文字起こしの表示が出ていれば、消す。音声入力の表示は、そのまま）。
+    nonisolated func endTranscript() {
+        DispatchQueue.main.async { [self] in
+            MainActor.assumeIsolated {
+                transcriptContent = nil
+                if showsTranscript { fadeOut() }
+            }
+        }
+    }
+
     nonisolated func hide() {
         DispatchQueue.main.async { [self] in MainActor.assumeIsolated { fadeOut() } }
     }
@@ -66,6 +99,7 @@ import SwiftUI
         if content.phase == .recording, previousPhase != .recording { model.beginRecording(); model.liveText = nil }
         if content.phase != .recording { model.liveText = nil }
         previousPhase = content.phase
+        showsTranscript = content.transcript
         showingChoices = content.choices
         bodyOverflows = false
         model.focusedChoice = 1
