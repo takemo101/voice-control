@@ -49,8 +49,13 @@ struct TranscriptLog: Equatable {
             end = max(0, update.date.timeIntervalSince(meetingStart ?? update.date))
             start = max(0, end - min(20, max(1, Double(text.count) * 0.2)))
         }
-        let entry = Entry(id: UUID(), date: update.date, speaker: speaker, start: start, end: end, text: text, raw: nil)
-        entries.append(entry)
+        // 発話の時刻：認識した音の位置があれば、**話し始めた時刻**（確定した時刻は、間が空くまで、遅れる）。なければ、確定した時刻
+        let date = update.range != nil ? (meetingStart?.addingTimeInterval(start) ?? update.date) : update.date
+        let entry = Entry(id: UUID(), date: date, speaker: speaker, start: start, end: end, text: text, raw: nil)
+        // **話した順**に並べる（確定が届いた順・整理が終わった順では、ない）：相手と自分は、別々に認識して、確定の遅れが、違う。同じ時刻なら、届いた順
+        var index = entries.endIndex
+        while index > entries.startIndex, entries[index - 1].start > entry.start { index -= 1 }
+        entries.insert(entry, at: index)
         return entry
     }
 

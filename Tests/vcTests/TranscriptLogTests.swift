@@ -91,6 +91,25 @@ import VCSpeech
         #expect(log.panelMarkdown().contains("**相手**") && log.panelMarkdown().contains("**自分**"))
     }
 
+    /// 並びは、話した順（確定が届いた順ではない）：相手の確定は、間が空くまで遅れるので、あとに話した自分が、先に確定することがある。
+    @Test func entriesAreOrderedByWhenTheyWereSpokenNotByWhenTheyArrived() throws {
+        var log = TranscriptLog()
+        let began = Date(timeIntervalSince1970: 1_800_000_000)
+        log.begin(at: began)
+        func final(_ text: String, _ start: TimeInterval, _ end: TimeInterval, _ speaker: HistoryEntry.Source) {
+            log.apply(SegmentTranscriber.Update(text: text, isFinal: true, date: began.addingTimeInterval(60), range: start...end), speaker: speaker)
+        }
+        final("自分の返事。", 20, 22, .me)            // あとに話したが、先に確定した
+        final("相手の長い話。", 5, 18, .others)       // 先に話したが、あとに確定した
+        final("相手の続き。", 30, 33, .others)
+        #expect(log.entries.map(\.text) == ["相手の長い話。", "自分の返事。", "相手の続き。"])
+        #expect(log.entries[0].date == began.addingTimeInterval(5) && log.entries[1].date == began.addingTimeInterval(20))   // 時刻も、話し始め
+        // 整理で、文字が替わっても、並びは、動かない
+        let id = try #require(log.entries.first { $0.text == "自分の返事。" }?.id)
+        log.replace(id: id, tidied: "整えた返事。")
+        #expect(log.entries.map(\.speaker) == [.others, .me, .others])
+    }
+
     @Test func aChangeOfSpeakerStartsANewGroupEvenWhenTheyAnswerQuickly() {
         var log = TranscriptLog()
         log.apply(update("質問です。", final: true, at: 0), speaker: .others)
