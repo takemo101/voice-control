@@ -45,6 +45,14 @@ import Testing
         #expect(SummaryGuard.extract("<summary>閉じていない") == nil && SummaryGuard.extract("タグなし") == nil && SummaryGuard.extract("<summary>  </summary>") == nil)
     }
 
+    /// 実際に出た形：モデルが、要約の中に、`<bullet>` の囲みを書いた。画面・Markdown に、タグを出さず、箇条書きにする。
+    @Test func tagsTheModelInventedInsideTheSummaryBecomePlainBullets() {
+        let reply = "<summary>\n<bullet>\nレビューを行う。\n</bullet>\n<bullet>購入は、セール時がよい。</bullet>\n</summary>"
+        #expect(SummaryGuard.extract(reply) == .summary("- レビューを行う。\n- 購入は、セール時がよい。"))
+        #expect(SummaryGuard.extract("<summary><p>要点</p>\n- 一つ目\n\n\n\n- 二つ目</summary>") == .summary("要点\n- 一つ目\n\n- 二つ目"))
+        #expect(SummaryGuard.extract("<summary>- 3 < 5 と話した</summary>") == .summary("- 3 < 5 と話した"))   // 数式の「<」は、囲みではない
+    }
+
     @Test func aNumberThatIsNotInTheSourceIsRefusedButDroppingNumbersIsFine() {
         let source = "来週のリリースは3日です。予算は500万円。"
         #expect(SummaryGuard.check(summary: "リリースは3日。", source: source) == nil)

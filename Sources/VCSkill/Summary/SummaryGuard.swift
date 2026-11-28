@@ -40,10 +40,22 @@ public enum SummaryGuard {
     /// 出力から、要約を取り出す（タグの中。なければ、nil）。
     public static func extract(_ response: String) -> Extracted? {
         guard let open = response.range(of: "<summary>"), let close = response.range(of: "</summary>", range: open.upperBound..<response.endIndex) else { return nil }
-        let text = String(response[open.upperBound..<close.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = plain(String(response[open.upperBound..<close.lowerBound]))
         if text.isEmpty { return nil }
         if text == SummaryPrompt.none { return .nothing }
         return .summary(text)
+    }
+
+    /// モデルが、要約の中に、自分で作った囲み（`<bullet>…</bullet>`・`<li>`・`<p>` など）を、書くことがある：箇条書きの囲みは「- 」に、そのほかの囲みは、外す（画面・Markdown に、タグを出さない）。
+    static func plain(_ text: String) -> String {
+        var result = text
+        // 箇条書きの囲み（1 つの項目）→ 行頭の「- 」
+        result = result.replacingOccurrences(of: #"(?is)<(bullet|li|item|point)>\s*(.*?)\s*</\1>"#, with: "- $2", options: .regularExpression)
+        // 残った、小文字だけの単純な囲み（開き・閉じ）を、外す
+        result = result.replacingOccurrences(of: #"</?[a-z_][a-z0-9_]*\s*/?>"#, with: "", options: .regularExpression)
+        // 行末の余白・3 つ以上続く空行を整える
+        result = result.replacingOccurrences(of: #"[ \t]+\n"#, with: "\n", options: .regularExpression).replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// 選んだ行の番号を、取り出す（`<lines>1,3</lines>`）。「該当なし」は空。読めない・範囲外の番号は、nil（作り話の番号を、使わない）。
