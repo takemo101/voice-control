@@ -127,7 +127,7 @@ struct SummaryTab: View {
                         .buttonStyle(.plain).disabled(busy || !hasText)
                     }
                 }
-                // テーマ・コメント：会話の入力欄と同じ（複数行：Return で要約・⇧Return で改行）
+                // テーマ・コメント：会話の入力欄と同じ作り（複数行：Return で要約・⇧Return で改行。1 行から、最大 6 行まで、高くなる）
                 HStack(alignment: .bottom, spacing: 8) {
                     ZStack(alignment: .topLeading) {
                         if panel.focusText.isEmpty {
@@ -135,11 +135,14 @@ struct SummaryTab: View {
                         }
                         ComposerField(text: $panel.focusText, fontSize: 13 * scale, onSend: { run(panel.focusText) })
                     }
-                    Button { run(panel.focusText) } label: { Image(systemName: "arrow.up.circle.fill").vcFont(24).foregroundStyle(canRunFocus ? TranscriptPalette.teal : .white.opacity(0.25)) }
-                        .buttonStyle(.plain).disabled(!canRunFocus)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 19, style: .continuous).fill(.white.opacity(0.09)))
+                    .overlay(RoundedRectangle(cornerRadius: 19, style: .continuous).strokeBorder(.white.opacity(0.14), lineWidth: 0.7))
+                    Button { run(panel.focusText) } label: {
+                        Image(systemName: "arrow.up.circle.fill").vcFont(26).foregroundStyle(canRunFocus ? AnyShapeStyle(TranscriptPalette.brand) : AnyShapeStyle(Color.white.opacity(0.2)))
+                    }
+                    .buttonStyle(.plain).disabled(!canRunFocus).accessibilityLabel(tr("要約"))
                 }
-                .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.07)))
             }
 
             Button { panel.tab = .chat; panel.selecting = true } label: {
