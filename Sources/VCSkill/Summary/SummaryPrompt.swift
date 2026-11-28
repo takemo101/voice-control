@@ -23,7 +23,7 @@ public enum SummaryPrompt {
     // l10n-skip：モデルに渡す指示・設定の欄の既定（画面の文言ではない）
     public static let defaultInstructions = """
     Summarize the conversation for someone who missed it. Write in Japanese.
-    Use short bullet points under these Japanese headings, and leave out a heading that has nothing under it: 要点 / 決まったこと / やること / 未決・確認事項.
+    Format it as Markdown: for each heading, a line starting with "### " followed by the Japanese heading word, then short bullets starting with "- ". Leave out a heading that has nothing under it. The headings are: 要点 / 決まったこと / やること / 未決・確認事項.
     Under やること, name the owner only if the conversation says who will do it.
     Skip small talk and repetition.
     """
@@ -65,7 +65,7 @@ public enum SummaryPrompt {
             text += """
 
 
-            The input is several partial summaries of consecutive parts of ONE conversation (inside <parts>). Combine them into a single summary: merge duplicates, keep the order, add nothing new.
+            The input is several partial summaries of consecutive parts of ONE conversation (inside <parts>). Combine them into a single summary: merge duplicates and keep the order, but do NOT drop any decision, date, number or name that appears in any part (the last part often has the final decisions). Add nothing new.
             """
         }
         return text

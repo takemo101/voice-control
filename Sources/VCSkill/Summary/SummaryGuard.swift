@@ -39,8 +39,15 @@ public enum SummaryGuard {
 
     /// 出力から、要約を取り出す（タグの中。なければ、nil）。
     public static func extract(_ response: String) -> Extracted? {
-        guard let open = response.range(of: "<summary>") else { return nil }
-        var body = String(response[open.upperBound...])
+        var body: String
+        if let open = response.range(of: "<summary>") {
+            body = String(response[open.upperBound...])
+        } else {
+            // 「要約」の囲みが、ない：Markdown で、答えさせると、小さなモデルは、囲みを、書かずに、見出しと箇条書きだけを返す。
+            // 入力の囲み（transcript・parts）を、写していない、空でない答えは、そのまま、要約として受ける（話にない数字は、あとで、検査する）
+            body = response
+            if body.contains("<transcript") || body.contains("<parts") { return nil }
+        }
         if let close = body.range(of: "</summary>") {
             body = String(body[..<close.lowerBound])
         } else {

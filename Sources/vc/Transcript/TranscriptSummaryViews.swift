@@ -229,10 +229,8 @@ private struct SummaryItemView: View {
         }
     }
 
-    /// 箇条書き・太字を、見やすく（記号の `- ` は、そのまま、Markdown の行内の装飾だけ）。
-    private var body_: AttributedString {
-        (try? AttributedString(markdown: item.text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(item.text)
-    }
+    /// 要約は Markdown（見出し・箇条書き・入れ子・太字・表など）：会話のウィンドウと同じ描画（`MarkdownRenderer`）で見せる。
+    private var rendered: NSAttributedString { MarkdownRenderer.render(item.text) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -244,7 +242,7 @@ private struct SummaryItemView: View {
                 Button(action: remove) { Image(systemName: "trash").vcFont(11) }.buttonStyle(.plain).help(tr("この要約を消す"))
             }
             .foregroundStyle(.white.opacity(0.6))
-            Text(body_).vcFont(14).lineSpacing(5).foregroundStyle(.white.opacity(0.94)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            RichText(attributed: rendered).frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(hover.on ? 0.08 : 0.06)))

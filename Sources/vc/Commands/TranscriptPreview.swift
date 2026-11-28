@@ -30,7 +30,7 @@ struct TranscriptPreviewCommand: Command {
                 entry(431, "資料は、事前に送ってください。"),
                 entry(440, "質問があれば、チャットに書いてください。"),
             ], tentative: [.others: "それから、来週の予定も", .me: "了解です"], meetingStart: base), summaries: [
-                MeetingSummary(date: Date(), scope: .all, text: "【要点】\n- 来週のリリースの確認。テストは水曜までに終わる予定。\n【決まったこと】\n- 資料は、事前に送る。\n【確認事項】\n- テスト結果を、いつ共有できるか。"),
+                MeetingSummary(date: Date(), scope: .all, text: "### 要点\n- 来週のリリースの確認。**テストは水曜まで**に終わる予定。\n\n### 決まったこと\n- 資料は、事前に送る。\n  - 担当は、自分。\n\n### 確認事項\n- テスト結果を、いつ共有できるか。\n\n| 項目 | 日程 |\n|---|---|\n| リリース | 3 日 |\n| テスト | 水曜まで |"),
                 MeetingSummary(date: Date(), scope: .focus("日程"), text: "- テストは水曜まで\n- 会議は午後 4 時から"),
             ])
             if arguments.flag("--summary") { TranscriptWindow.shared.openSummaryTabForPreview() }

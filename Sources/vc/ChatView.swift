@@ -773,7 +773,7 @@ private struct Pending: View {
 }
 
 /// 整形した文章（`NSTextView`）：文字の選択・⌘C・日本語の組みは、標準のまま。幅に合わせて、高さを決める。
-private struct RichText: NSViewRepresentable {
+struct RichText: NSViewRepresentable {
     let attributed: NSAttributedString
 
     func makeNSView(context: Context) -> NSTextView {

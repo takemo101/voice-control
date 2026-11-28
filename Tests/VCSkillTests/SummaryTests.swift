@@ -42,7 +42,10 @@ import Testing
     @Test func theSummaryIsTakenFromItsTagsAndNothingIsToldApart() {
         #expect(SummaryGuard.extract("前置き<summary>\n- 要点\n</summary>") == .summary("- 要点"))
         #expect(SummaryGuard.extract("<summary>NONE</summary>") == .nothing)
-        #expect(SummaryGuard.extract("タグなし") == nil && SummaryGuard.extract("<summary>  </summary>") == nil && SummaryGuard.extract("<summary>NONE") == .nothing)
+        #expect(SummaryGuard.extract("<summary>  </summary>") == nil && SummaryGuard.extract("  ") == nil && SummaryGuard.extract("<summary>NONE") == .nothing)
+        // 囲みがなくても、Markdown の答えは、受ける（入力の囲みを写したものは、受けない）
+        #expect(SummaryGuard.extract("### 要点\n- リリースは 3 日") == .summary("### 要点\n- リリースは 3 日") && SummaryGuard.extract("NONE") == .nothing)
+        #expect(SummaryGuard.extract("<transcript>\n相手: こんにちは\n</transcript>") == nil)
         // 出力の長さの上限で、閉じる囲みが、ない・途中で切れた：そこまでを、受ける
         #expect(SummaryGuard.extract("<summary>- 要点\n- 決定</summary") == .summary("- 要点\n- 決定"))
         #expect(SummaryGuard.extract("<summary>- 要点\n- 決定") == .summary("- 要点\n- 決定"))
@@ -127,7 +130,7 @@ import Testing
         #expect(await none.summarize(lines, focus: "予算") == .nothingRelevant)
         let invented = Summarizer(instructionsSetting: nil) { _, _ in "<lines>7</lines>" }
         #expect(await invented.summarize(lines, focus: "予算") == .failed(.unreadable))
-        let unreadable = Summarizer(instructionsSetting: nil) { _, _ in "答えです" }
+        let unreadable = Summarizer(instructionsSetting: nil) { _, _ in "<transcript>写しただけ</transcript>" }
         #expect(await unreadable.summarize(lines) == .failed(.unreadable))
         #expect(await unreadable.summarize([]) == .failed(.empty))
     }
