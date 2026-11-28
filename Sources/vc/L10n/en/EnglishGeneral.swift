@@ -157,7 +157,6 @@ extension EnglishTables {
         "文字だけを入れます（キーは、送りません）": "Only the text is typed (no key is pressed)",
         "文字を入れたあと、%@ を送ります": "After typing, %@ is pressed",
         "新しい 200 件を表示しています（探すと、絞れます）": "Showing the newest 200 (search to narrow down)",
-        "最近の入力をコピー": "Copy recent input",
         "残す日数": "Keep for",
         "直前の入力を、もう一度、前面のアプリへ入れます（キーの組み合わせだけ。メニューからも、できます）": "Types the last input into the front app again (key combinations only; also in the menu bar)",
         "直前の入力を貼り直す": "Paste last input again",

@@ -121,5 +121,6 @@ extension EnglishTables {
         "テーマ・コメントで絞って要約": "Summarize by topic or comment",
         "テーマやコメント（⇧Return で改行）": "Topic or comment (⇧Return for a new line)",
         "システム音声の取り込みが、止まりました（OS が止めました）。もう一度、始められます": "System audio capture stopped (the OS stopped it). You can start again.",
+        "最近の入力（選ぶとコピー）": "Recent inputs (select to copy)",
     ]
 }
