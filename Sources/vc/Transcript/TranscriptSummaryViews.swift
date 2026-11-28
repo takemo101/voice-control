@@ -79,15 +79,19 @@ struct SummaryCard: View {
                     }
                 }
             }
-            HStack(spacing: 8) {
-                Image(systemName: "scope").foregroundStyle(.white.opacity(0.45))
-                TextField(tr("テーマだけ要約（例：予算の話）"), text: $panel.focusText).textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
-                    .onSubmit { runFocus() }
-                PillButton(title: tr("要約"), symbol: "sparkles", flashed: false) { runFocus() }
+            // テーマで絞る：入力したテーマに関する発話だけを選んで、その部分だけを要約する
+            VStack(alignment: .leading, spacing: 5) {
+                Label(tr("テーマで絞って要約"), systemImage: "scope").vcFont(11.5, weight: .semibold).foregroundStyle(.white.opacity(0.75))
+                HStack(spacing: 8) {
+                    TextField(tr("例：予算の話・スケジュール・採用"), text: $panel.focusText).textFieldStyle(.plain).vcFont(13).foregroundStyle(.white)
+                        .onSubmit { runFocus() }
+                    PillButton(title: tr("要約"), symbol: "sparkles", flashed: false) { runFocus() }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6).background(Capsule().fill(.white.opacity(0.07)))
+                Text(tr("テーマに関する発話だけを探して、その部分だけを要約します（Return でも実行）。関係する話がなければ、「見つかりませんでした」と出ます。")).vcFont(10.5).foregroundStyle(.white.opacity(0.4)).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 12).padding(.vertical, 6).background(Capsule().fill(.white.opacity(0.07)))
             if !panel.selecting {
-                Text(tr("「…」> 発話を選んで、要約…：吹き出しを選んで、その発話だけ要約できます。")).vcFont(10.5).foregroundStyle(.white.opacity(0.4))
+                Text(tr("発話を自分で選ぶなら：「…」> 発話を選んで、要約…（吹き出しにチェックを付けて、その発話だけを要約します）。")).vcFont(10.5).foregroundStyle(.white.opacity(0.4)).fixedSize(horizontal: false, vertical: true)
             }
         }
     }

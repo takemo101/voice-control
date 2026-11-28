@@ -42,7 +42,10 @@ import Testing
     @Test func theSummaryIsTakenFromItsTagsAndNothingIsToldApart() {
         #expect(SummaryGuard.extract("前置き<summary>\n- 要点\n</summary>") == .summary("- 要点"))
         #expect(SummaryGuard.extract("<summary>NONE</summary>") == .nothing)
-        #expect(SummaryGuard.extract("<summary>閉じていない") == nil && SummaryGuard.extract("タグなし") == nil && SummaryGuard.extract("<summary>  </summary>") == nil)
+        #expect(SummaryGuard.extract("タグなし") == nil && SummaryGuard.extract("<summary>  </summary>") == nil && SummaryGuard.extract("<summary>NONE") == .nothing)
+        // 出力の長さの上限で、閉じる囲みが、ない・途中で切れた：そこまでを、受ける
+        #expect(SummaryGuard.extract("<summary>- 要点\n- 決定</summary") == .summary("- 要点\n- 決定"))
+        #expect(SummaryGuard.extract("<summary>- 要点\n- 決定") == .summary("- 要点\n- 決定"))
     }
 
     /// 実際に出た形：モデルが、要約の中に、`<bullet>` の囲みを書いた。画面・Markdown に、タグを出さず、箇条書きにする。

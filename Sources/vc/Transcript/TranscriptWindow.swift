@@ -35,6 +35,7 @@ import VCSpeech
         frame.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let root = TranscriptPanelView(session: session, panel: panel, actions: TranscriptPanelActions(
             toggle: { [weak self] in self?.toggle() },
+            toggleMic: { [weak self] in self?.toggleMic() },
             copyMarkdown: { [weak self] in self?.copy(markdown: true) },
             copyText: { [weak self] in self?.copy(markdown: false) },
             copyOne: { Self.put($0) },
@@ -57,6 +58,7 @@ import VCSpeech
         let settings = Settings.loadOrDefault().settings
         panel.keyHint = settings.transcribeHotkey.flatMap { HotKeySpec.parse($0).successValue }?.displayName
         panel.targetName = (settings.transcribeApps ?? []).first
+        panel.micOn = settings.transcribeMic ?? false
     }
 
     private static func put(_ text: String) {
@@ -122,6 +124,19 @@ import VCSpeech
         guard AppAlerts.confirm(title: tr("この発話を消しますか？"), message: tr("画面の記録と、履歴（あれば）から、消えます。消した発話は、戻せません。"), confirm: tr("消す"), style: .warning) else { return }
         panel.selected.remove(id)
         session.delete(entryID: id)
+    }
+
+    /// 自分のマイクの入り切り（パネルの上のボタン）：設定 `transcribeMic` を書き換えて、動いている間なら、すぐ、入れる・外す。
+    private func toggleMic() {
+        let loaded = Settings.loadOrDefault()
+        guard loaded.problem == nil else { return }   // 読めない設定を、上書きしない
+        var settings = loaded.settings
+        let on = !(settings.transcribeMic ?? false)
+        settings.transcribeMic = on ? true : nil
+        do { try settings.save() } catch { HUD.shared.show(HUDContent(phase: .failure, title: tr("設定を保存できませんでした"), hint: "\(error)"), hideAfter: 3); return }
+        NotificationCenter.default.post(name: DictationActions.settingsChanged, object: nil)
+        panel.micOn = on
+        Task { @MainActor in await session.setMic(on, settings: settings) }
     }
 
     /// 開始・停止（ボタン）。**取り込みの開始は、利用者の操作**（許可の確認が出うる）。

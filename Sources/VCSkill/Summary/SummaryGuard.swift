@@ -39,8 +39,15 @@ public enum SummaryGuard {
 
     /// 出力から、要約を取り出す（タグの中。なければ、nil）。
     public static func extract(_ response: String) -> Extracted? {
-        guard let open = response.range(of: "<summary>"), let close = response.range(of: "</summary>", range: open.upperBound..<response.endIndex) else { return nil }
-        let text = plain(String(response[open.upperBound..<close.lowerBound]))
+        guard let open = response.range(of: "<summary>") else { return nil }
+        var body = String(response[open.upperBound...])
+        if let close = body.range(of: "</summary>") {
+            body = String(body[..<close.lowerBound])
+        } else {
+            // 閉じる囲みが、ない・途中で切れている（モデルの出力の長さの上限で、`</summary` までで終わることがある）：そこまでを、要約として受ける
+            body = body.replacingOccurrences(of: #"</?s?u?m?m?a?r?y?$"#, with: "", options: .regularExpression)
+        }
+        let text = plain(body)
         if text.isEmpty { return nil }
         if text == SummaryPrompt.none { return .nothing }
         return .summary(text)

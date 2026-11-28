@@ -124,16 +124,35 @@ import VCSpeech
         }
     }
 
-    /// 止める：残りの認識を、確定させ、整理の最後まで、待つ。そのあと、**後始末**（自動の要約・Markdown の保存）は、別に走る（止めたことは、すぐ、返る）。
-    func stop() async {
-        guard isActive else { return }
+    /// 自分のマイクだけを、止める（残りの認識を、確定させる）。
+    private func stopMic() async {
         mic?.stop()
         mic = nil
         await micReader?.value
         micReader = nil
         await micTranscriber?.finish()
         micTranscriber = nil
-        if micState != .idle { micState = .idle }
+        micState = .idle
+    }
+
+    /// 動いている間でも、自分のマイクを、入れる・外す（パネルのボタン）。始めていなければ、何もしない（次に始めるとき、設定を読む）。
+    func setMic(_ on: Bool, settings: Settings) async {
+        self.settings = settings   // 整理・履歴も、最新の設定で
+        guard isActive else { return }
+        if on {
+            if micState == .idle { await startMic(locale: Locale(identifier: ((try? settings.recognitionLanguage.get()) ?? .ja).resolved.bcp47)) }
+            else if case .failed = micState { await startMic(locale: Locale(identifier: ((try? settings.recognitionLanguage.get()) ?? .ja).resolved.bcp47)) }   // もう一度
+        } else if mic != nil {
+            await stopMic()
+        } else {
+            micState = .idle
+        }
+    }
+
+    /// 止める：残りの認識を、確定させ、整理の最後まで、待つ。そのあと、**後始末**（自動の要約・Markdown の保存）は、別に走る（止めたことは、すぐ、返る）。
+    func stop() async {
+        guard isActive else { return }
+        await stopMic()
         await capture?.stop()
         capture = nil
         await reader?.value

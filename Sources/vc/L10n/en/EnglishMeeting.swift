@@ -72,5 +72,14 @@ extension EnglishTables {
         "言語モデルによる言い換えです": "A language-model paraphrase",
         "選んだ %@ 件": "%@ selected",
         "選んだ %@ 件を要約": "Summarize the %@ selected",
+        "テーマで絞って要約": "Summarize by topic",
+        "テーマに関する発話だけを探して、その部分だけを要約します（Return でも実行）。関係する話がなければ、「見つかりませんでした」と出ます。": "Finds only the sentences about the topic and summarizes just those (Return also runs it). If nothing is related, “not found” is shown.",
+        "例：予算の話・スケジュール・採用": "e.g. the budget, the schedule, hiring",
+        "発話を自分で選ぶなら：「…」> 発話を選んで、要約…（吹き出しにチェックを付けて、その発話だけを要約します）。": "To pick sentences yourself: “…” > Pick sentences and summarize… (check the bubbles and only those are summarized).",
+        "自分のマイクを、外す": "Remove my microphone",
+        "自分のマイクも、文字にする（ヘッドホンを使ってください）": "Also transcribe my microphone (use headphones)",
+        "自分：次から入ります": "Me: from the next start",
+        "自分のマイク：オフ": "My microphone: off",
+        "設定を保存できませんでした": "Couldn't save the setting",
     ]
 }

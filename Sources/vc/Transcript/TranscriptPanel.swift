@@ -14,6 +14,8 @@ import VCCore
     @Published var keyHint: String?
     /// 取り込む音の名前（全体なら nil）。
     @Published var targetName: String?
+    /// 設定 `transcribeMic`（自分のマイクも、文字にするか）。
+    @Published var micOn = false
     /// 発話を選んでいる（選んだ発話だけを、要約する）。
     @Published var selecting = false
     @Published var selected: Set<UUID> = []
@@ -28,6 +30,7 @@ import VCCore
 /// パネルの操作（窓の管理が、渡す）。
 struct TranscriptPanelActions {
     let toggle: () -> Void
+    let toggleMic: () -> Void
     let copyMarkdown: () -> Void
     let copyText: () -> Void
     let copyOne: (String) -> Void
@@ -99,7 +102,7 @@ struct TranscriptPanelView: View {
                 Text(tr("音声入力（会議）")).vcFont(16, weight: .semibold).foregroundStyle(.white)
                 HStack(spacing: 8) {
                     StatusDot(state: session.state)
-                    if session.micState != .idle { MicStatus(state: session.micState) }
+                    MicToggle(on: panel.micOn, state: session.micState, toggle: actions.toggleMic)
                     if let target = panel.targetName { Pill(text: target, symbol: "app.badge") }
                     if !session.log.entries.isEmpty { Pill(text: tr("\(session.log.entries.count) 件"), symbol: "text.bubble") }
                 }
@@ -384,16 +387,24 @@ private struct LiveBubble: View {
     }
 }
 
-/// 自分のマイクの状態（設定 `transcribeMic` がオンのとき）。
-private struct MicStatus: View {
+/// 自分のマイクの入り切り（押すと、切り替わる）：オフ・始めています・聞いています・始められません（理由。押すと、もう一度）。
+private struct MicToggle: View {
+    let on: Bool
     let state: TranscriptSession.State
+    let toggle: () -> Void
 
     var body: some View {
+        Button(action: toggle) { label }
+            .buttonStyle(.plain)
+            .help(on ? tr("自分のマイクを、外す") : tr("自分のマイクも、文字にする（ヘッドホンを使ってください）"))
+    }
+
+    @ViewBuilder private var label: some View {
         switch state {
         case .running: Pill(text: tr("自分：聞いています"), symbol: "mic.fill")
         case .starting: Pill(text: tr("自分：始めています…"), symbol: "mic")
         case let .failed(why): Label(tr("自分：\(why)"), systemImage: "mic.slash.fill").vcFont(10.5, weight: .medium, maxScale: 1.15).foregroundStyle(TranscriptPalette.orange).lineLimit(2)
-        case .idle: EmptyView()
+        case .idle: Pill(text: on ? tr("自分：次から入ります") : tr("自分のマイク：オフ"), symbol: "mic.slash")
         }
     }
 }
